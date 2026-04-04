@@ -1,0 +1,157 @@
+﻿@import url("https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --bg-0: #0a1020;
+  --bg-1: #0f1830;
+  --bg-2: #151f3f;
+  --panel-0: rgba(18, 27, 54, 0.9);
+  --panel-1: rgba(23, 34, 68, 0.94);
+  --panel-2: rgba(31, 44, 84, 0.96);
+  --line-soft: rgba(120, 158, 255, 0.11);
+  --line-strong: rgba(113, 168, 255, 0.22);
+  --text-0: #eef4ff;
+  --text-1: #b8c6ef;
+  --text-2: #7e8cb5;
+  --cyan: #33d7ff;
+  --cyan-soft: rgba(51, 215, 255, 0.14);
+  --blue: #5b8cff;
+  --blue-soft: rgba(91, 140, 255, 0.16);
+  --green: #41e3a2;
+  --green-soft: rgba(65, 227, 162, 0.12);
+  --violet: #8a7dff;
+  --pink: #ff6bd6;
+  --amber: #f6c35c;
+  --danger: #ff7a9f;
+  --shadow-lg: 0 30px 80px rgba(4, 9, 23, 0.48);
+  --shadow-md: 0 18px 50px rgba(5, 10, 27, 0.36);
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius-md: 18px;
+  --content-max: 1460px;
+  --font-body: "Manrope", "Segoe UI", sans-serif;
+  --font-heading: "Exo 2", "Manrope", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: var(--text-0);
+  font-family: var(--font-body);
+  line-height: 1.48;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  font-kerning: normal;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(48, 214, 255, 0.2), transparent 17%),
+    radial-gradient(circle at 88% 8%, rgba(91, 140, 255, 0.16), transparent 18%),
+    radial-gradient(circle at 84% 86%, rgba(88, 71, 255, 0.14), transparent 22%),
+    linear-gradient(180deg, #0a1020 0%, #0d1630 34%, #111c3b 100%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Global layout safety for long values, URLs and code snippets */
+:where(
+    .topbar,
+    .panel-header,
+    .hero-panel-head,
+    .integration-card-head,
+    .asset-group-head,
+    .integration-readiness-item,
+    .copy-row,
+    .tx-footer,
+    .topbar-actions,
+    .premium-topbar,
+    .premium-topbar-actions,
+    .showcase-dashboard-top,
+    .showcase-dashboard-stats,
+    .hero-chart-footer
+  )
+  > * {
+  min-width: 0;
+}
+
+:where(
+    .dashboard-grid,
+    .admin-grid,
+    .client-grid,
+    .hero-grid,
+    .detail-summary,
+    .integration-grid,
+    .integration-doc-grid,
+    .integration-endpoints-grid,
+    .api-docs-grid,
+    .premium-hero,
+    .premium-split-grid,
+    .premium-principles-grid,
+    .asset-groups-grid,
+    .api-docs-kpi-grid,
+    .analytics-kpis,
+    .tx-toolbar
+  )
+  > * {
+  min-width: 0;
+}
+
+:where(
+    .panel,
+    .result-box,
+    .detail-chip,
+    .stat-card,
+    .tenant-card,
+    .hero-panel,
+    .auth-card,
+    .integration-link-card,
+    .asset-group-card,
+    .identity-chip,
+    .api-docs-code-card
+  ) {
+  min-width: 0;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(110, 145, 230, 0.28);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(12, 19, 38, 0.4);
+}
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+

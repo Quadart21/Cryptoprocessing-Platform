@@ -1,0 +1,23 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.transaction import Transaction
+
+
+class TransactionService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def list_by_tenant(self, tenant_id: str, project_id: str | None = None) -> list[Transaction]:
+        stmt = select(Transaction).where(Transaction.tenant_id == tenant_id)
+        if project_id is not None:
+            stmt = stmt.where(Transaction.project_id == project_id)
+        stmt = stmt.order_by(Transaction.created_at.desc())
+        return list(self.db.scalars(stmt).all())
+
+    def get_by_id(self, transaction_id: str) -> Transaction | None:
+        return self.db.get(Transaction, transaction_id)
+
+    def list_all(self, limit: int = 50) -> list[Transaction]:
+        stmt = select(Transaction).order_by(Transaction.created_at.desc()).limit(limit)
+        return list(self.db.scalars(stmt).all())

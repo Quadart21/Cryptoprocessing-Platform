@@ -1,0 +1,899 @@
+﻿from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.api.deps import (
+    ClientAuthContext,
+    get_client_auth_context,
+    get_current_user,
+    get_db,
+    require_tenant_permission,
+    require_tenant_user,
+    user_permissions,
+)
+from app.core.rbac import has_permission
+from app.models.invoice import Invoice
+from app.models.project import Project
+from app.models.tenant import Tenant
+from app.models.user import User
+from app.providers.crypto_cash import CryptoCashProviderError
+from app.schemas.accounting import AccountingSummaryResponse
+from app.schemas.auth import SetPasswordRequest, TokenPairResponse
+from app.schemas.invoice import BalanceResponse, InvoiceCreateRequest, InvoiceResponse
+from app.schemas.onboarding import OnboardingStatusResponse
+from app.schemas.notification import (
+    MerchantNotificationSettingsResponse,
+    MerchantNotificationSettingsUpdateRequest,
+)
+from app.schemas.project import (
+    ApiKeyRegenerateResponse,
+    ApiKeySummary,
+    ProjectSummary,
+    WebhookConfigRequest,
+    WebhookConfigResponse,
+    WebhookTestRequest,
+    WebhookTestResponse,
+)
+from app.schemas.payout import PayoutRequestCreateRequest, PayoutRequestResponse
+from app.schemas.public_page import PublicPageListResponse, PublicPageNavigationItem, PublicPageResponse
+from app.schemas.rates import RatesResponse
+from app.schemas.registration import RegistrationResponse
+from app.schemas.security import (
+    PasswordChangeRequest,
+    TwoFactorDisableRequest,
+    TwoFactorEnableRequest,
+    TwoFactorSetupResponse,
+    TwoFactorStatusResponse,
+)
+from app.schemas.transaction import TransactionResponse
+from app.schemas.user import CurrentUserResponse
+from app.services.accounting_service import AccountingService
+from app.services.auth_service import AuthError, AuthService
+from app.services.balance_service import BalanceService
+from app.services.client_webhook_service import ClientWebhookService
+from app.services.event_service import EventService
+from app.services.invoice_service import InvoiceAmountOutOfRangeError, InvoiceService
+from app.services.notification_service import NotificationService
+from app.services.project_service import ProjectService
+from app.services.rates_service import RatesService
+from app.services.payout_service import PayoutService
+from app.services.tenant_service import TenantService
+from app.services.two_factor_service import TwoFactorError, TwoFactorService
+from app.services.transaction_service import TransactionService
+from app.services.public_page_service import PublicPageService
+
+router = APIRouter()
+
+
+@router.get("/health")
+async def client_health() -> dict[str, str]:
+    return {"status": "ok", "scope": "client"}
+
+
+@router.get("/public-pages", response_model=PublicPageListResponse)
+async def list_public_pages(
+    status_filter: str = "published",
+    db: Session = Depends(get_db),
+) -> PublicPageListResponse:
+    service = PublicPageService(db)
+    _ = status_filter
+    pages = service.list_published_pages()
+    return PublicPageListResponse(
+        items=[
+            PublicPageNavigationItem(
+                slug=item.slug,
+                title=item.title,
+                show_in_header=item.show_in_header,
+                show_in_footer=item.show_in_footer,
+                header_order=item.header_order,
+                footer_order=item.footer_order,
+            )
+            for item in pages
+        ]
+    )
+
+
+@router.get("/public-pages/{slug}", response_model=PublicPageResponse)
+async def get_public_page_by_slug(
+    slug: str,
+    db: Session = Depends(get_db),
+) -> PublicPageResponse:
+    page = PublicPageService(db).get_published_page_by_slug(slug)
+    if page is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Страница не найдена.")
+    return PublicPageResponse(
+        id=page.id,
+        slug=page.slug,
+        title=page.title,
+        content_html=page.content_html,
+        status=page.status,
+        show_in_header=page.show_in_header,
+        show_in_footer=page.show_in_footer,
+        header_order=page.header_order,
+        footer_order=page.footer_order,
+        created_at=page.created_at,
+        updated_at=page.updated_at,
+    )
+
+
+@router.post("/auth/login", response_model=TokenPairResponse)
+async def login(payload: dict[str, Any], db: Session = Depends(get_db)) -> TokenPairResponse:
+    email = _normalize_input(payload.get("email"))
+    password = _normalize_input(payload.get("password"))
+    otp_code = _normalize_input(payload.get("otp_code"))
+    if not email or not password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Укажите email и пароль.",
+        )
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пароль должен быть не короче 8 символов.",
+        )
+
+    auth_service = AuthService(db)
+    try:
+        return auth_service.login(email, password, otp_code=otp_code or None)
+    except AuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post("/auth/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    payload: dict[str, Any], db: Session = Depends(get_db)
+) -> RegistrationResponse:
+    company_name = _normalize_input(payload.get("company_name"))
+    owner_full_name = _normalize_input(payload.get("owner_full_name"))
+    owner_email = _normalize_input(payload.get("owner_email"))
+    password = _normalize_input(payload.get("password"))
+    domain = _normalize_input(payload.get("domain"))
+    project_description = _normalize_input(payload.get("project_description")) or None
+    timezone = _normalize_input(payload.get("timezone")) or "Europe/Amsterdam"
+    base_currency = _normalize_input(payload.get("base_currency")) or "USD"
+    plan = _normalize_input(payload.get("plan")) or "default"
+
+    missing_fields: list[str] = []
+    if not company_name:
+        missing_fields.append("company_name")
+    if not owner_full_name:
+        missing_fields.append("owner_full_name")
+    if not owner_email:
+        missing_fields.append("owner_email")
+    if not password:
+        missing_fields.append("password")
+    if not domain:
+        missing_fields.append("domain")
+    if missing_fields:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Заполните обязательные поля: {', '.join(missing_fields)}.",
+        )
+    if "@" not in owner_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Введите корректный email владельца.",
+        )
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пароль должен быть не короче 8 символов.",
+        )
+    if len(domain) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Домен проекта должен содержать минимум 3 символа.",
+        )
+
+    tenant_service = TenantService(db)
+    try:
+        tenant, user, _project = tenant_service.register_self_service(
+            company_name=company_name,
+            owner_full_name=owner_full_name,
+            owner_email=owner_email,
+            password=password,
+            domain=domain,
+            project_description=project_description,
+            timezone=timezone,
+            base_currency=base_currency,
+            plan=plan,
+        )
+    except IntegrityError as exc:
+        db.rollback()
+        error_text = str(exc).lower()
+        if "ix_projects_domain" in error_text or "projects_domain" in error_text:
+            detail = "Домен проекта уже используется. Укажите другой домен."
+        else:
+            detail = "Не удалось подключить проект из-за конфликта уникальности данных."
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Не удалось подключить проект. Проверьте корректность данных и попробуйте снова.",
+        ) from exc
+
+    NotificationService(db).notify_user(
+        user,
+        event_code=NotificationService.EVENT_APPLICATION_SUBMITTED,
+        subject="Заявка на подключение проекта получена",
+        lines=[
+            f"Проект: {tenant.name}",
+            "Заявка отправлена на модерацию.",
+        ],
+    )
+
+    return RegistrationResponse(
+        tenant_id=tenant.id,
+        user_id=user.id,
+        status=tenant.status,
+        message="Заявка на подключение проекта создана и ожидает одобрения супер-админом.",
+    )
+
+
+@router.post("/auth/set-password")
+async def set_password(
+    payload: SetPasswordRequest, db: Session = Depends(get_db)
+) -> dict[str, str]:
+    auth_service = AuthService(db)
+    try:
+        user = auth_service.set_password_by_invite(payload.token, payload.password)
+    except AuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    NotificationService(db).notify_user(
+        user,
+        event_code=NotificationService.EVENT_PASSWORD_CHANGED,
+        subject="Пароль для входа установлен",
+        lines=[
+            "Пароль был успешно установлен через invite-ссылку.",
+            "Если это были не вы, срочно обратитесь в поддержку.",
+        ],
+    )
+
+    return {
+        "status": "ok",
+        "message": "Пароль установлен.",
+        "user_id": user.id,
+        "email": user.email,
+    }
+
+
+@router.get("/me", response_model=CurrentUserResponse)
+async def client_me(current_user: User = Depends(get_current_user)) -> CurrentUserResponse:
+    return CurrentUserResponse(
+        id=current_user.id,
+        tenant_id=current_user.tenant_id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role,
+        status=current_user.status,
+        permissions=user_permissions(current_user),
+        totp_enabled=current_user.totp_enabled,
+    )
+
+
+@router.get("/security/2fa/status", response_model=TwoFactorStatusResponse)
+async def get_two_factor_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TwoFactorStatusResponse:
+    payload = TwoFactorService(db).get_status(current_user)
+    return TwoFactorStatusResponse(**payload)
+
+
+@router.post("/security/2fa/setup", response_model=TwoFactorSetupResponse)
+async def setup_two_factor(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TwoFactorSetupResponse:
+    payload = TwoFactorService(db).setup(current_user)
+    return TwoFactorSetupResponse(**payload)
+
+
+@router.post("/security/2fa/enable", response_model=TwoFactorStatusResponse)
+async def enable_two_factor(
+    payload: TwoFactorEnableRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TwoFactorStatusResponse:
+    two_factor_service = TwoFactorService(db)
+    try:
+        user = two_factor_service.enable(current_user, payload.code)
+    except TwoFactorError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    NotificationService(db).notify_user(
+        user,
+        event_code=NotificationService.EVENT_TWO_FACTOR_ENABLED,
+        subject="2FA включена",
+        lines=[
+            f"Пользователь: {user.email}",
+            "Дополнительная защита входа успешно активирована.",
+        ],
+    )
+    status_payload = two_factor_service.get_status(user)
+    return TwoFactorStatusResponse(**status_payload)
+
+
+@router.post("/security/2fa/disable", response_model=TwoFactorStatusResponse)
+async def disable_two_factor(
+    payload: TwoFactorDisableRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TwoFactorStatusResponse:
+    two_factor_service = TwoFactorService(db)
+    try:
+        user = two_factor_service.disable(
+            current_user,
+            password=payload.password,
+            code=payload.code,
+        )
+    except TwoFactorError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    NotificationService(db).notify_user(
+        user,
+        event_code=NotificationService.EVENT_TWO_FACTOR_DISABLED,
+        subject="2FA отключена",
+        lines=[
+            f"Пользователь: {user.email}",
+            "Если это были не вы, срочно смените пароль.",
+        ],
+    )
+    status_payload = two_factor_service.get_status(user)
+    return TwoFactorStatusResponse(**status_payload)
+
+
+@router.post("/security/change-password")
+async def change_password(
+    payload: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    auth_service = AuthService(db)
+    try:
+        user = auth_service.change_password(
+            current_user,
+            current_password=payload.current_password,
+            new_password=payload.new_password,
+        )
+    except AuthError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    NotificationService(db).notify_user(
+        user,
+        event_code=NotificationService.EVENT_PASSWORD_CHANGED,
+        subject="Пароль изменен",
+        lines=[
+            f"Пользователь: {user.email}",
+            "Пароль от кабинета мерчанта успешно обновлен.",
+        ],
+    )
+    return {"status": "ok", "message": "Пароль изменен."}
+
+
+@router.get("/notifications/settings", response_model=MerchantNotificationSettingsResponse)
+async def get_notification_settings(
+    current_user: User = Depends(require_tenant_user),
+    db: Session = Depends(get_db),
+) -> MerchantNotificationSettingsResponse:
+    payload = NotificationService(db).get_user_notification_settings(current_user)
+    return MerchantNotificationSettingsResponse(**payload)
+
+
+@router.put("/notifications/settings", response_model=MerchantNotificationSettingsResponse)
+async def update_notification_settings(
+    payload: MerchantNotificationSettingsUpdateRequest,
+    current_user: User = Depends(require_tenant_user),
+    db: Session = Depends(get_db),
+) -> MerchantNotificationSettingsResponse:
+    notification_service = NotificationService(db)
+    user = notification_service.update_user_notification_settings(
+        current_user,
+        notify_email_enabled=payload.notify_email_enabled,
+        notify_telegram_enabled=payload.notify_telegram_enabled,
+        telegram_chat_id=payload.telegram_chat_id,
+    )
+    return MerchantNotificationSettingsResponse(
+        **notification_service.get_user_notification_settings(user)
+    )
+
+
+@router.get("/cabinet")
+async def client_cabinet(current_user: User = Depends(require_tenant_user)) -> dict[str, str]:
+    return {
+        "status": "ok",
+        "message": f"Добро пожаловать, {current_user.full_name}. Кабинет доступен.",
+    }
+
+
+@router.get("/onboarding/status", response_model=OnboardingStatusResponse)
+async def onboarding_status(
+    current_user: User = Depends(require_tenant_user), db: Session = Depends(get_db)
+) -> OnboardingStatusResponse:
+    tenant = db.get(Tenant, current_user.tenant_id) if current_user.tenant_id else None
+    project = (
+        db.query(Project)
+        .filter(Project.tenant_id == current_user.tenant_id)
+        .order_by(Project.created_at.asc())
+        .first()
+        if current_user.tenant_id
+        else None
+    )
+    return OnboardingStatusResponse(
+        tenant_id=current_user.tenant_id,
+        tenant_status=tenant.status if tenant else None,
+        review_comment=tenant.review_comment if tenant else None,
+        project_name=project.name if project else None,
+        project_domain=project.domain if project else None,
+        project_description=project.description if project else None,
+        project_status=project.status if project else None,
+    )
+
+
+@router.get("/projects", response_model=list[ProjectSummary])
+async def client_projects(
+    current_user: User = Depends(require_tenant_permission("client.projects.read")),
+    db: Session = Depends(get_db),
+) -> list[ProjectSummary]:
+    project_service = ProjectService(db)
+    return [
+        ProjectSummary(
+            id=project.id,
+            tenant_id=project.tenant_id,
+            name=project.name,
+            domain=project.domain,
+            description=project.description,
+            status=project.status,
+        )
+        for project in project_service.list_projects_by_tenant(current_user.tenant_id or "")
+    ]
+
+
+@router.get("/api-keys", response_model=list[ApiKeySummary])
+async def client_api_keys(
+    current_user: User = Depends(require_tenant_permission("client.api_keys.read")),
+    db: Session = Depends(get_db),
+) -> list[ApiKeySummary]:
+    project_service = ProjectService(db)
+    return [
+        ApiKeySummary(
+            id=api_key.id,
+            project_id=api_key.project_id,
+            public_key=api_key.public_key,
+            status=api_key.status,
+        )
+        for api_key in project_service.list_api_keys_by_tenant(current_user.tenant_id or "")
+    ]
+
+
+@router.post("/api-keys/{api_key_id}/revoke", response_model=ApiKeySummary)
+async def revoke_client_api_key(
+    api_key_id: str,
+    current_user: User = Depends(require_tenant_permission("client.api_keys.write")),
+    db: Session = Depends(get_db),
+) -> ApiKeySummary:
+    project_service = ProjectService(db)
+    notification_service = NotificationService(db)
+    api_key = project_service.get_api_key(api_key_id)
+    if api_key is None or api_key.tenant_id != (current_user.tenant_id or ""):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key не найден.")
+    revoked = project_service.revoke_api_key(api_key_id)
+    notification_service.notify_tenant_users(
+        revoked.tenant_id,
+        event_code=NotificationService.EVENT_API_KEY_REVOKED,
+        subject="API-ключ отозван",
+        lines=[
+            f"Public key: {revoked.public_key}",
+            f"Инициатор: {current_user.email}",
+        ],
+        owner_only=True,
+    )
+    return ApiKeySummary(
+        id=revoked.id,
+        project_id=revoked.project_id,
+        public_key=revoked.public_key,
+        status=revoked.status,
+    )
+
+
+@router.post("/api-keys/{api_key_id}/regenerate", response_model=ApiKeyRegenerateResponse)
+async def regenerate_client_api_key(
+    api_key_id: str,
+    current_user: User = Depends(require_tenant_permission("client.api_keys.write")),
+    db: Session = Depends(get_db),
+) -> ApiKeyRegenerateResponse:
+    project_service = ProjectService(db)
+    notification_service = NotificationService(db)
+    api_key = project_service.get_api_key(api_key_id)
+    if api_key is None or api_key.tenant_id != (current_user.tenant_id or ""):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key не найден.")
+    regenerated, secret_key = project_service.regenerate_api_key(api_key_id)
+    notification_service.notify_tenant_users(
+        regenerated.tenant_id,
+        event_code=NotificationService.EVENT_API_KEY_REGENERATED,
+        subject="API-ключ перевыпущен",
+        lines=[
+            f"Public key: {regenerated.public_key}",
+            f"Secret key: {secret_key}",
+            f"Инициатор: {current_user.email}",
+        ],
+        owner_only=True,
+    )
+    return ApiKeyRegenerateResponse(
+        id=regenerated.id,
+        project_id=regenerated.project_id,
+        public_key=regenerated.public_key,
+        status=regenerated.status,
+        secret_key=secret_key,
+    )
+
+
+@router.post("/webhooks", response_model=WebhookConfigResponse)
+async def configure_webhook(
+    payload: WebhookConfigRequest,
+    current_user: User = Depends(require_tenant_permission("client.webhooks.write")),
+    db: Session = Depends(get_db),
+) -> WebhookConfigResponse:
+    project_service = ProjectService(db)
+    try:
+        project = project_service.update_webhook_config(
+            tenant_id=current_user.tenant_id or "",
+            project_id=payload.project_id,
+            webhook_url=payload.webhook_url,
+            webhook_secret=payload.webhook_secret,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return WebhookConfigResponse(
+        project_id=project.id,
+        webhook_url=project.webhook_url,
+        has_secret=ProjectService.has_webhook_secret(project),
+    )
+
+
+@router.get("/webhooks", response_model=list[WebhookConfigResponse])
+async def list_webhooks(
+    current_user: User = Depends(require_tenant_permission("client.webhooks.read")),
+    db: Session = Depends(get_db),
+) -> list[WebhookConfigResponse]:
+    project_service = ProjectService(db)
+    return [
+        WebhookConfigResponse(
+            project_id=project.id,
+            webhook_url=project.webhook_url,
+            has_secret=ProjectService.has_webhook_secret(project),
+        )
+        for project in project_service.list_projects_by_tenant(current_user.tenant_id or "")
+    ]
+
+
+@router.post("/webhooks/test", response_model=WebhookTestResponse)
+async def test_webhook_delivery(
+    payload: WebhookTestRequest,
+    current_user: User = Depends(require_tenant_permission("client.webhooks.write")),
+    db: Session = Depends(get_db),
+) -> WebhookTestResponse:
+    project_service = ProjectService(db)
+    project = project_service.get_project(payload.project_id)
+    if project is None or project.tenant_id != (current_user.tenant_id or ""):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Проект не найден.")
+
+    try:
+        result = ClientWebhookService(EventService(db)).send_test_ping(project)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return WebhookTestResponse(
+        project_id=project.id,
+        webhook_url=project.webhook_url or "",
+        event_id=str(result["event_id"]),
+        delivered_at=result["delivered_at"],
+        attempts=int(result["attempts"]),
+        status_code=int(result["status_code"]),
+        response_preview=result.get("response_preview"),
+    )
+
+
+@router.post("/invoices", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
+async def create_invoice(
+    payload: InvoiceCreateRequest,
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: Session = Depends(get_db),
+) -> InvoiceResponse:
+    _ensure_client_api_permission(auth, "client.invoices.write")
+    if auth.project_id is not None and payload.project_id != auth.project_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="API-ключ привязан к другому проекту.",
+        )
+    invoice_service = InvoiceService(db)
+    try:
+        invoice = invoice_service.create_invoice(auth.tenant_id, payload)
+    except InvoiceAmountOutOfRangeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=exc.to_response_detail(),
+        ) from exc
+    except CryptoCashProviderError as exc:
+        raise HTTPException(
+            status_code=_map_provider_error_status_code(exc),
+            detail=exc.to_public_detail(),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return _map_invoice_response(invoice)
+
+
+@router.get("/invoices", response_model=list[InvoiceResponse])
+async def list_invoices(
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: Session = Depends(get_db),
+) -> list[InvoiceResponse]:
+    _ensure_client_api_permission(auth, "client.invoices.read")
+    invoice_service = InvoiceService(db)
+    return [
+        _map_invoice_response(invoice)
+        for invoice in invoice_service.list_invoices(auth.tenant_id, project_id=auth.project_id)
+    ]
+
+
+@router.get("/invoices/{invoice_id}", response_model=InvoiceResponse)
+async def get_invoice(
+    invoice_id: str,
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: Session = Depends(get_db),
+) -> InvoiceResponse:
+    _ensure_client_api_permission(auth, "client.invoices.read")
+    invoice_service = InvoiceService(db)
+    invoice = invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
+    if invoice is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+    return _map_invoice_response(invoice)
+
+
+@router.post("/invoices/{invoice_id}/sync", response_model=InvoiceResponse)
+async def sync_invoice(
+    invoice_id: str,
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: Session = Depends(get_db),
+) -> InvoiceResponse:
+    _ensure_client_api_permission(auth, "client.invoices.read")
+    invoice_service = InvoiceService(db)
+    try:
+        invoice = invoice_service.sync_invoice_status(
+            tenant_id=auth.tenant_id,
+            invoice_id=invoice_id,
+            project_id=auth.project_id,
+        )
+    except CryptoCashProviderError as exc:
+        raise HTTPException(
+            status_code=_map_provider_error_status_code(exc),
+            detail=exc.to_public_detail(),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return _map_invoice_response(invoice)
+
+
+@router.get("/balance", response_model=BalanceResponse)
+async def get_balance(
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: Session = Depends(get_db),
+) -> BalanceResponse:
+    _ensure_client_api_permission(auth, "client.balance.read")
+    balance_service = BalanceService(db)
+    balance = balance_service.get_or_create_balance(auth.tenant_id, PayoutService.BALANCE_CURRENCY)
+    return BalanceResponse(
+        currency=PayoutService.BALANCE_CURRENCY,
+        amount=balance.available_amount,
+    )
+
+
+@router.get("/rates", response_model=RatesResponse)
+async def get_rates(
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: Session = Depends(get_db),
+) -> RatesResponse:
+    _ensure_client_api_permission(auth, "client.rates.read")
+    return RatesService(db).list_rates()
+
+
+@router.get("/transactions", response_model=list[TransactionResponse])
+async def list_transactions(
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: Session = Depends(get_db),
+) -> list[TransactionResponse]:
+    _ensure_client_api_permission(auth, "client.transactions.read")
+    transaction_service = TransactionService(db)
+    return [
+        _map_transaction_response(transaction)
+        for transaction in transaction_service.list_by_tenant(
+            auth.tenant_id,
+            project_id=auth.project_id,
+        )
+    ]
+
+
+@router.get("/transactions/{transaction_id}", response_model=TransactionResponse)
+async def get_transaction(
+    transaction_id: str,
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: Session = Depends(get_db),
+) -> TransactionResponse:
+    _ensure_client_api_permission(auth, "client.transactions.read")
+    transaction_service = TransactionService(db)
+    transaction = transaction_service.get_by_id(transaction_id)
+    if transaction is None or transaction.tenant_id != auth.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Транзакция не найдена.",
+        )
+    if auth.project_id is not None and transaction.project_id != auth.project_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Транзакция не найдена.",
+        )
+    return _map_transaction_response(transaction)
+
+
+@router.get("/accounting/summary", response_model=AccountingSummaryResponse)
+async def get_accounting_summary(
+    current_user: User = Depends(require_tenant_permission("client.accounting.read")),
+    db: Session = Depends(get_db),
+) -> AccountingSummaryResponse:
+    accounting_service = AccountingService(db)
+    return accounting_service.build_summary(current_user.tenant_id or "")
+
+
+@router.post("/payouts", response_model=PayoutRequestResponse, status_code=status.HTTP_201_CREATED)
+async def request_payout(
+    payload: PayoutRequestCreateRequest,
+    current_user: User = Depends(require_tenant_permission("client.payouts.write")),
+    db: Session = Depends(get_db),
+) -> PayoutRequestResponse:
+    # Payout requests are available only for authenticated cabinet users.
+    if payload.project_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="API-ключ привязан к другому проекту.",
+        )
+    payout_service = PayoutService(db)
+    try:
+        payout = payout_service.create_request(
+            tenant_id=current_user.tenant_id or "",
+            requested_by_user_id=current_user.id,
+            project_id=payload.project_id,
+            destination_address=payload.destination_address,
+            amount=payload.amount,
+            note=payload.note,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    NotificationService(db).notify_tenant_users(
+        current_user.tenant_id or "",
+        event_code=NotificationService.EVENT_PAYOUT_REQUESTED,
+        subject="Создан запрос на выплату",
+        lines=[
+            f"Payout ID: {payout.id}",
+            f"Сумма: {payout.amount_requested} {payout.currency}",
+            f"Адрес: {payout.destination_address}",
+            f"Инициатор: {current_user.email}",
+        ],
+        owner_only=True,
+    )
+    return _map_payout_response(payout)
+
+
+@router.get("/payouts", response_model=list[PayoutRequestResponse])
+async def list_payouts(
+    current_user: User = Depends(require_tenant_permission("client.payouts.read")),
+    db: Session = Depends(get_db),
+) -> list[PayoutRequestResponse]:
+    payout_service = PayoutService(db)
+    return [
+        _map_payout_response(item)
+        for item in payout_service.list_by_tenant(current_user.tenant_id or "")
+    ]
+
+
+def _ensure_client_api_permission(auth: ClientAuthContext, permission: str) -> None:
+    if auth.user is None:
+        # API-key integrations are service-level and bypass user-role checks.
+        return
+    if auth.user.role == "superadmin":
+        return
+    if not has_permission(auth.user.role, permission):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Недостаточно прав: {permission}.",
+        )
+
+def _map_invoice_response(invoice: Invoice) -> InvoiceResponse:
+    return InvoiceResponse(
+        id=invoice.id,
+        project_id=invoice.project_id,
+        merchant_order_id=invoice.merchant_order_id,
+        provider_order_id=invoice.provider_order_id,
+        amount_fiat=invoice.amount_fiat,
+        fiat_currency=invoice.fiat_currency,
+        amount_crypto=invoice.amount_crypto,
+        crypto_currency=invoice.crypto_currency,
+        network=invoice.network,
+        payment_address=invoice.payment_address,
+        qr_url=invoice.qr_url,
+        status=invoice.status,
+        expires_at=invoice.expires_at,
+        created_at=invoice.created_at,
+    )
+
+
+def _map_transaction_response(transaction) -> TransactionResponse:
+    return TransactionResponse(
+        id=transaction.id,
+        tenant_id=transaction.tenant_id,
+        project_id=transaction.project_id,
+        invoice_id=transaction.invoice_id,
+        gross_amount=transaction.gross_amount,
+        provider_fee=transaction.provider_fee,
+        platform_fee=transaction.platform_fee,
+        turnover_fee=transaction.turnover_fee,
+        net_amount=transaction.net_amount,
+        currency=transaction.currency,
+        status=transaction.status,
+        paid_at=transaction.paid_at,
+        created_at=transaction.created_at,
+    )
+
+
+def _map_payout_response(payout) -> PayoutRequestResponse:
+    return PayoutRequestResponse(
+        id=payout.id,
+        tenant_id=payout.tenant_id,
+        project_id=payout.project_id,
+        requested_by_user_id=payout.requested_by_user_id,
+        reviewed_by_user_id=payout.reviewed_by_user_id,
+        destination_address=payout.destination_address,
+        network=payout.network,
+        currency=payout.currency,
+        amount_requested=payout.amount_requested,
+        amount_approved=payout.amount_approved,
+        status=payout.status,
+        review_comment=payout.review_comment,
+        external_payout_id=payout.external_payout_id,
+        processed_at=payout.processed_at,
+        created_at=payout.created_at,
+    )
+
+
+def _normalize_input(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    return str(value).strip()
+
+
+def _map_provider_error_status_code(error: CryptoCashProviderError) -> int:
+    if error.http_status and 400 <= error.http_status < 500:
+        return status.HTTP_400_BAD_REQUEST
+
+    normalized_text = " ".join([error.message, *error.errors]).lower()
+    amount_keywords = ("min", "max", "limit", "amount", "sum", "сумм", "лимит", "миним", "максим")
+    if any(keyword in normalized_text for keyword in amount_keywords):
+        return status.HTTP_400_BAD_REQUEST
+
+    return status.HTTP_502_BAD_GATEWAY

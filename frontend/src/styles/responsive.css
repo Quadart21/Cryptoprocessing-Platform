@@ -1,0 +1,252 @@
+@media (max-width: 1200px) {
+  .app-frame,
+  .public-docs-page {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .dashboard-rail-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .client-grid,
+  .admin-grid,
+  .nc-hero,
+  .nc-dual-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nc-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .dashboard-rail {
+    position: relative;
+    top: auto;
+  }
+
+  .dashboard-rail-groups {
+    display: none;
+  }
+
+  .dashboard-rail-mobile-sheet {
+    display: block;
+    border-top: 1px solid var(--line-soft);
+    padding-top: 8px;
+  }
+
+  .dashboard-rail-mobile-trigger {
+    cursor: pointer;
+    color: var(--text-1);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    list-style: none;
+  }
+
+  .dashboard-rail-mobile-trigger::-webkit-details-marker {
+    display: none;
+  }
+
+  .dashboard-rail-mobile-sheet-content {
+    display: grid;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .dashboard-mobile-nav {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    border-radius: 14px;
+    border: 1px solid var(--line-soft);
+    background: rgba(5, 13, 30, 0.95);
+    padding: 6px;
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
+  }
+
+  .dashboard-mobile-nav-item {
+    min-height: 38px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.15;
+    padding: 6px 8px;
+  }
+
+  .dashboard-mobile-nav-item-active {
+    color: #06121d;
+    background: linear-gradient(135deg, #67deff, #90b1ff);
+  }
+
+  .topbar {
+    flex-direction: column;
+  }
+
+  .topbar-actions,
+  .public-docs-topbar,
+  .public-docs-actions,
+  .notification-event-row,
+  .asset-toolbar,
+  .asset-network-row,
+  .dashboard-shortcuts,
+  .detail-summary,
+  .form-grid-2,
+  .nc-group-grid,
+  .nc-proof-grid,
+  .nc-faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    align-items: stretch;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .identity-chip {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .section-context-chip {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+
+  .tenant-card {
+    flex-direction: column;
+  }
+
+  .tenant-meta {
+    min-width: 0;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .nc-cta-block {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nc-cta-actions {
+    min-width: 0;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .nc-cta-actions .primary-button,
+  .nc-cta-actions .ghost-button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-frame,
+  .public-docs-page,
+  .nc-landing {
+    padding: 12px;
+  }
+
+  .dashboard-shell {
+    padding-bottom: 88px;
+  }
+
+  .topbar,
+  .panel,
+  .auth-card,
+  .dashboard-rail,
+  .stat-card,
+  .nc-hero-copy,
+  .nc-summary-card,
+  .nc-group-card,
+  .nc-quote-card,
+  .nc-list-card,
+  .nc-faq-card,
+  .nc-cta-block,
+  .nc-auth-card {
+    border-radius: 18px;
+  }
+
+  .topbar,
+  .panel,
+  .auth-card,
+  .nc-hero-copy,
+  .nc-summary-card,
+  .nc-group-card,
+  .nc-quote-card,
+  .nc-list-card,
+  .nc-faq-card,
+  .nc-cta-block,
+  .nc-auth-card {
+    padding: 18px;
+  }
+
+  .topbar h1,
+  .nc-hero-copy h1 {
+    font-size: clamp(28px, 9vw, 40px);
+  }
+
+  .nc-mobile-menu-trigger {
+    display: inline-block;
+  }
+
+  .nc-topbar-actions {
+    display: none;
+  }
+
+  .hero-actions,
+  .nc-register-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions .primary-button,
+  .hero-actions .ghost-button,
+  .nc-cta-actions .primary-button,
+  .nc-cta-actions .ghost-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar,
+  .panel,
+  .auth-card,
+  .result-box,
+  .error-box,
+  .nc-hero-copy,
+  .nc-summary-card,
+  .nc-group-card,
+  .nc-quote-card,
+  .nc-list-card,
+  .nc-faq-card,
+  .nc-cta-block,
+  .nc-auth-card {
+    padding: 16px;
+  }
+
+  .mode-switch {
+    width: 100%;
+  }
+
+  .mode-switch button {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .dashboard-mobile-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
