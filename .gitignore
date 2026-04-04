@@ -21,6 +21,8 @@ log.txt
 *.db
 *.tar.gz
 *.zip
+*.bak
+*.bak.*
 *.tsbuildinfo
 backend/logs/
 frontend/dist/
