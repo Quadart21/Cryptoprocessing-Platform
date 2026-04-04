@@ -26,45 +26,50 @@ type LandingPageProps = {
   onRegister: (event: FormEvent<HTMLFormElement>) => void;
 };
 
-const HERO_NUMBERS = [
-  { label: "Запуск", value: "1 день" },
-  { label: "Поддержка", value: "24/7" },
-  { label: "Сети", value: "TRC20 / ERC20 / BTC" },
-];
-
-const BENEFITS = [
+const FEATURES = [
   {
-    title: "Быстрое подключение",
-    description:
-      "Готовый виджет и API. Интеграция с популярными CMS за один рабочий день. Ваша команда тратит минимум времени.",
+    icon: "zap",
+    title: "Подключение за 1 день",
+    description: "Готовый виджет и API. Интеграция с CMS без технических сложностей.",
   },
   {
+    icon: "globe",
     title: "Глобальный охват",
-    description:
-      "Ваши клиенты из России, Беларуси, Казахстана, Украины и любой другой точки мира платят без ограничений. Крипта не знает границ.",
+    description: "Принимайте платежи от клиентов из любой точки мира без ограничений.",
   },
   {
-    title: "Стабильные выплаты",
-    description:
-      "Принимаете USDT и получаете USDT. Без конвертации по невыгодному курсу, без сюрпризов на счёте.",
+    icon: "shield",
+    title: "Без блокировок",
+    description: "Никаких отказов банков и заморозок счетов. Крипта не знает границ.",
   },
   {
-    title: "Прозрачная комиссия",
-    description:
-      "Одна ставка. Без скрытых платежей за вывод, конвертацию или обслуживание. Вы всегда знаете, сколько зарабатываете.",
-  },
-  {
-    title: "Личный кабинет",
-    description:
-      "Все транзакции, статусы и аналитика в одном месте. Экспорт для бухгалтерии в один клик.",
+    icon: "dollar",
+    title: "Прозрачные комиссии",
+    description: "Одна ставка. Без скрытых платежей за вывод или конвертацию.",
   },
 ];
 
-const AUDIENCE = [
-  "Интернет-магазин, которому отказал банк или платёжная система",
-  "Бизнес с клиентами из разных стран СНГ и не только",
-  "Магазин, который хочет принимать крипту, но не знает с чего начать",
-  "Команда, которой нужно надёжное решение без технической боли",
+const STEPS = [
+  {
+    number: "01",
+    title: "Заявка",
+    description: "Оставьте заявку на подключение",
+  },
+  {
+    number: "02",
+    title: "Интеграция",
+    description: "Подключаем API или виджет за 1 день",
+  },
+  {
+    number: "03",
+    title: "Тестирование",
+    description: "Проверяем работу в тестовом режиме",
+  },
+  {
+    number: "04",
+    title: "Запуск",
+    description: "Начинаете принимать платежи",
+  },
 ];
 
 const FAQ_ITEMS = [
@@ -73,20 +78,20 @@ const FAQ_ITEMS = [
     answer: "BTC, ETH, USDT (TRC-20, ERC-20) и другие основные сети. Список расширяется.",
   },
   {
-    question: "Как быстро деньги приходят на счёт?",
-    answer: "Выплаты идут по расписанию или по запросу, в зависимости от тарифа.",
+    question: "Как быстро приходят деньги?",
+    answer: "Выплаты по расписанию или по запросу, в зависимости от тарифа.",
   },
   {
     question: "Нужно ли юрлицо?",
-    answer: "Работаем как с юридическими лицами, так и с ИП. Детали уточняются при подключении.",
+    answer: "Работаем с юридическими лицами и ИП. Детали уточняются при подключении.",
   },
   {
     question: "Есть ли тестовый режим?",
-    answer: "Да. Можно спокойно проверить интеграцию до запуска в продакшн.",
+    answer: "Да. Можно проверить интеграцию до запуска в продакшн.",
   },
 ];
 
-const TOKEN_TAGS = ["BTC", "ETH", "USDT", "TRON", "ERC20", "TRC20"];
+const TOKENS = ["BTC", "ETH", "USDT", "TRON", "BNB", "SOL"];
 
 export function LandingPage({
   mode,
@@ -107,6 +112,8 @@ export function LandingPage({
 }: LandingPageProps) {
   const [authOpen, setAuthOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+
   const headerPages = useMemo(
     () =>
       [...publicPages]
@@ -129,105 +136,97 @@ export function LandingPage({
   }, [success, error]);
 
   useEffect(() => {
-    if (!authOpen) {
-      return;
-    }
-
-    function handleEsc(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setAuthOpen(false);
-      }
-    }
-
+    if (!authOpen) return;
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAuthOpen(false);
+    };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [authOpen]);
 
   useEffect(() => {
-    if (!mobileMenuOpen) {
-      return;
-    }
-
-    function handleEsc(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setMobileMenuOpen(false);
-      }
-    }
-
+    if (!mobileMenuOpen) return;
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [mobileMenuOpen]);
 
-  function openAuth(next: "login" | "register") {
+  useEffect(() => {
+    if (authOpen || mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [authOpen, mobileMenuOpen]);
+
+  const openAuth = (next: "login" | "register") => {
     onModeChange(next);
     setMobileMenuOpen(false);
     setAuthOpen(true);
-  }
+  };
 
   return (
     <main className="nc-landing">
-      <div className="nc-noise" />
-      <div className="nc-ambient nc-ambient-a" />
-      <div className="nc-ambient nc-ambient-b" />
+      <header className="nc-header">
+        <div className="nc-header-inner">
+          <a className="nc-logo" href="#">
+            <div className="nc-logo-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className="nc-logo-text">
+              <strong>NOREN</strong>
+              <span>Digital</span>
+            </div>
+          </a>
 
-      <header className="nc-topbar">
-        <a className="nc-brand" href="#" aria-label="Noren Digital">
-          <span className="nc-brand-dot" />
-          <span className="nc-brand-copy">
-            <strong>NOREN.DIGITAL</strong>
-            <small>Crypto acquiring for ecommerce</small>
-          </span>
-        </a>
+          <nav className="nc-nav">
+            {headerPages.map((item) => (
+              <button
+                key={`header-${item.slug}`}
+                onClick={() => onOpenPublicPage(item.slug)}
+                type="button"
+              >
+                {item.title}
+              </button>
+            ))}
+            <button onClick={onOpenPublicDocs} type="button">API</button>
+          </nav>
 
-        <button
-          className="nc-mobile-menu-trigger"
-          type="button"
-          aria-expanded={mobileMenuOpen}
-          aria-controls="nc-mobile-menu-panel"
-          onClick={() => setMobileMenuOpen((value) => !value)}
-        >
-          <span className="nc-sr">{mobileMenuOpen ? "Закрыть меню" : "Открыть меню"}</span>
-          <span className="nc-mobile-menu-bar" />
-          <span className="nc-mobile-menu-bar" />
-          <span className="nc-mobile-menu-bar" />
-        </button>
-
-        <div className="nc-topbar-actions">
-          {headerPages.map((item) => (
-            <button
-              className="ghost-button"
-              key={`header-${item.slug}`}
-              onClick={() => onOpenPublicPage(item.slug)}
-              type="button"
-            >
-              {item.title}
+          <div className="nc-header-actions">
+            <button className="nc-btn-ghost" onClick={() => openAuth("login")} type="button">
+              Войти
             </button>
-          ))}
-          <button className="ghost-button" onClick={onOpenPublicDocs} type="button">
-            API
-          </button>
-          <button className="ghost-button" onClick={() => openAuth("login")} type="button">
-            Войти
-          </button>
-          <button className="primary-button" onClick={() => openAuth("register")} type="button">
-            Подключить процессинг
+            <button className="nc-btn-primary" onClick={() => openAuth("register")} type="button">
+              Подключить
+            </button>
+          </div>
+
+          <button
+            className={`nc-burger ${mobileMenuOpen ? "nc-burger-active" : ""}`}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            type="button"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
           </button>
         </div>
       </header>
 
-      {mobileMenuOpen ? (
-        <div
-          className="nc-mobile-menu-overlay"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setMobileMenuOpen(false);
-            }
-          }}
-        >
-          <div className="nc-mobile-menu-panel" id="nc-mobile-menu-panel" role="dialog" aria-modal="true">
+      {mobileMenuOpen && (
+        <div className="nc-mobile-menu" onClick={() => setMobileMenuOpen(false)}>
+          <nav className="nc-mobile-menu-inner" onClick={(e) => e.stopPropagation()}>
             {headerPages.map((item) => (
               <button
-                className="ghost-button nc-mobile-menu-item"
                 key={`mobile-${item.slug}`}
                 onClick={() => {
                   onOpenPublicPage(item.slug);
@@ -238,367 +237,315 @@ export function LandingPage({
                 {item.title}
               </button>
             ))}
-            <button
-              className="ghost-button nc-mobile-menu-item"
-              onClick={() => {
-                onOpenPublicDocs();
-                setMobileMenuOpen(false);
-              }}
-              type="button"
-            >
-              API
-            </button>
-            <button className="ghost-button nc-mobile-menu-item" onClick={() => openAuth("login")} type="button">
-              Войти
-            </button>
-            <button className="primary-button nc-mobile-menu-item" onClick={() => openAuth("register")} type="button">
-              Подключить процессинг
-            </button>
-          </div>
+            <button onClick={() => { onOpenPublicDocs(); setMobileMenuOpen(false); }} type="button">API</button>
+            <button onClick={() => { openAuth("login"); }} type="button">Войти</button>
+            <button onClick={() => { openAuth("register"); }} type="button">Подключить</button>
+          </nav>
         </div>
-      ) : null}
+      )}
 
       <section className="nc-hero">
-        <div className="nc-hero-copy">
-          <p className="eyebrow">B2B crypto acquiring for CIS ecommerce</p>
-          <h1>Ваш магазин уже теряет клиентов, которые платят криптой.</h1>
+        <div className="nc-hero-bg">
+          <div className="nc-hero-gradient"></div>
+          <div className="nc-hero-grid"></div>
+        </div>
+        
+        <div className="nc-hero-content">
+          <div className="nc-hero-badge">
+            <span className="nc-hero-badge-dot"></span>
+            Crypto acquiring for ecommerce
+          </div>
+          
+          <h1>
+            Принимайте криптовалюту
+            <br />
+            <span className="nc-hero-accent">без ограничений</span>
+          </h1>
+          
           <p className="nc-hero-lead">
-            Noren подключает крипто-эквайринг к интернет-магазину за один день. Без блокировок,
-            без банковских отказов, без потерянных транзакций.
+            Подключаем крипто-эквайринг к вашему магазину за 1 день.
+            Без блокировок, без банковских отказов, без потерянных клиентов.
           </p>
-          <div className="hero-actions">
-            <button className="primary-button nc-main-cta" onClick={() => openAuth("register")} type="button">
+
+          <div className="nc-hero-cta">
+            <button className="nc-btn-primary nc-btn-lg" onClick={() => openAuth("register")} type="button">
               Подключить процессинг
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
-            <button className="ghost-button" onClick={onOpenPublicDocs} type="button">
-              Посмотреть API
+            <button className="nc-btn-ghost nc-btn-lg" onClick={onOpenPublicDocs} type="button">
+              Документация API
             </button>
           </div>
-          <div className="nc-token-strip" aria-hidden="true">
-            {TOKEN_TAGS.map((token) => (
+
+          <div className="nc-hero-tokens">
+            {TOKENS.map((token) => (
               <span key={token}>{token}</span>
             ))}
           </div>
         </div>
 
-        <aside className="nc-hero-side">
-          <article className="nc-summary-card nc-summary-card-accent">
-            <span className="nc-card-kicker">Проблема рынка</span>
-            <h2>Банки отказывают. Платёжки блокируют счета. Международные клиенты не могут заплатить.</h2>
-            <p>
-              Вы теряете заказы не потому что плохой продукт, а потому что у клиента нет нужного
-              способа оплаты.
-            </p>
-          </article>
+        <div className="nc-hero-stats">
+          <div className="nc-hero-stat">
+            <span className="nc-hero-stat-value">1 день</span>
+            <span className="nc-hero-stat-label">Подключение</span>
+          </div>
+          <div className="nc-hero-stat">
+            <span className="nc-hero-stat-value">24/7</span>
+            <span className="nc-hero-stat-label">Поддержка</span>
+          </div>
+          <div className="nc-hero-stat">
+            <span className="nc-hero-stat-value">0%</span>
+            <span className="nc-hero-stat-label">Блокировок</span>
+          </div>
+        </div>
+      </section>
 
-          <article className="nc-summary-card">
-            <span className="nc-card-kicker">Что получает бизнес</span>
-            <div className="nc-summary-grid">
-              {HERO_NUMBERS.map((item) => (
-                <div key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
-              ))}
+      <section className="nc-section nc-features">
+        <div className="nc-section-header">
+          <span className="nc-section-label">Преимущества</span>
+          <h2>Почему выбирают Noren</h2>
+        </div>
+        
+        <div className="nc-features-grid">
+          {FEATURES.map((feature) => (
+            <div className="nc-feature-card" key={feature.title}>
+              <div className="nc-feature-icon">
+                {feature.icon === "zap" && (
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+                {feature.icon === "globe" && (
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M2 12H22" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M12 2C14.5013 4.73835 15.9228 8.29203 16 12C15.9228 15.708 14.5013 19.2616 12 22C9.49872 19.2616 8.07725 15.708 8 12C8.07725 8.29203 9.49872 4.73835 12 2Z" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                )}
+                {feature.icon === "shield" && (
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 22C12 22 20 18 20 12V5L12 2L4 5V12C4 18 12 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+                {feature.icon === "dollar" && (
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 1V23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M17 5H9.5C8.57174 5 7.6815 5.36875 7.02513 6.02513C6.36875 6.6815 6 7.57174 6 8.5C6 9.42826 6.36875 10.3185 7.02513 10.9749C7.6815 11.6313 8.57174 12 9.5 12H14.5C15.4283 12 16.3185 12.3687 16.9749 13.0251C17.6313 13.6815 18 14.5717 18 15.5C18 16.4283 17.6313 17.3185 16.9749 17.9749C16.3185 18.6313 15.4283 19 14.5 19H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+              <h3>{feature.title}</h3>
+              <p>{feature.description}</p>
             </div>
-          </article>
-        </aside>
-      </section>
-
-      <section className="nc-section">
-        <div className="nc-section-head">
-          <p className="eyebrow">Решение</p>
-          <h2>Noren — процессинг, который работает там, где банки пасуют.</h2>
-          <p>
-            Мы принимаем крипту от ваших клиентов и выплачиваем вам в удобной валюте. Никаких
-            заморозок, никаких лимитов, никакой зависимости от банковской инфраструктуры.
-          </p>
-        </div>
-      </section>
-
-      <section className="nc-section">
-        <div className="nc-section-head">
-          <p className="eyebrow">Преимущества</p>
-          <h2>Простой процессинг без лишнего интерфейса</h2>
-        </div>
-        <div className="nc-group-grid">
-          {BENEFITS.map((item) => (
-            <article className="nc-group-card" key={item.title}>
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-            </article>
           ))}
         </div>
       </section>
 
-      <section className="nc-section nc-proof-section">
-        <div className="nc-section-head">
-          <p className="eyebrow">Социальное доказательство</p>
-          <h2>Заготовки под будущие кейсы</h2>
+      <section className="nc-section nc-how">
+        <div className="nc-section-header">
+          <span className="nc-section-label">Как это работает</span>
+          <h2>Простое подключение за 4 шага</h2>
         </div>
-        <div className="nc-proof-grid">
-          <article className="nc-quote-card">
-            <p>
-              «Подключили Noren за день, в первую же неделю получили 11 заказов от клиентов
-              из-за рубежа, которые раньше просто уходили.»
-            </p>
-            <strong>Интернет-магазин электроники, Минск</strong>
-          </article>
-          <article className="nc-quote-card">
-            <p>
-              «Наконец-то процессинг, который не замораживает деньги и не требует справок.»
-            </p>
-            <strong>Онлайн-магазин одежды, Алматы</strong>
-          </article>
-        </div>
-      </section>
 
-      <section className="nc-section nc-dual-grid">
-        <article className="nc-list-card">
-          <div className="nc-section-head">
-            <p className="eyebrow">Для кого</p>
-            <h2>Noren подходит, если вы</h2>
-          </div>
-          <ul className="nc-check-list">
-            {AUDIENCE.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
-
-        <article className="nc-list-card">
-          <div className="nc-section-head">
-            <p className="eyebrow">Доверие</p>
-            <h2>Инфраструктура без лишней бюрократии</h2>
-          </div>
-          <p className="nc-trust-copy">
-            Мы не банк. Мы не требуем корпоративный пакет документов и три месяца ожидания.
-            Noren — это инфраструктура, которая просто работает. Платежи проходят. Деньги
-            приходят. Бизнес движется.
-          </p>
-        </article>
-      </section>
-
-      <section className="nc-section">
-        <div className="nc-section-head">
-          <p className="eyebrow">FAQ</p>
-          <h2>Коротко по запуску</h2>
-        </div>
-        <div className="nc-faq-grid">
-          {FAQ_ITEMS.map((item) => (
-            <article className="nc-faq-card" key={item.question}>
-              <h3>{item.question}</h3>
-              <p>{item.answer}</p>
-            </article>
+        <div className="nc-steps">
+          {STEPS.map((step, index) => (
+            <div className="nc-step" key={step.number}>
+              <span className="nc-step-number">{step.number}</span>
+              <h3>{step.title}</h3>
+              <p>{step.description}</p>
+              {index < STEPS.length - 1 && <div className="nc-step-line"></div>}
+            </div>
           ))}
         </div>
       </section>
 
-      <section className="nc-cta-block">
-        <div className="nc-cta-copy">
-          <p className="eyebrow">Финальный CTA</p>
-          <h2>Готовы принимать крипту?</h2>
-          <p>
-            Оставьте заявку — наш менеджер свяжется в течение часа и расскажет, как подключиться
-            именно под ваш магазин.
-          </p>
+      <section className="nc-section nc-faq">
+        <div className="nc-section-header">
+          <span className="nc-section-label">FAQ</span>
+          <h2>Частые вопросы</h2>
         </div>
-        <div className="nc-cta-actions">
-          <button className="primary-button" onClick={() => openAuth("register")} type="button">
-            Оставить заявку
-          </button>
-          <a className="ghost-button nc-telegram-link" href="#" role="button">
-            Написать в Telegram
-          </a>
+
+        <div className="nc-faq-list">
+          {FAQ_ITEMS.map((item, index) => (
+            <div className={`nc-faq-item ${openFaqIndex === index ? "nc-faq-open" : ""}`} key={item.question}>
+              <button className="nc-faq-question" onClick={() => setOpenFaqIndex(openFaqIndex === index ? null : index)} type="button">
+                <span>{item.question}</span>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <div className="nc-faq-answer">
+                <p>{item.answer}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="nc-cta">
+        <div className="nc-cta-content">
+          <h2>Готовы принимать криптовалюту?</h2>
+          <p>Оставьте заявку — подключим ваш магазин за 1 день</p>
+          <div className="nc-cta-actions">
+            <button className="nc-btn-primary nc-btn-lg" onClick={() => openAuth("register")} type="button">
+              Оставить заявку
+            </button>
+          </div>
         </div>
       </section>
 
       <footer className="nc-footer">
-        <button className="nc-footer-link" onClick={onOpenPublicDocs} type="button">
-          Документация
-        </button>
-        {footerPages.map((item) => (
-          <button
-            className="nc-footer-link"
-            key={`footer-${item.slug}`}
-            onClick={() => onOpenPublicPage(item.slug)}
-            type="button"
-          >
-            {item.title}
-          </button>
-        ))}
-        <button className="nc-footer-link" onClick={() => openAuth("login")} type="button">
-          Личный кабинет
-        </button>
+        <div className="nc-footer-inner">
+          <div className="nc-footer-brand">
+            <div className="nc-logo-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <span>© 2026 Noren Digital</span>
+          </div>
+          
+          <div className="nc-footer-links">
+            {footerPages.map((item) => (
+              <button key={`footer-${item.slug}`} onClick={() => onOpenPublicPage(item.slug)} type="button">
+                {item.title}
+              </button>
+            ))}
+            <button onClick={onOpenPublicDocs} type="button">API</button>
+            <button onClick={() => openAuth("login")} type="button">Личный кабинет</button>
+          </div>
+        </div>
       </footer>
 
-      {authOpen ? (
-        <div
-          className="nc-auth-modal"
-          role="dialog"
-          aria-modal="true"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setAuthOpen(false);
-            }
-          }}
-        >
-          <div className="auth-card nc-auth-card" id="auth-panel">
-            <button className="nc-close" type="button" onClick={() => setAuthOpen(false)} aria-label="Close">
-              ×
+      {authOpen && (
+        <div className="nc-modal-overlay" onClick={() => setAuthOpen(false)}>
+          <div className="nc-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="nc-modal-close" onClick={() => setAuthOpen(false)} type="button">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
 
-            <div className="mode-switch nc-auth-switch">
+            <div className="nc-modal-tabs">
               <button
-                className={mode === "login" ? "switch-active" : ""}
-                type="button"
+                className={mode === "login" ? "nc-modal-tab-active" : ""}
                 onClick={() => onModeChange("login")}
+                type="button"
               >
                 Вход
               </button>
               <button
-                className={mode === "register" ? "switch-active" : ""}
-                type="button"
+                className={mode === "register" ? "nc-modal-tab-active" : ""}
                 onClick={() => onModeChange("register")}
                 disabled={!registrationEnabled}
+                type="button"
               >
-                Подключить проект
+                Регистрация
               </button>
             </div>
 
             {mode === "login" || !registrationEnabled ? (
-              <form className="form nc-auth-form" onSubmit={onLogin}>
-                <label className="nc-field">
-                  <span className="nc-sr">Email</span>
+              <form className="nc-form" onSubmit={onLogin}>
+                <label>
+                  <span>Email</span>
                   <input
-                    value={loginForm.email}
-                    onChange={(event) => onLoginFormChange({ ...loginForm, email: event.target.value })}
-                    autoComplete="email"
-                    required
-                    placeholder="Email"
                     type="email"
-                  />
-                </label>
-                <label className="nc-field">
-                  <span className="nc-sr">Password</span>
-                  <input
-                    value={loginForm.password}
-                    autoComplete="current-password"
-                    minLength={8}
+                    value={loginForm.email}
+                    onChange={(e) => onLoginFormChange({ ...loginForm, email: e.target.value })}
                     required
-                    onChange={(event) => onLoginFormChange({ ...loginForm, password: event.target.value })}
-                    placeholder="Пароль"
-                    type="password"
                   />
                 </label>
-                <label className="nc-field">
-                  <span className="nc-sr">OTP</span>
+                <label>
+                  <span>Пароль</span>
                   <input
-                    value={loginForm.otp_code}
-                    onChange={(event) => onLoginFormChange({ ...loginForm, otp_code: event.target.value })}
-                    inputMode="numeric"
-                    minLength={6}
-                    maxLength={8}
-                    placeholder="2FA"
-                    type="text"
+                    type="password"
+                    value={loginForm.password}
+                    onChange={(e) => onLoginFormChange({ ...loginForm, password: e.target.value })}
+                    required
                   />
                 </label>
-                <button className="primary-button" disabled={loading} type="submit">
+                <label>
+                  <span>2FA код</span>
+                  <input
+                    type="text"
+                    value={loginForm.otp_code}
+                    onChange={(e) => onLoginFormChange({ ...loginForm, otp_code: e.target.value })}
+                    inputMode="numeric"
+                    maxLength={8}
+                  />
+                </label>
+                <button className="nc-btn-primary" disabled={loading} type="submit">
                   {loading ? "..." : "Войти"}
                 </button>
               </form>
             ) : (
-              <form className="form nc-auth-form" onSubmit={onRegister}>
-                <div className="nc-register-grid">
-                  <label className="nc-field">
-                    <span className="nc-sr">Company</span>
+              <form className="nc-form" onSubmit={onRegister}>
+                <div className="nc-form-grid">
+                  <label>
+                    <span>Компания</span>
                     <input
                       value={registrationForm.company_name}
-                      minLength={2}
+                      onChange={(e) => onRegistrationFormChange({ ...registrationForm, company_name: e.target.value })}
                       required
-                      onChange={(event) =>
-                        onRegistrationFormChange({ ...registrationForm, company_name: event.target.value })
-                      }
-                      placeholder="Компания"
                     />
                   </label>
-                  <label className="nc-field">
-                    <span className="nc-sr">Owner</span>
+                  <label>
+                    <span>Владелец</span>
                     <input
                       value={registrationForm.owner_full_name}
-                      minLength={2}
+                      onChange={(e) => onRegistrationFormChange({ ...registrationForm, owner_full_name: e.target.value })}
                       required
-                      onChange={(event) =>
-                        onRegistrationFormChange({ ...registrationForm, owner_full_name: event.target.value })
-                      }
-                      placeholder="Владелец"
                     />
                   </label>
-                  <label className="nc-field">
-                    <span className="nc-sr">Email</span>
+                  <label>
+                    <span>Email</span>
                     <input
-                      value={registrationForm.owner_email}
-                      autoComplete="email"
-                      required
-                      onChange={(event) =>
-                        onRegistrationFormChange({ ...registrationForm, owner_email: event.target.value })
-                      }
                       type="email"
-                      placeholder="Email"
-                    />
-                  </label>
-                  <label className="nc-field">
-                    <span className="nc-sr">Password</span>
-                    <input
-                      value={registrationForm.password}
-                      autoComplete="new-password"
-                      minLength={8}
+                      value={registrationForm.owner_email}
+                      onChange={(e) => onRegistrationFormChange({ ...registrationForm, owner_email: e.target.value })}
                       required
-                      onChange={(event) =>
-                        onRegistrationFormChange({ ...registrationForm, password: event.target.value })
-                      }
-                      type="password"
-                      placeholder="Пароль"
                     />
                   </label>
-                  <label className="nc-field">
-                    <span className="nc-sr">Domain</span>
+                  <label>
+                    <span>Пароль</span>
+                    <input
+                      type="password"
+                      value={registrationForm.password}
+                      onChange={(e) => onRegistrationFormChange({ ...registrationForm, password: e.target.value })}
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>Домен</span>
                     <input
                       value={registrationForm.domain}
-                      minLength={3}
+                      onChange={(e) => onRegistrationFormChange({ ...registrationForm, domain: e.target.value })}
                       required
-                      onChange={(event) =>
-                        onRegistrationFormChange({ ...registrationForm, domain: event.target.value })
-                      }
-                      placeholder="Домен"
                     />
                   </label>
-                  <label className="nc-field">
-                    <span className="nc-sr">Description</span>
+                  <label>
+                    <span>Описание проекта</span>
                     <input
                       value={registrationForm.project_description}
-                      maxLength={1000}
-                      onChange={(event) =>
-                        onRegistrationFormChange({
-                          ...registrationForm,
-                          project_description: event.target.value,
-                        })
-                      }
-                      placeholder="Описание проекта"
+                      onChange={(e) => onRegistrationFormChange({ ...registrationForm, project_description: e.target.value })}
                     />
                   </label>
                 </div>
-                <button className="primary-button" disabled={loading} type="submit">
-                  {loading ? "..." : "Подключить проект"}
+                <button className="nc-btn-primary" disabled={loading} type="submit">
+                  {loading ? "..." : "Подключить"}
                 </button>
               </form>
             )}
 
-            {success ? <p className="result-box">{success}</p> : null}
-            {error ? <p className="error-box">{error}</p> : null}
+            {success && <p className="nc-success">{success}</p>}
+            {error && <p className="nc-error">{error}</p>}
           </div>
         </div>
-      ) : null}
+      )}
     </main>
   );
 }

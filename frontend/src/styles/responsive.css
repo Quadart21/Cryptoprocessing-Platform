@@ -5,10 +5,6 @@
     padding-right: 18px;
   }
 
-  .dashboard-rail-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .client-grid,
   .admin-grid,
   .nc-hero,
@@ -23,132 +19,51 @@
 
 @media (max-width: 960px) {
   .dashboard-rail {
-    position: relative;
-    top: auto;
+    transform: translateX(-100%);
   }
 
-  .dashboard-rail-groups {
-    display: none;
+  .dashboard-topbar {
+    left: 0;
+    padding: 0 16px;
   }
 
-  .dashboard-rail-mobile-sheet {
+  .mobile-menu-toggle {
     display: block;
-    border-top: 1px solid var(--line-soft);
-    padding-top: 8px;
   }
 
-  .dashboard-rail-mobile-trigger {
-    cursor: pointer;
-    color: var(--text-1);
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    list-style: none;
+  .topbar-title {
+    flex: 1;
   }
 
-  .dashboard-rail-mobile-trigger::-webkit-details-marker {
+  .dashboard-shell {
+    padding-top: 60px;
+    padding-left: 0;
+  }
+
+  .topbar-user-info {
     display: none;
   }
 
-  .dashboard-rail-mobile-sheet-content {
-    display: grid;
-    gap: 10px;
-    margin-top: 8px;
+  .topbar-logout-btn span {
+    display: none;
   }
 
-  .dashboard-mobile-nav {
-    position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    z-index: 30;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
-    border-radius: 14px;
-    border: 1px solid var(--line-soft);
-    background: rgba(5, 13, 30, 0.95);
-    padding: 6px;
-    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
+  .topbar-logout-btn {
+    padding: 8px;
   }
 
-  .dashboard-mobile-nav-item {
-    min-height: 38px;
-    border-radius: 10px;
-    border: 1px solid transparent;
-    background: transparent;
-    color: var(--text-2);
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1.15;
-    padding: 6px 8px;
+  .topbar-logout-btn svg {
+    width: 20px;
+    height: 20px;
   }
 
-  .dashboard-mobile-nav-item-active {
-    color: #06121d;
-    background: linear-gradient(135deg, #67deff, #90b1ff);
-  }
-
-  .topbar {
-    flex-direction: column;
-  }
-
-  .topbar-actions,
-  .public-docs-topbar,
-  .public-docs-actions,
-  .notification-event-row,
-  .asset-toolbar,
-  .asset-network-row,
-  .dashboard-shortcuts,
-  .detail-summary,
-  .form-grid-2,
-  .nc-group-grid,
-  .nc-proof-grid,
-  .nc-faq-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .topbar-actions {
-    width: 100%;
-    align-items: stretch;
-    justify-content: space-between;
+  .asset-compact-network {
     flex-wrap: wrap;
   }
 
-  .identity-chip {
-    min-width: 0;
+  .asset-compact-badges {
     width: 100%;
-  }
-
-  .section-context-chip {
-    flex: 1 1 180px;
-    min-width: 0;
-  }
-
-  .tenant-card {
-    flex-direction: column;
-  }
-
-  .tenant-meta {
-    min-width: 0;
-    justify-items: start;
-    text-align: left;
-  }
-
-  .nc-cta-block {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .nc-cta-actions {
-    min-width: 0;
-    width: 100%;
-    justify-content: stretch;
-  }
-
-  .nc-cta-actions .primary-button,
-  .nc-cta-actions .ghost-button {
-    flex: 1;
+    order: 3;
   }
 }
 
@@ -160,13 +75,12 @@
   }
 
   .dashboard-shell {
-    padding-bottom: 88px;
+    padding-bottom: 0;
   }
 
   .topbar,
   .panel,
   .auth-card,
-  .dashboard-rail,
   .stat-card,
   .nc-hero-copy,
   .nc-summary-card,
@@ -244,9 +158,5 @@
   .mode-switch button {
     min-width: 0;
     flex: 1;
-  }
-
-  .dashboard-mobile-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

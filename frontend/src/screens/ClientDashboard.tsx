@@ -275,40 +275,11 @@ export function ClientDashboard({
           }
         }}
         role="client"
+        user={user}
+        onLogout={onLogout}
       />
 
       <main className="dashboard-shell">
-        <section className="topbar topbar-compact">
-          <div>
-            <p className="eyebrow">Кабинет клиента</p>
-            <h1>{sectionMeta.title}</h1>
-            <p className="topbar-subtitle">{sectionMeta.description}</p>
-          </div>
-          <div className="topbar-actions">
-            <div className="identity-chip">
-              <strong>{user.full_name}</strong>
-              <span>{user.email}</span>
-            </div>
-            <button className="ghost-button" onClick={onLogout} type="button">
-              Выйти
-            </button>
-          </div>
-        </section>
-
-        {success ? <p className="result-box page-message">{success}</p> : null}
-        {error ? <p className="error-box page-message">{error}</p> : null}
-        {newApiSecret ? <p className="result-box page-message">Новый secret key: {newApiSecret}</p> : null}
-
-        <section className="section-context">
-          <article className="section-context-chip">
-            <span>Группа</span>
-            <strong>{sectionMeta.group}</strong>
-          </article>
-          <article className="section-context-chip">
-            <span>Раздел</span>
-            <strong>{sectionMeta.title}</strong>
-          </article>
-        </section>
 
         {(section === "overview" || section === "transactions") && (
           <AnalyticsFiltersPanel

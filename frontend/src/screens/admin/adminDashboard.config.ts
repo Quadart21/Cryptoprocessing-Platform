@@ -50,6 +50,11 @@ export const ADMIN_SECTION_META: Record<
     title: "Публичные страницы",
     description: "Управление контентом сайта, размещением в меню и футере.",
   },
+  assets: {
+    group: "Управление",
+    title: "Токены и сети",
+    description: "Управление доступностью криптовалют и сетей для клиентов.",
+  },
   team: {
     group: "Управление",
     title: "Команда и роли",
@@ -93,6 +98,7 @@ export function buildAdminMenuGroups(selectedTenantId: string | null): Dashboard
       items: [
         { key: "platform-settings", label: "Настройки" },
         { key: "public-pages", label: "Страницы" },
+        { key: "assets", label: "Токены и сети" },
         { key: "team", label: "Команда" },
         { key: "security", label: "Безопасность" },
       ],

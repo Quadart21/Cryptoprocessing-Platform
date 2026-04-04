@@ -42,6 +42,7 @@ export type AdminSection =
   | "client-detail"
   | "platform-settings"
   | "public-pages"
+  | "assets"
   | "team"
   | "security";
 
@@ -54,6 +55,7 @@ export const ADMIN_MENU_ITEMS: DashboardRailItem[] = [
   { key: "events", label: "События" },
   { key: "platform-settings", label: "Настройки" },
   { key: "public-pages", label: "Страницы" },
+  { key: "assets", label: "Токены и сети" },
   { key: "team", label: "Команда" },
   { key: "security", label: "Безопасность" },
 ];

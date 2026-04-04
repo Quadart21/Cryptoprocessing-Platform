@@ -1,0 +1,808 @@
+.nc-landing {
+  min-height: 100vh;
+  background: #080c14;
+  color: var(--text-0);
+  overflow-x: hidden;
+}
+
+.nc-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(8, 12, 20, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nc-header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.nc-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-0);
+}
+
+.nc-logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nc-logo-icon svg {
+  width: 20px;
+  height: 20px;
+  color: #080c14;
+}
+
+.nc-logo-text {
+  display: grid;
+  gap: 1px;
+}
+
+.nc-logo-text strong {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.nc-logo-text span {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.nc-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nc-nav button {
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.nc-nav button:hover {
+  color: var(--text-0);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nc-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nc-burger {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 10px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+
+.nc-burger span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: var(--text-1);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.nc-burger-active span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.nc-burger-active span:nth-child(2) {
+  opacity: 0;
+}
+
+.nc-burger-active span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.nc-mobile-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.nc-mobile-menu-inner {
+  position: absolute;
+  top: 64px;
+  left: 0;
+  right: 0;
+  background: rgba(8, 12, 20, 0.98);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nc-mobile-menu-inner button {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-0);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.nc-hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 120px 24px 60px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.nc-hero-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.nc-hero-gradient {
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(51, 215, 255, 0.12) 0%, transparent 70%);
+  filter: blur(60px);
+}
+
+.nc-hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+}
+
+.nc-hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+}
+
+.nc-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(51, 215, 255, 0.08);
+  border: 1px solid rgba(51, 215, 255, 0.15);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cyan);
+  margin-bottom: 24px;
+}
+
+.nc-hero-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+}
+
+.nc-hero h1 {
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0 0 20px;
+  letter-spacing: -0.02em;
+}
+
+.nc-hero-accent {
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nc-hero-lead {
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--text-1);
+  margin: 0 0 32px;
+  max-width: 560px;
+}
+
+.nc-hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.nc-hero-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nc-hero-tokens span {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.nc-hero-stats {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 60px;
+  padding-top: 40px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nc-hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nc-hero-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-0);
+}
+
+.nc-hero-stat-label {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.nc-section {
+  padding: 80px 24px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.nc-section-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.nc-section-label {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(51, 215, 255, 0.08);
+  border: 1px solid rgba(51, 215, 255, 0.15);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+}
+
+.nc-section-header h2 {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  margin: 0 0 12px;
+  letter-spacing: -0.02em;
+}
+
+.nc-features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.nc-feature-card {
+  padding: 24px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+}
+
+.nc-feature-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(51, 215, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.nc-feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(51, 215, 255, 0.15), rgba(100, 140, 255, 0.15));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.nc-feature-icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--cyan);
+}
+
+.nc-feature-card h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.nc-feature-card p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-1);
+  margin: 0;
+}
+
+.nc-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  position: relative;
+}
+
+.nc-step {
+  position: relative;
+  padding: 24px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.nc-step-number {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(51, 215, 255, 0.1);
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.nc-step h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.nc-step p {
+  font-size: 14px;
+  color: var(--text-1);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.nc-step-line {
+  display: none;
+}
+
+.nc-faq-list {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nc-faq-item {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.nc-faq-question {
+  width: 100%;
+  padding: 16px 20px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-0);
+  transition: background-color 0.2s ease;
+}
+
+.nc-faq-question:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nc-faq-question svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  color: var(--text-2);
+}
+
+.nc-faq-open .nc-faq-question svg {
+  transform: rotate(180deg);
+}
+
+.nc-faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.nc-faq-open .nc-faq-answer {
+  max-height: 200px;
+}
+
+.nc-faq-answer p {
+  padding: 0 20px 16px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-1);
+}
+
+.nc-cta {
+  padding: 80px 24px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.nc-cta-content {
+  text-align: center;
+  padding: 60px 40px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(51, 215, 255, 0.08), rgba(100, 140, 255, 0.08));
+  border: 1px solid rgba(51, 215, 255, 0.15);
+}
+
+.nc-cta-content h2 {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.nc-cta-content p {
+  font-size: 16px;
+  color: var(--text-1);
+  margin: 0 0 24px;
+}
+
+.nc-cta-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.nc-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 40px 24px;
+}
+
+.nc-footer-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.nc-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.nc-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.nc-footer-links button {
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+
+.nc-footer-links button:hover {
+  color: var(--text-0);
+}
+
+.nc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.nc-modal {
+  width: 100%;
+  max-width: 480px;
+  padding: 32px;
+  border-radius: 20px;
+  background: rgba(12, 18, 30, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+
+.nc-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-2);
+  transition: all 0.2s ease;
+}
+
+.nc-modal-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-0);
+}
+
+.nc-modal-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nc-modal-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 24px;
+}
+
+.nc-modal-tabs button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.nc-modal-tab-active {
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  color: #080c14 !important;
+}
+
+.nc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.nc-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nc-form label span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-1);
+}
+
+.nc-form input {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-0);
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.nc-form input:focus {
+  border-color: rgba(51, 215, 255, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nc-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.nc-success,
+.nc-error {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.nc-success {
+  background: rgba(51, 215, 255, 0.1);
+  border: 1px solid rgba(51, 215, 255, 0.2);
+  color: var(--cyan);
+}
+
+.nc-error {
+  background: rgba(255, 100, 100, 0.1);
+  border: 1px solid rgba(255, 100, 100, 0.2);
+  color: #ff6464;
+}
+
+.nc-btn-primary,
+.nc-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  text-decoration: none;
+}
+
+.nc-btn-primary {
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  color: #080c14;
+}
+
+.nc-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(51, 215, 255, 0.25);
+}
+
+.nc-btn-ghost {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-0);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nc-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nc-btn-lg {
+  padding: 14px 24px;
+  font-size: 15px;
+}
+
+.nc-btn-primary svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (max-width: 1024px) {
+  .nc-features-grid,
+  .nc-steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .nc-nav,
+  .nc-header-actions {
+    display: none;
+  }
+
+  .nc-burger {
+    display: flex;
+  }
+
+  .nc-hero {
+    padding: 100px 20px 40px;
+    min-height: auto;
+  }
+
+  .nc-hero-stats {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 40px;
+    padding-top: 30px;
+  }
+
+  .nc-features-grid,
+  .nc-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .nc-section {
+    padding: 60px 20px;
+  }
+
+  .nc-cta {
+    padding: 60px 20px;
+  }
+
+  .nc-cta-content {
+    padding: 40px 24px;
+  }
+
+  .nc-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nc-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

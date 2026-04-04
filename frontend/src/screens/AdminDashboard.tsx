@@ -15,6 +15,7 @@ import {
 } from "./admin/AdminPlatformPanels";
 import { AdminPlatformSettingsSection } from "./admin/AdminPlatformSettingsSection";
 import { AdminPublicPagesSection } from "./admin/AdminPublicPagesSection";
+import { AssetManagementPage } from "./admin/AssetManagementPage";
 import { AdminUsersPanel } from "./admin/AdminUsersPanel";
 import {
   type AdminDashboardProps,
@@ -70,6 +71,11 @@ const ADMIN_SECTION_META: Record<
     group: "Управление",
     title: "Публичные страницы",
     description: "Управление контентом сайта, размещением в меню и футере.",
+  },
+  assets: {
+    group: "Управление",
+    title: "Токены и сети",
+    description: "Управление доступностью криптовалют и сетей для клиентов.",
   },
   team: {
     group: "Управление",
@@ -182,6 +188,7 @@ export function AdminDashboard({
         items: [
           { key: "platform-settings", label: "Настройки" },
           { key: "public-pages", label: "Страницы" },
+          { key: "assets", label: "Токены и сети" },
           { key: "team", label: "Команда" },
           { key: "security", label: "Безопасность" },
         ],
@@ -220,46 +227,11 @@ export function AdminDashboard({
           }
         }}
         role="admin"
+        user={user}
+        onLogout={onLogout}
       />
 
       <main className="dashboard-shell">
-        <section className="topbar topbar-compact">
-          <div>
-            <p className="eyebrow">Админка платформы</p>
-            <h1>{sectionMeta.title}</h1>
-            <p className="topbar-subtitle">{sectionMeta.description}</p>
-          </div>
-          <div className="topbar-actions">
-            <div className="identity-chip">
-              <strong>{user.full_name}</strong>
-              <span>{user.email}</span>
-            </div>
-            <button className="ghost-button" onClick={onLogout} type="button">
-              Выйти
-            </button>
-          </div>
-        </section>
-
-        {success ? <p className="result-box page-message">{success}</p> : null}
-        {error ? <p className="error-box page-message">{error}</p> : null}
-        {newApiSecret ? <p className="result-box page-message">Новый secret key: {newApiSecret}</p> : null}
-
-        <section className="section-context">
-          <article className="section-context-chip">
-            <span>Группа</span>
-            <strong>{sectionMeta.group}</strong>
-          </article>
-          <article className="section-context-chip">
-            <span>Раздел</span>
-            <strong>{sectionMeta.title}</strong>
-          </article>
-          {selectedTenantId ? (
-            <article className="section-context-chip">
-              <span>Выбран клиент</span>
-              <strong>{selectedTenantName}</strong>
-            </article>
-          ) : null}
-        </section>
 
         {section === "overview" ? (
           <>
@@ -390,14 +362,12 @@ export function AdminDashboard({
 
         {section === "platform-settings" ? (
           <AdminPlatformSettingsSection
-            adminAssetRates={adminAssetRates}
             loading={loading}
             platformBillingSettings={platformBillingSettings}
             selectedTenantBillingPolicy={selectedTenantBillingPolicy}
             selectedTenantId={selectedTenantId}
             tenants={tenants}
             onSelectTenant={onSelectTenant}
-            onUpdateAssetAvailability={onUpdateAssetAvailability}
             onInspectPlatformTelegramBot={onInspectPlatformTelegramBot}
             onSendPlatformTelegramTest={onSendPlatformTelegramTest}
             onSendPlatformSmtpBzTest={onSendPlatformSmtpBzTest}
@@ -413,6 +383,14 @@ export function AdminDashboard({
             onCreate={onCreatePublicPage}
             onUpdate={onUpdatePublicPage}
             onDelete={onDeletePublicPage}
+          />
+        ) : null}
+
+        {section === "assets" ? (
+          <AssetManagementPage
+            loading={loading}
+            adminAssetRates={adminAssetRates}
+            onUpdateAssetAvailability={onUpdateAssetAvailability}
           />
         ) : null}
       </main>

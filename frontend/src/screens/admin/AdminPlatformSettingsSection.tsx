@@ -1,11 +1,8 @@
-﻿
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
-  AssetAvailabilityPayload,
   NotificationTemplateItem,
   PlatformBillingSettings,
-  RateItem,
   SmtpBzTestPayload,
   SmtpBzTestResponse,
   TelegramAdminTestPayload,
@@ -15,7 +12,6 @@ import type {
   TenantBillingPolicy,
   TenantItem,
 } from "../../api";
-import { AssetAvailabilityPanel } from "./AssetAvailabilityPanel";
 
 type AdminPlatformSettingsSectionProps = {
   loading: boolean;
@@ -23,7 +19,6 @@ type AdminPlatformSettingsSectionProps = {
   selectedTenantBillingPolicy: TenantBillingPolicy | null;
   selectedTenantId: string | null;
   tenants: TenantItem[];
-  adminAssetRates: RateItem[];
   onSelectTenant: (tenantId: string) => void;
   onUpdatePlatformSettings: (payload: PlatformBillingSettings) => void;
   onInspectPlatformTelegramBot: (
@@ -36,8 +31,28 @@ type AdminPlatformSettingsSectionProps = {
     payload: SmtpBzTestPayload,
   ) => Promise<SmtpBzTestResponse>;
   onUpdateTenantPolicy: (payload: Omit<TenantBillingPolicy, "tenant_id">) => void;
-  onUpdateAssetAvailability: (payload: AssetAvailabilityPayload) => void;
 };
+
+type SettingsTab =
+  | "fees"
+  | "payouts"
+  | "brand"
+  | "email"
+  | "telegram"
+  | "templates"
+  | "events"
+  | "tenant";
+
+const TABS: Array<{ key: SettingsTab; label: string; icon: string }> = [
+  { key: "fees", label: "Комиссии", icon: "💰" },
+  { key: "payouts", label: "Выплаты", icon: "💸" },
+  { key: "brand", label: "Бренд", icon: "🏷" },
+  { key: "email", label: "Email", icon: "✉" },
+  { key: "telegram", label: "Telegram", icon: "✈" },
+  { key: "templates", label: "Шаблоны", icon: "📝" },
+  { key: "events", label: "События", icon: "🔔" },
+  { key: "tenant", label: "Клиенты", icon: "👤" },
+];
 
 export function AdminPlatformSettingsSection({
   loading,
@@ -45,15 +60,14 @@ export function AdminPlatformSettingsSection({
   selectedTenantBillingPolicy,
   selectedTenantId,
   tenants,
-  adminAssetRates,
   onSelectTenant,
   onUpdatePlatformSettings,
   onInspectPlatformTelegramBot,
   onSendPlatformTelegramTest,
   onSendPlatformSmtpBzTest,
   onUpdateTenantPolicy,
-  onUpdateAssetAvailability,
 }: AdminPlatformSettingsSectionProps) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [platformSettingsForm, setPlatformSettingsForm] =
     useState<PlatformBillingSettings | null>(platformBillingSettings);
   const [smtpBzApiKey, setSmtpBzApiKey] = useState("");
@@ -72,6 +86,8 @@ export function AdminPlatformSettingsSection({
     "tenant_id"
   > | null>(null);
   const [templateEventCode, setTemplateEventCode] = useState("");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("fees");
+  const [expandedAccordions, setExpandedAccordions] = useState<Set<SettingsTab>>(new Set(["fees"]));
 
   useEffect(() => {
     setPlatformSettingsForm(platformBillingSettings);
@@ -113,9 +129,7 @@ export function AdminPlatformSettingsSection({
   }, [selectedTenantBillingPolicy]);
 
   const selectedTemplate = useMemo(() => {
-    if (!platformSettingsForm) {
-      return null;
-    }
+    if (!platformSettingsForm) return null;
     return (
       platformSettingsForm.notification_templates.find(
         (item) => item.code === templateEventCode,
@@ -125,9 +139,7 @@ export function AdminPlatformSettingsSection({
 
   function handleSubmitPlatformSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!platformSettingsForm) {
-      return;
-    }
+    if (!platformSettingsForm) return;
     onUpdatePlatformSettings({
       ...platformSettingsForm,
       smtp_bz_api_key: smtpBzApiKey.trim() || null,
@@ -139,9 +151,7 @@ export function AdminPlatformSettingsSection({
 
   function handleSubmitTenantPolicy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!tenantPolicyForm) {
-      return;
-    }
+    if (!tenantPolicyForm) return;
     onUpdateTenantPolicy(tenantPolicyForm);
   }
 
@@ -150,9 +160,7 @@ export function AdminPlatformSettingsSection({
     channel: "email_enabled" | "telegram_enabled",
     enabled: boolean,
   ) {
-    if (!platformSettingsForm) {
-      return;
-    }
+    if (!platformSettingsForm) return;
     setPlatformSettingsForm({
       ...platformSettingsForm,
       notification_events: (platformSettingsForm.notification_events ?? []).map((item) =>
@@ -166,9 +174,7 @@ export function AdminPlatformSettingsSection({
     field: keyof Pick<NotificationTemplateItem, "email_subject" | "email_body" | "telegram_body">,
     value: string,
   ) {
-    if (!platformSettingsForm) {
-      return;
-    }
+    if (!platformSettingsForm) return;
     setPlatformSettingsForm({
       ...platformSettingsForm,
       notification_templates: platformSettingsForm.notification_templates.map((template) =>
@@ -226,591 +232,600 @@ export function AdminPlatformSettingsSection({
     }
   }
 
-  return (
-    <section className="dashboard-grid client-grid">
-      <article className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Комиссии и уведомления</p>
-            <h2>Глобальные настройки платформы</h2>
-          </div>
-        </div>
-        {platformSettingsForm ? (
-          <form className="form" onSubmit={handleSubmitPlatformSettings}>
-            <label>
-              <span>Комиссия провайдера (%)</span>
-              <input
-                type="number"
-                step="0.0001"
-                value={platformSettingsForm.provider_fee_percent}
-                onChange={(event) =>
-                  setPlatformSettingsForm({
-                    ...platformSettingsForm,
-                    provider_fee_percent: event.target.value,
-                  })
-                }
-              />
-            </label>
-            <label>
-              <span>Наценка платформы (%)</span>
-              <input
-                type="number"
-                step="0.0001"
-                value={platformSettingsForm.default_markup_percent}
-                onChange={(event) =>
-                  setPlatformSettingsForm({
-                    ...platformSettingsForm,
-                    default_markup_percent: event.target.value,
-                  })
-                }
-              />
-            </label>
-            <label>
-              <span>Комиссия от оборота (%)</span>
-              <input
-                type="number"
-                step="0.0001"
-                value={platformSettingsForm.default_turnover_fee_percent}
-                onChange={(event) =>
-                  setPlatformSettingsForm({
-                    ...platformSettingsForm,
-                    default_turnover_fee_percent: event.target.value,
-                  })
-                }
-              />
-            </label>
+  function toggleAccordion(tab: SettingsTab) {
+    setExpandedAccordions((prev) => {
+      const next = new Set(prev);
+      if (next.has(tab)) next.delete(tab);
+      else next.add(tab);
+      return next;
+    });
+  }
 
+  const isAccordionExpanded = (tab: SettingsTab) => expandedAccordions.has(tab);
+
+  function renderUnavailableState() {
+    return <p className="muted-text">Настройки пока не загружены.</p>;
+  }
+
+  function renderFeesSection() {
+    if (!platformSettingsForm) return renderUnavailableState();
+    return (
+      <section className="panel form">
+        <label>
+          <span>Комиссия провайдера (%)</span>
+          <input
+            type="number"
+            step="0.0001"
+            value={platformSettingsForm.provider_fee_percent}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                provider_fee_percent: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Наценка платформы (%)</span>
+          <input
+            type="number"
+            step="0.0001"
+            value={platformSettingsForm.default_markup_percent}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                default_markup_percent: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Комиссия с оборота (%)</span>
+          <input
+            type="number"
+            step="0.0001"
+            value={platformSettingsForm.default_turnover_fee_percent}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                default_turnover_fee_percent: event.target.value,
+              })
+            }
+          />
+        </label>
+      </section>
+    );
+  }
+
+  function renderPayoutsSection() {
+    if (!platformSettingsForm) return renderUnavailableState();
+    return (
+      <section className="panel form">
+        <label className="switch-row">
+          <span>Разрешить переопределение наценки клиентом</span>
+          <input
+            type="checkbox"
+            checked={platformSettingsForm.allow_tenant_markup_override}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                allow_tenant_markup_override: event.target.checked,
+              })
+            }
+          />
+        </label>
+        <label className="switch-row">
+          <span>Разрешить переопределение комиссии с оборота</span>
+          <input
+            type="checkbox"
+            checked={platformSettingsForm.allow_tenant_turnover_fee_override}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                allow_tenant_turnover_fee_override: event.target.checked,
+              })
+            }
+          />
+        </label>
+        <label className="switch-row">
+          <span>Выплаты включены</span>
+          <input
+            type="checkbox"
+            checked={platformSettingsForm.payouts_enabled}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                payouts_enabled: event.target.checked,
+              })
+            }
+          />
+        </label>
+      </section>
+    );
+  }
+
+  function renderBrandSection() {
+    if (!platformSettingsForm) return renderUnavailableState();
+    return (
+      <section className="panel form">
+        <label>
+          <span>Название бренда</span>
+          <input
+            value={platformSettingsForm.notification_brand_name}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                notification_brand_name: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>URL логотипа</span>
+          <input
+            value={platformSettingsForm.notification_logo_url ?? ""}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                notification_logo_url: event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Основной URL</span>
+          <input
+            value={platformSettingsForm.notification_primary_url ?? ""}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                notification_primary_url:
+                  event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+          />
+        </label>
+      </section>
+    );
+  }
+
+  function renderEmailSection() {
+    if (!platformSettingsForm) return renderUnavailableState();
+    return (
+      <section className="panel form">
+        <label className="switch-row">
+          <span>Email-уведомления включены</span>
+          <input
+            type="checkbox"
+            checked={platformSettingsForm.email_notifications_enabled}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                email_notifications_enabled: event.target.checked,
+              })
+            }
+          />
+        </label>
+        <label className="switch-row">
+          <span>SMTP.bz включён</span>
+          <input
+            type="checkbox"
+            checked={platformSettingsForm.smtp_bz_enabled}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                smtp_bz_enabled: event.target.checked,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>SMTP API URL</span>
+          <input
+            value={platformSettingsForm.smtp_bz_api_base_url}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                smtp_bz_api_base_url: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Email отправителя</span>
+          <input
+            value={platformSettingsForm.smtp_bz_sender_email}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                smtp_bz_sender_email: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Имя отправителя</span>
+          <input
+            value={platformSettingsForm.smtp_bz_sender_name}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                smtp_bz_sender_name: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Reply-To</span>
+          <input
+            value={platformSettingsForm.smtp_bz_reply_to ?? ""}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                smtp_bz_reply_to: event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Тег</span>
+          <input
+            value={platformSettingsForm.smtp_bz_tag ?? ""}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                smtp_bz_tag: event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Новый SMTP API key</span>
+          <input value={smtpBzApiKey} onChange={(event) => setSmtpBzApiKey(event.target.value)} />
+        </label>
+        <label>
+          <span>Тестовый получатель</span>
+          <input
+            value={smtpTestRecipient}
+            onChange={(event) => setSmtpTestRecipient(event.target.value)}
+          />
+        </label>
+        <button
+          className="ghost-button"
+          type="button"
+          onClick={handleSendSmtpTest}
+          disabled={sendingSmtpTest || smtpTestRecipient.trim() === ""}
+        >
+          {sendingSmtpTest ? "Отправляем..." : "Отправить тестовое письмо"}
+        </button>
+        {smtpTestResult ? (
+          <p className="muted-text">Тест отправлен на {smtpTestResult.recipient_email}.</p>
+        ) : null}
+      </section>
+    );
+  }
+
+  function renderTelegramSection() {
+    if (!platformSettingsForm) return renderUnavailableState();
+    return (
+      <section className="panel form">
+        <label className="switch-row">
+          <span>Telegram-уведомления включены</span>
+          <input
+            type="checkbox"
+            checked={platformSettingsForm.telegram_notifications_enabled}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                telegram_notifications_enabled: event.target.checked,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Telegram API URL</span>
+          <input
+            value={platformSettingsForm.telegram_api_base_url}
+            onChange={(event) =>
+              setPlatformSettingsForm({
+                ...platformSettingsForm,
+                telegram_api_base_url: event.target.value,
+              })
+            }
+          />
+        </label>
+        <label>
+          <span>Новый токен бота</span>
+          <input
+            value={telegramBotToken}
+            onChange={(event) => setTelegramBotToken(event.target.value)}
+          />
+        </label>
+        <div className="topbar-actions">
+          <button
+            className="ghost-button"
+            type="button"
+            onClick={handleCheckTelegramBot}
+            disabled={checkingTelegramBot}
+          >
+            {checkingTelegramBot ? "Проверяем..." : "Проверить бота"}
+          </button>
+          <input
+            placeholder="Chat ID администратора"
+            value={adminTelegramChatId}
+            onChange={(event) => setAdminTelegramChatId(event.target.value)}
+          />
+          <button
+            className="ghost-button"
+            type="button"
+            onClick={handleSendTelegramTest}
+            disabled={sendingTelegramTest || adminTelegramChatId.trim() === ""}
+          >
+            {sendingTelegramTest ? "Отправляем..." : "Отправить тест"}
+          </button>
+        </div>
+        {telegramBotInfo ? (
+          <p className="muted-text">
+            Бот: {telegramBotInfo.display_name ?? telegramBotInfo.username ?? "не определён"}
+          </p>
+        ) : null}
+        {telegramTestResult ? (
+          <p className="muted-text">Тестовое сообщение отправлено в чат {telegramTestResult.chat_id}.</p>
+        ) : null}
+      </section>
+    );
+  }
+
+  function renderTemplatesSection() {
+    if (!platformSettingsForm) return renderUnavailableState();
+    return (
+      <section className="panel form">
+        <label>
+          <span>Шаблон</span>
+          <select value={templateEventCode} onChange={(event) => setTemplateEventCode(event.target.value)}>
+            {platformSettingsForm.notification_templates.map((template) => (
+              <option key={template.code} value={template.code}>
+                {template.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        {selectedTemplate ? (
+          <>
+            <label>
+              <span>Email subject</span>
+              <input
+                value={selectedTemplate.email_subject ?? ""}
+                onChange={(event) =>
+                  handleTemplateFieldChange(selectedTemplate.code, "email_subject", event.target.value)
+                }
+              />
+            </label>
+            <label>
+              <span>Email body</span>
+              <textarea
+                rows={6}
+                value={selectedTemplate.email_body ?? ""}
+                onChange={(event) =>
+                  handleTemplateFieldChange(selectedTemplate.code, "email_body", event.target.value)
+                }
+              />
+            </label>
+            <label>
+              <span>Telegram body</span>
+              <textarea
+                rows={5}
+                value={selectedTemplate.telegram_body ?? ""}
+                onChange={(event) =>
+                  handleTemplateFieldChange(selectedTemplate.code, "telegram_body", event.target.value)
+                }
+              />
+            </label>
+          </>
+        ) : (
+          <p className="muted-text">Шаблоны отсутствуют.</p>
+        )}
+      </section>
+    );
+  }
+
+  function renderEventsSection() {
+    if (!platformSettingsForm) return renderUnavailableState();
+    return (
+      <section className="panel form">
+        {platformSettingsForm.notification_events.map((item) => (
+          <div key={item.code} className="tenant-card">
+            <div className="tenant-meta">
+              <strong>{item.title}</strong>
+              <span className="muted-text">{item.code}</span>
+            </div>
             <label className="switch-row">
-              <span>Разрешить клиентам менять наценку</span>
+              <span>Email</span>
               <input
                 type="checkbox"
-                checked={platformSettingsForm.allow_tenant_markup_override}
+                checked={item.email_enabled}
                 onChange={(event) =>
-                  setPlatformSettingsForm({
-                    ...platformSettingsForm,
-                    allow_tenant_markup_override: event.target.checked,
+                  handleToggleNotificationEvent(item.code, "email_enabled", event.target.checked)
+                }
+              />
+            </label>
+            <label className="switch-row">
+              <span>Telegram</span>
+              <input
+                type="checkbox"
+                checked={item.telegram_enabled}
+                onChange={(event) =>
+                  handleToggleNotificationEvent(item.code, "telegram_enabled", event.target.checked)
+                }
+              />
+            </label>
+          </div>
+        ))}
+      </section>
+    );
+  }
+
+  function renderTenantSection() {
+    return (
+      <section className="panel form">
+        <label>
+          <span>Клиент</span>
+          <select value={selectedTenantId ?? ""} onChange={(event) => onSelectTenant(event.target.value)}>
+            <option disabled value="">
+              Выберите клиента
+            </option>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {tenant.name} ({tenant.status})
+              </option>
+            ))}
+          </select>
+        </label>
+        {tenantPolicyForm ? (
+          <form className="form" onSubmit={handleSubmitTenantPolicy}>
+            <label>
+              <span>Наценка клиента (%)</span>
+              <input
+                type="number"
+                step="0.0001"
+                value={tenantPolicyForm.custom_markup_percent ?? ""}
+                onChange={(event) =>
+                  setTenantPolicyForm({
+                    ...tenantPolicyForm,
+                    custom_markup_percent:
+                      event.target.value.trim() === "" ? null : event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label>
+              <span>Комиссия с оборота клиента (%)</span>
+              <input
+                type="number"
+                step="0.0001"
+                value={tenantPolicyForm.custom_turnover_fee_percent ?? ""}
+                onChange={(event) =>
+                  setTenantPolicyForm({
+                    ...tenantPolicyForm,
+                    custom_turnover_fee_percent:
+                      event.target.value.trim() === "" ? null : event.target.value,
                   })
                 }
               />
             </label>
             <label className="switch-row">
-              <span>Разрешить клиентам менять комиссию от оборота</span>
+              <span>Разрешить выплаты</span>
               <input
                 type="checkbox"
-                checked={platformSettingsForm.allow_tenant_turnover_fee_override}
+                checked={tenantPolicyForm.payouts_enabled}
                 onChange={(event) =>
-                  setPlatformSettingsForm({
-                    ...platformSettingsForm,
-                    allow_tenant_turnover_fee_override: event.target.checked,
-                  })
-                }
-              />
-            </label>
-            <label className="switch-row">
-              <span>Глобально разрешить выплаты</span>
-              <input
-                type="checkbox"
-                checked={platformSettingsForm.payouts_enabled}
-                onChange={(event) =>
-                  setPlatformSettingsForm({
-                    ...platformSettingsForm,
+                  setTenantPolicyForm({
+                    ...tenantPolicyForm,
                     payouts_enabled: event.target.checked,
                   })
                 }
               />
             </label>
-            <div className="notification-settings-box">
-              <p className="eyebrow">Бренд уведомлений</p>
-              <label>
-                <span>Название бренда</span>
-                <input
-                  type="text"
-                  placeholder="NorenCash"
-                  value={platformSettingsForm.notification_brand_name}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      notification_brand_name: event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>URL логотипа (для email)</span>
-                <input
-                  type="url"
-                  placeholder="https://noren.digital/logo.png"
-                  value={platformSettingsForm.notification_logo_url ?? ""}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      notification_logo_url:
-                        event.target.value.trim() === "" ? null : event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Основная ссылка бренда</span>
-                <input
-                  type="url"
-                  placeholder="https://noren.digital"
-                  value={platformSettingsForm.notification_primary_url ?? ""}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      notification_primary_url:
-                        event.target.value.trim() === "" ? null : event.target.value,
-                    })
-                  }
-                />
-              </label>
-            </div>
-
-            <div className="notification-settings-box">
-              <p className="eyebrow">Шаблоны сообщений по событиям</p>
-              <label>
-                <span>Событие</span>
-                <select
-                  value={selectedTemplate?.code ?? ""}
-                  onChange={(event) => setTemplateEventCode(event.target.value)}
-                >
-                  {platformSettingsForm.notification_templates.map((item) => (
-                    <option key={item.code} value={item.code}>
-                      {item.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {selectedTemplate ? (
-                <div className="notification-settings-box">
-                  <p className="muted-text">
-                    Доступные переменные: {platformSettingsForm.notification_template_variables.join(", ")}
-                  </p>
-                  <label>
-                    <span>Email subject</span>
-                    <input
-                      type="text"
-                      value={selectedTemplate.email_subject ?? ""}
-                      onChange={(event) =>
-                        handleTemplateFieldChange(
-                          selectedTemplate.code,
-                          "email_subject",
-                          event.target.value,
-                        )
-                      }
-                      placeholder="{{event_title}}"
-                    />
-                  </label>
-                  <label>
-                    <span>Email body (HTML поддерживается)</span>
-                    <textarea
-                      rows={7}
-                      value={selectedTemplate.email_body ?? ""}
-                      onChange={(event) =>
-                        handleTemplateFieldChange(
-                          selectedTemplate.code,
-                          "email_body",
-                          event.target.value,
-                        )
-                      }
-                      placeholder="<p>Здравствуйте, {{user_full_name}}</p><p>{{message_lines_html}}</p>"
-                    />
-                  </label>
-                  <label>
-                    <span>Telegram message</span>
-                    <textarea
-                      rows={6}
-                      value={selectedTemplate.telegram_body ?? ""}
-                      onChange={(event) =>
-                        handleTemplateFieldChange(
-                          selectedTemplate.code,
-                          "telegram_body",
-                          event.target.value,
-                        )
-                      }
-                      placeholder="{{event_subject}}\n\n{{message_lines}}"
-                    />
-                  </label>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="notification-settings-box">
-              <p className="eyebrow">Telegram</p>
-              <label className="switch-row">
-                <span>Глобально включить Telegram-уведомления</span>
-                <input
-                  type="checkbox"
-                  checked={platformSettingsForm.telegram_notifications_enabled}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      telegram_notifications_enabled: event.target.checked,
-                    })
-                  }
-                />
-              </label>
-              <p className="muted-text">
-                {platformSettingsForm.telegram_bot_token_configured
-                  ? "Bot token уже сохранен. Укажите новый, если хотите заменить."
-                  : "Bot token пока не настроен."}
-              </p>
-              {telegramBotInfo?.token_masked ? (
-                <p className="muted-text">Сохраненный token: {telegramBotInfo.token_masked}</p>
-              ) : null}
-              <label>
-                <span>Telegram API URL</span>
-                <input
-                  type="text"
-                  placeholder="https://api.telegram.org"
-                  value={platformSettingsForm.telegram_api_base_url}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      telegram_api_base_url: event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Telegram Bot Token (опционально)</span>
-                <input
-                  type="password"
-                  autoComplete="off"
-                  placeholder="Оставьте пустым, чтобы не менять"
-                  value={telegramBotToken}
-                  onChange={(event) => setTelegramBotToken(event.target.value)}
-                />
-              </label>
-              <button
-                className="ghost-button"
-                type="button"
-                disabled={loading || checkingTelegramBot}
-                onClick={() => void handleCheckTelegramBot()}
-              >
-                {checkingTelegramBot ? "Проверяем..." : "Проверить бота"}
-              </button>
-              {telegramBotInfo ? (
-                <div className="notification-settings-box">
-                  <p className="eyebrow">Подключенный бот</p>
-                  <p className="muted-text">
-                    Username: {telegramBotInfo.username ? `@${telegramBotInfo.username}` : "-"}
-                  </p>
-                  <p className="muted-text">
-                    Имя: {telegramBotInfo.display_name ?? telegramBotInfo.first_name ?? "-"}
-                  </p>
-                  <p className="muted-text">ID: {telegramBotInfo.bot_id ?? "-"}</p>
-                </div>
-              ) : null}
-              <label>
-                <span>Admin Chat ID для теста</span>
-                <input
-                  type="text"
-                  placeholder="123456789 или -1001234567890"
-                  value={adminTelegramChatId}
-                  onChange={(event) => setAdminTelegramChatId(event.target.value)}
-                />
-              </label>
-              <button
-                className="ghost-button"
-                type="button"
-                disabled={loading || sendingTelegramTest || adminTelegramChatId.trim() === ""}
-                onClick={() => void handleSendTelegramTest()}
-              >
-                {sendingTelegramTest ? "Отправляем..." : "Тест уведомления в Telegram"}
-              </button>
-              {telegramTestResult ? (
-                <div className="notification-settings-box">
-                  <p className="eyebrow">Telegram тест успешен</p>
-                  <p className="muted-text">Chat ID: {telegramTestResult.chat_id}</p>
-                  <p className="muted-text">Бот: {telegramTestResult.bot_display_name ?? "-"}</p>
-                  <p className="muted-text">
-                    Username: {telegramTestResult.bot_username ? `@${telegramTestResult.bot_username}` : "-"}
-                  </p>
-                  <p className="muted-text">
-                    Message ID: {telegramTestResult.telegram_message_id ?? "-"}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-            <div className="notification-settings-box">
-              <p className="eyebrow">SMTP.bz</p>
-              <label className="switch-row">
-                <span>Глобально включить Email-уведомления</span>
-                <input
-                  type="checkbox"
-                  checked={platformSettingsForm.email_notifications_enabled}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      email_notifications_enabled: event.target.checked,
-                    })
-                  }
-                />
-              </label>
-              <label className="switch-row">
-                <span>Отправка через SMTP.bz API</span>
-                <input
-                  type="checkbox"
-                  checked={platformSettingsForm.smtp_bz_enabled}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      smtp_bz_enabled: event.target.checked,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>SMTP.bz API URL</span>
-                <input
-                  type="text"
-                  placeholder="https://api.smtp.bz/v1"
-                  value={platformSettingsForm.smtp_bz_api_base_url}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      smtp_bz_api_base_url: event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Email отправителя (from)</span>
-                <input
-                  type="email"
-                  placeholder="notify@noren.digital"
-                  value={platformSettingsForm.smtp_bz_sender_email}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      smtp_bz_sender_email: event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Имя отправителя (name)</span>
-                <input
-                  type="text"
-                  placeholder="NorenCash"
-                  value={platformSettingsForm.smtp_bz_sender_name}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      smtp_bz_sender_name: event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Reply-To (опционально)</span>
-                <input
-                  type="email"
-                  placeholder="support@noren.digital"
-                  value={platformSettingsForm.smtp_bz_reply_to ?? ""}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      smtp_bz_reply_to:
-                        event.target.value.trim() === "" ? null : event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Tag (опционально)</span>
-                <input
-                  type="text"
-                  placeholder="merchant_notifications"
-                  value={platformSettingsForm.smtp_bz_tag ?? ""}
-                  onChange={(event) =>
-                    setPlatformSettingsForm({
-                      ...platformSettingsForm,
-                      smtp_bz_tag:
-                        event.target.value.trim() === "" ? null : event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>SMTP.bz API key (опционально)</span>
-                <input
-                  type="password"
-                  autoComplete="off"
-                  placeholder="Оставьте пустым, чтобы не менять"
-                  value={smtpBzApiKey}
-                  onChange={(event) => setSmtpBzApiKey(event.target.value)}
-                />
-              </label>
-              <label>
-                <span>Email для тестового письма</span>
-                <input
-                  type="email"
-                  placeholder="admin@noren.digital"
-                  value={smtpTestRecipient}
-                  onChange={(event) => setSmtpTestRecipient(event.target.value)}
-                />
-              </label>
-              <button
-                className="ghost-button"
-                type="button"
-                disabled={loading || sendingSmtpTest || smtpTestRecipient.trim() === ""}
-                onClick={() => void handleSendSmtpTest()}
-              >
-                {sendingSmtpTest ? "Отправляем..." : "Отправить тест SMTP.bz"}
-              </button>
-
-              <div className="notification-events-list">
-                {(platformSettingsForm.notification_events ?? []).map((item) => (
-                  <div className="notification-event-row" key={item.code}>
-                    <div className="notification-event-meta">
-                      <strong>{item.title}</strong>
-                      <span>{item.mode === "confirm" ? "Подтверждение" : "Уведомление"}</span>
-                    </div>
-                    <label className="notification-channel">
-                      <span>Email</span>
-                      <input
-                        type="checkbox"
-                        checked={item.email_enabled}
-                        onChange={(event) =>
-                          handleToggleNotificationEvent(
-                            item.code,
-                            "email_enabled",
-                            event.target.checked,
-                          )
-                        }
-                      />
-                    </label>
-                    <label className="notification-channel">
-                      <span>Telegram</span>
-                      <input
-                        type="checkbox"
-                        checked={item.telegram_enabled}
-                        onChange={(event) =>
-                          handleToggleNotificationEvent(
-                            item.code,
-                            "telegram_enabled",
-                            event.target.checked,
-                          )
-                        }
-                      />
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button className="primary-button" type="submit" disabled={loading}>
-              {loading ? "Сохраняем..." : "Сохранить настройки платформы"}
+            <label className="switch-row">
+              <span>Ручная проверка выплат</span>
+              <input
+                type="checkbox"
+                checked={tenantPolicyForm.requires_manual_payout_review}
+                onChange={(event) =>
+                  setTenantPolicyForm({
+                    ...tenantPolicyForm,
+                    requires_manual_payout_review: event.target.checked,
+                  })
+                }
+              />
+            </label>
+            <button className="primary-button" type="submit" disabled={loading || !selectedTenantId}>
+              {loading ? "Сохраняем..." : "Сохранить правила клиента"}
             </button>
           </form>
         ) : (
-          <p className="muted-text">Настройки пока не загружены.</p>
+          <p className="muted-text">Выберите клиента, чтобы открыть его индивидуальные правила.</p>
         )}
-      </article>
+      </section>
+    );
+  }
 
-      <article className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Индивидуальные комиссии</p>
-            <h2>Настройки выбранного клиента</h2>
-          </div>
-        </div>
-        <div className="form-grid">
-          <label>
-            <span>Клиент</span>
-            <select
-              value={selectedTenantId ?? ""}
-              onChange={(event) => onSelectTenant(event.target.value)}
+  const tabContent: Record<SettingsTab, () => JSX.Element> = {
+    fees: renderFeesSection,
+    payouts: renderPayoutsSection,
+    brand: renderBrandSection,
+    email: renderEmailSection,
+    telegram: renderTelegramSection,
+    templates: renderTemplatesSection,
+    events: renderEventsSection,
+    tenant: renderTenantSection,
+  };
+
+  const renderContent = (tab: SettingsTab) => tabContent[tab]();
+
+  return (
+    <div className="platform-settings-page">
+      <header className="page-header">
+        <p className="eyebrow">Настройки</p>
+        <h1>Глобальные настройки платформы</h1>
+        <p className="page-description">Управление комиссиями, уведомлениями и брендом</p>
+      </header>
+
+      <nav className="settings-tabs" role="tablist">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            className={`settings-tab-btn ${activeTab === tab.key ? "active" : ""}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            <span className="tab-icon">{tab.icon}</span>
+            <span className="tab-label">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="settings-accordion">
+        {TABS.map((tab) => (
+          <div key={tab.key} className="accordion-item">
+            <button
+              className="accordion-header"
+              onClick={() => toggleAccordion(tab.key)}
+              aria-expanded={isAccordionExpanded(tab.key)}
             >
-              <option disabled value="">
-                Выберите клиента
-              </option>
-              {tenants.map((tenant) => (
-                <option key={tenant.id} value={tenant.id}>
-                  {tenant.name} ({tenant.status})
-                </option>
-              ))}
-            </select>
-          </label>
+              <span className="accordion-icon">{tab.icon}</span>
+              <span className="accordion-label">{tab.label}</span>
+              <svg className="accordion-chevron" viewBox="0 0 24 24" fill="none">
+                <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <div
+              className={`accordion-body ${isAccordionExpanded(tab.key) ? "open" : ""}`}
+            >
+              <div className="accordion-body-inner">
+                {renderContent(tab.key)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
-          {tenantPolicyForm ? (
-            <form className="form" onSubmit={handleSubmitTenantPolicy}>
-              <label>
-                <span>Наценка клиента (%)</span>
-                <input
-                  type="number"
-                  step="0.0001"
-                  placeholder="пусто = глобальное значение"
-                  value={tenantPolicyForm.custom_markup_percent ?? ""}
-                  onChange={(event) =>
-                    setTenantPolicyForm({
-                      ...tenantPolicyForm,
-                      custom_markup_percent:
-                        event.target.value.trim() === "" ? null : event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Комиссия от оборота клиента (%)</span>
-                <input
-                  type="number"
-                  step="0.0001"
-                  placeholder="пусто = глобальное значение"
-                  value={tenantPolicyForm.custom_turnover_fee_percent ?? ""}
-                  onChange={(event) =>
-                    setTenantPolicyForm({
-                      ...tenantPolicyForm,
-                      custom_turnover_fee_percent:
-                        event.target.value.trim() === "" ? null : event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label className="switch-row">
-                <span>Разрешить выплаты клиенту</span>
-                <input
-                  type="checkbox"
-                  checked={tenantPolicyForm.payouts_enabled}
-                  onChange={(event) =>
-                    setTenantPolicyForm({
-                      ...tenantPolicyForm,
-                      payouts_enabled: event.target.checked,
-                    })
-                  }
-                />
-              </label>
-              <label className="switch-row">
-                <span>Ручная проверка выплат</span>
-                <input
-                  type="checkbox"
-                  checked={tenantPolicyForm.requires_manual_payout_review}
-                  onChange={(event) =>
-                    setTenantPolicyForm({
-                      ...tenantPolicyForm,
-                      requires_manual_payout_review: event.target.checked,
-                    })
-                  }
-                />
-              </label>
-              <button className="primary-button" type="submit" disabled={loading || !selectedTenantId}>
-                {loading ? "Сохраняем..." : "Сохранить правила клиента"}
-              </button>
-            </form>
-          ) : (
-            <p className="muted-text">Выберите клиента, чтобы открыть его индивидуальные правила.</p>
-          )}
+      <div className="settings-tab-content">
+        {renderContent(activeTab)}
+      </div>
+
+      {(activeTab !== "tenant") && (
+        <div className="settings-save-bar">
+          <button className="primary-button" onClick={() => formRef.current?.requestSubmit()} disabled={loading}>
+            {loading ? "Сохраняем..." : "Сохранить настройки"}
+          </button>
         </div>
-      </article>
+      )}
 
-      <AssetAvailabilityPanel
-        loading={loading}
-        rates={adminAssetRates}
-        onUpdateAssetAvailability={onUpdateAssetAvailability}
-      />
-    </section>
+      <form ref={formRef} style={{ display: "none" }} onSubmit={handleSubmitPlatformSettings}>
+        <input type="hidden" />
+      </form>
+    </div>
   );
 }
