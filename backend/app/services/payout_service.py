@@ -84,16 +84,18 @@ class PayoutService:
         self.db.refresh(payout)
         return payout
 
-    def list_by_tenant(self, tenant_id: str) -> list[PayoutRequest]:
+    def list_by_tenant(self, tenant_id: str, limit: int = 50, offset: int = 0) -> list[PayoutRequest]:
         stmt = (
             select(PayoutRequest)
             .where(PayoutRequest.tenant_id == tenant_id)
             .order_by(PayoutRequest.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list(self.db.scalars(stmt).all())
 
-    def list_all(self, limit: int = 200) -> list[PayoutRequest]:
-        stmt = select(PayoutRequest).order_by(PayoutRequest.created_at.desc()).limit(limit)
+    def list_all(self, limit: int = 200, offset: int = 0) -> list[PayoutRequest]:
+        stmt = select(PayoutRequest).order_by(PayoutRequest.created_at.desc()).limit(limit).offset(offset)
         return list(self.db.scalars(stmt).all())
 
     def review_request(

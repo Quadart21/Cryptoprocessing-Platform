@@ -14,6 +14,7 @@ type AdminClientsSectionProps = {
   onOpenTenant: (tenantId: string) => void;
   onApproveTenant: (tenantId: string) => void;
   onRejectTenant: (tenantId: string) => void;
+  onDeleteTenant: (tenantId: string) => void;
 };
 
 export function AdminClientsSection({
@@ -28,6 +29,7 @@ export function AdminClientsSection({
   onOpenTenant,
   onApproveTenant,
   onRejectTenant,
+  onDeleteTenant,
 }: AdminClientsSectionProps) {
   const pendingTenants = tenants.filter((tenant) => tenant.status === "pending_review");
   const visibleTenants = mode === "requests" ? pendingTenants : tenants;
@@ -119,6 +121,9 @@ export function AdminClientsSection({
                   <span>{tenant.status}</span>
                   <button className="ghost-button" onClick={() => onOpenTenant(tenant.id)} type="button">
                     Открыть страницу
+                  </button>
+                  <button className="ghost-button" onClick={() => onDeleteTenant(tenant.id)} type="button">
+                    Удалить
                   </button>
                   {tenant.status === "pending_review" ? (
                     <div className="action-row">

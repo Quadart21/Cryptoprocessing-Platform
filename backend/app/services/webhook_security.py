@@ -52,10 +52,12 @@ class CryptoCashWebhookSecurityService:
                 "Webhook timestamp is outside the allowed replay-protection window."
             )
 
-        if settings.webhook_require_signature and not payload.signature:
-            raise CryptoCashWebhookSecurityError("Missing webhook signature.")
         if not payload.signature:
-            return
+            raise CryptoCashWebhookSecurityError(
+                "Webhook signature is required in production."
+                if settings.is_production
+                else "Webhook signature is required."
+            )
 
         signing_payload = {
             "id": raw_payload.get("id"),
@@ -103,10 +105,10 @@ class CryptoCashWebhookSecurityService:
 
     @staticmethod
     def _verify_legacy(signature: str, message: bytes) -> bool:
-        if not settings.crypto_cash_secret_key:
+        if not settings.effective_webhook_secret:
             return False
         digest = hashlib.sha256(
-            settings.crypto_cash_secret_key.encode("utf-8") + message
+            settings.effective_webhook_secret.encode("utf-8") + message
         ).digest()
         expected = base64.b64encode(digest).decode("utf-8")
         return hmac.compare_digest(expected, signature)

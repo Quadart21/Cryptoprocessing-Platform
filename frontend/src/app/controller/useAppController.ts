@@ -54,6 +54,8 @@ import {
   sendWebhookTest,
   setupTwoFactor,
   syncClientInvoice,
+  updateAdminProject,
+  updateAdminTenant,
   updateAdminAssetAvailability,
   updateAdminInvoiceStatus,
   updateAdminUser,
@@ -61,6 +63,7 @@ import {
   updatePlatformBillingSettings,
   updateTenantBillingPolicy,
   updateWebhookConfig,
+  deleteAdminTenant,
   type AccountingSummary,
   type AdminUserCreatePayload,
   type AdminUserItem,
@@ -89,6 +92,7 @@ import {
   type TenantBillingPolicy,
   type TenantCreatePayload,
   type TenantCreateResponse,
+  type TenantAdminUpdatePayload,
   type TenantDetailResponse,
   type TenantItem,
   type TransactionItem,
@@ -96,6 +100,7 @@ import {
   type TwoFactorStatus,
   type UserRoleDefinition,
   type WebhookConfigItem,
+  type ProjectAdminUpdatePayload,
 } from "../../api";
 import {
   initialInvoiceForm,
@@ -247,20 +252,15 @@ export function useAppController() {
   }
 
   async function loadSelectedTenant(accessToken: string, tenantId: string) {
-    const [
-      detail,
-      tenantInvoices,
-      tenantTransactions,
-      tenantPayoutItems,
-      tenantSummary,
-      tenantPolicy,
-    ] = await Promise.all([
+    const [detail, tenantInvoices] = await Promise.all([
       fetchTenantDetail(accessToken, tenantId),
       fetchTenantInvoices(accessToken, tenantId),
-      fetchTenantTransactions(accessToken, tenantId),
-      fetchTenantPayouts(accessToken, tenantId),
-      fetchTenantAccountingSummary(accessToken, tenantId),
-      fetchTenantBillingPolicy(accessToken, tenantId),
+    ]);
+    const [tenantTransactions, tenantPayoutItems, tenantSummary, tenantPolicy] = await Promise.all([
+      safeLoad(() => fetchTenantTransactions(accessToken, tenantId), []),
+      safeLoad(() => fetchTenantPayouts(accessToken, tenantId), []),
+      safeLoad(() => fetchTenantAccountingSummary(accessToken, tenantId), null),
+      safeLoad(() => fetchTenantBillingPolicy(accessToken, tenantId), null),
     ]);
 
     setSelectedTenantId(tenantId);
@@ -675,6 +675,76 @@ export function useAppController() {
     }
   }
 
+  async function handleUpdateAdminTenant(tenantId: string, payload: TenantAdminUpdatePayload) {
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      clearRuntimeState();
+      const detail = await updateAdminTenant(token, tenantId, payload);
+      setSelectedTenantDetail(detail);
+      setTenants(await fetchTenants(token));
+      setSuccess("Данные мерчанта обновлены.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось обновить мерчанта.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateAdminProject(projectId: string, payload: ProjectAdminUpdatePayload) {
+    if (!token || !selectedTenantId) return;
+
+    try {
+      setLoading(true);
+      clearRuntimeState();
+      const updatedProject = await updateAdminProject(token, projectId, payload);
+      setSelectedTenantDetail((current) =>
+        current
+          ? {
+              ...current,
+              projects: current.projects.map((project) =>
+                project.id === projectId ? updatedProject : project,
+              ),
+            }
+          : current,
+      );
+      setSuccess("Проект обновлен.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось обновить проект.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteAdminTenant(tenantId: string) {
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      clearRuntimeState();
+      await deleteAdminTenant(token, tenantId);
+      setTenants(await fetchTenants(token));
+      if (selectedTenantId === tenantId) {
+        setSelectedTenantId(null);
+        setSelectedTenantDetail(null);
+        setSelectedTenantInvoices([]);
+        setSelectedTenantTransactions([]);
+        setSelectedTenantPayouts([]);
+        setSelectedTenantAccounting(null);
+        setSelectedTenantBillingPolicy(null);
+        setSelectedInvoiceId(null);
+        setSelectedInvoiceDetail(null);
+        setSelectedInvoiceEvents([]);
+      }
+      setSuccess("Мерчант удален.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось удалить мерчанта.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleCreateInvoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
@@ -796,6 +866,7 @@ export function useAppController() {
     try {
       setLoading(true);
       setError(null);
+      setSelectedTenantId(tenantId);
       const [allInvoices, allTransactions, allEvents] = await Promise.all([
         fetchAdminInvoices(token),
         fetchAdminTransactions(token),
@@ -1217,6 +1288,9 @@ export function useAppController() {
     handleSelectTenant,
     handleApproveTenant,
     handleRejectTenant,
+    handleUpdateAdminTenant,
+    handleUpdateAdminProject,
+    handleDeleteAdminTenant,
     handleSelectInvoice,
     handleUpdateInvoiceStatus,
     handleSelectClientInvoice,

@@ -1,5 +1,8 @@
+from secrets import choice
+from string import ascii_letters, digits
+
 from fastapi import Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -11,8 +14,17 @@ from app.api.deps import (
 )
 from app.core.rbac import list_role_definitions
 from app.models.invoice import Invoice
+from app.models.invite_token import InviteToken
+from app.models.api_key import ApiKey
+from app.models.ledger_entry import LedgerEntry
+from app.models.provider_event import ProviderEvent
+from app.models.project import Project
+from app.models.payout_request import PayoutRequest
+from app.models.tenant_balance import TenantBalance
+from app.models.tenant_fee_policy import TenantFeePolicy
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.models.user_session import UserSession
 from app.schemas.accounting import AccountingSummaryResponse
 from app.schemas.assets import (
     AssetAvailabilityUpdateRequest,
@@ -30,13 +42,18 @@ from app.schemas.billing import (
     TenantBillingPolicyResponse,
     TenantBillingPolicyUpdateRequest,
 )
-from app.schemas.admin import TenantDetailResponse
+from app.schemas.admin import TenantDetailResponse, TenantOwnerSummary
 from app.schemas.invoice import (
     InvoiceAdminDetailResponse,
     InvoiceResponse,
     InvoiceStatusUpdateRequest,
 )
-from app.schemas.project import ApiKeyRegenerateResponse, ApiKeySummary, ProjectSummary
+from app.schemas.project import (
+    ApiKeyRegenerateResponse,
+    ApiKeySummary,
+    ProjectAdminUpdateRequest,
+    ProjectSummary,
+)
 from app.schemas.payout import PayoutRequestResponse, PayoutReviewRequest
 from app.schemas.public_page import (
     PublicPageCreateRequest,
@@ -44,8 +61,13 @@ from app.schemas.public_page import (
     PublicPageUpdateRequest,
 )
 from app.schemas.rates import RatesResponse
-from app.schemas.tenant import TenantApprovalRequest, TenantCreateRequest, TenantSummary
-from app.schemas.tenant import TenantCreateResponse
+from app.schemas.tenant import (
+    TenantAdminUpdateRequest,
+    TenantApprovalRequest,
+    TenantCreateRequest,
+    TenantCreateResponse,
+    TenantSummary,
+)
 from app.schemas.transaction import TransactionResponse
 from app.schemas.user import CurrentUserResponse
 from app.schemas.user_management import (
@@ -73,6 +95,11 @@ from fastapi import APIRouter
 router = APIRouter()
 
 
+def _generate_temporary_password(length: int = 14) -> str:
+    alphabet = ascii_letters + digits + "!@#$%^&*"
+    return "".join(choice(alphabet) for _ in range(length))
+
+
 @router.get("/health")
 async def admin_health() -> dict[str, str]:
     return {"status": "ok", "scope": "admin"}
@@ -80,11 +107,13 @@ async def admin_health() -> dict[str, str]:
 
 @router.get("/tenants", response_model=list[TenantSummary])
 async def list_tenants(
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.tenants.read")),
     db: Session = Depends(get_db),
 ) -> list[TenantSummary]:
     tenant_service = TenantService(db)
-    tenant_rows = tenant_service.list_tenants()
+    tenant_rows = tenant_service.list_tenants(limit=limit, offset=offset)
     return [
         TenantSummary(
             id=tenant.id,
@@ -183,10 +212,12 @@ async def list_roles(
 @router.get("/users", response_model=list[UserSummaryResponse])
 async def list_users(
     tenant_id: str | None = Query(default=None),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.users.read")),
     db: Session = Depends(get_db),
 ) -> list[UserSummaryResponse]:
-    rows = UserService(db).list_users(tenant_id=tenant_id)
+    rows = UserService(db).list_users(tenant_id=tenant_id, limit=limit, offset=offset)
     return [_map_user_summary(user=user, tenant_name=tenant_name) for user, tenant_name in rows]
 
 
@@ -275,6 +306,7 @@ async def approve_tenant(
             f"Проект: {tenant.name}",
             "Статус: одобрено администратором.",
         ],
+        force_email=True,
     )
     notification_service.notify_user(
         owner,
@@ -285,6 +317,7 @@ async def approve_tenant(
             f"Временный пароль: {generated_password}",
             "Рекомендуем изменить пароль после первого входа.",
         ],
+        force_email=True,
     )
     notification_service.notify_user(
         owner,
@@ -296,6 +329,7 @@ async def approve_tenant(
             f"Secret key: {secret_key}",
             "Сохраните secret key в защищенном месте.",
         ],
+        force_email=True,
     )
 
     return {
@@ -346,6 +380,91 @@ async def reject_tenant(
         status=tenant.status,
         review_comment=tenant.review_comment,
         owner_email=owner.email if owner else "",
+    )
+
+
+@router.post("/tenants/{tenant_id}/owner/reset-password", response_model=dict[str, str])
+async def reset_tenant_owner_password(
+    tenant_id: str,
+    _: User = Depends(require_platform_permission("admin.tenants.write")),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    tenant = db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Мерчант не найден.")
+
+    owner = db.scalar(
+        select(User).where(User.tenant_id == tenant_id, User.role == "tenant_owner")
+    )
+    if owner is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Владелец мерчанта не найден.",
+        )
+
+    generated_password = _generate_temporary_password()
+    owner = UserService(db).update_user(
+        owner.id,
+        {
+            "password": generated_password,
+            "status": "active",
+        },
+    )
+    NotificationService(db).notify_user(
+        owner,
+        event_code=NotificationService.EVENT_PASSWORD_GENERATED,
+        subject="Администратор сбросил пароль от кабинета",
+        lines=[
+            f"Email: {owner.email}",
+            f"Временный пароль: {generated_password}",
+            "Рекомендуем войти и сразу сменить пароль на свой.",
+        ],
+        force_email=True,
+    )
+    return {
+        "status": "ok",
+        "tenant_id": tenant_id,
+        "user_id": owner.id,
+        "email": owner.email,
+        "generated_password": generated_password,
+    }
+
+
+@router.post("/tenants/{tenant_id}/owner/reset-2fa", response_model=TenantOwnerSummary)
+async def reset_tenant_owner_two_factor(
+    tenant_id: str,
+    _: User = Depends(require_platform_permission("admin.tenants.write")),
+    db: Session = Depends(get_db),
+) -> TenantOwnerSummary:
+    tenant = db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Мерчант не найден.")
+
+    owner = db.scalar(
+        select(User).where(User.tenant_id == tenant_id, User.role == "tenant_owner")
+    )
+    if owner is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Владелец мерчанта не найден.",
+        )
+
+    owner = UserService(db).update_user(owner.id, {"reset_two_factor": True})
+    NotificationService(db).notify_user(
+        owner,
+        event_code=NotificationService.EVENT_TWO_FACTOR_DISABLED,
+        subject="2FA отключена администратором",
+        lines=[
+            f"Email: {owner.email}",
+            "Если отключение было выполнено не по вашему запросу, срочно смените пароль.",
+        ],
+        force_email=True,
+    )
+    return TenantOwnerSummary(
+        id=owner.id,
+        email=owner.email,
+        full_name=owner.full_name,
+        status=owner.status,
     )
 
 
@@ -442,6 +561,7 @@ async def regenerate_admin_api_key(
             "Сохраните новый secret key в защищенном месте.",
         ],
         owner_only=True,
+        force_email=True,
     )
     return ApiKeyRegenerateResponse(
         id=regenerated.id,
@@ -480,6 +600,15 @@ async def get_tenant_detail(
             status=tenant.status,
             review_comment=tenant.review_comment,
             owner_email=owner.email,
+            timezone=tenant.timezone,
+            base_currency=tenant.base_currency,
+            plan=tenant.plan,
+        ),
+        owner=TenantOwnerSummary(
+            id=owner.id,
+            email=owner.email,
+            full_name=owner.full_name,
+            status=owner.status,
         ),
         projects=[
             ProjectSummary(
@@ -488,6 +617,8 @@ async def get_tenant_detail(
                 name=project.name,
                 domain=project.domain,
                 description=project.description,
+                webhook_url=project.webhook_url,
+                has_webhook_secret=ProjectService.has_webhook_secret(project),
                 status=project.status,
             )
             for project in projects
@@ -506,49 +637,192 @@ async def get_tenant_detail(
     )
 
 
+@router.patch("/tenants/{tenant_id}", response_model=TenantDetailResponse)
+async def update_tenant(
+    tenant_id: str,
+    payload: TenantAdminUpdateRequest,
+    _: User = Depends(require_platform_permission("admin.tenants.write")),
+    db: Session = Depends(get_db),
+) -> TenantDetailResponse:
+    tenant = db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant не найден.")
+
+    owner = db.scalar(
+        select(User)
+        .where(User.tenant_id == tenant_id, User.role == "tenant_owner")
+        .order_by(User.created_at.asc())
+    )
+    if owner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Владелец tenant не найден.")
+
+    duplicate_tenant = db.scalar(
+        select(Tenant).where(Tenant.slug == payload.slug, Tenant.id != tenant_id)
+    )
+    if duplicate_tenant is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Slug уже используется.")
+
+    duplicate_owner = db.scalar(
+        select(User).where(User.email == payload.owner_email, User.id != owner.id)
+    )
+    if duplicate_owner is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email владельца уже используется.")
+
+    tenant.name = payload.company_name.strip()
+    tenant.slug = payload.slug.strip()
+    tenant.status = payload.status.strip()
+    tenant.review_comment = (payload.review_comment or "").strip() or None
+    tenant.timezone = payload.timezone.strip()
+    tenant.base_currency = payload.base_currency.strip().upper()
+    tenant.plan = payload.plan.strip()
+    owner.email = payload.owner_email.strip()
+    owner.full_name = payload.owner_full_name.strip()
+
+    db.add_all([tenant, owner])
+    db.commit()
+    return await get_tenant_detail(tenant_id=tenant_id, _=_, db=db)
+
+
+@router.patch("/projects/{project_id}", response_model=ProjectSummary)
+async def update_admin_project(
+    project_id: str,
+    payload: ProjectAdminUpdateRequest,
+    _: User = Depends(require_platform_permission("admin.tenants.write")),
+    db: Session = Depends(get_db),
+) -> ProjectSummary:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Проект не найден.")
+
+    duplicate_project = db.scalar(
+        select(Project).where(Project.domain == payload.domain, Project.id != project_id)
+    )
+    if duplicate_project is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Домен проекта уже используется.")
+
+    project.name = payload.name.strip()
+    project.domain = payload.domain.strip()
+    project.description = (payload.description or "").strip() or None
+    project.webhook_url = (payload.webhook_url or "").strip() or None
+    project.status = payload.status.strip()
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return ProjectSummary(
+        id=project.id,
+        tenant_id=project.tenant_id,
+        name=project.name,
+        domain=project.domain,
+        description=project.description,
+        webhook_url=project.webhook_url,
+        has_webhook_secret=ProjectService.has_webhook_secret(project),
+        status=project.status,
+    )
+
+
+@router.delete("/tenants/{tenant_id}", response_model=dict[str, str])
+async def delete_tenant(
+    tenant_id: str,
+    _: User = Depends(require_platform_permission("admin.tenants.write")),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    tenant = db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant не найден.")
+
+    has_history = any(
+        [
+            db.scalar(select(Invoice.id).where(Invoice.tenant_id == tenant_id).limit(1)),
+            db.scalar(select(Project.id).where(Project.tenant_id == tenant_id, Project.status == "active").limit(1)),
+            db.scalar(select(PayoutRequest.id).where(PayoutRequest.tenant_id == tenant_id).limit(1)),
+            db.scalar(select(TenantBalance.id).where(TenantBalance.tenant_id == tenant_id).limit(1)),
+            db.scalar(select(LedgerEntry.id).where(LedgerEntry.tenant_id == tenant_id).limit(1)),
+        ]
+    )
+    if has_history:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя удалить мерчанта с финансовой историей. Используйте редактирование или деактивацию.",
+        )
+
+    project_ids = list(
+        db.scalars(select(Project.id).where(Project.tenant_id == tenant_id)).all()
+    )
+    user_ids = list(
+        db.scalars(select(User.id).where(User.tenant_id == tenant_id)).all()
+    )
+    invoice_ids = list(
+        db.scalars(select(Invoice.id).where(Invoice.tenant_id == tenant_id)).all()
+    )
+
+    if invoice_ids:
+        db.execute(delete(ProviderEvent).where(ProviderEvent.invoice_id.in_(invoice_ids)))
+    if user_ids:
+        db.execute(delete(UserSession).where(UserSession.user_id.in_(user_ids)))
+        db.execute(delete(InviteToken).where(InviteToken.user_id.in_(user_ids)))
+    if project_ids:
+        db.execute(delete(ApiKey).where(ApiKey.project_id.in_(project_ids)))
+        db.execute(delete(Project).where(Project.id.in_(project_ids)))
+    if user_ids:
+        db.execute(delete(User).where(User.id.in_(user_ids)))
+
+    db.execute(delete(TenantFeePolicy).where(TenantFeePolicy.tenant_id == tenant_id))
+    db.execute(delete(Tenant).where(Tenant.id == tenant_id))
+    db.commit()
+    return {"status": "deleted", "tenant_id": tenant_id}
+
+
 @router.get("/tenants/{tenant_id}/invoices", response_model=list[InvoiceResponse])
 async def list_tenant_invoices(
     tenant_id: str,
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.invoices.read")),
     db: Session = Depends(get_db),
 ) -> list[InvoiceResponse]:
     invoice_service = InvoiceService(db)
-    invoices = invoice_service.list_invoices_by_tenant(tenant_id)
+    invoices = invoice_service.list_invoices_by_tenant(tenant_id, limit=limit, offset=offset)
     return [_map_invoice_response(invoice) for invoice in invoices]
 
 
 @router.get("/invoices", response_model=list[InvoiceResponse])
 async def list_all_invoices(
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.invoices.read")),
     db: Session = Depends(get_db),
 ) -> list[InvoiceResponse]:
     invoice_service = InvoiceService(db)
-    invoices = invoice_service.list_all_invoices()
+    invoices = invoice_service.list_all_invoices(limit=limit, offset=offset)
     return [_map_invoice_response(invoice) for invoice in invoices]
 
 
 @router.get("/tenants/{tenant_id}/transactions", response_model=list[TransactionResponse])
 async def list_tenant_transactions(
     tenant_id: str,
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.transactions.read")),
     db: Session = Depends(get_db),
 ) -> list[TransactionResponse]:
     transaction_service = TransactionService(db)
     return [
         _map_transaction_response(transaction)
-        for transaction in transaction_service.list_by_tenant(tenant_id)
+        for transaction in transaction_service.list_by_tenant(tenant_id, limit=limit, offset=offset)
     ]
 
 
 @router.get("/transactions", response_model=list[TransactionResponse])
 async def list_all_transactions(
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.transactions.read")),
     db: Session = Depends(get_db),
 ) -> list[TransactionResponse]:
     transaction_service = TransactionService(db)
     return [
         _map_transaction_response(transaction)
-        for transaction in transaction_service.list_all()
+        for transaction in transaction_service.list_all(limit=limit, offset=offset)
     ]
 
 
@@ -1100,3 +1374,65 @@ def _map_public_page_response(page) -> PublicPageResponse:
         created_at=page.created_at,
         updated_at=page.updated_at,
     )
+
+
+@router.get("/security/health", response_model=dict)
+async def security_health_check(
+    _: User = Depends(require_platform_permission("admin.security.read")),
+    db: Session = Depends(get_db),
+) -> dict:
+    from app.core.config import settings
+    from app.core.security import get_password_hash
+
+    issues: list[dict] = []
+    warnings: list[dict] = []
+
+    if settings.is_production:
+        if settings.secret_key.strip().lower() in {"", "change-me", "changeme", "secret"}:
+            issues.append({"code": "insecure_secret_key", "message": "SECRET_KEY uses default value"})
+
+        if not settings.jwt_secret_key.strip():
+            issues.append({"code": "missing_jwt_secret", "message": "JWT_SECRET_KEY not configured"})
+
+        if not settings.fernet_secret_key.strip():
+            issues.append({"code": "missing_fernet_secret", "message": "FERNET_SECRET_KEY not configured"})
+
+        if not settings.webhook_secret_key.strip():
+            issues.append({"code": "missing_webhook_secret", "message": "WEBHOOK_SECRET_KEY not configured"})
+
+        if settings.app_debug:
+            issues.append({"code": "debug_enabled", "message": "APP_DEBUG is enabled in production"})
+
+    superadmin = db.scalar(
+        select(User).where(User.role == "superadmin").order_by(User.created_at.asc())
+    )
+    if superadmin:
+        if not superadmin.totp_enabled:
+            warnings.append({"code": "no_mfa_superadmin", "message": "Superadmin does not have 2FA enabled"})
+
+        if superadmin.password_hash == get_password_hash("admin") or \
+           superadmin.password_hash == get_password_hash("password") or \
+           superadmin.password_hash == get_password_hash("ChangeMe123!"):
+            issues.append({"code": "weak_superadmin_password", "message": "Superadmin password appears to be weak"})
+
+    pending_tenants = list(db.scalars(
+        select(Tenant).where(Tenant.status == "pending_review")
+    ))
+    if len(pending_tenants) > 50:
+        warnings.append({"code": "many_pending_tenants", "message": f"{len(pending_tenants)} tenants pending review"})
+
+    overall_status = "healthy" if not issues else "unhealthy"
+    if not issues and warnings:
+        overall_status = "warning"
+
+    return {
+        "status": overall_status,
+        "issues": issues,
+        "warnings": warnings,
+    }
+
+
+@router.get("/security/csrf", response_model=dict)
+async def csrf_token_endpoint() -> dict:
+    from app.middleware.csrf import generate_csrf_token
+    return {"csrf_token": generate_csrf_token()}

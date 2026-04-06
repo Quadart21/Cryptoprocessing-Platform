@@ -8,6 +8,11 @@ export type LoginResponse = {
   token_type: string;
 };
 
+export type PasswordRecoveryResponse = {
+  status: string;
+  message: string;
+};
+
 export type CurrentUser = {
   id: string;
   tenant_id: string | null;
@@ -26,6 +31,9 @@ export type TenantItem = {
   status: string;
   review_comment: string | null;
   owner_email: string;
+  timezone: string;
+  base_currency: string;
+  plan: string;
 };
 
 export type TenantCreateResponse = TenantItem & {
@@ -80,6 +88,8 @@ export type ProjectItem = {
   name: string;
   domain: string;
   description: string | null;
+  webhook_url: string | null;
+  has_webhook_secret: boolean;
   status: string;
 };
 
@@ -198,8 +208,44 @@ export type ReviewPayoutPayload = {
   amount_approved?: number;
 };
 
+export type TenantOwnerItem = {
+  id: string;
+  email: string;
+  full_name: string;
+  status: string;
+};
+
+export type AdminTenantOwnerPasswordResetResponse = {
+  status: string;
+  tenant_id: string;
+  user_id: string;
+  email: string;
+  generated_password: string;
+};
+
+export type TenantAdminUpdatePayload = {
+  company_name: string;
+  slug: string;
+  status: string;
+  review_comment: string | null;
+  owner_email: string;
+  owner_full_name: string;
+  timezone: string;
+  base_currency: string;
+  plan: string;
+};
+
+export type ProjectAdminUpdatePayload = {
+  name: string;
+  domain: string;
+  description: string | null;
+  webhook_url: string | null;
+  status: string;
+};
+
 export type TenantDetailResponse = {
   tenant: TenantItem;
+  owner: TenantOwnerItem;
   projects: ProjectItem[];
   api_keys: ApiKeyItem[];
   invoices_count: number;
@@ -670,6 +716,26 @@ export function register(payload: RegistrationPayload): Promise<RegistrationResp
   });
 }
 
+export function requestPasswordRecovery(email: string): Promise<PasswordRecoveryResponse> {
+  return request<PasswordRecoveryResponse>("/client/auth/recover-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function setPasswordByRecoveryToken(
+  token: string,
+  password: string,
+): Promise<{ status: string; message: string; user_id: string; email: string }> {
+  return request<{ status: string; message: string; user_id: string; email: string }>(
+    "/client/auth/set-password",
+    {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    },
+  );
+}
+
 export function fetchCurrentUser(token: string): Promise<CurrentUser> {
   return request<CurrentUser>("/client/me", {
     headers: {
@@ -1115,6 +1181,73 @@ export function fetchTenantDetail(
   tenantId: string,
 ): Promise<TenantDetailResponse> {
   return request<TenantDetailResponse>(`/admin/tenants/${tenantId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function updateAdminTenant(
+  token: string,
+  tenantId: string,
+  payload: TenantAdminUpdatePayload,
+): Promise<TenantDetailResponse> {
+  return request<TenantDetailResponse>(`/admin/tenants/${tenantId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminProject(
+  token: string,
+  projectId: string,
+  payload: ProjectAdminUpdatePayload,
+): Promise<ProjectItem> {
+  return request<ProjectItem>(`/admin/projects/${projectId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAdminTenant(
+  token: string,
+  tenantId: string,
+): Promise<{ status: string; tenant_id: string }> {
+  return request<{ status: string; tenant_id: string }>(`/admin/tenants/${tenantId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function resetAdminTenantOwnerPassword(
+  token: string,
+  tenantId: string,
+): Promise<AdminTenantOwnerPasswordResetResponse> {
+  return request<AdminTenantOwnerPasswordResetResponse>(
+    `/admin/tenants/${tenantId}/owner/reset-password`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+}
+
+export function resetAdminTenantOwnerTwoFactor(
+  token: string,
+  tenantId: string,
+): Promise<TenantOwnerItem> {
+  return request<TenantOwnerItem>(`/admin/tenants/${tenantId}/owner/reset-2fa`, {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
     },

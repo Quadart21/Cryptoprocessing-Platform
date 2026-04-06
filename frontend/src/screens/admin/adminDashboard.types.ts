@@ -19,6 +19,7 @@ import type {
   TenantBillingPolicy,
   TenantCreatePayload,
   TenantCreateResponse,
+  TenantAdminUpdatePayload,
   TenantDetailResponse,
   TenantItem,
   TelegramAdminTestPayload,
@@ -29,6 +30,7 @@ import type {
   TwoFactorSetup,
   TwoFactorStatus,
   UserRoleDefinition,
+  ProjectAdminUpdatePayload,
 } from "../../api";
 import type { DashboardRailItem } from "../../components/layout/DashboardRail";
 
@@ -103,6 +105,11 @@ export type AdminDashboardProps = {
   onSelectTenant: (tenantId: string) => void;
   onApproveTenant: (tenantId: string) => void;
   onRejectTenant: (tenantId: string) => void;
+  onUpdateAdminTenant: (tenantId: string, payload: TenantAdminUpdatePayload) => void;
+  onUpdateAdminProject: (projectId: string, payload: ProjectAdminUpdatePayload) => void;
+  onDeleteAdminTenant: (tenantId: string) => void;
+  onResetTenantOwnerPassword: (tenantId: string) => void;
+  onResetTenantOwnerTwoFactor: (tenantId: string) => void;
   onAdminRegenerateApiKey: (apiKeyId: string) => void;
   onAdminRevokeApiKey: (apiKeyId: string) => void;
   onSelectInvoice: (invoiceId: string) => void;

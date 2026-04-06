@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
+
 import type {
   AccountingSummary,
   InvoiceAdminDetail,
   InvoiceItem,
   PayoutRequestItem,
+  ProjectAdminUpdatePayload,
   ProviderEventItem,
+  TenantAdminUpdatePayload,
   TenantDetailResponse,
   TransactionItem,
 } from "../../api";
@@ -21,9 +25,14 @@ type AdminClientDetailSectionProps = {
   selectedInvoiceDetail: InvoiceAdminDetail | null;
   selectedInvoiceEvents: ProviderEventItem[];
   onBackToClients: () => void;
+  onDeleteTenant: (tenantId: string) => void;
+  onResetTenantOwnerPassword: (tenantId: string) => void;
+  onResetTenantOwnerTwoFactor: (tenantId: string) => void;
   onAdminRegenerateApiKey: (apiKeyId: string) => void;
   onAdminRevokeApiKey: (apiKeyId: string) => void;
   onSelectInvoice: (invoiceId: string) => void;
+  onUpdateAdminProject: (projectId: string, payload: ProjectAdminUpdatePayload) => void;
+  onUpdateAdminTenant: (tenantId: string, payload: TenantAdminUpdatePayload) => void;
   onUpdateInvoiceStatus: (status: string) => void;
   onApprovePayout: (payoutId: string) => void;
   onRejectPayout: (payoutId: string) => void;
@@ -41,13 +50,54 @@ export function AdminClientDetailSection({
   selectedInvoiceDetail,
   selectedInvoiceEvents,
   onBackToClients,
+  onDeleteTenant,
+  onResetTenantOwnerPassword,
+  onResetTenantOwnerTwoFactor,
   onAdminRegenerateApiKey,
   onAdminRevokeApiKey,
   onSelectInvoice,
+  onUpdateAdminProject,
+  onUpdateAdminTenant,
   onUpdateInvoiceStatus,
   onApprovePayout,
   onRejectPayout,
 }: AdminClientDetailSectionProps) {
+  const [tenantForm, setTenantForm] = useState<TenantAdminUpdatePayload | null>(null);
+  const [projectForms, setProjectForms] = useState<Record<string, ProjectAdminUpdatePayload>>({});
+
+  useEffect(() => {
+    if (!selectedTenantDetail) {
+      setTenantForm(null);
+      setProjectForms({});
+      return;
+    }
+    setTenantForm({
+      company_name: selectedTenantDetail.tenant?.name ?? "",
+      slug: selectedTenantDetail.tenant?.slug ?? "",
+      status: selectedTenantDetail.tenant?.status ?? "",
+      review_comment: selectedTenantDetail.tenant?.review_comment ?? null,
+      owner_email: selectedTenantDetail.owner?.email ?? "",
+      owner_full_name: selectedTenantDetail.owner?.full_name ?? "",
+      timezone: selectedTenantDetail.tenant?.timezone ?? "UTC",
+      base_currency: selectedTenantDetail.tenant?.base_currency ?? "USD",
+      plan: selectedTenantDetail.tenant?.plan ?? "free",
+    });
+    setProjectForms(
+      Object.fromEntries(
+        (selectedTenantDetail.projects ?? []).map((project) => [
+          project.id,
+          {
+            name: project.name,
+            domain: project.domain,
+            description: project.description,
+            webhook_url: project.webhook_url,
+            status: project.status,
+          },
+        ]),
+      ),
+    );
+  }, [selectedTenantDetail]);
+
   return (
     <section className="dashboard-grid client-grid">
       <article className="panel panel-span-2">
@@ -106,18 +156,257 @@ export function AdminClientDetailSection({
             ) : null}
 
             <div className="detail-section">
+              <h3>Редактирование клиента</h3>
+              {tenantForm ? (
+                <form
+                  className="form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (selectedTenantDetail) {
+                      onUpdateAdminTenant(selectedTenantDetail.tenant.id, tenantForm);
+                    }
+                  }}
+                >
+                  <div className="form-grid-2">
+                    <label>
+                      <span>Компания</span>
+                      <input
+                        value={tenantForm.company_name}
+                        onChange={(event) =>
+                          setTenantForm({ ...tenantForm, company_name: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Slug</span>
+                      <input
+                        value={tenantForm.slug}
+                        onChange={(event) =>
+                          setTenantForm({ ...tenantForm, slug: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Email владельца</span>
+                      <input
+                        value={tenantForm.owner_email}
+                        onChange={(event) =>
+                          setTenantForm({ ...tenantForm, owner_email: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Имя владельца</span>
+                      <input
+                        value={tenantForm.owner_full_name}
+                        onChange={(event) =>
+                          setTenantForm({ ...tenantForm, owner_full_name: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Timezone</span>
+                      <input
+                        value={tenantForm.timezone}
+                        onChange={(event) =>
+                          setTenantForm({ ...tenantForm, timezone: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Base currency</span>
+                      <input
+                        value={tenantForm.base_currency}
+                        onChange={(event) =>
+                          setTenantForm({ ...tenantForm, base_currency: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Plan</span>
+                      <input
+                        value={tenantForm.plan}
+                        onChange={(event) =>
+                          setTenantForm({ ...tenantForm, plan: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Status</span>
+                      <input
+                        value={tenantForm.status}
+                        onChange={(event) =>
+                          setTenantForm({ ...tenantForm, status: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="panel-span-2">
+                      <span>Комментарий</span>
+                      <textarea
+                        rows={3}
+                        value={tenantForm.review_comment ?? ""}
+                        onChange={(event) =>
+                          setTenantForm({
+                            ...tenantForm,
+                            review_comment: event.target.value.trim() === "" ? null : event.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="action-row-inline">
+                    <button className="primary-button" type="submit" disabled={loading}>
+                      Сохранить клиента
+                    </button>
+                    <button
+                      className="ghost-button"
+                      type="button"
+                      onClick={() => selectedTenantDetail && onDeleteTenant(selectedTenantDetail.tenant.id)}
+                    >
+                      Удалить клиента
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
+
+            <div className="detail-section">
+              <h3>Доступ owner</h3>
+              <div className="detail-summary">
+                <div className="detail-chip">
+                  <span>Email</span>
+                  <strong>{selectedTenantDetail?.owner?.email ?? "—"}</strong>
+                </div>
+                <div className="detail-chip">
+                  <span>Владелец</span>
+                  <strong>{selectedTenantDetail?.owner?.full_name ?? "—"}</strong>
+                </div>
+                <div className="detail-chip">
+                  <span>Статус owner</span>
+                  <strong>{selectedTenantDetail?.owner?.status ?? "—"}</strong>
+                </div>
+              </div>
+              <div className="action-row-inline">
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={loading}
+                  onClick={() => selectedTenantDetail && onResetTenantOwnerPassword(selectedTenantDetail.tenant.id)}
+                >
+                  Сбросить пароль owner
+                </button>
+                <button
+                  className="ghost-button"
+                  type="button"
+                  disabled={loading}
+                  onClick={() => selectedTenantDetail && onResetTenantOwnerTwoFactor(selectedTenantDetail.tenant.id)}
+                >
+                  Сбросить 2FA owner
+                </button>
+              </div>
+            </div>
+
+            <div className="detail-section">
               <h3>Проекты</h3>
               <div className="tenant-list">
-                {selectedTenantDetail.projects.map((project) => (
+                {(selectedTenantDetail.projects ?? []).map((project) => (
                   <article className="tenant-card" key={project.id}>
-                    <div>
-                      <strong>{project.name}</strong>
-                      <p>{project.domain}</p>
-                      <p>{project.description ?? "Без описания"}</p>
-                    </div>
-                    <div className="tenant-meta">
-                      <span>{project.status}</span>
-                    </div>
+                    {projectForms[project.id] ? (
+                      <form
+                        className="form panel-span-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          onUpdateAdminProject(project.id, projectForms[project.id]);
+                        }}
+                      >
+                        <div className="form-grid-2">
+                          <label>
+                            <span>Название проекта</span>
+                            <input
+                              value={projectForms[project.id].name}
+                              onChange={(event) =>
+                                setProjectForms({
+                                  ...projectForms,
+                                  [project.id]: {
+                                    ...projectForms[project.id],
+                                    name: event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </label>
+                          <label>
+                            <span>Домен</span>
+                            <input
+                              value={projectForms[project.id].domain}
+                              onChange={(event) =>
+                                setProjectForms({
+                                  ...projectForms,
+                                  [project.id]: {
+                                    ...projectForms[project.id],
+                                    domain: event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </label>
+                          <label>
+                            <span>Status</span>
+                            <input
+                              value={projectForms[project.id].status}
+                              onChange={(event) =>
+                                setProjectForms({
+                                  ...projectForms,
+                                  [project.id]: {
+                                    ...projectForms[project.id],
+                                    status: event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </label>
+                          <label>
+                            <span>Webhook URL</span>
+                            <input
+                              value={projectForms[project.id].webhook_url ?? ""}
+                              onChange={(event) =>
+                                setProjectForms({
+                                  ...projectForms,
+                                  [project.id]: {
+                                    ...projectForms[project.id],
+                                    webhook_url:
+                                      event.target.value.trim() === "" ? null : event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </label>
+                          <label className="panel-span-2">
+                            <span>Описание</span>
+                            <textarea
+                              rows={3}
+                              value={projectForms[project.id].description ?? ""}
+                              onChange={(event) =>
+                                setProjectForms({
+                                  ...projectForms,
+                                  [project.id]: {
+                                    ...projectForms[project.id],
+                                    description:
+                                      event.target.value.trim() === "" ? null : event.target.value,
+                                  },
+                                })
+                              }
+                            />
+                          </label>
+                        </div>
+                        <div className="tenant-meta">
+                          <span>{project.has_webhook_secret ? "Webhook secret: задан" : "Webhook secret: нет"}</span>
+                          <button className="primary-button" type="submit" disabled={loading}>
+                            Сохранить проект
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
                   </article>
                 ))}
               </div>

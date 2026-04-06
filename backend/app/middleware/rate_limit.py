@@ -161,6 +161,30 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 window_seconds=60,
                 key_mode="ip",
             ),
+            RateLimitRule(
+                name="set_password_ip",
+                method="POST",
+                path=f"{prefix}/client/auth/set-password",
+                limit=settings.rate_limit_set_password_per_minute,
+                window_seconds=60,
+                key_mode="ip",
+            ),
+            RateLimitRule(
+                name="2fa_enable_auth",
+                method="POST",
+                path=f"{prefix}/client/security/2fa/enable",
+                limit=settings.rate_limit_2fa_enable_per_minute,
+                window_seconds=60,
+                key_mode="auth",
+            ),
+            RateLimitRule(
+                name="payout_create_auth",
+                method="POST",
+                path=f"{prefix}/client/payouts",
+                limit=settings.rate_limit_payout_create_per_minute,
+                window_seconds=60,
+                key_mode="auth",
+            ),
         ]
 
     async def dispatch(self, request: Request, call_next) -> Response:

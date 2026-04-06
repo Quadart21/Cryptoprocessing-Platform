@@ -3,7 +3,9 @@ import type {
   TenantItem,
   TenantCreateResponse,
   TenantCreatePayload,
+  TenantAdminUpdatePayload,
   TenantDetailResponse,
+  ProjectAdminUpdatePayload,
   UserRoleDefinition,
   AdminUserItem,
   AdminUserCreatePayload,
@@ -84,6 +86,37 @@ export function fetchTenantDetail(
   tenantId: string,
 ): Promise<TenantDetailResponse> {
   return request<TenantDetailResponse>(`/admin/tenants/${tenantId}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export function updateAdminTenant(
+  token: string,
+  tenantId: string,
+  payload: TenantAdminUpdatePayload,
+): Promise<TenantDetailResponse> {
+  return request<TenantDetailResponse>(`/admin/tenants/${tenantId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminProject(
+  token: string,
+  projectId: string,
+  payload: ProjectAdminUpdatePayload,
+): Promise<import("./base").ProjectItem> {
+  return request<import("./base").ProjectItem>(`/admin/projects/${projectId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAdminTenant(token: string, tenantId: string): Promise<{ status: string; tenant_id: string }> {
+  return request<{ status: string; tenant_id: string }>(`/admin/tenants/${tenantId}`, {
+    method: "DELETE",
     headers: authHeaders(token),
   });
 }
@@ -364,6 +397,12 @@ export function regenerateAdminApiKey(
 ): Promise<import("./base").ApiKeyRegenerateResponse> {
   return request<import("./base").ApiKeyRegenerateResponse>(`/admin/api-keys/${apiKeyId}/regenerate`, {
     method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+export function fetchCsrfToken(token: string): Promise<{ csrf_token: string }> {
+  return request<{ csrf_token: string }>("/admin/security/csrf", {
     headers: authHeaders(token),
   });
 }

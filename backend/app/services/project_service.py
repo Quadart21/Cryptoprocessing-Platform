@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from types import SimpleNamespace
 
 from app.core.config import settings
 from app.core.security import encrypt_value
@@ -115,27 +116,61 @@ class ProjectService:
         api_key = self.get_api_key(api_key_id)
         if api_key is None:
             raise ValueError("API key not found.")
+
+        snapshot = SimpleNamespace(
+            id=api_key.id,
+            tenant_id=api_key.tenant_id,
+            project_id=api_key.project_id,
+            public_key=api_key.public_key,
+            status="revoked",
+        )
+
         api_key.status = "revoked"
         self.db.add(api_key)
         self.db.commit()
         apply_db_security_context(self.db)
-        self.db.refresh(api_key)
-        return api_key
+        return snapshot
+
+
+    def revoke_all_tenant_api_keys(self, tenant_id: str) -> int:
+        stmt = (
+            select(ApiKey)
+            .where(ApiKey.tenant_id == tenant_id, ApiKey.status == "active")
+        )
+        api_keys = list(self.db.scalars(stmt).all())
+        count = len(api_keys)
+        for api_key in api_keys:
+            api_key.status = "revoked"
+            self.db.add(api_key)
+        if api_keys:
+            self.db.commit()
+            apply_db_security_context(self.db)
+        return count
 
     def regenerate_api_key(self, api_key_id: str) -> tuple[ApiKey, str]:
         api_key = self.get_api_key(api_key_id)
         if api_key is None:
             raise ValueError("API key not found.")
 
-        api_key.public_key = self._ensure_unique_public_key()
+        new_public_key = self._ensure_unique_public_key()
         secret_key = KeyService.generate_secret_key()
+
+        snapshot = SimpleNamespace(
+            id=api_key.id,
+            tenant_id=api_key.tenant_id,
+            project_id=api_key.project_id,
+            public_key=new_public_key,
+            status="active",
+        )
+
+        api_key.public_key = new_public_key
         api_key.secret_hash = KeyService.hash_secret(secret_key)
         api_key.status = "active"
         self.db.add(api_key)
         self.db.commit()
         apply_db_security_context(self.db)
-        self.db.refresh(api_key)
-        return api_key, secret_key
+        return snapshot, secret_key
+
 
     def _ensure_unique_public_key(self) -> str:
         public_key = KeyService.generate_public_key()

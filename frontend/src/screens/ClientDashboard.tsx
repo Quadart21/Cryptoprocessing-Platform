@@ -22,6 +22,7 @@ import {
   type DashboardRailGroup,
   type DashboardRailItem,
 } from "../components/layout/DashboardRail";
+import { DashboardStatusMessages } from "../components/layout/DashboardStatusMessages";
 import { useClientAnalytics } from "../hooks/useClientAnalytics";
 import { TwoFactorPanel } from "../components/security/TwoFactorPanel";
 import { ApiDocumentationPanel } from "./client/ApiDocumentationPanel";
@@ -280,6 +281,11 @@ export function ClientDashboard({
       />
 
       <main className="dashboard-shell">
+        <DashboardStatusMessages
+          error={error}
+          newApiSecret={newApiSecret}
+          success={success}
+        />
 
         {(section === "overview" || section === "transactions") && (
           <AnalyticsFiltersPanel
@@ -438,6 +444,7 @@ export function ClientDashboard({
           <section className="dashboard-grid client-grid">
             <ApiKeysPanel
               apiKeys={apiKeys}
+              activeApiKeyPublic={activeApiKeyPublic}
               onRegenerate={onClientRegenerateApiKey}
               onRevoke={onClientRevokeApiKey}
             />

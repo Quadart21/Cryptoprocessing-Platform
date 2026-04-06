@@ -65,6 +65,59 @@
     width: 100%;
     order: 3;
   }
+
+  .aps-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .aps-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .aps-sidebar {
+    position: static;
+  }
+
+  .aps-sidebar {
+    display: none;
+  }
+
+  .aps-desktop-sections {
+    display: none;
+  }
+
+  .aps-mobile-sections {
+    display: grid;
+    gap: 12px;
+  }
+
+  .aps-section-card {
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .aps-test-actions,
+  .aps-event-row {
+    grid-template-columns: 1fr;
+  }
+
+  .aps-event-controls {
+    width: 100%;
+  }
+
+  .api-docs-hero,
+  .api-docs-faq {
+    grid-template-columns: 1fr;
+  }
+
+  .api-docs-endpoint-meta,
+  .api-docs-endpoint-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .integration-key-focus {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -131,6 +184,53 @@
   .nc-cta-actions .primary-button,
   .nc-cta-actions .ghost-button {
     width: 100%;
+  }
+
+  .aps-page {
+    gap: 18px;
+    padding: 0;
+  }
+
+  .aps-hero-copy {
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .aps-hero-stats,
+  .aps-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .aps-field-span-2 {
+    grid-column: auto;
+  }
+
+  .aps-switch-card,
+  .aps-switch-inline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .aps-test-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .public-docs-shell-landing {
+    padding: 18px;
+  }
+
+  .api-docs-quicknav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .api-docs-grid,
+  .api-docs-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .api-docs-quicknav {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -54,7 +54,7 @@ export function PublicDocsPage({
         </div>
       </header>
 
-      <section className="public-docs-shell">
+      <section className="public-docs-shell public-docs-shell-landing">
         <ApiDocumentationPanel
           apiBaseUrl={apiBaseUrl}
           activeApiKeyPublic={null}

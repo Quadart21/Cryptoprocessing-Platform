@@ -4,6 +4,7 @@ import {
   DashboardRail,
   type DashboardRailGroup,
 } from "../components/layout/DashboardRail";
+import { DashboardStatusMessages } from "../components/layout/DashboardStatusMessages";
 import { TwoFactorPanel } from "../components/security/TwoFactorPanel";
 import { AdminClientDetailSection } from "./admin/AdminClientDetailSection";
 import { AdminClientsSection } from "./admin/AdminClientsSection";
@@ -128,6 +129,11 @@ export function AdminDashboard({
   onSelectTenant,
   onApproveTenant,
   onRejectTenant,
+  onUpdateAdminTenant,
+  onUpdateAdminProject,
+  onDeleteAdminTenant,
+  onResetTenantOwnerPassword,
+  onResetTenantOwnerTwoFactor,
   onAdminRegenerateApiKey,
   onAdminRevokeApiKey,
   onSelectInvoice,
@@ -232,6 +238,11 @@ export function AdminDashboard({
       />
 
       <main className="dashboard-shell">
+        <DashboardStatusMessages
+          error={error}
+          newApiSecret={newApiSecret}
+          success={success}
+        />
 
         {section === "overview" ? (
           <>
@@ -298,6 +309,7 @@ export function AdminDashboard({
 
         {section === "clients" || section === "requests" ? (
           <AdminClientsSection
+            key={tenants.length + tenants.map(t => t.status).join(',')}
             createdTenant={createdTenant}
             loading={loading}
             mode={section}
@@ -306,6 +318,7 @@ export function AdminDashboard({
             tenants={tenants}
             onApproveTenant={onApproveTenant}
             onCreateTenant={onCreateTenant}
+            onDeleteTenant={onDeleteAdminTenant}
             onOpenTenant={handleOpenTenant}
             onRejectTenant={onRejectTenant}
             onTenantFormChange={onTenantFormChange}
@@ -324,12 +337,17 @@ export function AdminDashboard({
             selectedTenantName={selectedTenantName}
             selectedTenantPayouts={selectedTenantPayouts}
             selectedTenantTransactions={selectedTenantTransactions}
+            onDeleteTenant={onDeleteAdminTenant}
+            onResetTenantOwnerPassword={onResetTenantOwnerPassword}
+            onResetTenantOwnerTwoFactor={onResetTenantOwnerTwoFactor}
             onAdminRegenerateApiKey={onAdminRegenerateApiKey}
             onAdminRevokeApiKey={onAdminRevokeApiKey}
             onApprovePayout={onApprovePayout}
             onBackToClients={() => setSection("clients")}
             onRejectPayout={onRejectPayout}
             onSelectInvoice={onSelectInvoice}
+            onUpdateAdminProject={onUpdateAdminProject}
+            onUpdateAdminTenant={onUpdateAdminTenant}
             onUpdateInvoiceStatus={onUpdateInvoiceStatus}
           />
         ) : null}

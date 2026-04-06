@@ -16,3 +16,12 @@ class TokenPairResponse(BaseModel):
 class SetPasswordRequest(BaseModel):
     token: str
     password: str = Field(min_length=8, max_length=128)
+
+
+class PasswordRecoveryRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordRecoveryResponse(BaseModel):
+    status: str
+    message: str

@@ -275,6 +275,33 @@
   margin-top: 12px;
 }
 
+.integration-key-focus {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(117, 158, 255, 0.14);
+  background:
+    linear-gradient(135deg, rgba(51, 215, 255, 0.08), rgba(91, 140, 255, 0.08)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.integration-key-value {
+  display: block;
+  margin: 6px 0 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(117, 158, 255, 0.14);
+  background: rgba(3, 8, 22, 0.36);
+  color: #d0ebff;
+  font-family: Consolas, "SFMono-Regular", monospace;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .api-docs-panel {
   display: grid;
   gap: 16px;
@@ -370,6 +397,162 @@
 .api-docs-code-card {
   display: grid;
   gap: 10px;
+}
+
+.public-docs-shell-landing {
+  position: relative;
+  overflow: hidden;
+}
+
+.public-docs-shell-landing::before {
+  content: "";
+  position: absolute;
+  inset: -20% auto auto -10%;
+  width: 340px;
+  height: 340px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(22, 237, 215, 0.12), transparent 68%);
+  pointer-events: none;
+}
+
+.api-docs-landing {
+  gap: 20px;
+}
+
+.api-docs-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.api-docs-hero-copy {
+  display: grid;
+  gap: 12px;
+}
+
+.api-docs-hero-copy h2 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 52px);
+  line-height: 0.98;
+}
+
+.api-docs-quicknav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.api-docs-quicknav a {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(117, 158, 255, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-1);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.api-docs-quicknav a:hover {
+  border-color: rgba(22, 237, 215, 0.32);
+  color: var(--text-0);
+}
+
+.api-docs-grid-feature {
+  align-items: stretch;
+}
+
+.api-docs-feature-card {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(117, 158, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.api-docs-faq {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.api-docs-faq-item {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(117, 158, 255, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.api-docs-faq-item h4 {
+  margin: 0 0 8px;
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+
+.api-docs-faq-item p {
+  margin: 0;
+  color: var(--text-1);
+  line-height: 1.6;
+}
+
+.api-docs-endpoint-list {
+  display: grid;
+  gap: 16px;
+}
+
+.api-docs-endpoint-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(117, 158, 255, 0.12);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.api-docs-endpoint-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.api-docs-endpoint-head h3 {
+  margin: 6px 0 0;
+  font-size: clamp(20px, 3vw, 28px);
+  overflow-wrap: anywhere;
+}
+
+.api-docs-endpoint-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.api-docs-endpoint-meta > div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(117, 158, 255, 0.1);
+  background: rgba(3, 8, 22, 0.28);
+}
+
+.api-docs-endpoint-meta span {
+  color: var(--text-2);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.api-docs-endpoint-meta strong {
+  color: var(--text-0);
+  overflow-wrap: anywhere;
+}
+
+.api-docs-endpoint-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .analytics-toolbar {

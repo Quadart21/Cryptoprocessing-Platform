@@ -19,6 +19,9 @@ class TenantSummary(BaseModel):
     status: str
     review_comment: str | None = None
     owner_email: str
+    timezone: str = "UTC"
+    base_currency: str = "USD"
+    plan: str = "default"
 
 
 class TenantCreateResponse(TenantSummary):
@@ -30,4 +33,16 @@ class TenantCreateResponse(TenantSummary):
 
 class TenantApprovalRequest(BaseModel):
     review_comment: str | None = Field(default=None, max_length=500)
+
+
+class TenantAdminUpdateRequest(BaseModel):
+    company_name: str = Field(min_length=2, max_length=255)
+    slug: str = Field(min_length=2, max_length=255)
+    status: str = Field(min_length=2, max_length=50)
+    review_comment: str | None = Field(default=None, max_length=500)
+    owner_email: EmailStr
+    owner_full_name: str = Field(min_length=2, max_length=255)
+    timezone: str = Field(default="Europe/Amsterdam", max_length=100)
+    base_currency: str = Field(default="USD", min_length=3, max_length=10)
+    plan: str = Field(default="default", max_length=50)
 

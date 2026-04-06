@@ -5,6 +5,7 @@
   createClientPayout,
   createInvoice,
   createTenant,
+  deleteAdminTenant,
   disableTwoFactor,
   enableTwoFactor,
   fetchAdminAssets,
@@ -41,16 +42,20 @@
   fetchWebhookConfigs,
   inspectPlatformTelegramBot,
   login,
+  requestPasswordRecovery,
   regenerateAdminApiKey,
   regenerateClientApiKey,
   register,
   rejectTenant,
   reviewAdminPayout,
+  resetAdminTenantOwnerPassword,
+  resetAdminTenantOwnerTwoFactor,
   revokeAdminApiKey,
   revokeClientApiKey,
   sendPlatformSmtpBzTest,
   sendPlatformTelegramTest,
   sendWebhookTest,
+  setPasswordByRecoveryToken,
   setupTwoFactor,
   syncClientInvoice,
   type AccountingSummary,
@@ -68,6 +73,7 @@
   type OnboardingStatus,
   type PayoutRequestItem,
   type PlatformBillingSettings,
+  type ProjectAdminUpdatePayload,
   type ProjectItem,
   type ProviderEventItem,
   type PublicPageItem,
@@ -82,6 +88,7 @@
   type TenantBillingPolicy,
   type TenantCreatePayload,
   type TenantCreateResponse,
+  type TenantAdminUpdatePayload,
   type TenantDetailResponse,
   type TenantItem,
   type TransactionItem,
@@ -91,6 +98,8 @@
   type WebhookConfigItem,
   updateAdminAssetAvailability,
   updateAdminInvoiceStatus,
+  updateAdminProject,
+  updateAdminTenant,
   updateAdminUser,
   updateClientNotificationSettings,
   updatePlatformBillingSettings,
@@ -133,7 +142,7 @@ function isPlatformRole(role: string): boolean {
 
 export function AppController() {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const { token, user, setUser, applyAccessToken, clearSession } = useSession();
+  const { token, user, setUser, applyAccessToken, applyCsrfToken, clearSession } = useSession();
   const { publicRoute, publicNavigationItems, publicPageDetail, openPublicPage } =
     usePublicSiteNavigation({ authenticated: Boolean(token) });
   const [tenants, setTenants] = useState<TenantItem[]>([]);
@@ -188,6 +197,13 @@ export function AppController() {
   const [success, setSuccess] = useState<string | null>(null);
   const [newApiSecret, setNewApiSecret] = useState<string | null>(null);
   const [loginForm, setLoginForm] = useState(initialLoginForm);
+  const [loginStep, setLoginStep] = useState<"credentials" | "two-factor">("credentials");
+  const [passwordRecoveryEmail, setPasswordRecoveryEmail] = useState("");
+  const [passwordResetForm, setPasswordResetForm] = useState({
+    token: "",
+    password: "",
+    confirmPassword: "",
+  });
   const [tenantForm, setTenantForm] = useState<TenantCreatePayload>(initialTenantForm);
   const [registrationForm, setRegistrationForm] =
     useState<RegistrationPayload>(initialRegistrationForm);
@@ -483,6 +499,28 @@ export function AppController() {
       setError(null);
       setSuccess(null);
       setNewApiSecret(null);
+      const auth = await login(loginForm.email, loginForm.password);
+      applyAccessToken(auth.access_token);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Ошибка входа.";
+      if (message === "Для входа требуется код 2FA.") {
+        setLoginStep("two-factor");
+        setError(null);
+      } else {
+        setError(message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleLoginTwoFactor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      setNewApiSecret(null);
       const auth = await login(loginForm.email, loginForm.password, loginForm.otp_code);
       applyAccessToken(auth.access_token);
     } catch (err) {
@@ -490,6 +528,18 @@ export function AppController() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleBackToLoginCredentials() {
+    setLoginStep("credentials");
+    setError(null);
+    setLoginForm((current) => ({ ...current, otp_code: "" }));
+  }
+
+  function handleAuthModeChange(next: "login" | "register") {
+    setMode(next);
+    setLoginStep("credentials");
+    setError(null);
   }
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
@@ -747,6 +797,154 @@ export function AppController() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось отклонить заявку.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRequestPasswordRecovery(email: string) {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const result = await requestPasswordRecovery(email);
+      setSuccess(result.message);
+      setPasswordRecoveryEmail(email.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось запросить восстановление пароля.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSetRecoveredPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      if (passwordResetForm.password !== passwordResetForm.confirmPassword) {
+        throw new Error("Подтверждение пароля не совпадает.");
+      }
+      const result = await setPasswordByRecoveryToken(
+        passwordResetForm.token,
+        passwordResetForm.password,
+      );
+      setSuccess(result.message);
+      setMode("login");
+      setLoginStep("credentials");
+      setLoginForm((current) => ({
+        ...current,
+        email: result.email,
+        password: "",
+        otp_code: "",
+      }));
+      setPasswordResetForm({ token: "", password: "", confirmPassword: "" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось установить новый пароль.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateAdminTenant(tenantId: string, payload: TenantAdminUpdatePayload) {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      setNewApiSecret(null);
+      const detail = await updateAdminTenant(token, tenantId, payload);
+      setSelectedTenantDetail(detail);
+      setTenants(await fetchTenants(token));
+      setSuccess("Данные мерчанта обновлены.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось обновить мерчанта.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateAdminProject(projectId: string, payload: ProjectAdminUpdatePayload) {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const updatedProject = await updateAdminProject(token, projectId, payload);
+      setSelectedTenantDetail((current) =>
+        current
+          ? {
+              ...current,
+              projects: current.projects.map((project) =>
+                project.id === projectId ? updatedProject : project,
+              ),
+            }
+          : current,
+      );
+      setSuccess("Проект обновлен.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось обновить проект.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteAdminTenant(tenantId: string) {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      setNewApiSecret(null);
+      await deleteAdminTenant(token, tenantId);
+      setTenants(await fetchTenants(token));
+      if (selectedTenantId === tenantId) {
+        setSelectedTenantId(null);
+        setSelectedTenantDetail(null);
+        setSelectedTenantInvoices([]);
+        setSelectedTenantTransactions([]);
+        setSelectedTenantPayouts([]);
+        setSelectedTenantAccounting(null);
+      }
+      setSuccess("Мерчант удален.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось удалить мерчанта.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAdminResetTenantOwnerPassword(tenantId: string) {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const result = await resetAdminTenantOwnerPassword(token, tenantId);
+      setSuccess(
+        `Пароль owner сброшен. Email: ${result.email}. Временный пароль: ${result.generated_password}`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось сбросить пароль мерчанта.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAdminResetTenantOwnerTwoFactor(tenantId: string) {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const owner = await resetAdminTenantOwnerTwoFactor(token, tenantId);
+      setSelectedTenantDetail((current) =>
+        current ? { ...current, owner } : current,
+      );
+      setSuccess(`2FA у owner ${owner.email} сброшена.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось сбросить 2FA мерчанта.");
     } finally {
       setLoading(false);
     }
@@ -1331,17 +1529,26 @@ export function AppController() {
     return (
       <LandingPage
         mode={mode}
+        loginStep={loginStep}
         registrationEnabled
         loading={loading}
         success={success}
         error={error}
         loginForm={loginForm}
+        passwordRecoveryEmail={passwordRecoveryEmail}
+        passwordResetForm={passwordResetForm}
         registrationForm={registrationForm}
-        onModeChange={setMode}
+        onModeChange={handleAuthModeChange}
         onLoginFormChange={setLoginForm}
+        onPasswordRecoveryEmailChange={setPasswordRecoveryEmail}
+        onPasswordResetFormChange={setPasswordResetForm}
         onRegistrationFormChange={setRegistrationForm}
         onLogin={handleLogin}
+        onLoginTwoFactor={handleLoginTwoFactor}
+        onBackToLoginCredentials={handleBackToLoginCredentials}
+        onRequestPasswordRecovery={(email) => void handleRequestPasswordRecovery(email)}
         onRegister={handleRegister}
+        onSetRecoveredPassword={handleSetRecoveredPassword}
         onOpenPublicDocs={() => openPublicPage("docs")}
         publicPages={publicNavigationItems}
         onOpenPublicPage={(slug) => openPublicPage("cms", slug)}
@@ -1445,6 +1652,11 @@ export function AppController() {
       onSelectTenant={(tenantId) => void handleSelectTenant(tenantId)}
       onApproveTenant={(tenantId) => void handleApproveTenant(tenantId)}
       onRejectTenant={(tenantId) => void handleRejectTenant(tenantId)}
+      onUpdateAdminTenant={(tenantId, payload) => void handleUpdateAdminTenant(tenantId, payload)}
+      onUpdateAdminProject={(projectId, payload) => void handleUpdateAdminProject(projectId, payload)}
+      onDeleteAdminTenant={(tenantId) => void handleDeleteAdminTenant(tenantId)}
+      onResetTenantOwnerPassword={(tenantId) => void handleAdminResetTenantOwnerPassword(tenantId)}
+      onResetTenantOwnerTwoFactor={(tenantId) => void handleAdminResetTenantOwnerTwoFactor(tenantId)}
       onAdminRegenerateApiKey={(apiKeyId) => void handleAdminRegenerateApiKey(apiKeyId)}
       onAdminRevokeApiKey={(apiKeyId) => void handleAdminRevokeApiKey(apiKeyId)}
       onSelectInvoice={(invoiceId) => void handleSelectInvoice(invoiceId)}

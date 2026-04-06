@@ -1,4 +1,5 @@
 import { resolveApiBaseUrl } from "../config/apiBase";
+import { getCsrfToken, setCsrfToken } from "../storage";
 
 const API_BASE_URL = resolveApiBaseUrl();
 
@@ -26,6 +27,9 @@ export type TenantItem = {
   status: string;
   review_comment: string | null;
   owner_email: string;
+  timezone: string;
+  base_currency: string;
+  plan: string;
 };
 
 export type TenantCreateResponse = TenantItem & {
@@ -80,6 +84,8 @@ export type ProjectItem = {
   name: string;
   domain: string;
   description: string | null;
+  webhook_url: string | null;
+  has_webhook_secret: boolean;
   status: string;
 };
 
@@ -198,8 +204,36 @@ export type ReviewPayoutPayload = {
   amount_approved?: number;
 };
 
+export type TenantOwnerItem = {
+  id: string;
+  email: string;
+  full_name: string;
+  status: string;
+};
+
+export type TenantAdminUpdatePayload = {
+  company_name: string;
+  slug: string;
+  status: string;
+  review_comment: string | null;
+  owner_email: string;
+  owner_full_name: string;
+  timezone: string;
+  base_currency: string;
+  plan: string;
+};
+
+export type ProjectAdminUpdatePayload = {
+  name: string;
+  domain: string;
+  description: string | null;
+  webhook_url: string | null;
+  status: string;
+};
+
 export type TenantDetailResponse = {
   tenant: TenantItem;
+  owner: TenantOwnerItem;
   projects: ProjectItem[];
   api_keys: ApiKeyItem[];
   invoices_count: number;
@@ -295,6 +329,15 @@ export type NotificationEventToggle = {
   telegram_enabled: boolean;
 };
 
+export type NotificationTemplateItem = {
+  code: string;
+  title: string;
+  mode: "notify" | "confirm" | string;
+  email_subject: string | null;
+  email_body: string | null;
+  telegram_body: string | null;
+};
+
 export type PlatformBillingSettings = {
   provider_fee_percent: string;
   default_markup_percent: string;
@@ -318,6 +361,8 @@ export type PlatformBillingSettings = {
   telegram_bot_token_masked?: string | null;
   telegram_bot_token?: string | null;
   notification_events: NotificationEventToggle[];
+  notification_templates: NotificationTemplateItem[];
+  notification_template_variables: string[];
 };
 
 export type TelegramBotInspectPayload = {
@@ -549,13 +594,20 @@ function extractErrorMessage(payload: unknown): {
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const csrfToken = getCsrfToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(csrfToken && { "X-CSRF-Token": csrfToken }),
       ...(init?.headers ?? {}),
     },
   });
+
+  const csrfHeader = response.headers.get("X-CSRF-Token");
+  if (csrfHeader) {
+    setCsrfToken(csrfHeader);
+  }
 
   if (!response.ok) {
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";

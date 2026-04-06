@@ -61,12 +61,14 @@ class TenantService:
         self.db.refresh(owner)
         return tenant, owner, project.id, api_key.public_key, secret_key
 
-    def list_tenants(self) -> list[tuple[Tenant, User]]:
+    def list_tenants(self, limit: int = 50, offset: int = 0) -> list[tuple[Tenant, User]]:
         stmt = (
             select(Tenant, User)
             .join(User, User.tenant_id == Tenant.id)
             .where(User.role == "tenant_owner")
             .order_by(Tenant.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list(self.db.execute(stmt).all())
 
@@ -103,7 +105,8 @@ class TenantService:
             password_hash=get_password_hash(password),
             full_name=owner_full_name,
             role="tenant_owner",
-            status="active",
+            status="invited",
+            invited_at=datetime.now(timezone.utc),
         )
         self.db.add(owner)
 
@@ -185,6 +188,10 @@ class TenantService:
         if project is not None:
             project.status = "rejected"
             self.db.add(project)
+        
+        project_service = ProjectService(self.db)
+        revoked_count = project_service.revoke_all_tenant_api_keys(tenant_id)
+        
         self.db.add(tenant)
         self.db.commit()
         self.db.refresh(tenant)

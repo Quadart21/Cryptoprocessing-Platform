@@ -9,6 +9,8 @@ class ProjectSummary(BaseModel):
     name: str
     domain: str
     description: str | None = None
+    webhook_url: str | None = None
+    has_webhook_secret: bool = False
     status: str
 
 
@@ -35,6 +37,14 @@ class ProjectCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     domain: str = Field(min_length=3, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
+
+
+class ProjectAdminUpdateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=255)
+    domain: str = Field(min_length=3, max_length=255)
+    description: str | None = Field(default=None, max_length=1000)
+    webhook_url: str | None = Field(default=None, max_length=500)
+    status: str = Field(min_length=2, max_length=50)
 
 
 class WebhookConfigRequest(BaseModel):

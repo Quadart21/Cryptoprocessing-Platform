@@ -16,6 +16,7 @@ from app.api.routes.internal import router as internal_router
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.bootstrap import ensure_database_ready
+from app.middleware.csrf import CsrfProtectionMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -58,6 +59,7 @@ def create_application() -> FastAPI:
     )
 
     app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(CsrfProtectionMiddleware)
 
     app.add_middleware(
         CORSMiddleware,
@@ -72,6 +74,7 @@ def create_application() -> FastAPI:
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     app.include_router(internal_router, prefix="/internal", tags=["internal"])
     _register_merchant_docs_routes(app)
+    _register_admin_docs_routes(app)
     _register_frontend_routes(app)
     return app
 
@@ -148,6 +151,28 @@ def _register_merchant_docs_routes(app: FastAPI) -> None:
         )
 
 
+def _register_admin_docs_routes(app: FastAPI) -> None:
+    if not settings.is_local_env:
+        return
+
+    @app.get("/admin/openapi.json", include_in_schema=False)
+    async def admin_openapi_json() -> JSONResponse:
+        return JSONResponse(_build_admin_openapi_schema(app))
+
+    @app.get("/admin/docs", include_in_schema=False)
+    async def admin_docs() -> HTMLResponse:
+        return get_swagger_ui_html(
+            openapi_url="/admin/openapi.json",
+            title=f"{settings.app_name} - Admin API Docs",
+            swagger_ui_parameters={
+                "persistAuthorization": True,
+                "tryItOutEnabled": True,
+                "fetchCredentials": "include",
+                "supportedSubmitMethods": ["get", "post", "put", "delete", "patch"],
+            },
+        )
+
+
 def _register_frontend_routes(app: FastAPI) -> None:
     if not FRONTEND_INDEX_FILE.exists():
         return
@@ -199,6 +224,54 @@ def _build_merchant_openapi_schema(app: FastAPI) -> dict:
         ),
         routes=merchant_routes,
     )
+
+
+ADMIN_OPENAPI_ALLOWLIST: set[tuple[str, str]] = {
+    ("GET", f"{settings.api_v1_prefix}/admin/health"),
+    ("GET", f"{settings.api_v1_prefix}/admin/security/health"),
+    ("GET", f"{settings.api_v1_prefix}/admin/security/csrf"),
+}
+
+
+@lru_cache(maxsize=1)
+def _build_admin_openapi_schema(app: FastAPI) -> dict:
+    admin_routes = [
+        route
+        for route in app.routes
+        if isinstance(route, APIRoute)
+        and route.path.startswith(f"{settings.api_v1_prefix}/admin")
+    ]
+    
+    schema = get_openapi(
+        title=f"{settings.app_name} Admin API",
+        version="0.1.0",
+        description=(
+            "OpenAPI schema for admin panel endpoints. "
+            "Requires authentication and CSRF token for mutations."
+        ),
+        routes=admin_routes,
+    )
+    
+    schema.setdefault("components", {})
+    schema["components"].setdefault("securitySchemes", {})
+    schema["components"]["securitySchemes"]["BearerAuth"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "JWT access token. Get it from /api/v1/client/auth/login",
+    }
+    schema["components"]["securitySchemes"]["CsrfToken"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "description": "CSRF token required for all POST/PUT/DELETE requests. Get it from response headers or /api/v1/admin/security/csrf",
+    }
+    
+    for path, path_item in schema.get("paths", {}).items():
+        for method, operation in path_item.items():
+            if method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+                operation.setdefault("security", [{"BearerAuth": []}, {"CsrfToken": []}])
+    
+    return schema
 
 
 app = create_application()

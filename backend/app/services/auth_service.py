@@ -15,6 +15,7 @@ from app.core.security import (
 from app.models.invite_token import InviteToken
 from app.models.user import User
 from app.schemas.auth import TokenPairResponse
+from app.services.session_service import SessionService
 from app.services.two_factor_service import TwoFactorError, TwoFactorService
 
 
@@ -25,12 +26,16 @@ class AuthError(Exception):
 class AuthService:
     def __init__(self, db: Session):
         self.db = db
+        self.session_service = SessionService(db)
 
     def login(
         self,
         email: str,
         password: str,
         otp_code: str | None = None,
+        device_fingerprint: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> TokenPairResponse:
         normalized_email = email.strip().lower()
         user = self.db.scalar(select(User).where(User.email == normalized_email))
@@ -63,9 +68,20 @@ class AuthService:
         self.db.add(user)
         self.db.commit()
 
+        access_token = create_access_token(user.id)
+        refresh_token = create_refresh_token(user.id)
+
+        self.session_service.create_session(
+            user=user,
+            refresh_token=refresh_token,
+            device_fingerprint=device_fingerprint,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+
         return TokenPairResponse(
-            access_token=create_access_token(user.id),
-            refresh_token=create_refresh_token(user.id),
+            access_token=access_token,
+            refresh_token=refresh_token,
         )
 
     def create_invite(self, user: User, ttl_hours: int = 24) -> str:

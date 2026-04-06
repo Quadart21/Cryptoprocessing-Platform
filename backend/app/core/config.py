@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     app_name: str = Field(default="CryptoProcessing Platform", alias="APP_NAME")
     app_env: str = Field(default="local", alias="APP_ENV")
-    app_debug: bool = Field(default=True, alias="APP_DEBUG")
+    app_debug: bool = Field(default=False, alias="APP_DEBUG")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")
 
     security_fail_fast: bool = Field(default=True, alias="SECURITY_FAIL_FAST")
@@ -35,6 +35,9 @@ class Settings(BaseSettings):
         alias="ALLOW_INSECURE_DEFAULTS_IN_LOCAL",
     )
     secret_key: str = Field(default="change-me", alias="SECRET_KEY")
+    jwt_secret_key: str = Field(default="", alias="JWT_SECRET_KEY")
+    fernet_secret_key: str = Field(default="", alias="FERNET_SECRET_KEY")
+    webhook_secret_key: str = Field(default="", alias="WEBHOOK_SECRET_KEY")
 
     access_token_expire_minutes: int = Field(
         default=30,
@@ -138,6 +141,7 @@ class Settings(BaseSettings):
 
     auth_lockout_threshold: int = Field(default=5, alias="AUTH_LOCKOUT_THRESHOLD")
     auth_lockout_minutes: int = Field(default=15, alias="AUTH_LOCKOUT_MINUTES")
+    max_concurrent_sessions_per_user: int = Field(default=3, alias="MAX_CONCURRENT_SESSIONS_PER_USER")
 
     rate_limit_login_ip_per_minute: int = Field(
         default=20,
@@ -175,6 +179,18 @@ class Settings(BaseSettings):
         default=20,
         alias="RATE_LIMIT_OTP_PER_MINUTE",
     )
+    rate_limit_set_password_per_minute: int = Field(
+        default=10,
+        alias="RATE_LIMIT_SET_PASSWORD_PER_MINUTE",
+    )
+    rate_limit_2fa_enable_per_minute: int = Field(
+        default=10,
+        alias="RATE_LIMIT_2FA_ENABLE_PER_MINUTE",
+    )
+    rate_limit_payout_create_per_minute: int = Field(
+        default=5,
+        alias="RATE_LIMIT_PAYOUT_CREATE_PER_MINUTE",
+    )
 
     @property
     def backend_cors_origins(self) -> list[str]:
@@ -204,6 +220,18 @@ class Settings(BaseSettings):
         return self.normalized_app_env in {"prod", "production"}
 
     @property
+    def effective_jwt_secret(self) -> str:
+        return self.jwt_secret_key or self.secret_key
+
+    @property
+    def effective_fernet_secret(self) -> str:
+        return self.fernet_secret_key or self.secret_key
+
+    @property
+    def effective_webhook_secret(self) -> str:
+        return self.webhook_secret_key or self.secret_key
+
+    @property
     def legacy_webhook_payload_allowed(self) -> bool:
         if self.is_production:
             return False
@@ -227,6 +255,12 @@ class Settings(BaseSettings):
 
         if self.secret_key.strip().lower() in DEFAULT_SECRET_KEY_VALUES:
             errors.append("SECRET_KEY is insecure. Set a strong random value.")
+        if self.jwt_secret_key.strip() == "":
+            errors.append("JWT_SECRET_KEY must be set in production.")
+        if self.fernet_secret_key.strip() == "":
+            errors.append("FERNET_SECRET_KEY must be set in production.")
+        if self.webhook_secret_key.strip() == "":
+            errors.append("WEBHOOK_SECRET_KEY must be set in production.")
         if self.app_debug:
             errors.append("APP_DEBUG=true is forbidden for secured environments.")
         if self.superadmin_email.strip().lower() in DEFAULT_SUPERADMIN_EMAILS:
@@ -293,6 +327,14 @@ class Settings(BaseSettings):
             errors.append("RATE_LIMIT_INTERNAL_WEBHOOK_IP_PER_MINUTE must be > 0.")
         if self.rate_limit_otp_per_minute <= 0:
             errors.append("RATE_LIMIT_OTP_PER_MINUTE must be > 0.")
+        if self.rate_limit_set_password_per_minute <= 0:
+            errors.append("RATE_LIMIT_SET_PASSWORD_PER_MINUTE must be > 0.")
+        if self.rate_limit_2fa_enable_per_minute <= 0:
+            errors.append("RATE_LIMIT_2FA_ENABLE_PER_MINUTE must be > 0.")
+        if self.rate_limit_payout_create_per_minute <= 0:
+            errors.append("RATE_LIMIT_PAYOUT_CREATE_PER_MINUTE must be > 0.")
+        if self.max_concurrent_sessions_per_user < 1:
+            errors.append("MAX_CONCURRENT_SESSIONS_PER_USER must be >= 1.")
 
         if errors:
             raise ValueError(" ".join(errors))

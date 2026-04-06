@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   NotificationTemplateItem,
@@ -33,7 +33,7 @@ type AdminPlatformSettingsSectionProps = {
   onUpdateTenantPolicy: (payload: Omit<TenantBillingPolicy, "tenant_id">) => void;
 };
 
-type SettingsTab =
+type SettingsSectionKey =
   | "fees"
   | "payouts"
   | "brand"
@@ -43,16 +43,73 @@ type SettingsTab =
   | "events"
   | "tenant";
 
-const TABS: Array<{ key: SettingsTab; label: string; icon: string }> = [
-  { key: "fees", label: "Комиссии", icon: "💰" },
-  { key: "payouts", label: "Выплаты", icon: "💸" },
-  { key: "brand", label: "Бренд", icon: "🏷" },
-  { key: "email", label: "Email", icon: "✉" },
-  { key: "telegram", label: "Telegram", icon: "✈" },
-  { key: "templates", label: "Шаблоны", icon: "📝" },
-  { key: "events", label: "События", icon: "🔔" },
-  { key: "tenant", label: "Клиенты", icon: "👤" },
+type SettingsSectionMeta = {
+  key: SettingsSectionKey;
+  label: string;
+  eyebrow: string;
+  description: string;
+  icon: string;
+};
+
+const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
+  { key: "fees", label: "Комиссии", eyebrow: "Биллинг", description: "Основные проценты платформы и базовая экономика.", icon: "01" },
+  { key: "payouts", label: "Выплаты", eyebrow: "Политики", description: "Глобальные правила переопределений и выплат.", icon: "02" },
+  { key: "brand", label: "Бренд", eyebrow: "Коммуникации", description: "Имя, логотип и основная ссылка в уведомлениях.", icon: "03" },
+  { key: "email", label: "Email", eyebrow: "Канал", description: "SMTP.bz и тестовая отправка писем.", icon: "04" },
+  { key: "telegram", label: "Telegram", eyebrow: "Канал", description: "Токен бота, проверка и тестовая доставка.", icon: "05" },
+  { key: "templates", label: "Шаблоны", eyebrow: "Контент", description: "Темы и тексты уведомлений по событиям.", icon: "06" },
+  { key: "events", label: "События", eyebrow: "Матрица", description: "Какие каналы активны для каждого события.", icon: "07" },
+  { key: "tenant", label: "Клиенты", eyebrow: "Индивидуально", description: "Переопределения правил для выбранного клиента.", icon: "08" },
 ];
+
+function hasConfiguredTemplateContent(template: NotificationTemplateItem) {
+  return [template.email_subject, template.email_body, template.telegram_body].some(
+    (value) => Boolean(value && value.trim() !== ""),
+  );
+}
+
+function SectionShell({
+  meta,
+  children,
+}: {
+  meta: SettingsSectionMeta;
+  children: ReactNode;
+}) {
+  return (
+    <section className="aps-section-card" id={`settings-${meta.key}`}>
+      <div className="aps-section-head">
+        <div className="aps-section-mark">{meta.icon}</div>
+        <div className="aps-section-copy">
+          <p className="eyebrow">{meta.eyebrow}</p>
+          <h2>{meta.label}</h2>
+          <p className="muted-text">{meta.description}</p>
+        </div>
+      </div>
+      <div className="aps-section-body">{children}</div>
+    </section>
+  );
+}
+
+function FieldGrid({ children }: { children: ReactNode }) {
+  return <div className="aps-field-grid">{children}</div>;
+}
+
+function StatPill({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+}) {
+  return (
+    <div className={`aps-stat-pill aps-stat-pill-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
 
 export function AdminPlatformSettingsSection({
   loading,
@@ -67,7 +124,7 @@ export function AdminPlatformSettingsSection({
   onSendPlatformSmtpBzTest,
   onUpdateTenantPolicy,
 }: AdminPlatformSettingsSectionProps) {
-  const formRef = useRef<HTMLFormElement>(null);
+  const platformFormRef = useRef<HTMLFormElement>(null);
   const [platformSettingsForm, setPlatformSettingsForm] =
     useState<PlatformBillingSettings | null>(platformBillingSettings);
   const [smtpBzApiKey, setSmtpBzApiKey] = useState("");
@@ -86,8 +143,10 @@ export function AdminPlatformSettingsSection({
     "tenant_id"
   > | null>(null);
   const [templateEventCode, setTemplateEventCode] = useState("");
-  const [activeTab, setActiveTab] = useState<SettingsTab>("fees");
-  const [expandedAccordions, setExpandedAccordions] = useState<Set<SettingsTab>>(new Set(["fees"]));
+  const [activeSection, setActiveSection] = useState<SettingsSectionKey>("fees");
+  const [expandedSections, setExpandedSections] = useState<Set<SettingsSectionKey>>(
+    new Set(["fees"]),
+  );
 
   useEffect(() => {
     setPlatformSettingsForm(platformBillingSettings);
@@ -98,7 +157,14 @@ export function AdminPlatformSettingsSection({
     setSmtpTestRecipient("");
     setSmtpTestResult(null);
     if (platformBillingSettings) {
-      setTemplateEventCode(platformBillingSettings.notification_templates[0]?.code ?? "");
+      const firstConfiguredTemplate = platformBillingSettings.notification_templates.find(
+        hasConfiguredTemplateContent,
+      );
+      setTemplateEventCode(
+        firstConfiguredTemplate?.code ??
+          platformBillingSettings.notification_templates[0]?.code ??
+          "",
+      );
       setTelegramBotInfo({
         token_configured: platformBillingSettings.telegram_bot_token_configured,
         token_masked: platformBillingSettings.telegram_bot_token_masked ?? null,
@@ -137,6 +203,40 @@ export function AdminPlatformSettingsSection({
     );
   }, [platformSettingsForm, templateEventCode]);
 
+  const configuredTemplateCount = useMemo(() => {
+    if (!platformSettingsForm) return 0;
+    return platformSettingsForm.notification_templates.filter(hasConfiguredTemplateContent).length;
+  }, [platformSettingsForm]);
+
+  const overviewStats = useMemo(() => {
+    if (!platformSettingsForm) return [];
+    const enabledEvents = platformSettingsForm.notification_events.filter(
+      (event) => event.email_enabled || event.telegram_enabled,
+    ).length;
+    return [
+      {
+        label: "Email",
+        value: platformSettingsForm.email_notifications_enabled ? "Вкл" : "Выкл",
+        tone: platformSettingsForm.email_notifications_enabled ? "good" : "muted",
+      },
+      {
+        label: "Telegram",
+        value: platformSettingsForm.telegram_notifications_enabled ? "Вкл" : "Выкл",
+        tone: platformSettingsForm.telegram_notifications_enabled ? "good" : "muted",
+      },
+      {
+        label: "Шаблоны",
+        value: String(platformSettingsForm.notification_templates.length),
+        tone: "default",
+      },
+      {
+        label: "События",
+        value: `${enabledEvents}/${platformSettingsForm.notification_events.length}`,
+        tone: "default",
+      },
+    ];
+  }, [platformSettingsForm]);
+
   function handleSubmitPlatformSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!platformSettingsForm) return;
@@ -163,7 +263,7 @@ export function AdminPlatformSettingsSection({
     if (!platformSettingsForm) return;
     setPlatformSettingsForm({
       ...platformSettingsForm,
-      notification_events: (platformSettingsForm.notification_events ?? []).map((item) =>
+      notification_events: platformSettingsForm.notification_events.map((item) =>
         item.code === code ? { ...item, [channel]: enabled } : item,
       ),
     });
@@ -232,37 +332,42 @@ export function AdminPlatformSettingsSection({
     }
   }
 
-  function toggleAccordion(tab: SettingsTab) {
-    setExpandedAccordions((prev) => {
+  function toggleMobileSection(key: SettingsSectionKey) {
+    setExpandedSections((prev) => {
       const next = new Set(prev);
-      if (next.has(tab)) next.delete(tab);
-      else next.add(tab);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
 
-  const isAccordionExpanded = (tab: SettingsTab) => expandedAccordions.has(tab);
+  function updatePlatformSettings(patch: Partial<PlatformBillingSettings>) {
+    if (!platformSettingsForm) return;
+    setPlatformSettingsForm({
+      ...platformSettingsForm,
+      ...patch,
+    });
+  }
 
-  function renderUnavailableState() {
-    return <p className="muted-text">Настройки пока не загружены.</p>;
+  function renderUnavailable() {
+    return (
+      <div className="aps-empty-state">
+        <p className="muted-text">Настройки пока не загружены.</p>
+      </div>
+    );
   }
 
   function renderFeesSection() {
-    if (!platformSettingsForm) return renderUnavailableState();
+    if (!platformSettingsForm) return renderUnavailable();
     return (
-      <section className="panel form">
+      <FieldGrid>
         <label>
           <span>Комиссия провайдера (%)</span>
           <input
             type="number"
             step="0.0001"
             value={platformSettingsForm.provider_fee_percent}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                provider_fee_percent: event.target.value,
-              })
-            }
+            onChange={(event) => updatePlatformSettings({ provider_fee_percent: event.target.value })}
           />
         </label>
         <label>
@@ -272,10 +377,7 @@ export function AdminPlatformSettingsSection({
             step="0.0001"
             value={platformSettingsForm.default_markup_percent}
             onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                default_markup_percent: event.target.value,
-              })
+              updatePlatformSettings({ default_markup_percent: event.target.value })
             }
           />
         </label>
@@ -286,77 +388,73 @@ export function AdminPlatformSettingsSection({
             step="0.0001"
             value={platformSettingsForm.default_turnover_fee_percent}
             onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                default_turnover_fee_percent: event.target.value,
-              })
+              updatePlatformSettings({ default_turnover_fee_percent: event.target.value })
             }
           />
         </label>
-      </section>
+      </FieldGrid>
     );
   }
 
   function renderPayoutsSection() {
-    if (!platformSettingsForm) return renderUnavailableState();
+    if (!platformSettingsForm) return renderUnavailable();
     return (
-      <section className="panel form">
-        <label className="switch-row">
-          <span>Разрешить переопределение наценки клиентом</span>
+      <div className="aps-stack">
+        <label className="aps-switch-card">
+          <div>
+            <strong>Разрешить кастомную наценку</strong>
+            <p className="muted-text">Клиенты смогут переопределять глобальную наценку.</p>
+          </div>
           <input
             type="checkbox"
             checked={platformSettingsForm.allow_tenant_markup_override}
             onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                allow_tenant_markup_override: event.target.checked,
-              })
+              updatePlatformSettings({ allow_tenant_markup_override: event.target.checked })
             }
           />
         </label>
-        <label className="switch-row">
-          <span>Разрешить переопределение комиссии с оборота</span>
+        <label className="aps-switch-card">
+          <div>
+            <strong>Разрешить кастомную комиссию с оборота</strong>
+            <p className="muted-text">
+              Откроет клиентам отдельную настройку комиссии по обороту.
+            </p>
+          </div>
           <input
             type="checkbox"
             checked={platformSettingsForm.allow_tenant_turnover_fee_override}
             onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
+              updatePlatformSettings({
                 allow_tenant_turnover_fee_override: event.target.checked,
               })
             }
           />
         </label>
-        <label className="switch-row">
-          <span>Выплаты включены</span>
+        <label className="aps-switch-card">
+          <div>
+            <strong>Выплаты включены</strong>
+            <p className="muted-text">Глобальный тумблер доступности выплат по платформе.</p>
+          </div>
           <input
             type="checkbox"
             checked={platformSettingsForm.payouts_enabled}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                payouts_enabled: event.target.checked,
-              })
-            }
+            onChange={(event) => updatePlatformSettings({ payouts_enabled: event.target.checked })}
           />
         </label>
-      </section>
+      </div>
     );
   }
 
   function renderBrandSection() {
-    if (!platformSettingsForm) return renderUnavailableState();
+    if (!platformSettingsForm) return renderUnavailable();
     return (
-      <section className="panel form">
+      <FieldGrid>
         <label>
           <span>Название бренда</span>
           <input
             value={platformSettingsForm.notification_brand_name}
             onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                notification_brand_name: event.target.value,
-              })
+              updatePlatformSettings({ notification_brand_name: event.target.value })
             }
           />
         </label>
@@ -365,392 +463,451 @@ export function AdminPlatformSettingsSection({
           <input
             value={platformSettingsForm.notification_logo_url ?? ""}
             onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
+              updatePlatformSettings({
                 notification_logo_url: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
           />
         </label>
-        <label>
+        <label className="aps-field-span-2">
           <span>Основной URL</span>
           <input
             value={platformSettingsForm.notification_primary_url ?? ""}
             onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
+              updatePlatformSettings({
                 notification_primary_url:
                   event.target.value.trim() === "" ? null : event.target.value,
               })
             }
           />
         </label>
-      </section>
+      </FieldGrid>
     );
   }
 
   function renderEmailSection() {
-    if (!platformSettingsForm) return renderUnavailableState();
+    if (!platformSettingsForm) return renderUnavailable();
     return (
-      <section className="panel form">
-        <label className="switch-row">
-          <span>Email-уведомления включены</span>
-          <input
-            type="checkbox"
-            checked={platformSettingsForm.email_notifications_enabled}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                email_notifications_enabled: event.target.checked,
-              })
-            }
+      <div className="aps-stack">
+        <div className="aps-inline-status">
+          <StatPill
+            label="SMTP"
+            value={platformSettingsForm.smtp_bz_enabled ? "Активен" : "Отключен"}
+            tone={platformSettingsForm.smtp_bz_enabled ? "good" : "muted"}
           />
-        </label>
-        <label className="switch-row">
-          <span>SMTP.bz включён</span>
-          <input
-            type="checkbox"
-            checked={platformSettingsForm.smtp_bz_enabled}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                smtp_bz_enabled: event.target.checked,
-              })
-            }
+          <StatPill
+            label="API key"
+            value={platformSettingsForm.smtp_bz_api_key_configured ? "Сохранён" : "Не задан"}
+            tone={platformSettingsForm.smtp_bz_api_key_configured ? "good" : "muted"}
           />
-        </label>
-        <label>
-          <span>SMTP API URL</span>
-          <input
-            value={platformSettingsForm.smtp_bz_api_base_url}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                smtp_bz_api_base_url: event.target.value,
-              })
-            }
-          />
-        </label>
-        <label>
-          <span>Email отправителя</span>
-          <input
-            value={platformSettingsForm.smtp_bz_sender_email}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                smtp_bz_sender_email: event.target.value,
-              })
-            }
-          />
-        </label>
-        <label>
-          <span>Имя отправителя</span>
-          <input
-            value={platformSettingsForm.smtp_bz_sender_name}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                smtp_bz_sender_name: event.target.value,
-              })
-            }
-          />
-        </label>
-        <label>
-          <span>Reply-To</span>
-          <input
-            value={platformSettingsForm.smtp_bz_reply_to ?? ""}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                smtp_bz_reply_to: event.target.value.trim() === "" ? null : event.target.value,
-              })
-            }
-          />
-        </label>
-        <label>
-          <span>Тег</span>
-          <input
-            value={platformSettingsForm.smtp_bz_tag ?? ""}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                smtp_bz_tag: event.target.value.trim() === "" ? null : event.target.value,
-              })
-            }
-          />
-        </label>
-        <label>
-          <span>Новый SMTP API key</span>
-          <input value={smtpBzApiKey} onChange={(event) => setSmtpBzApiKey(event.target.value)} />
-        </label>
-        <label>
-          <span>Тестовый получатель</span>
-          <input
-            value={smtpTestRecipient}
-            onChange={(event) => setSmtpTestRecipient(event.target.value)}
-          />
-        </label>
-        <button
-          className="ghost-button"
-          type="button"
-          onClick={handleSendSmtpTest}
-          disabled={sendingSmtpTest || smtpTestRecipient.trim() === ""}
-        >
-          {sendingSmtpTest ? "Отправляем..." : "Отправить тестовое письмо"}
-        </button>
-        {smtpTestResult ? (
-          <p className="muted-text">Тест отправлен на {smtpTestResult.recipient_email}.</p>
-        ) : null}
-      </section>
+        </div>
+        <FieldGrid>
+          <label className="aps-switch-inline">
+            <span>Email-уведомления включены</span>
+            <input
+              type="checkbox"
+              checked={platformSettingsForm.email_notifications_enabled}
+              onChange={(event) =>
+                updatePlatformSettings({ email_notifications_enabled: event.target.checked })
+              }
+            />
+          </label>
+          <label className="aps-switch-inline">
+            <span>SMTP.bz включён</span>
+            <input
+              type="checkbox"
+              checked={platformSettingsForm.smtp_bz_enabled}
+              onChange={(event) =>
+                updatePlatformSettings({ smtp_bz_enabled: event.target.checked })
+              }
+            />
+          </label>
+          <label>
+            <span>SMTP API URL</span>
+            <input
+              value={platformSettingsForm.smtp_bz_api_base_url}
+              onChange={(event) =>
+                updatePlatformSettings({ smtp_bz_api_base_url: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            <span>Email отправителя</span>
+            <input
+              value={platformSettingsForm.smtp_bz_sender_email}
+              onChange={(event) =>
+                updatePlatformSettings({ smtp_bz_sender_email: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            <span>Имя отправителя</span>
+            <input
+              value={platformSettingsForm.smtp_bz_sender_name}
+              onChange={(event) =>
+                updatePlatformSettings({ smtp_bz_sender_name: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            <span>Reply-To</span>
+            <input
+              value={platformSettingsForm.smtp_bz_reply_to ?? ""}
+              onChange={(event) =>
+                updatePlatformSettings({
+                  smtp_bz_reply_to: event.target.value.trim() === "" ? null : event.target.value,
+                })
+              }
+            />
+          </label>
+          <label>
+            <span>Тег</span>
+            <input
+              value={platformSettingsForm.smtp_bz_tag ?? ""}
+              onChange={(event) =>
+                updatePlatformSettings({
+                  smtp_bz_tag: event.target.value.trim() === "" ? null : event.target.value,
+                })
+              }
+            />
+          </label>
+          <label>
+            <span>Новый SMTP API key</span>
+            <input value={smtpBzApiKey} onChange={(event) => setSmtpBzApiKey(event.target.value)} />
+          </label>
+        </FieldGrid>
+        <div className="aps-test-box">
+          <div>
+            <strong>Тестовая отправка</strong>
+            <p className="muted-text">Проверьте конфигурацию на реальном адресе.</p>
+          </div>
+          <div className="aps-test-actions">
+            <input
+              placeholder="recipient@example.com"
+              value={smtpTestRecipient}
+              onChange={(event) => setSmtpTestRecipient(event.target.value)}
+            />
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={handleSendSmtpTest}
+              disabled={sendingSmtpTest || smtpTestRecipient.trim() === ""}
+            >
+              {sendingSmtpTest ? "Отправляем..." : "Отправить тест"}
+            </button>
+          </div>
+          {smtpTestResult ? (
+            <p className="muted-text">Письмо отправлено на {smtpTestResult.recipient_email}.</p>
+          ) : null}
+        </div>
+      </div>
     );
   }
 
   function renderTelegramSection() {
-    if (!platformSettingsForm) return renderUnavailableState();
+    if (!platformSettingsForm) return renderUnavailable();
     return (
-      <section className="panel form">
-        <label className="switch-row">
-          <span>Telegram-уведомления включены</span>
-          <input
-            type="checkbox"
-            checked={platformSettingsForm.telegram_notifications_enabled}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                telegram_notifications_enabled: event.target.checked,
-              })
-            }
+      <div className="aps-stack">
+        <div className="aps-inline-status">
+          <StatPill
+            label="Канал"
+            value={platformSettingsForm.telegram_notifications_enabled ? "Активен" : "Отключен"}
+            tone={platformSettingsForm.telegram_notifications_enabled ? "good" : "muted"}
           />
-        </label>
-        <label>
-          <span>Telegram API URL</span>
-          <input
-            value={platformSettingsForm.telegram_api_base_url}
-            onChange={(event) =>
-              setPlatformSettingsForm({
-                ...platformSettingsForm,
-                telegram_api_base_url: event.target.value,
-              })
-            }
+          <StatPill
+            label="Токен"
+            value={platformSettingsForm.telegram_bot_token_configured ? "Сохранён" : "Не задан"}
+            tone={platformSettingsForm.telegram_bot_token_configured ? "good" : "muted"}
           />
-        </label>
-        <label>
-          <span>Новый токен бота</span>
-          <input
-            value={telegramBotToken}
-            onChange={(event) => setTelegramBotToken(event.target.value)}
-          />
-        </label>
-        <div className="topbar-actions">
-          <button
-            className="ghost-button"
-            type="button"
-            onClick={handleCheckTelegramBot}
-            disabled={checkingTelegramBot}
-          >
-            {checkingTelegramBot ? "Проверяем..." : "Проверить бота"}
-          </button>
-          <input
-            placeholder="Chat ID администратора"
-            value={adminTelegramChatId}
-            onChange={(event) => setAdminTelegramChatId(event.target.value)}
-          />
-          <button
-            className="ghost-button"
-            type="button"
-            onClick={handleSendTelegramTest}
-            disabled={sendingTelegramTest || adminTelegramChatId.trim() === ""}
-          >
-            {sendingTelegramTest ? "Отправляем..." : "Отправить тест"}
-          </button>
         </div>
-        {telegramBotInfo ? (
-          <p className="muted-text">
-            Бот: {telegramBotInfo.display_name ?? telegramBotInfo.username ?? "не определён"}
-          </p>
-        ) : null}
-        {telegramTestResult ? (
-          <p className="muted-text">Тестовое сообщение отправлено в чат {telegramTestResult.chat_id}.</p>
-        ) : null}
-      </section>
+        <FieldGrid>
+          <label className="aps-switch-inline">
+            <span>Telegram-уведомления включены</span>
+            <input
+              type="checkbox"
+              checked={platformSettingsForm.telegram_notifications_enabled}
+              onChange={(event) =>
+                updatePlatformSettings({ telegram_notifications_enabled: event.target.checked })
+              }
+            />
+          </label>
+          <label className="aps-field-span-2">
+            <span>Telegram API URL</span>
+            <input
+              value={platformSettingsForm.telegram_api_base_url}
+              onChange={(event) =>
+                updatePlatformSettings({ telegram_api_base_url: event.target.value })
+              }
+            />
+          </label>
+          <label className="aps-field-span-2">
+            <span>Новый токен бота</span>
+            <input
+              value={telegramBotToken}
+              onChange={(event) => setTelegramBotToken(event.target.value)}
+            />
+          </label>
+        </FieldGrid>
+        <div className="aps-test-box">
+          <div>
+            <strong>Проверка интеграции</strong>
+            <p className="muted-text">Проверьте бота и отправьте тестовое сообщение администратору.</p>
+          </div>
+          <div className="aps-test-actions">
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={handleCheckTelegramBot}
+              disabled={checkingTelegramBot}
+            >
+              {checkingTelegramBot ? "Проверяем..." : "Проверить бота"}
+            </button>
+            <input
+              placeholder="Chat ID администратора"
+              value={adminTelegramChatId}
+              onChange={(event) => setAdminTelegramChatId(event.target.value)}
+            />
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={handleSendTelegramTest}
+              disabled={sendingTelegramTest || adminTelegramChatId.trim() === ""}
+            >
+              {sendingTelegramTest ? "Отправляем..." : "Отправить тест"}
+            </button>
+          </div>
+          {telegramBotInfo ? (
+            <p className="muted-text">
+              Бот: {telegramBotInfo.display_name ?? telegramBotInfo.username ?? "не определён"}
+              {telegramBotInfo.token_masked ? `, токен ${telegramBotInfo.token_masked}` : ""}
+            </p>
+          ) : null}
+          {telegramTestResult ? (
+            <p className="muted-text">Сообщение отправлено в чат {telegramTestResult.chat_id}.</p>
+          ) : null}
+        </div>
+      </div>
     );
   }
 
   function renderTemplatesSection() {
-    if (!platformSettingsForm) return renderUnavailableState();
+    if (!platformSettingsForm) return renderUnavailable();
     return (
-      <section className="panel form">
-        <label>
+      <div className="aps-stack">
+        <div className="aps-inline-status">
+          <StatPill label="Всего шаблонов" value={String(platformSettingsForm.notification_templates.length)} />
+          <StatPill
+            label="Настроено в БД"
+            value={String(configuredTemplateCount)}
+            tone={configuredTemplateCount > 0 ? "good" : "muted"}
+          />
+        </div>
+        <label className="aps-select-block">
           <span>Шаблон</span>
-          <select value={templateEventCode} onChange={(event) => setTemplateEventCode(event.target.value)}>
+          <select
+            value={templateEventCode}
+            onChange={(event) => setTemplateEventCode(event.target.value)}
+          >
             {platformSettingsForm.notification_templates.map((template) => (
               <option key={template.code} value={template.code}>
-                {template.title}
+                {hasConfiguredTemplateContent(template)
+                  ? `${template.title} • настроен`
+                  : template.title}
               </option>
             ))}
           </select>
         </label>
         {selectedTemplate ? (
-          <>
-            <label>
+          <FieldGrid>
+            <label className="aps-field-span-2">
               <span>Email subject</span>
               <input
                 value={selectedTemplate.email_subject ?? ""}
+                placeholder="Если в БД сохранён subject, он подставится сюда автоматически"
                 onChange={(event) =>
                   handleTemplateFieldChange(selectedTemplate.code, "email_subject", event.target.value)
                 }
               />
             </label>
-            <label>
+            <label className="aps-field-span-2">
               <span>Email body</span>
               <textarea
-                rows={6}
+                rows={8}
                 value={selectedTemplate.email_body ?? ""}
+                placeholder="Если в БД сохранён email body, он подставится сюда автоматически"
                 onChange={(event) =>
                   handleTemplateFieldChange(selectedTemplate.code, "email_body", event.target.value)
                 }
               />
             </label>
-            <label>
+            <label className="aps-field-span-2">
               <span>Telegram body</span>
               <textarea
-                rows={5}
+                rows={6}
                 value={selectedTemplate.telegram_body ?? ""}
+                placeholder="Если в БД сохранён telegram body, он подставится сюда автоматически"
                 onChange={(event) =>
                   handleTemplateFieldChange(selectedTemplate.code, "telegram_body", event.target.value)
                 }
               />
             </label>
-          </>
+          </FieldGrid>
         ) : (
-          <p className="muted-text">Шаблоны отсутствуют.</p>
+          renderUnavailable()
         )}
-      </section>
+      </div>
     );
   }
 
   function renderEventsSection() {
-    if (!platformSettingsForm) return renderUnavailableState();
+    if (!platformSettingsForm) return renderUnavailable();
     return (
-      <section className="panel form">
+      <div className="aps-events-list">
         {platformSettingsForm.notification_events.map((item) => (
-          <div key={item.code} className="tenant-card">
-            <div className="tenant-meta">
+          <div key={item.code} className="aps-event-row">
+            <div className="aps-event-copy">
               <strong>{item.title}</strong>
               <span className="muted-text">{item.code}</span>
             </div>
-            <label className="switch-row">
-              <span>Email</span>
-              <input
-                type="checkbox"
-                checked={item.email_enabled}
-                onChange={(event) =>
-                  handleToggleNotificationEvent(item.code, "email_enabled", event.target.checked)
-                }
-              />
-            </label>
-            <label className="switch-row">
-              <span>Telegram</span>
-              <input
-                type="checkbox"
-                checked={item.telegram_enabled}
-                onChange={(event) =>
-                  handleToggleNotificationEvent(item.code, "telegram_enabled", event.target.checked)
-                }
-              />
-            </label>
+            <div className="aps-event-controls">
+              <label className="aps-switch-inline">
+                <span>Email</span>
+                <input
+                  type="checkbox"
+                  checked={item.email_enabled}
+                  onChange={(event) =>
+                    handleToggleNotificationEvent(item.code, "email_enabled", event.target.checked)
+                  }
+                />
+              </label>
+              <label className="aps-switch-inline">
+                <span>Telegram</span>
+                <input
+                  type="checkbox"
+                  checked={item.telegram_enabled}
+                  onChange={(event) =>
+                    handleToggleNotificationEvent(item.code, "telegram_enabled", event.target.checked)
+                  }
+                />
+              </label>
+            </div>
           </div>
         ))}
-      </section>
+      </div>
     );
   }
 
   function renderTenantSection() {
     return (
-      <section className="panel form">
-        <label>
-          <span>Клиент</span>
-          <select value={selectedTenantId ?? ""} onChange={(event) => onSelectTenant(event.target.value)}>
-            <option disabled value="">
-              Выберите клиента
-            </option>
-            {tenants.map((tenant) => (
-              <option key={tenant.id} value={tenant.id}>
-                {tenant.name} ({tenant.status})
+      <div className="aps-stack">
+        <FieldGrid>
+          <label className="aps-field-span-2">
+            <span>Клиент</span>
+            <select
+              value={selectedTenantId ?? ""}
+              onChange={(event) => onSelectTenant(event.target.value)}
+            >
+              <option disabled value="">
+                Выберите клиента
               </option>
-            ))}
-          </select>
-        </label>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.name} ({tenant.status})
+                </option>
+              ))}
+            </select>
+          </label>
+        </FieldGrid>
         {tenantPolicyForm ? (
-          <form className="form" onSubmit={handleSubmitTenantPolicy}>
-            <label>
-              <span>Наценка клиента (%)</span>
-              <input
-                type="number"
-                step="0.0001"
-                value={tenantPolicyForm.custom_markup_percent ?? ""}
-                onChange={(event) =>
-                  setTenantPolicyForm({
-                    ...tenantPolicyForm,
-                    custom_markup_percent:
-                      event.target.value.trim() === "" ? null : event.target.value,
-                  })
-                }
-              />
-            </label>
-            <label>
-              <span>Комиссия с оборота клиента (%)</span>
-              <input
-                type="number"
-                step="0.0001"
-                value={tenantPolicyForm.custom_turnover_fee_percent ?? ""}
-                onChange={(event) =>
-                  setTenantPolicyForm({
-                    ...tenantPolicyForm,
-                    custom_turnover_fee_percent:
-                      event.target.value.trim() === "" ? null : event.target.value,
-                  })
-                }
-              />
-            </label>
-            <label className="switch-row">
-              <span>Разрешить выплаты</span>
-              <input
-                type="checkbox"
-                checked={tenantPolicyForm.payouts_enabled}
-                onChange={(event) =>
-                  setTenantPolicyForm({
-                    ...tenantPolicyForm,
-                    payouts_enabled: event.target.checked,
-                  })
-                }
-              />
-            </label>
-            <label className="switch-row">
-              <span>Ручная проверка выплат</span>
-              <input
-                type="checkbox"
-                checked={tenantPolicyForm.requires_manual_payout_review}
-                onChange={(event) =>
-                  setTenantPolicyForm({
-                    ...tenantPolicyForm,
-                    requires_manual_payout_review: event.target.checked,
-                  })
-                }
-              />
-            </label>
-            <button className="primary-button" type="submit" disabled={loading || !selectedTenantId}>
-              {loading ? "Сохраняем..." : "Сохранить правила клиента"}
-            </button>
+          <form className="aps-stack" onSubmit={handleSubmitTenantPolicy}>
+            <FieldGrid>
+              <label>
+                <span>Наценка клиента (%)</span>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={tenantPolicyForm.custom_markup_percent ?? ""}
+                  onChange={(event) =>
+                    setTenantPolicyForm({
+                      ...tenantPolicyForm,
+                      custom_markup_percent:
+                        event.target.value.trim() === "" ? null : event.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label>
+                <span>Комиссия с оборота клиента (%)</span>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={tenantPolicyForm.custom_turnover_fee_percent ?? ""}
+                  onChange={(event) =>
+                    setTenantPolicyForm({
+                      ...tenantPolicyForm,
+                      custom_turnover_fee_percent:
+                        event.target.value.trim() === "" ? null : event.target.value,
+                    })
+                  }
+                />
+              </label>
+            </FieldGrid>
+            <div className="aps-stack">
+              <label className="aps-switch-card">
+                <div>
+                  <strong>Разрешить выплаты</strong>
+                  <p className="muted-text">Локально включает выплаты для выбранного клиента.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={tenantPolicyForm.payouts_enabled}
+                  onChange={(event) =>
+                    setTenantPolicyForm({
+                      ...tenantPolicyForm,
+                      payouts_enabled: event.target.checked,
+                    })
+                  }
+                />
+              </label>
+              <label className="aps-switch-card">
+                <div>
+                  <strong>Ручная проверка выплат</strong>
+                  <p className="muted-text">Каждая выплата пойдёт через ручную модерацию.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={tenantPolicyForm.requires_manual_payout_review}
+                  onChange={(event) =>
+                    setTenantPolicyForm({
+                      ...tenantPolicyForm,
+                      requires_manual_payout_review: event.target.checked,
+                    })
+                  }
+                />
+              </label>
+            </div>
+            <div className="aps-inline-actions">
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={loading || !selectedTenantId}
+              >
+                {loading ? "Сохраняем..." : "Сохранить правила клиента"}
+              </button>
+            </div>
           </form>
         ) : (
-          <p className="muted-text">Выберите клиента, чтобы открыть его индивидуальные правила.</p>
+          <div className="aps-empty-state">
+            <p className="muted-text">
+              Выберите клиента, чтобы открыть его индивидуальные правила.
+            </p>
+          </div>
         )}
-      </section>
+      </div>
     );
   }
 
-  const tabContent: Record<SettingsTab, () => JSX.Element> = {
+  const renderSectionContent: Record<SettingsSectionKey, () => ReactNode> = {
     fees: renderFeesSection,
     payouts: renderPayoutsSection,
     brand: renderBrandSection,
@@ -761,71 +918,111 @@ export function AdminPlatformSettingsSection({
     tenant: renderTenantSection,
   };
 
-  const renderContent = (tab: SettingsTab) => tabContent[tab]();
-
   return (
-    <div className="platform-settings-page">
-      <header className="page-header">
-        <p className="eyebrow">Настройки</p>
-        <h1>Глобальные настройки платформы</h1>
-        <p className="page-description">Управление комиссиями, уведомлениями и брендом</p>
+    <div className="platform-settings-page aps-page">
+      <header className="aps-hero">
+        <div className="aps-hero-copy">
+          <p className="eyebrow">Control Center</p>
+          <h1>Глобальные настройки платформы</h1>
+          <p className="page-description">
+            Одна рабочая область для биллинга, каналов уведомлений, шаблонов и клиентских
+            переопределений.
+          </p>
+        </div>
+        <div className="aps-hero-stats">
+          {overviewStats.map((item) => (
+            <StatPill
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              tone={item.tone}
+            />
+          ))}
+        </div>
       </header>
 
-      <nav className="settings-tabs" role="tablist">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            className={`settings-tab-btn ${activeTab === tab.key ? "active" : ""}`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            <span className="tab-icon">{tab.icon}</span>
-            <span className="tab-label">{tab.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      <div className="settings-accordion">
-        {TABS.map((tab) => (
-          <div key={tab.key} className="accordion-item">
-            <button
-              className="accordion-header"
-              onClick={() => toggleAccordion(tab.key)}
-              aria-expanded={isAccordionExpanded(tab.key)}
-            >
-              <span className="accordion-icon">{tab.icon}</span>
-              <span className="accordion-label">{tab.label}</span>
-              <svg className="accordion-chevron" viewBox="0 0 24 24" fill="none">
-                <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            <div
-              className={`accordion-body ${isAccordionExpanded(tab.key) ? "open" : ""}`}
-            >
-              <div className="accordion-body-inner">
-                {renderContent(tab.key)}
-              </div>
+      <div className="aps-layout">
+        <aside className="aps-sidebar">
+          <div className="aps-sidebar-card">
+            <p className="eyebrow">Разделы</p>
+            <nav className="aps-nav" aria-label="Навигация по настройкам">
+              {SETTINGS_SECTIONS.map((section) => (
+                <button
+                  key={section.key}
+                  type="button"
+                  className={`aps-nav-link ${activeSection === section.key ? "active" : ""}`}
+                  onClick={() => setActiveSection(section.key)}
+                >
+                  <span className="aps-nav-index">{section.icon}</span>
+                  <span className="aps-nav-copy">
+                    <strong>{section.label}</strong>
+                    <span>{section.description}</span>
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </div>
+          <div className="aps-sidebar-card">
+            <p className="eyebrow">Действия</p>
+            <div className="aps-sidebar-actions">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => platformFormRef.current?.requestSubmit()}
+                disabled={loading || !platformSettingsForm}
+              >
+                {loading ? "Сохраняем..." : "Сохранить платформу"}
+              </button>
+              <p className="muted-text">
+                Кнопка сохраняет глобальные настройки. Параметры клиента сохраняются отдельно.
+              </p>
             </div>
           </div>
-        ))}
-      </div>
+        </aside>
 
-      <div className="settings-tab-content">
-        {renderContent(activeTab)}
-      </div>
+        <div className="aps-main">
+          <div className="aps-mobile-sections">
+            {SETTINGS_SECTIONS.map((section) => (
+              <div key={section.key} className="aps-mobile-item">
+                <button
+                  type="button"
+                  className="aps-mobile-trigger"
+                  aria-expanded={expandedSections.has(section.key)}
+                  onClick={() => toggleMobileSection(section.key)}
+                >
+                  <span className="aps-mobile-trigger-copy">
+                    <span className="aps-section-mark">{section.icon}</span>
+                    <span>
+                      <strong>{section.label}</strong>
+                      <small>{section.description}</small>
+                    </span>
+                  </span>
+                  <span className="aps-mobile-chevron">⌄</span>
+                </button>
+                {expandedSections.has(section.key) ? (
+                  <div className="aps-mobile-body">
+                    <SectionShell meta={section}>{renderSectionContent[section.key]()}</SectionShell>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
 
-      {(activeTab !== "tenant") && (
-        <div className="settings-save-bar">
-          <button className="primary-button" onClick={() => formRef.current?.requestSubmit()} disabled={loading}>
-            {loading ? "Сохраняем..." : "Сохранить настройки"}
-          </button>
+          <div className="aps-desktop-sections">
+            {SETTINGS_SECTIONS.filter((section) => section.key === activeSection).map((section) => (
+              <SectionShell key={section.key} meta={section}>
+                {renderSectionContent[section.key]()}
+              </SectionShell>
+            ))}
+          </div>
         </div>
-      )}
+      </div>
 
-      <form ref={formRef} style={{ display: "none" }} onSubmit={handleSubmitPlatformSettings}>
-        <input type="hidden" />
-      </form>
+      <form
+        ref={platformFormRef}
+        className="aps-hidden-form"
+        onSubmit={handleSubmitPlatformSettings}
+      />
     </div>
   );
 }

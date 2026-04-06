@@ -30,11 +30,13 @@ class UserService:
     def get_by_id(self, user_id: str) -> User | None:
         return self.db.get(User, user_id)
 
-    def list_users(self, tenant_id: str | None = None) -> list[tuple[User, str | None]]:
+    def list_users(self, tenant_id: str | None = None, limit: int = 50, offset: int = 0) -> list[tuple[User, str | None]]:
         stmt = (
             select(User, Tenant.name)
             .outerjoin(Tenant, Tenant.id == User.tenant_id)
             .order_by(User.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         if tenant_id:
             stmt = stmt.where(User.tenant_id == tenant_id)
@@ -105,6 +107,9 @@ class UserService:
                 user.invited_at = datetime.now(timezone.utc)
         if "password" in updates and updates["password"]:
             user.password_hash = get_password_hash(str(updates["password"]))
+            user.failed_login_attempts = 0
+            user.last_failed_login_at = None
+            user.login_locked_until = None
         if updates.get("reset_two_factor"):
             user.totp_enabled = False
             user.totp_secret_encrypted = None

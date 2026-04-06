@@ -144,18 +144,20 @@ class InvoiceService:
         )
         self.db.commit()
         AccountingService.invalidate_cache(tenant_id=tenant_id)
+        from app.db.tenant import apply_db_security_context
+        apply_db_security_context(self.db)
         self.db.refresh(invoice)
         return invoice
 
-    def list_invoices(self, tenant_id: str, project_id: str | None = None) -> list[Invoice]:
+    def list_invoices(self, tenant_id: str, project_id: str | None = None, limit: int = 50, offset: int = 0) -> list[Invoice]:
         stmt = select(Invoice).where(Invoice.tenant_id == tenant_id)
         if project_id is not None:
             stmt = stmt.where(Invoice.project_id == project_id)
-        stmt = stmt.order_by(Invoice.created_at.desc())
+        stmt = stmt.order_by(Invoice.created_at.desc()).limit(limit).offset(offset)
         return list(self.db.scalars(stmt).all())
 
-    def list_all_invoices(self, limit: int = 50) -> list[Invoice]:
-        stmt = select(Invoice).order_by(Invoice.created_at.desc()).limit(limit)
+    def list_all_invoices(self, limit: int = 50, offset: int = 0) -> list[Invoice]:
+        stmt = select(Invoice).order_by(Invoice.created_at.desc()).limit(limit).offset(offset)
         return list(self.db.scalars(stmt).all())
 
     def get_invoice(
@@ -181,11 +183,13 @@ class InvoiceService:
                 total += Decimal(transaction.net_amount)
         return total
 
-    def list_invoices_by_tenant(self, tenant_id: str) -> list[Invoice]:
+    def list_invoices_by_tenant(self, tenant_id: str, limit: int = 50, offset: int = 0) -> list[Invoice]:
         stmt = (
             select(Invoice)
             .where(Invoice.tenant_id == tenant_id)
             .order_by(Invoice.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list(self.db.scalars(stmt).all())
 

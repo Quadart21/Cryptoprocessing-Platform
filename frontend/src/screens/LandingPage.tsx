@@ -10,20 +10,37 @@ type LoginFormState = {
 
 type LandingPageProps = {
   mode: "login" | "register";
+  loginStep: "credentials" | "two-factor";
   registrationEnabled?: boolean;
   loading: boolean;
   success: string | null;
   error: string | null;
   loginForm: LoginFormState;
+  passwordRecoveryEmail: string;
+  passwordResetForm: {
+    token: string;
+    password: string;
+    confirmPassword: string;
+  };
   registrationForm: RegistrationPayload;
   publicPages: PublicPageNavigationItem[];
   onOpenPublicDocs: () => void;
   onOpenPublicPage: (slug: string) => void;
   onModeChange: (mode: "login" | "register") => void;
   onLoginFormChange: (next: LoginFormState) => void;
+  onPasswordRecoveryEmailChange: (next: string) => void;
+  onPasswordResetFormChange: (next: {
+    token: string;
+    password: string;
+    confirmPassword: string;
+  }) => void;
   onRegistrationFormChange: (next: RegistrationPayload) => void;
   onLogin: (event: FormEvent<HTMLFormElement>) => void;
+  onLoginTwoFactor: (event: FormEvent<HTMLFormElement>) => void;
+  onBackToLoginCredentials: () => void;
+  onRequestPasswordRecovery: (email: string) => void;
   onRegister: (event: FormEvent<HTMLFormElement>) => void;
+  onSetRecoveredPassword: (event: FormEvent<HTMLFormElement>) => void;
 };
 
 const FEATURES = [
@@ -95,24 +112,34 @@ const TOKENS = ["BTC", "ETH", "USDT", "TRON", "BNB", "SOL"];
 
 export function LandingPage({
   mode,
+  loginStep,
   registrationEnabled = true,
   loading,
   success,
   error,
   loginForm,
+  passwordRecoveryEmail,
+  passwordResetForm,
   registrationForm,
   publicPages,
   onOpenPublicDocs,
   onOpenPublicPage,
   onModeChange,
   onLoginFormChange,
+  onPasswordRecoveryEmailChange,
+  onPasswordResetFormChange,
   onRegistrationFormChange,
   onLogin,
+  onLoginTwoFactor,
+  onBackToLoginCredentials,
+  onRequestPasswordRecovery,
   onRegister,
+  onSetRecoveredPassword,
 }: LandingPageProps) {
   const [authOpen, setAuthOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+  const [recoveryMode, setRecoveryMode] = useState<"login" | "request" | "reset">("login");
 
   const headerPages = useMemo(
     () =>
@@ -134,6 +161,12 @@ export function LandingPage({
       setAuthOpen(true);
     }
   }, [success, error]);
+
+  useEffect(() => {
+    if (loginStep === "two-factor") {
+      setAuthOpen(true);
+    }
+  }, [loginStep]);
 
   useEffect(() => {
     if (!authOpen) return;
@@ -166,6 +199,7 @@ export function LandingPage({
 
   const openAuth = (next: "login" | "register") => {
     onModeChange(next);
+    setRecoveryMode("login");
     setMobileMenuOpen(false);
     setAuthOpen(true);
   };
@@ -449,39 +483,163 @@ export function LandingPage({
             </div>
 
             {mode === "login" || !registrationEnabled ? (
-              <form className="nc-form" onSubmit={onLogin}>
-                <label>
-                  <span>Email</span>
-                  <input
-                    type="email"
-                    value={loginForm.email}
-                    onChange={(e) => onLoginFormChange({ ...loginForm, email: e.target.value })}
-                    required
-                  />
-                </label>
-                <label>
-                  <span>Пароль</span>
-                  <input
-                    type="password"
-                    value={loginForm.password}
-                    onChange={(e) => onLoginFormChange({ ...loginForm, password: e.target.value })}
-                    required
-                  />
-                </label>
-                <label>
-                  <span>2FA код</span>
-                  <input
-                    type="text"
-                    value={loginForm.otp_code}
-                    onChange={(e) => onLoginFormChange({ ...loginForm, otp_code: e.target.value })}
-                    inputMode="numeric"
-                    maxLength={8}
-                  />
-                </label>
-                <button className="nc-btn-primary" disabled={loading} type="submit">
-                  {loading ? "..." : "Войти"}
-                </button>
-              </form>
+              recoveryMode === "login" && loginStep === "credentials" ? (
+                <form className="nc-form" onSubmit={onLogin}>
+                  <label>
+                    <span>Email</span>
+                    <input
+                      type="email"
+                      value={loginForm.email}
+                      onChange={(e) => onLoginFormChange({ ...loginForm, email: e.target.value })}
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>Пароль</span>
+                    <input
+                      type="password"
+                      value={loginForm.password}
+                      onChange={(e) => onLoginFormChange({ ...loginForm, password: e.target.value })}
+                      required
+                    />
+                  </label>
+                  <button className="nc-btn-primary" disabled={loading} type="submit">
+                    {loading ? "..." : "Далее"}
+                  </button>
+                  <button
+                    className="nc-btn-ghost"
+                    onClick={() => setRecoveryMode("request")}
+                    type="button"
+                  >
+                    Забыли пароль?
+                  </button>
+                </form>
+              ) : recoveryMode === "login" && loginStep === "two-factor" ? (
+                <form className="nc-form" onSubmit={onLoginTwoFactor}>
+                  <div className="result-box">
+                    <p>{loginForm.email}</p>
+                    <p>Введите код из приложения-аутентификатора.</p>
+                  </div>
+                  <label>
+                    <span>2FA код</span>
+                    <input
+                      type="text"
+                      value={loginForm.otp_code}
+                      onChange={(e) => onLoginFormChange({ ...loginForm, otp_code: e.target.value })}
+                      inputMode="numeric"
+                      maxLength={8}
+                      autoFocus
+                      required
+                    />
+                  </label>
+                  <button className="nc-btn-primary" disabled={loading} type="submit">
+                    {loading ? "..." : "Подтвердить вход"}
+                  </button>
+                  <button
+                    className="nc-btn-ghost"
+                    onClick={onBackToLoginCredentials}
+                    type="button"
+                  >
+                    Назад
+                  </button>
+                </form>
+              ) : recoveryMode === "request" ? (
+                <form
+                  className="nc-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    onRequestPasswordRecovery(passwordRecoveryEmail);
+                  }}
+                >
+                  <label>
+                    <span>Email мерчанта</span>
+                    <input
+                      type="email"
+                      value={passwordRecoveryEmail}
+                      onChange={(e) => onPasswordRecoveryEmailChange(e.target.value)}
+                      required
+                    />
+                  </label>
+                  <button className="nc-btn-primary" disabled={loading} type="submit">
+                    {loading ? "..." : "Отправить токен"}
+                  </button>
+                  <button
+                    className="nc-btn-ghost"
+                    onClick={() => setRecoveryMode("reset")}
+                    type="button"
+                  >
+                    У меня уже есть токен
+                  </button>
+                  <button
+                    className="nc-btn-ghost"
+                    onClick={() => setRecoveryMode("login")}
+                    type="button"
+                  >
+                    Назад ко входу
+                  </button>
+                </form>
+              ) : (
+                <form className="nc-form" onSubmit={onSetRecoveredPassword}>
+                  <label>
+                    <span>Токен восстановления</span>
+                    <input
+                      value={passwordResetForm.token}
+                      onChange={(e) =>
+                        onPasswordResetFormChange({
+                          ...passwordResetForm,
+                          token: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>Новый пароль</span>
+                    <input
+                      type="password"
+                      value={passwordResetForm.password}
+                      onChange={(e) =>
+                        onPasswordResetFormChange({
+                          ...passwordResetForm,
+                          password: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>Повторите пароль</span>
+                    <input
+                      type="password"
+                      value={passwordResetForm.confirmPassword}
+                      onChange={(e) =>
+                        onPasswordResetFormChange({
+                          ...passwordResetForm,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </label>
+                  <button className="nc-btn-primary" disabled={loading} type="submit">
+                    {loading ? "..." : "Установить новый пароль"}
+                  </button>
+                  <button
+                    className="nc-btn-ghost"
+                    onClick={() => setRecoveryMode("request")}
+                    type="button"
+                  >
+                    Запросить новый токен
+                  </button>
+                  <button
+                    className="nc-btn-ghost"
+                    onClick={() => setRecoveryMode("login")}
+                    type="button"
+                  >
+                    Назад ко входу
+                  </button>
+                </form>
+              )
             ) : (
               <form className="nc-form" onSubmit={onRegister}>
                 <div className="nc-form-grid">

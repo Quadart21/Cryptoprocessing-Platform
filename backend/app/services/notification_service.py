@@ -352,6 +352,8 @@ class NotificationService:
         event_code: str,
         subject: str,
         lines: Iterable[str],
+        force_email: bool = False,
+        force_telegram: bool = False,
     ) -> None:
         if event_code not in self.EVENT_DEFINITION_BY_CODE:
             return
@@ -379,7 +381,7 @@ class NotificationService:
         if (
             platform_settings.email_notifications_enabled
             and event_code in email_events
-            and user.notify_email_enabled
+            and (force_email or user.notify_email_enabled)
             and bool((user.email or "").strip())
         ):
             self._send_email(
@@ -393,7 +395,7 @@ class NotificationService:
         if (
             platform_settings.telegram_notifications_enabled
             and event_code in telegram_events
-            and user.notify_telegram_enabled
+            and (force_telegram or user.notify_telegram_enabled)
             and bool((user.telegram_chat_id or "").strip())
         ):
             self._send_telegram(
@@ -411,6 +413,8 @@ class NotificationService:
         lines: Iterable[str],
         owner_only: bool = False,
         exclude_user_id: str | None = None,
+        force_email: bool = False,
+        force_telegram: bool = False,
     ) -> None:
         recipients = self._list_tenant_recipients(tenant_id=tenant_id, owner_only=owner_only)
         for recipient in recipients:
@@ -421,6 +425,8 @@ class NotificationService:
                 event_code=event_code,
                 subject=subject,
                 lines=lines,
+                force_email=force_email,
+                force_telegram=force_telegram,
             )
 
     def _list_tenant_recipients(self, *, tenant_id: str, owner_only: bool) -> list[User]:

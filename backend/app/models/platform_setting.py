@@ -34,10 +34,13 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Boolean, nullable=False, default=True
     )
     email_notification_events_json: Mapped[str] = mapped_column(
-        String(4000), nullable=False, default="[]"
+        String(4000), nullable=False, default='["application_approved", "application_rejected", "application_submitted", "password_generated", "password_changed", "api_key_generated", "api_key_regenerated", "api_key_revoked", "two_factor_enabled", "two_factor_disabled", "payout_requested", "payout_approved", "payout_rejected"]'
     )
     telegram_notification_events_json: Mapped[str] = mapped_column(
-        String(4000), nullable=False, default="[]"
+        String(4000), nullable=False, default='["application_approved", "application_rejected", "application_submitted", "password_generated", "password_changed", "api_key_generated", "api_key_regenerated", "api_key_revoked", "two_factor_enabled", "two_factor_disabled", "payout_requested", "payout_approved", "payout_rejected"]'
+    )
+    telegram_notification_events_json: Mapped[str] = mapped_column(
+        String(4000), nullable=False, default='["application_approved", "application_rejected", "application_submitted", "password_generated", "password_changed", "api_key_generated", "api_key_regenerated", "api_key_revoked", "two_factor_enabled", "two_factor_disabled", "payout_requested", "payout_approved", "payout_rejected"]'
     )
     notification_templates_json: Mapped[str] = mapped_column(
         String(16000), nullable=False, default="{}"
@@ -47,7 +50,7 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     notification_logo_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     notification_primary_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    smtp_bz_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    smtp_bz_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     smtp_bz_api_base_url: Mapped[str] = mapped_column(
         String(255), nullable=False, default="https://api.smtp.bz/v1"
     )

@@ -1,6 +1,6 @@
 ﻿from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,12 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.providers.crypto_cash import CryptoCashProviderError
 from app.schemas.accounting import AccountingSummaryResponse
-from app.schemas.auth import SetPasswordRequest, TokenPairResponse
+from app.schemas.auth import (
+    PasswordRecoveryRequest,
+    PasswordRecoveryResponse,
+    SetPasswordRequest,
+    TokenPairResponse,
+)
 from app.schemas.invoice import BalanceResponse, InvoiceCreateRequest, InvoiceResponse
 from app.schemas.onboarding import OnboardingStatusResponse
 from app.schemas.notification import (
@@ -119,7 +124,7 @@ async def get_public_page_by_slug(
 
 
 @router.post("/auth/login", response_model=TokenPairResponse)
-async def login(payload: dict[str, Any], db: Session = Depends(get_db)) -> TokenPairResponse:
+async def login(payload: dict[str, Any], request: Request, db: Session = Depends(get_db)) -> TokenPairResponse:
     email = _normalize_input(payload.get("email"))
     password = _normalize_input(payload.get("password"))
     otp_code = _normalize_input(payload.get("otp_code"))
@@ -134,9 +139,18 @@ async def login(payload: dict[str, Any], db: Session = Depends(get_db)) -> Token
             detail="Пароль должен быть не короче 8 символов.",
         )
 
+    device_fingerprint = _normalize_input(payload.get("device_fingerprint"))
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
     auth_service = AuthService(db)
     try:
-        return auth_service.login(email, password, otp_code=otp_code or None)
+        return auth_service.login(
+            email, password, otp_code=otp_code or None,
+            device_fingerprint=device_fingerprint,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
     except AuthError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -268,6 +282,42 @@ async def set_password(
         "user_id": user.id,
         "email": user.email,
     }
+
+
+@router.post("/auth/recover-password", response_model=PasswordRecoveryResponse)
+async def recover_password(
+    payload: PasswordRecoveryRequest,
+    db: Session = Depends(get_db),
+) -> PasswordRecoveryResponse:
+    normalized_email = payload.email.strip().lower()
+    user = db.scalar(
+        select(User).where(
+            User.email == normalized_email,
+            User.tenant_id.is_not(None),
+            User.role.in_(["tenant_owner", "tenant_manager", "tenant_finance", "tenant_support"]),
+        )
+    )
+
+    if user is not None and user.status in {"active", "invited"}:
+        token = AuthService(db).create_invite(user)
+        NotificationService(db).notify_user(
+            user,
+            event_code=NotificationService.EVENT_PASSWORD_GENERATED,
+            subject="Запрошено восстановление пароля",
+            lines=[
+                f"Email: {user.email}",
+                f"Токен восстановления: {token}",
+                "Введите токен на форме восстановления пароля и установите новый пароль.",
+            ],
+            force_email=True,
+        )
+
+    return PasswordRecoveryResponse(
+        status="ok",
+        message=(
+            "Если пользователь с таким email найден, инструкция по восстановлению уже отправлена."
+        ),
+    )
 
 
 @router.get("/me", response_model=CurrentUserResponse)
@@ -642,12 +692,14 @@ async def create_invoice(
 async def list_invoices(
     auth: ClientAuthContext = Depends(get_client_auth_context),
     db: Session = Depends(get_db),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> list[InvoiceResponse]:
     _ensure_client_api_permission(auth, "client.invoices.read")
     invoice_service = InvoiceService(db)
     return [
         _map_invoice_response(invoice)
-        for invoice in invoice_service.list_invoices(auth.tenant_id, project_id=auth.project_id)
+        for invoice in invoice_service.list_invoices(auth.tenant_id, project_id=auth.project_id, limit=limit, offset=offset)
     ]
 
 
@@ -673,6 +725,11 @@ async def sync_invoice(
 ) -> InvoiceResponse:
     _ensure_client_api_permission(auth, "client.invoices.read")
     invoice_service = InvoiceService(db)
+    invoice = invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
+    if invoice is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+    if auth.project_id is not None and invoice.project_id != auth.project_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
     try:
         invoice = invoice_service.sync_invoice_status(
             tenant_id=auth.tenant_id,
@@ -716,6 +773,8 @@ async def get_rates(
 async def list_transactions(
     auth: ClientAuthContext = Depends(get_client_auth_context),
     db: Session = Depends(get_db),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> list[TransactionResponse]:
     _ensure_client_api_permission(auth, "client.transactions.read")
     transaction_service = TransactionService(db)
@@ -724,6 +783,8 @@ async def list_transactions(
         for transaction in transaction_service.list_by_tenant(
             auth.tenant_id,
             project_id=auth.project_id,
+            limit=limit,
+            offset=offset,
         )
     ]
 
@@ -802,11 +863,13 @@ async def request_payout(
 async def list_payouts(
     current_user: User = Depends(require_tenant_permission("client.payouts.read")),
     db: Session = Depends(get_db),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> list[PayoutRequestResponse]:
     payout_service = PayoutService(db)
     return [
         _map_payout_response(item)
-        for item in payout_service.list_by_tenant(current_user.tenant_id or "")
+        for item in payout_service.list_by_tenant(current_user.tenant_id or "", limit=limit, offset=offset)
     ]
 
 
