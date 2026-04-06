@@ -36,7 +36,7 @@ class AccountingService:
         transactions = list(self.db.scalars(transaction_stmt).all())
 
         invoices_total_count = len(invoices)
-        invoices_paid = [invoice for invoice in invoices if invoice.status == "paid"]
+        invoices_paid = [invoice for invoice in invoices if invoice.status in {"paid", "confirmed"}]
         invoices_confirmed = [invoice for invoice in invoices if invoice.status == "confirmed"]
         invoices_failed = [invoice for invoice in invoices if invoice.status == "failed"]
         invoices_expired = [invoice for invoice in invoices if invoice.status == "expired"]
@@ -47,15 +47,16 @@ class AccountingService:
             (invoice.amount_fiat for invoice in invoices_confirmed), Decimal("0")
         )
 
-        gross_amount = sum((tx.gross_amount for tx in transactions), Decimal("0"))
-        provider_fee_amount = sum((tx.provider_fee for tx in transactions), Decimal("0"))
-        platform_fee_amount = sum((tx.platform_fee for tx in transactions), Decimal("0"))
-        turnover_fee_amount = sum((tx.turnover_fee for tx in transactions), Decimal("0"))
+        paid_transactions = [tx for tx in transactions if tx.status in {"paid", "confirmed"}]
+        gross_amount = sum((tx.gross_amount for tx in paid_transactions), Decimal("0"))
+        provider_fee_amount = sum((tx.provider_fee for tx in paid_transactions), Decimal("0"))
+        platform_fee_amount = sum((tx.platform_fee for tx in paid_transactions), Decimal("0"))
+        turnover_fee_amount = sum((tx.turnover_fee for tx in paid_transactions), Decimal("0"))
         total_platform_revenue_amount = platform_fee_amount + turnover_fee_amount
-        net_amount = sum((tx.net_amount for tx in transactions), Decimal("0"))
+        net_amount = sum((tx.net_amount for tx in paid_transactions), Decimal("0"))
         average_invoice_amount = (
-            (invoices_total_amount / invoices_total_count)
-            if invoices_total_count > 0
+            (invoices_paid_amount / len(invoices_paid))
+            if len(invoices_paid) > 0
             else Decimal("0")
         )
 

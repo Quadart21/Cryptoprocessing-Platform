@@ -236,20 +236,21 @@ function buildSummary(
   let paidOrConfirmed = 0;
 
   for (const transaction of transactions) {
-    turnover += toAmount(transaction.gross_amount);
-    net += toAmount(transaction.net_amount);
-    fee +=
-      toAmount(transaction.provider_fee) +
-      toAmount(transaction.platform_fee) +
-      toAmount(transaction.turnover_fee);
-    if (transaction.status === "paid" || transaction.status === "confirmed") {
+    const isPaidOrConfirmed = transaction.status === "paid" || transaction.status === "confirmed";
+    if (isPaidOrConfirmed) {
+      turnover += toAmount(transaction.gross_amount);
+      net += toAmount(transaction.net_amount);
+      fee +=
+        toAmount(transaction.provider_fee) +
+        toAmount(transaction.platform_fee) +
+        toAmount(transaction.turnover_fee);
       paidOrConfirmed += 1;
     }
   }
 
   const transactionCount = transactions.length;
   const successRate = transactionCount ? (paidOrConfirmed / transactionCount) * 100 : 0;
-  const averageCheck = transactionCount ? turnover / transactionCount : 0;
+  const averageCheck = paidOrConfirmed ? turnover / paidOrConfirmed : 0;
 
   const oldest = transactions[transactionCount - 1];
   const newest = transactions[0];
@@ -275,7 +276,11 @@ function buildChartPoints(
   transactions: TransactionItem[],
   period: AnalyticsPeriod,
 ): AnalyticsChartPoint[] {
-  if (transactions.length === 0) {
+  const paidTransactions = transactions.filter(
+    (tx) => tx.status === "paid" || tx.status === "confirmed",
+  );
+
+  if (paidTransactions.length === 0) {
     return [];
   }
 
@@ -288,7 +293,7 @@ function buildChartPoints(
     }
   >();
 
-  for (const transaction of transactions) {
+  for (const transaction of paidTransactions) {
     const createdAt = toDate(transaction.created_at);
     if (!createdAt) {
       continue;
