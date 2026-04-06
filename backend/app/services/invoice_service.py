@@ -142,11 +142,8 @@ class InvoiceService:
             source="system",
             payload=provider_response.raw_payload,
         )
-        self.db.commit()
+        self.db.flush()
         AccountingService.invalidate_cache(tenant_id=tenant_id)
-        from app.db.tenant import apply_db_security_context
-        apply_db_security_context(self.db)
-        self.db.refresh(invoice)
         return invoice
 
     def list_invoices(self, tenant_id: str, project_id: str | None = None, limit: int = 50, offset: int = 0) -> list[Invoice]:
