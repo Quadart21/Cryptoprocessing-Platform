@@ -79,11 +79,12 @@ def get_available_networks(body: str) -> list[dict]:
                     if min_deposit:
                         try:
                             min_amount = float(min_deposit)
-                            networks.append({
-                                "currency": currency,
-                                "network": network.get("network", ""),
-                                "min_amount": min_amount,
-                            })
+                            if min_amount > 0:
+                                networks.append({
+                                    "currency": currency,
+                                    "network": network.get("network", ""),
+                                    "min_amount": min_amount,
+                                })
                         except (ValueError, TypeError):
                             pass
         return networks
