@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone as dt_timezone
 import re
 import secrets
 import string
@@ -43,7 +43,7 @@ class TenantService:
             full_name=payload.owner_full_name,
             role="tenant_owner",
             status="invited",
-            invited_at=datetime.now(timezone.utc),
+            invited_at=datetime.now(dt_timezone.utc),
         )
         self.db.add(owner)
         project_service = ProjectService(self.db)
@@ -57,8 +57,6 @@ class TenantService:
         )
         api_key, secret_key = project_service.create_api_key(tenant.id, project.id)
         self.db.commit()
-        self.db.refresh(tenant)
-        self.db.refresh(owner)
         return tenant, owner, project.id, api_key.public_key, secret_key
 
     def list_tenants(self, limit: int = 50, offset: int = 0) -> list[tuple[Tenant, User]]:
@@ -97,7 +95,9 @@ class TenantService:
         )
         self.db.add(tenant)
         self.db.flush()
-        set_db_security_context(self.db, tenant_id=tenant.id, is_superadmin=False)
+        # Self-service registration still bootstraps brand-new tenant-owned rows
+        # through the backend service, so it needs elevated DB context during setup.
+        set_db_security_context(self.db, tenant_id=tenant.id, is_superadmin=True)
 
         owner = User(
             tenant_id=tenant.id,
@@ -106,7 +106,7 @@ class TenantService:
             full_name=owner_full_name,
             role="tenant_owner",
             status="invited",
-            invited_at=datetime.now(timezone.utc),
+            invited_at=datetime.now(dt_timezone.utc),
         )
         self.db.add(owner)
 
@@ -121,9 +121,6 @@ class TenantService:
         )
         self.db.commit()
         apply_db_security_context(self.db)
-        self.db.refresh(tenant)
-        self.db.refresh(owner)
-        self.db.refresh(project)
         return tenant, owner, project
 
     def approve_tenant(
@@ -160,19 +157,17 @@ class TenantService:
         owner.password_hash = get_password_hash(generated_password)
         owner.status = "active"
         if owner.activated_at is None:
-            owner.activated_at = datetime.now(timezone.utc)
+            owner.activated_at = datetime.now(dt_timezone.utc)
         owner.failed_login_attempts = 0
         owner.last_failed_login_at = None
         owner.login_locked_until = None
 
+        set_db_security_context(self.db, tenant_id=tenant.id, is_superadmin=True)
         project_service = ProjectService(self.db)
         api_key, secret_key = project_service.create_api_key(tenant.id, project.id)
         self.db.add_all([tenant, project, owner])
         self.db.commit()
         apply_db_security_context(self.db)
-        self.db.refresh(tenant)
-        self.db.refresh(project)
-        self.db.refresh(owner)
         return tenant, project, owner, generated_password, api_key.public_key, secret_key
 
     def reject_tenant(self, tenant_id: str, review_comment: str | None = None) -> Tenant:

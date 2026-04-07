@@ -1,7 +1,9 @@
 ﻿from typing import Any
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -70,6 +72,7 @@ from app.services.transaction_service import TransactionService
 from app.services.public_page_service import PublicPageService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/health")
@@ -217,19 +220,39 @@ async def register(
             base_currency=base_currency,
             plan=plan,
         )
+    except ValueError as exc:
+        db.rollback()
+        logger.warning("Registration validation failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     except IntegrityError as exc:
         db.rollback()
+        logger.exception("Registration integrity error")
         error_text = str(exc).lower()
         if "ix_projects_domain" in error_text or "projects_domain" in error_text:
             detail = "Домен проекта уже используется. Укажите другой домен."
+        elif "ix_users_email" in error_text or "users_email" in error_text:
+            detail = "Email владельца уже используется. Укажите другой email."
+        elif "ix_tenants_slug" in error_text or "tenants_slug" in error_text:
+            detail = "Компания с похожим именем уже зарегистрирована. Уточните название компании."
         else:
             detail = "Не удалось подключить проект из-за конфликта уникальности данных."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=detail,
         ) from exc
+    except OperationalError as exc:
+        db.rollback()
+        logger.exception("Registration database connectivity error")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Сервис регистрации временно недоступен: ошибка подключения к базе данных.",
+        ) from exc
     except Exception as exc:
         db.rollback()
+        logger.exception("Unexpected registration error")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Не удалось подключить проект. Проверьте корректность данных и попробуйте снова.",
