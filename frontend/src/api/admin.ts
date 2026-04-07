@@ -194,6 +194,13 @@ export function updateAdminInvoiceStatus(
   });
 }
 
+export function syncAdminInvoice(token: string, invoiceId: string): Promise<InvoiceAdminDetail> {
+  return request<InvoiceAdminDetail>(`/admin/invoices/${invoiceId}/sync`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
 export function fetchAdminTransactions(token: string): Promise<TransactionItem[]> {
   return request<TransactionItem[]>("/admin/transactions", {
     headers: authHeaders(token),

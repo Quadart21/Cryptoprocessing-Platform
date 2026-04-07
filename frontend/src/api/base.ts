@@ -363,6 +363,13 @@ export type PlatformBillingSettings = {
   notification_events: NotificationEventToggle[];
   notification_templates: NotificationTemplateItem[];
   notification_template_variables: string[];
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_keywords: string | null;
+  seo_favicon_url: string | null;
+  seo_og_image_url: string | null;
+  seo_robots: string;
+  seo_canonical_url: string | null;
 };
 
 export type TelegramBotInspectPayload = {
@@ -659,4 +666,18 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function authHeaders(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
+}
+
+export type SeoSettings = {
+  title: string | null;
+  description: string | null;
+  keywords: string | null;
+  favicon_url: string | null;
+  og_image_url: string | null;
+  robots: string;
+  canonical_url: string | null;
+};
+
+export function fetchSeoSettings(): Promise<SeoSettings> {
+  return request<SeoSettings>("/public/seo", {});
 }

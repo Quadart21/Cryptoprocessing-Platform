@@ -19,6 +19,7 @@ type AdminOverviewSectionProps = {
   platformInvoices: InvoiceItem[];
   platformTransactions: TransactionItem[];
   platformEvents: ProviderEventItem[];
+  onSyncInvoice?: (invoiceId: string) => void;
 };
 
 export function AdminOverviewSection({
@@ -28,6 +29,7 @@ export function AdminOverviewSection({
   platformInvoices,
   platformTransactions,
   platformEvents,
+  onSyncInvoice,
 }: AdminOverviewSectionProps) {
   return (
     <>
@@ -72,7 +74,7 @@ export function AdminOverviewSection({
       ) : null}
 
       <section className="dashboard-grid client-grid">
-        <PlatformInvoicesPanel invoices={platformInvoices} />
+        <PlatformInvoicesPanel invoices={platformInvoices} onSyncInvoice={onSyncInvoice} />
         <PlatformTransactionsPanel transactions={platformTransactions} />
         <PlatformEventsPanel className="panel panel-span-2" events={platformEvents} />
       </section>

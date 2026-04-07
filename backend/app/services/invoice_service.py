@@ -270,7 +270,6 @@ class InvoiceService:
         self.db.add_all([invoice, transaction])
         self.db.commit()
         AccountingService.invalidate_cache(tenant_id=invoice.tenant_id)
-        self.db.refresh(invoice)
         return invoice
 
     def apply_invoice_status_by_id(

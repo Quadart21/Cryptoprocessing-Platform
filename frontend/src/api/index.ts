@@ -98,6 +98,7 @@ export {
   fetchAdminInvoices,
   fetchAdminInvoiceDetail,
   updateAdminInvoiceStatus,
+  syncAdminInvoice,
   fetchAdminTransactions,
   fetchAdminEvents,
   fetchInvoiceEvents,
@@ -123,4 +124,5 @@ export {
   regenerateAdminApiKey,
   fetchCsrfToken,
 } from "./admin";
-export { fetchPublicPages, fetchPublicPageBySlug } from "./public";
+export { fetchPublicPages, fetchPublicPageBySlug, fetchSeoSettings } from "./public";
+export type { SeoSettings } from "./base";

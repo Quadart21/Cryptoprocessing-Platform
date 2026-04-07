@@ -114,7 +114,8 @@ export type AdminDashboardProps = {
   onAdminRevokeApiKey: (apiKeyId: string) => void;
   onSelectInvoice: (invoiceId: string) => void;
   onUpdateInvoiceStatus: (status: string) => void;
-  onUpdatePlatformSettings: (payload: PlatformBillingSettings) => void;
+  onSyncInvoice: (invoiceId: string) => void;
+  onUpdatePlatformSettings: (payload: PlatformBillingSettings) => Promise<void>;
   onInspectPlatformTelegramBot: (
     payload: TelegramBotInspectPayload,
   ) => Promise<TelegramBotIdentity>;
@@ -141,4 +142,5 @@ export type AdminDashboardProps = {
   onDisableTwoFactor: (payload: { password: string; code?: string }) => void;
   onApprovePayout: (payoutId: string) => void;
   onRejectPayout: (payoutId: string) => void;
+  onCloseSecretModal: () => void;
 };

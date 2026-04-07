@@ -138,6 +138,7 @@ export function AdminDashboard({
   onAdminRevokeApiKey,
   onSelectInvoice,
   onUpdateInvoiceStatus,
+  onSyncInvoice,
   onUpdatePlatformSettings,
   onInspectPlatformTelegramBot,
   onSendPlatformTelegramTest,
@@ -156,6 +157,17 @@ export function AdminDashboard({
   onRejectPayout,
 }: AdminDashboardProps) {
   const [section, setSection] = useState<AdminSection>("overview");
+  const [showSecretModal, setShowSecretModal] = useState(false);
+
+  const handleCloseSecretModal = () => {
+    setShowSecretModal(false);
+  };
+
+  useEffect(() => {
+    if (newApiSecret) {
+      setShowSecretModal(true);
+    }
+  }, [newApiSecret]);
 
   useEffect(() => {
     if (section === "client-detail" && !selectedTenantId) {
@@ -242,6 +254,7 @@ export function AdminDashboard({
           error={error}
           newApiSecret={newApiSecret}
           success={success}
+          onCloseSecretModal={handleCloseSecretModal}
         />
 
         {section === "overview" ? (
@@ -282,13 +295,18 @@ export function AdminDashboard({
               platformTransactions={platformTransactions}
               tenants={tenants}
               user={user}
+              onSyncInvoice={onSyncInvoice}
             />
           </>
         ) : null}
 
         {section === "invoices" ? (
           <section className="dashboard-grid client-grid">
-            <PlatformInvoicesPanel className="panel panel-span-2" invoices={platformInvoices} />
+            <PlatformInvoicesPanel
+              className="panel panel-span-2"
+              invoices={platformInvoices}
+              onSyncInvoice={onSyncInvoice}
+            />
           </section>
         ) : null}
 

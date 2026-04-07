@@ -4,6 +4,8 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/cryptoprocessing}"
 APP_USER="${APP_USER:-cryptoprocessing}"
 BACKEND_SERVICE="${BACKEND_SERVICE:-cryptoprocessing.service}"
+CELERY_WORKER_SERVICE="${CELERY_WORKER_SERVICE:-cryptoprocessing-celery-worker.service}"
+CELERY_BEAT_SERVICE="${CELERY_BEAT_SERVICE:-cryptoprocessing-celery-beat.service}"
 RELOAD_NGINX="${RELOAD_NGINX:-1}"
 
 log() {
@@ -43,6 +45,20 @@ restart_backend() {
   systemctl status "${BACKEND_SERVICE}" --no-pager -l
 }
 
+restart_celery_worker() {
+  log "Restarting Celery worker service ${CELERY_WORKER_SERVICE}"
+  systemctl restart "${CELERY_WORKER_SERVICE}"
+  sleep 3
+  systemctl status "${CELERY_WORKER_SERVICE}" --no-pager -l
+}
+
+restart_celery_beat() {
+  log "Restarting Celery beat service ${CELERY_BEAT_SERVICE}"
+  systemctl restart "${CELERY_BEAT_SERVICE}"
+  sleep 3
+  systemctl status "${CELERY_BEAT_SERVICE}" --no-pager -l
+}
+
 reload_nginx() {
   if [[ "${RELOAD_NGINX}" != "1" ]]; then
     return
@@ -62,6 +78,8 @@ print_done() {
   log "Done"
   echo "Frontend rebuilt."
   echo "Backend restarted."
+  echo "Celery worker restarted."
+  echo "Celery beat restarted."
   if [[ "${RELOAD_NGINX}" == "1" ]]; then
     echo "Nginx reloaded."
   fi
@@ -72,6 +90,8 @@ require_paths
 build_frontend
 check_backend_syntax
 restart_backend
+restart_celery_worker
+restart_celery_beat
 reload_nginx
 smoke_check
 print_done

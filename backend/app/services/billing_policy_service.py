@@ -62,6 +62,13 @@ class BillingPolicyService:
         allow_tenant_markup_override: bool,
         allow_tenant_turnover_fee_override: bool,
         payouts_enabled: bool,
+        seo_title: str | None = None,
+        seo_description: str | None = None,
+        seo_keywords: str | None = None,
+        seo_favicon_url: str | None = None,
+        seo_og_image_url: str | None = None,
+        seo_robots: str = "index, follow",
+        seo_canonical_url: str | None = None,
     ) -> PlatformSetting:
         self._validate_percent(provider_fee_percent, "provider_fee_percent")
         self._validate_percent(default_markup_percent, "default_markup_percent")
@@ -74,6 +81,13 @@ class BillingPolicyService:
         settings.allow_tenant_markup_override = allow_tenant_markup_override
         settings.allow_tenant_turnover_fee_override = allow_tenant_turnover_fee_override
         settings.payouts_enabled = payouts_enabled
+        settings.seo_title = (seo_title or "").strip() or None
+        settings.seo_description = (seo_description or "").strip() or None
+        settings.seo_keywords = (seo_keywords or "").strip() or None
+        settings.seo_favicon_url = (seo_favicon_url or "").strip() or None
+        settings.seo_og_image_url = (seo_og_image_url or "").strip() or None
+        settings.seo_robots = (seo_robots or "index, follow").strip() or "index, follow"
+        settings.seo_canonical_url = (seo_canonical_url or "").strip() or None
         self.db.add(settings)
         self.db.commit()
         self.db.refresh(settings)

@@ -1,4 +1,4 @@
-﻿import {
+import {
   approveTenant,
   changeClientPassword,
   createAdminUser,
@@ -31,6 +31,7 @@
   fetchPlatformBillingSettings,
   fetchProjects,
   fetchRates,
+  fetchSeoSettings,
   fetchTenantBillingPolicy,
   fetchTenantAccountingSummary,
   fetchTenantDetail,
@@ -57,6 +58,7 @@
   sendWebhookTest,
   setPasswordByRecoveryToken,
   setupTwoFactor,
+  syncAdminInvoice,
   syncClientInvoice,
   type AccountingSummary,
   type AdminUserCreatePayload,
@@ -79,6 +81,7 @@
   type PublicPageItem,
   type RateItem,
   type RegistrationPayload,
+  type SeoSettings,
   type SmtpBzTestPayload,
   type SmtpBzTestResponse,
   type TelegramAdminTestPayload,
@@ -127,6 +130,7 @@ import { LandingPage } from "./screens/LandingPage";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { PublicDocsPage } from "./screens/PublicDocsPage";
 import { PublicCmsPage } from "./screens/PublicCmsPage";
+import { SeoHead } from "./components/SeoHead";
 import { safeLoad } from "./utils/async";
 
 const PLATFORM_ROLES = new Set([
@@ -192,6 +196,7 @@ export function AppController() {
     null,
   );
   const [selectedInvoiceEvents, setSelectedInvoiceEvents] = useState<ProviderEventItem[]>([]);
+  const [seoSettings, setSeoSettings] = useState<SeoSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -249,6 +254,7 @@ export function AppController() {
       setSelectedClientInvoiceId(null);
       setSelectedClientInvoiceDetail(null);
       setPayoutForm(initialPayoutForm);
+      setSeoSettings(null);
       return;
     }
     void loadSession(token);
@@ -259,6 +265,12 @@ export function AppController() {
       setInvoiceForm((current) => ({ ...current, project_id: projects[0].id }));
     }
   }, [projects, invoiceForm.project_id]);
+
+  useEffect(() => {
+    if (!seoSettings) {
+      fetchSeoSettings().then(setSeoSettings).catch(console.error);
+    }
+  }, [seoSettings]);
 
   useEffect(() => {
     if (projects.length > 0 && !webhookForm.project_id) {
@@ -1182,6 +1194,37 @@ export function AppController() {
     }
   }
 
+  async function handleSyncInvoice(invoiceId: string) {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const invoice = await syncAdminInvoice(token, invoiceId);
+      const [invoiceItems, transactionItems, eventItems] = await Promise.all([
+        fetchAdminInvoices(token),
+        fetchAdminTransactions(token),
+        fetchAdminEvents(token),
+      ]);
+      setPlatformInvoices(invoiceItems);
+      setPlatformTransactions(transactionItems);
+      setPlatformEvents(eventItems);
+      if (selectedInvoiceId === invoiceId) {
+        setSelectedInvoiceDetail(invoice);
+        setSelectedInvoiceEvents(await safeLoad(() => fetchInvoiceEvents(token, invoiceId), []));
+      }
+      if (selectedTenantId) {
+        const tenantInvoices = await fetchTenantInvoices(token, selectedTenantId);
+        setSelectedTenantInvoices(tenantInvoices);
+      }
+      setSuccess(`Статус инвойса синхронизирован: ${invoice.status}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось синхронизировать инвойс.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSelectClientInvoice(invoiceId: string) {
     if (!token) return;
     try {
@@ -1499,186 +1542,176 @@ export function AppController() {
       setAdminPublicPages,
     });
 
-  if (!token || !user) {
-    if (publicRoute.view === "docs") {
-      return (
-        <PublicDocsPage
-          onBackToLanding={() => openPublicPage("landing")}
-          onOpenLogin={() => {
-            setMode("login");
-            openPublicPage("landing");
-          }}
-          onOpenRegister={() => {
-            setMode("register");
-            openPublicPage("landing");
-          }}
-        />
-      );
-    }
-
-    if (publicRoute.view === "cms") {
-      return (
-        <PublicCmsPage
+return (
+    <>
+      <SeoHead settings={seoSettings} />
+      {!token || !user ? (
+        publicRoute.view === "docs" ? (
+          <PublicDocsPage
+            onBackToLanding={() => openPublicPage("landing")}
+            onOpenLogin={() => {
+              setMode("login");
+              openPublicPage("landing");
+            }}
+            onOpenRegister={() => {
+              setMode("register");
+              openPublicPage("landing");
+            }}
+          />
+        ) : publicRoute.view === "cms" ? (
+          <PublicCmsPage
+            loading={loading}
+            page={publicPageDetail}
+            onBackToLanding={() => openPublicPage("landing")}
+          />
+        ) : (
+          <LandingPage
+            mode={mode}
+            loginStep={loginStep}
+            registrationEnabled
+            loading={loading}
+            success={success}
+            error={error}
+            loginForm={loginForm}
+            passwordRecoveryEmail={passwordRecoveryEmail}
+            passwordResetForm={passwordResetForm}
+            registrationForm={registrationForm}
+            onModeChange={handleAuthModeChange}
+            onLoginFormChange={setLoginForm}
+            onPasswordRecoveryEmailChange={setPasswordRecoveryEmail}
+            onPasswordResetFormChange={setPasswordResetForm}
+            onRegistrationFormChange={setRegistrationForm}
+            onLogin={handleLogin}
+            onLoginTwoFactor={handleLoginTwoFactor}
+            onBackToLoginCredentials={handleBackToLoginCredentials}
+            onRequestPasswordRecovery={(email) => void handleRequestPasswordRecovery(email)}
+            onRegister={handleRegister}
+            onSetRecoveredPassword={handleSetRecoveredPassword}
+            onOpenPublicDocs={() => openPublicPage("docs")}
+            publicPages={publicNavigationItems}
+            onOpenPublicPage={(slug) => openPublicPage("cms", slug)}
+          />
+        )
+) : isPlatformRole(user.role) ? (
+        <AdminDashboard
+          user={user}
           loading={loading}
-          page={publicPageDetail}
-          onBackToLanding={() => openPublicPage("landing")}
+          success={success}
+          error={error}
+          newApiSecret={newApiSecret}
+          tenantForm={tenantForm}
+          createdTenant={createdTenant}
+          tenants={tenants}
+          selectedTenantId={selectedTenantId}
+          selectedTenantDetail={selectedTenantDetail}
+          selectedTenantInvoices={selectedTenantInvoices}
+          selectedTenantTransactions={selectedTenantTransactions}
+          selectedTenantPayouts={selectedTenantPayouts}
+          selectedTenantAccounting={selectedTenantAccounting}
+          platformAccounting={platformAccounting}
+          platformInvoices={platformInvoices}
+          platformTransactions={platformTransactions}
+          platformEvents={platformEvents}
+          platformBillingSettings={platformBillingSettings}
+          publicPages={adminPublicPages}
+          selectedTenantBillingPolicy={selectedTenantBillingPolicy}
+          adminAssetRates={adminAssetRates}
+          adminUsers={adminUsers}
+          roleDefinitions={roleDefinitions}
+          twoFactorStatus={twoFactorStatus}
+          twoFactorSetup={twoFactorSetup}
+          selectedInvoiceId={selectedInvoiceId}
+          selectedInvoiceDetail={selectedInvoiceDetail}
+          selectedInvoiceEvents={selectedInvoiceEvents}
+          onLogout={handleLogout}
+          onCreateTenant={handleCreateTenant}
+          onTenantFormChange={setTenantForm}
+          onSelectTenant={(tenantId) => void handleSelectTenant(tenantId)}
+          onApproveTenant={(tenantId) => void handleApproveTenant(tenantId)}
+          onRejectTenant={(tenantId) => void handleRejectTenant(tenantId)}
+          onUpdateAdminTenant={(tenantId, payload) => void handleUpdateAdminTenant(tenantId, payload)}
+          onUpdateAdminProject={(projectId, payload) => void handleUpdateAdminProject(projectId, payload)}
+          onDeleteAdminTenant={(tenantId) => void handleDeleteAdminTenant(tenantId)}
+          onResetTenantOwnerPassword={(tenantId) => void handleAdminResetTenantOwnerPassword(tenantId)}
+          onResetTenantOwnerTwoFactor={(tenantId) => void handleAdminResetTenantOwnerTwoFactor(tenantId)}
+          onAdminRegenerateApiKey={(apiKeyId) => void handleAdminRegenerateApiKey(apiKeyId)}
+          onAdminRevokeApiKey={(apiKeyId) => void handleAdminRevokeApiKey(apiKeyId)}
+          onSelectInvoice={(invoiceId) => void handleSelectInvoice(invoiceId)}
+          onUpdateInvoiceStatus={(status) => void handleUpdateInvoiceStatus(status)}
+          onSyncInvoice={(invoiceId) => void handleSyncInvoice(invoiceId)}
+          onUpdatePlatformSettings={handleUpdatePlatformSettings}
+          onInspectPlatformTelegramBot={(payload) => handleInspectPlatformTelegramBot(payload)}
+          onSendPlatformTelegramTest={(payload) => handleSendPlatformTelegramTest(payload)}
+          onSendPlatformSmtpBzTest={(payload) => handleSendPlatformSmtpBzTest(payload)}
+          onUpdateTenantPolicy={(payload) => void handleUpdateTenantPolicy(payload)}
+          onUpdateAssetAvailability={(payload) => void handleUpdateAssetAvailability(payload)}
+          onCreatePublicPage={(payload) => void handleCreatePublicPage(payload)}
+          onUpdatePublicPage={(pageId, payload) => void handleUpdatePublicPage(pageId, payload)}
+          onDeletePublicPage={(pageId) => void handleDeletePublicPage(pageId)}
+          onCreateAdminUser={(payload) => void handleCreateAdminUser(payload)}
+          onUpdateAdminUser={(userId, payload) => void handleUpdateAdminUser(userId, payload)}
+          onSetupTwoFactor={() => void handleSetupTwoFactor()}
+          onEnableTwoFactor={(code) => void handleEnableTwoFactor(code)}
+          onDisableTwoFactor={(payload) => void handleDisableTwoFactor(payload)}
+          onApprovePayout={(payoutId) => void handleApprovePayout(payoutId)}
+          onRejectPayout={(payoutId) => void handleRejectPayout(payoutId)}
+          onCloseSecretModal={() => setNewApiSecret(null)}
+          {...adminDerived}
         />
-      );
-    }
-
-    return (
-      <LandingPage
-        mode={mode}
-        loginStep={loginStep}
-        registrationEnabled
-        loading={loading}
-        success={success}
-        error={error}
-        loginForm={loginForm}
-        passwordRecoveryEmail={passwordRecoveryEmail}
-        passwordResetForm={passwordResetForm}
-        registrationForm={registrationForm}
-        onModeChange={handleAuthModeChange}
-        onLoginFormChange={setLoginForm}
-        onPasswordRecoveryEmailChange={setPasswordRecoveryEmail}
-        onPasswordResetFormChange={setPasswordResetForm}
-        onRegistrationFormChange={setRegistrationForm}
-        onLogin={handleLogin}
-        onLoginTwoFactor={handleLoginTwoFactor}
-        onBackToLoginCredentials={handleBackToLoginCredentials}
-        onRequestPasswordRecovery={(email) => void handleRequestPasswordRecovery(email)}
-        onRegister={handleRegister}
-        onSetRecoveredPassword={handleSetRecoveredPassword}
-        onOpenPublicDocs={() => openPublicPage("docs")}
-        publicPages={publicNavigationItems}
-        onOpenPublicPage={(slug) => openPublicPage("cms", slug)}
-      />
-    );
-  }
-
-  const platformUser = isPlatformRole(user.role);
-
-  if (!platformUser && onboarding?.tenant_status !== "approved") {
-    return <OnboardingScreen onboarding={onboarding} onLogout={handleLogout} />;
-  }
-
-  if (!platformUser) {
-    return (
-      <ClientDashboard
-        user={user}
-        onboarding={onboarding}
-        success={success}
-        error={error}
-        newApiSecret={newApiSecret}
-        loading={loading}
-        projects={projects}
-        apiKeys={apiKeys}
-        invoices={invoices}
-        selectedClientInvoiceId={selectedClientInvoiceId}
-        selectedClientInvoiceDetail={selectedClientInvoiceDetail}
-        clientTransactions={clientTransactions}
-        payouts={payouts}
-        clientAccounting={clientAccounting}
-        balance={balance}
-        invoiceForm={invoiceForm}
-        payoutForm={payoutForm}
-        webhookForm={webhookForm}
-        rates={rates.map((item) => ({ currency: item.currency }))}
-        availableNetworks={availableNetworks}
-        selectedNetwork={selectedNetwork}
-        apiBaseUrl={apiBaseUrl}
-        activeApiKeyPublic={activeApiKey?.public_key ?? null}
-        activeWebhookUrl={activeWebhook?.webhook_url ?? null}
-        selectedRoute={selectedRate ? `${selectedRate.currency} / ${selectedNetwork?.network ?? "-"}` : "Загрузка"}
-        integrationCurl={integrationCurl}
-        twoFactorStatus={twoFactorStatus}
-        twoFactorSetup={twoFactorSetup}
-        notificationSettings={clientNotificationSettings}
-        onLogout={handleLogout}
-        onCreateInvoice={handleCreateInvoice}
-        onCreatePayout={handleCreatePayout}
-        onSaveWebhook={handleSaveWebhook}
-        onSendWebhookTest={handleSendWebhookTest}
-        onInvoiceFormChange={setInvoiceForm}
-        onPayoutFormChange={setPayoutForm}
-        onWebhookFormChange={setWebhookForm}
-        onClientRegenerateApiKey={(apiKeyId) => void handleClientRegenerateApiKey(apiKeyId)}
-        onClientRevokeApiKey={(apiKeyId) => void handleClientRevokeApiKey(apiKeyId)}
-        onSelectClientInvoice={(invoiceId) => void handleSelectClientInvoice(invoiceId)}
-        onClientInvoiceSync={(invoiceId) => void handleClientInvoiceSync(invoiceId)}
-        onSetupTwoFactor={() => void handleSetupTwoFactor()}
-        onEnableTwoFactor={(code) => void handleEnableTwoFactor(code)}
-        onDisableTwoFactor={(payload) => void handleDisableTwoFactor(payload)}
-        onSaveNotificationSettings={(payload) => void handleUpdateClientNotificationSettings(payload)}
-        onChangePassword={(payload) => void handleChangeClientPassword(payload)}
-      />
-    );
-  }
-
-  return (
-    <AdminDashboard
-      user={user}
-      loading={loading}
-      success={success}
-      error={error}
-      newApiSecret={newApiSecret}
-      tenantForm={tenantForm}
-      createdTenant={createdTenant}
-      tenants={tenants}
-      selectedTenantId={selectedTenantId}
-      selectedTenantDetail={selectedTenantDetail}
-      selectedTenantInvoices={selectedTenantInvoices}
-      selectedTenantTransactions={selectedTenantTransactions}
-      selectedTenantPayouts={selectedTenantPayouts}
-      selectedTenantAccounting={selectedTenantAccounting}
-      platformAccounting={platformAccounting}
-      platformInvoices={platformInvoices}
-      platformTransactions={platformTransactions}
-      platformEvents={platformEvents}
-      platformBillingSettings={platformBillingSettings}
-      publicPages={adminPublicPages}
-      selectedTenantBillingPolicy={selectedTenantBillingPolicy}
-      adminAssetRates={adminAssetRates}
-      adminUsers={adminUsers}
-      roleDefinitions={roleDefinitions}
-      twoFactorStatus={twoFactorStatus}
-      twoFactorSetup={twoFactorSetup}
-      selectedInvoiceId={selectedInvoiceId}
-      selectedInvoiceDetail={selectedInvoiceDetail}
-      selectedInvoiceEvents={selectedInvoiceEvents}
-      onLogout={handleLogout}
-      onCreateTenant={handleCreateTenant}
-      onTenantFormChange={setTenantForm}
-      onSelectTenant={(tenantId) => void handleSelectTenant(tenantId)}
-      onApproveTenant={(tenantId) => void handleApproveTenant(tenantId)}
-      onRejectTenant={(tenantId) => void handleRejectTenant(tenantId)}
-      onUpdateAdminTenant={(tenantId, payload) => void handleUpdateAdminTenant(tenantId, payload)}
-      onUpdateAdminProject={(projectId, payload) => void handleUpdateAdminProject(projectId, payload)}
-      onDeleteAdminTenant={(tenantId) => void handleDeleteAdminTenant(tenantId)}
-      onResetTenantOwnerPassword={(tenantId) => void handleAdminResetTenantOwnerPassword(tenantId)}
-      onResetTenantOwnerTwoFactor={(tenantId) => void handleAdminResetTenantOwnerTwoFactor(tenantId)}
-      onAdminRegenerateApiKey={(apiKeyId) => void handleAdminRegenerateApiKey(apiKeyId)}
-      onAdminRevokeApiKey={(apiKeyId) => void handleAdminRevokeApiKey(apiKeyId)}
-      onSelectInvoice={(invoiceId) => void handleSelectInvoice(invoiceId)}
-      onUpdateInvoiceStatus={(status) => void handleUpdateInvoiceStatus(status)}
-      onUpdatePlatformSettings={(payload) => void handleUpdatePlatformSettings(payload)}
-      onInspectPlatformTelegramBot={(payload) => handleInspectPlatformTelegramBot(payload)}
-      onSendPlatformTelegramTest={(payload) => handleSendPlatformTelegramTest(payload)}
-      onSendPlatformSmtpBzTest={(payload) => handleSendPlatformSmtpBzTest(payload)}
-      onUpdateTenantPolicy={(payload) => void handleUpdateTenantPolicy(payload)}
-      onUpdateAssetAvailability={(payload) => void handleUpdateAssetAvailability(payload)}
-      onCreatePublicPage={(payload) => void handleCreatePublicPage(payload)}
-      onUpdatePublicPage={(pageId, payload) => void handleUpdatePublicPage(pageId, payload)}
-      onDeletePublicPage={(pageId) => void handleDeletePublicPage(pageId)}
-      onCreateAdminUser={(payload) => void handleCreateAdminUser(payload)}
-      onUpdateAdminUser={(userId, payload) => void handleUpdateAdminUser(userId, payload)}
-      onSetupTwoFactor={() => void handleSetupTwoFactor()}
-      onEnableTwoFactor={(code) => void handleEnableTwoFactor(code)}
-      onDisableTwoFactor={(payload) => void handleDisableTwoFactor(payload)}
-      onApprovePayout={(payoutId) => void handleApprovePayout(payoutId)}
-      onRejectPayout={(payoutId) => void handleRejectPayout(payoutId)}
-      {...adminDerived}
-    />
+      ) : onboarding?.tenant_status !== "approved" ? (
+        <OnboardingScreen onboarding={onboarding} onLogout={handleLogout} />
+      ) : (
+        <ClientDashboard
+          user={user}
+          onboarding={onboarding}
+          success={success}
+          error={error}
+          newApiSecret={newApiSecret}
+          loading={loading}
+          projects={projects}
+          apiKeys={apiKeys}
+          invoices={invoices}
+          selectedClientInvoiceId={selectedClientInvoiceId}
+          selectedClientInvoiceDetail={selectedClientInvoiceDetail}
+          clientTransactions={clientTransactions}
+          payouts={payouts}
+          clientAccounting={clientAccounting}
+          balance={balance}
+          invoiceForm={invoiceForm}
+          payoutForm={payoutForm}
+          webhookForm={webhookForm}
+          rates={rates.map((item) => ({ currency: item.currency }))}
+          availableNetworks={availableNetworks}
+          selectedNetwork={selectedNetwork}
+          apiBaseUrl={apiBaseUrl}
+          activeApiKeyPublic={activeApiKey?.public_key ?? null}
+          activeWebhookUrl={activeWebhook?.webhook_url ?? null}
+          selectedRoute={selectedRate ? `${selectedRate.currency} / ${selectedNetwork?.network ?? "-"}` : "Загрузка"}
+          integrationCurl={integrationCurl}
+          twoFactorStatus={twoFactorStatus}
+          twoFactorSetup={twoFactorSetup}
+          notificationSettings={clientNotificationSettings}
+          onLogout={handleLogout}
+          onCreateInvoice={handleCreateInvoice}
+          onCreatePayout={handleCreatePayout}
+          onSaveWebhook={handleSaveWebhook}
+          onSendWebhookTest={handleSendWebhookTest}
+          onInvoiceFormChange={setInvoiceForm}
+          onPayoutFormChange={setPayoutForm}
+          onWebhookFormChange={setWebhookForm}
+          onClientRegenerateApiKey={(apiKeyId) => void handleClientRegenerateApiKey(apiKeyId)}
+          onClientRevokeApiKey={(apiKeyId) => void handleClientRevokeApiKey(apiKeyId)}
+          onSelectClientInvoice={(invoiceId) => void handleSelectClientInvoice(invoiceId)}
+          onClientInvoiceSync={(invoiceId) => void handleClientInvoiceSync(invoiceId)}
+          onSetupTwoFactor={() => void handleSetupTwoFactor()}
+          onEnableTwoFactor={(code) => void handleEnableTwoFactor(code)}
+          onDisableTwoFactor={(payload) => void handleDisableTwoFactor(payload)}
+          onSaveNotificationSettings={(payload) => void handleUpdateClientNotificationSettings(payload)}
+          onChangePassword={(payload) => void handleChangeClientPassword(payload)}
+          onCloseSecretModal={() => setNewApiSecret(null)}
+        />
+      )}
+    </>
   );
 }
 

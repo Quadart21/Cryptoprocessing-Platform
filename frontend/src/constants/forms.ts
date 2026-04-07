@@ -51,7 +51,7 @@ export const initialPayoutForm: CreatePayoutPayload = {
 };
 
 export const initialLoginForm = {
-  email: "admin@example.com",
-  password: "ChangeMe123!",
+  email: "",
+  password: "",
   otp_code: "",
 };

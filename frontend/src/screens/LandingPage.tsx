@@ -489,6 +489,7 @@ export function LandingPage({
                     <span>Email</span>
                     <input
                       type="email"
+                      placeholder="you@example.com"
                       value={loginForm.email}
                       onChange={(e) => onLoginFormChange({ ...loginForm, email: e.target.value })}
                       required
@@ -498,6 +499,7 @@ export function LandingPage({
                     <span>Пароль</span>
                     <input
                       type="password"
+                      placeholder="Введите пароль"
                       value={loginForm.password}
                       onChange={(e) => onLoginFormChange({ ...loginForm, password: e.target.value })}
                       required

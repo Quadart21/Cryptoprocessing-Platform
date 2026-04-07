@@ -20,7 +20,7 @@ type AdminPlatformSettingsSectionProps = {
   selectedTenantId: string | null;
   tenants: TenantItem[];
   onSelectTenant: (tenantId: string) => void;
-  onUpdatePlatformSettings: (payload: PlatformBillingSettings) => void;
+  onUpdatePlatformSettings: (payload: PlatformBillingSettings) => Promise<void>;
   onInspectPlatformTelegramBot: (
     payload: TelegramBotInspectPayload,
   ) => Promise<TelegramBotIdentity>;
@@ -37,6 +37,7 @@ type SettingsSectionKey =
   | "fees"
   | "payouts"
   | "brand"
+  | "seo"
   | "email"
   | "telegram"
   | "templates"
@@ -55,6 +56,7 @@ const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { key: "fees", label: "Комиссии", eyebrow: "Биллинг", description: "Основные проценты платформы и базовая экономика.", icon: "01" },
   { key: "payouts", label: "Выплаты", eyebrow: "Политики", description: "Глобальные правила переопределений и выплат.", icon: "02" },
   { key: "brand", label: "Бренд", eyebrow: "Коммуникации", description: "Имя, логотип и основная ссылка в уведомлениях.", icon: "03" },
+  { key: "seo", label: "SEO", eyebrow: "Мета-теги", description: "Заголовки, описания, favicon и Open Graph для поисковиков.", icon: "07" },
   { key: "email", label: "Email", eyebrow: "Канал", description: "SMTP.bz и тестовая отправка писем.", icon: "04" },
   { key: "telegram", label: "Telegram", eyebrow: "Канал", description: "Токен бота, проверка и тестовая доставка.", icon: "05" },
   { key: "templates", label: "Шаблоны", eyebrow: "Контент", description: "Темы и тексты уведомлений по событиям.", icon: "06" },
@@ -237,10 +239,10 @@ export function AdminPlatformSettingsSection({
     ];
   }, [platformSettingsForm]);
 
-  function handleSubmitPlatformSettings(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmitPlatformSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!platformSettingsForm) return;
-    onUpdatePlatformSettings({
+    await onUpdatePlatformSettings({
       ...platformSettingsForm,
       smtp_bz_api_key: smtpBzApiKey.trim() || null,
       telegram_bot_token: telegramBotToken.trim() || null,
@@ -479,6 +481,100 @@ export function AdminPlatformSettingsSection({
                   event.target.value.trim() === "" ? null : event.target.value,
               })
             }
+          />
+        </label>
+      </FieldGrid>
+    );
+  }
+
+  function renderSeoSection() {
+    if (!platformSettingsForm) return renderUnavailable();
+    return (
+      <FieldGrid>
+        <label>
+          <span>Title (заголовок страницы)</span>
+          <input
+            value={platformSettingsForm.seo_title ?? ""}
+            onChange={(event) =>
+              updatePlatformSettings({
+                seo_title: event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+            placeholder="Crypto Processing - Приём платежей"
+          />
+        </label>
+        <label>
+          <span>Description (описание)</span>
+          <input
+            value={platformSettingsForm.seo_description ?? ""}
+            onChange={(event) =>
+              updatePlatformSettings({
+                seo_description: event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+            placeholder="Принимайте криптовалютные платежи"
+          />
+        </label>
+        <label className="aps-field-span-2">
+          <span>Keywords (ключевые слова)</span>
+          <input
+            value={platformSettingsForm.seo_keywords ?? ""}
+            onChange={(event) =>
+              updatePlatformSettings({
+                seo_keywords: event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+            placeholder="crypto, payments, merchant, приём платежей"
+          />
+        </label>
+        <label>
+          <span>Favicon URL</span>
+          <input
+            value={platformSettingsForm.seo_favicon_url ?? ""}
+            onChange={(event) =>
+              updatePlatformSettings({
+                seo_favicon_url: event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+            placeholder="https://example.com/favicon.ico"
+          />
+        </label>
+        <label>
+          <span>OG Image (соцсети)</span>
+          <input
+            value={platformSettingsForm.seo_og_image_url ?? ""}
+            onChange={(event) =>
+              updatePlatformSettings({
+                seo_og_image_url: event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+            placeholder="https://example.com/og-image.png"
+          />
+        </label>
+        <label>
+          <span>Robots</span>
+          <select
+            value={platformSettingsForm.seo_robots ?? "index, follow"}
+            onChange={(event) =>
+              updatePlatformSettings({ seo_robots: event.target.value })
+            }
+          >
+            <option value="index, follow">Index, Follow</option>
+            <option value="noindex, follow">No Index, Follow</option>
+            <option value="index, nofollow">Index, No Follow</option>
+            <option value="noindex, nofollow">No Index, No Follow</option>
+          </select>
+        </label>
+        <label>
+          <span>Canonical URL</span>
+          <input
+            value={platformSettingsForm.seo_canonical_url ?? ""}
+            onChange={(event) =>
+              updatePlatformSettings({
+                seo_canonical_url: event.target.value.trim() === "" ? null : event.target.value,
+              })
+            }
+            placeholder="https://example.com/"
           />
         </label>
       </FieldGrid>
@@ -911,6 +1007,7 @@ export function AdminPlatformSettingsSection({
     fees: renderFeesSection,
     payouts: renderPayoutsSection,
     brand: renderBrandSection,
+    seo: renderSeoSection,
     email: renderEmailSection,
     telegram: renderTelegramSection,
     templates: renderTemplatesSection,
@@ -1006,6 +1103,16 @@ export function AdminPlatformSettingsSection({
                 ) : null}
               </div>
             ))}
+            <div className="aps-mobile-actions">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => platformFormRef.current?.requestSubmit()}
+                disabled={loading || !platformSettingsForm}
+              >
+                {loading ? "Сохраняем..." : "Сохранить платформу"}
+              </button>
+            </div>
           </div>
 
           <div className="aps-desktop-sections">

@@ -39,8 +39,8 @@ class PlatformBillingSettingsResponse(BaseModel):
     smtp_bz_api_base_url: str
     smtp_bz_sender_email: str
     smtp_bz_sender_name: str
-    smtp_bz_reply_to: str | None
-    smtp_bz_tag: str | None
+    smtp_bz_reply_to: str | None = None
+    smtp_bz_tag: str | None = None
     smtp_bz_api_key_configured: bool
     smtp_bz_api_key_masked: str | None = None
     telegram_api_base_url: str
@@ -52,6 +52,13 @@ class PlatformBillingSettingsResponse(BaseModel):
     notification_primary_url: str | None = None
     notification_templates: list[NotificationTemplateView]
     notification_template_variables: list[str]
+    seo_title: str | None = None
+    seo_description: str | None = None
+    seo_keywords: str | None = None
+    seo_favicon_url: str | None = None
+    seo_og_image_url: str | None = None
+    seo_robots: str = "index, follow"
+    seo_canonical_url: str | None = None
 
 
 class PlatformBillingSettingsUpdateRequest(BaseModel):
@@ -77,6 +84,13 @@ class PlatformBillingSettingsUpdateRequest(BaseModel):
     notification_logo_url: str | None = None
     notification_primary_url: str | None = None
     notification_templates: list[NotificationTemplateUpdate] = Field(default_factory=list)
+    seo_title: str | None = None
+    seo_description: str | None = None
+    seo_keywords: str | None = None
+    seo_favicon_url: str | None = None
+    seo_og_image_url: str | None = None
+    seo_robots: str = "index, follow"
+    seo_canonical_url: str | None = None
 
 
 class TelegramBotInspectRequest(BaseModel):

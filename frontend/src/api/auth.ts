@@ -18,8 +18,15 @@ export function login(
 }
 
 export function fetchCurrentUser(token: string): Promise<CurrentUser> {
-  return request<CurrentUser>("/client/me", {
-    headers: authHeaders(token),
+  const headers = authHeaders(token);
+  return request<CurrentUser>("/admin/me", { headers }).catch((adminError: unknown) => {
+    const status = typeof adminError === "object" && adminError !== null && "status" in adminError
+      ? (adminError as { status?: number }).status
+      : undefined;
+    if (status && status !== 401 && status !== 403 && status !== 404) {
+      throw adminError;
+    }
+    return request<CurrentUser>("/client/me", { headers });
   });
 }
 

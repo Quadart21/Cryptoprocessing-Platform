@@ -68,3 +68,10 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(1024),
         nullable=True,
     )
+    seo_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    seo_description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    seo_keywords: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    seo_favicon_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    seo_og_image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    seo_robots: Mapped[str] = mapped_column(String(100), nullable=False, default="index, follow")
+    seo_canonical_url: Mapped[str | None] = mapped_column(String(500), nullable=True)

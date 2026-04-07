@@ -876,6 +876,13 @@ async def update_platform_billing_settings(
             allow_tenant_markup_override=payload.allow_tenant_markup_override,
             allow_tenant_turnover_fee_override=payload.allow_tenant_turnover_fee_override,
             payouts_enabled=payload.payouts_enabled,
+            seo_title=payload.seo_title,
+            seo_description=payload.seo_description,
+            seo_keywords=payload.seo_keywords,
+            seo_favicon_url=payload.seo_favicon_url,
+            seo_og_image_url=payload.seo_og_image_url,
+            seo_robots=payload.seo_robots,
+            seo_canonical_url=payload.seo_canonical_url,
         )
         notification_service = NotificationService(db)
         platform_settings = notification_service.update_platform_notification_settings(
@@ -1153,6 +1160,34 @@ async def update_invoice_status(
     return _map_invoice_admin_detail_response(invoice)
 
 
+@router.post("/invoices/{invoice_id}/sync", response_model=InvoiceAdminDetailResponse)
+async def sync_invoice_status(
+    invoice_id: str,
+    _: User = Depends(require_platform_permission("admin.invoices.write")),
+    db: Session = Depends(get_db),
+) -> InvoiceAdminDetailResponse:
+    from app.providers.crypto_cash import CryptoCashProviderError
+    
+    invoice_service = InvoiceService(db)
+    invoice = invoice_service.get_invoice_by_id(invoice_id)
+    if invoice is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+    try:
+        invoice = invoice_service.sync_invoice_status(
+            tenant_id=invoice.tenant_id,
+            invoice_id=invoice_id,
+            project_id=invoice.project_id,
+        )
+    except CryptoCashProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=exc.to_public_detail(),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return _map_invoice_admin_detail_response(invoice)
+
+
 @router.get("/payouts", response_model=list[PayoutRequestResponse])
 async def list_all_payout_requests(
     _: User = Depends(require_platform_permission("admin.payouts.read")),
@@ -1258,6 +1293,13 @@ def _map_platform_billing_settings_response(
             platform_settings
         ),
         notification_template_variables=notification_service.get_template_variables(),
+        seo_title=platform_settings.seo_title,
+        seo_description=platform_settings.seo_description,
+        seo_keywords=platform_settings.seo_keywords,
+        seo_favicon_url=platform_settings.seo_favicon_url,
+        seo_og_image_url=platform_settings.seo_og_image_url,
+        seo_robots=platform_settings.seo_robots,
+        seo_canonical_url=platform_settings.seo_canonical_url,
     )
 
 

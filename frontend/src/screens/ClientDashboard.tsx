@@ -1,4 +1,4 @@
-﻿import { FormEvent, useState } from "react";
+﻿import { FormEvent, useEffect, useState } from "react";
 
 import type {
   AccountingSummary,
@@ -94,6 +94,7 @@ type ClientDashboardProps = {
     telegram_chat_id: string | null;
   }) => void;
   onChangePassword: (payload: { current_password: string; new_password: string }) => void;
+  onCloseSecretModal: () => void;
 };
 
 type ClientSection =
@@ -257,6 +258,11 @@ export function ClientDashboard({
   onChangePassword,
 }: ClientDashboardProps) {
   const [section, setSection] = useState<ClientSection>("overview");
+  const [showSecretModal, setShowSecretModal] = useState(false);
+
+  const handleCloseSecretModal = () => {
+    setShowSecretModal(false);
+  };
 
   const analytics = useClientAnalytics({
     transactions: clientTransactions,
@@ -264,6 +270,12 @@ export function ClientDashboard({
   });
 
   const sectionMeta = CLIENT_SECTION_META[section];
+
+  useEffect(() => {
+    if (newApiSecret) {
+      setShowSecretModal(true);
+    }
+  }, [newApiSecret]);
 
   return (
     <div className="app-frame">
@@ -285,6 +297,7 @@ export function ClientDashboard({
           error={error}
           newApiSecret={newApiSecret}
           success={success}
+          onCloseSecretModal={handleCloseSecretModal}
         />
 
         {(section === "overview" || section === "transactions") && (

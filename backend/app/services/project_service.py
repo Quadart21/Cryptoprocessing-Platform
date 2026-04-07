@@ -106,7 +106,6 @@ class ProjectService:
         self.db.add(project)
         self.db.commit()
         apply_db_security_context(self.db)
-        self.db.refresh(project)
         return project
 
     def get_api_key(self, api_key_id: str) -> ApiKey | None:

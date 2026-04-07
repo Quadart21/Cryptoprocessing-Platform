@@ -361,6 +361,13 @@ export type PlatformBillingSettings = {
   notification_primary_url: string | null;
   notification_templates: NotificationTemplateItem[];
   notification_template_variables: string[];
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_keywords: string | null;
+  seo_favicon_url: string | null;
+  seo_og_image_url: string | null;
+  seo_robots: string;
+  seo_canonical_url: string | null;
 };
 
 export type TelegramBotInspectPayload = {
@@ -436,6 +443,16 @@ export type MerchantNotificationSettings = {
   notify_telegram_enabled: boolean;
   telegram_chat_id: string | null;
   telegram_connected: boolean;
+};
+
+export type SeoSettings = {
+  title: string | null;
+  description: string | null;
+  keywords: string | null;
+  favicon_url: string | null;
+  og_image_url: string | null;
+  robots: string;
+  canonical_url: string | null;
 };
 
 export type MerchantNotificationSettingsUpdatePayload = {
@@ -737,10 +754,17 @@ export function setPasswordByRecoveryToken(
 }
 
 export function fetchCurrentUser(token: string): Promise<CurrentUser> {
-  return request<CurrentUser>("/client/me", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  const headers = {
+    Authorization: `Bearer ${token}`,
+  };
+  return request<CurrentUser>("/admin/me", { headers }).catch((adminError: unknown) => {
+    const status = typeof adminError === "object" && adminError !== null && "status" in adminError
+      ? (adminError as { status?: number }).status
+      : undefined;
+    if (status && status !== 401 && status !== 403 && status !== 404) {
+      throw adminError;
+    }
+    return request<CurrentUser>("/client/me", { headers });
   });
 }
 
@@ -988,6 +1012,10 @@ export function fetchPublicPages(status: "published" | "all" = "published"): Pro
 
 export function fetchPublicPageBySlug(slug: string): Promise<PublicPageItem> {
   return request<PublicPageItem>(`/client/public-pages/${encodeURIComponent(slug)}`);
+}
+
+export function fetchSeoSettings(): Promise<SeoSettings> {
+  return request<SeoSettings>("/public/seo");
 }
 
 export function updateAdminAssetAvailability(
@@ -1481,5 +1509,17 @@ export function updateAdminInvoiceStatus(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ status, tx_hash: txHash ?? null }),
+  });
+}
+
+export function syncAdminInvoice(
+  token: string,
+  invoiceId: string,
+): Promise<InvoiceAdminDetail> {
+  return request<InvoiceAdminDetail>(`/admin/invoices/${invoiceId}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }

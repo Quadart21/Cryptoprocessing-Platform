@@ -3,6 +3,7 @@ import type { InvoiceItem, ProviderEventItem, TransactionItem } from "../../api"
 type PlatformInvoicesPanelProps = {
   invoices: InvoiceItem[];
   className?: string;
+  onSyncInvoice?: (invoiceId: string) => void;
 };
 
 type PlatformTransactionsPanelProps = {
@@ -18,6 +19,7 @@ type PlatformEventsPanelProps = {
 export function PlatformInvoicesPanel({
   invoices,
   className = "panel",
+  onSyncInvoice,
 }: PlatformInvoicesPanelProps) {
   return (
     <article className={className}>
@@ -43,6 +45,11 @@ export function PlatformInvoicesPanel({
               <div className="tenant-meta">
                 <span>{invoice.network}</span>
                 <span>{invoice.status}</span>
+                {onSyncInvoice && (
+                  <button className="ghost-button" onClick={() => onSyncInvoice(invoice.id)} type="button">
+                    Синхронизировать
+                  </button>
+                )}
               </div>
             </article>
           ))
