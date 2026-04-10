@@ -158,6 +158,9 @@ export type CreateInvoicePayload = {
 export type BalanceResponse = {
   currency: string;
   amount: string;
+  available_amount: string;
+  locked_amount: string;
+  total_amount: string;
 };
 
 export type TransactionItem = {
@@ -179,7 +182,9 @@ export type TransactionItem = {
 export type PayoutRequestItem = {
   id: string;
   tenant_id: string;
+  tenant_name: string | null;
   project_id: string | null;
+  project_name: string | null;
   requested_by_user_id: string | null;
   reviewed_by_user_id: string | null;
   destination_address: string;
@@ -337,6 +342,9 @@ export type PlatformBillingSettings = {
   provider_fee_percent: string;
   default_markup_percent: string;
   default_turnover_fee_percent: string;
+  exchange_rate_markup_percent: string;
+  manual_exchange_rates: Record<string, string>;
+  current_exchange_rates: Record<string, string>;
   allow_tenant_markup_override: boolean;
   allow_tenant_turnover_fee_override: boolean;
   payouts_enabled: boolean;
@@ -368,6 +376,20 @@ export type PlatformBillingSettings = {
   seo_og_image_url: string | null;
   seo_robots: string;
   seo_canonical_url: string | null;
+};
+
+export type ExchangeRateLookup = {
+  currency: string;
+  quote_currency: string;
+  rate: string | null;
+  source: "api" | "manual" | "cached" | string;
+};
+
+export type ExchangeRateRefresh = {
+  quote_currency: string;
+  refreshed_symbols: number;
+  cached_symbols: number;
+  refreshed: boolean;
 };
 
 export type TelegramBotInspectPayload = {
@@ -757,15 +779,7 @@ export function fetchCurrentUser(token: string): Promise<CurrentUser> {
   const headers = {
     Authorization: `Bearer ${token}`,
   };
-  return request<CurrentUser>("/admin/me", { headers }).catch((adminError: unknown) => {
-    const status = typeof adminError === "object" && adminError !== null && "status" in adminError
-      ? (adminError as { status?: number }).status
-      : undefined;
-    if (status && status !== 401 && status !== 403 && status !== 404) {
-      throw adminError;
-    }
-    return request<CurrentUser>("/client/me", { headers });
-  });
+  return request<CurrentUser>("/client/me", { headers });
 }
 
 export function fetchTwoFactorStatus(token: string): Promise<TwoFactorStatus> {
@@ -1328,6 +1342,34 @@ export function fetchPlatformBillingSettings(token: string): Promise<PlatformBil
   });
 }
 
+export function fetchPlatformExchangeRate(
+  token: string,
+  currency: string,
+): Promise<ExchangeRateLookup> {
+  return request<ExchangeRateLookup>(
+    `/admin/billing/exchange-rate/${encodeURIComponent(currency)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+}
+
+export function refreshPlatformExchangeRate(
+  token: string,
+): Promise<ExchangeRateRefresh> {
+  return request<ExchangeRateRefresh>(
+    "/admin/billing/exchange-rates/refresh",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+}
+
 export function updatePlatformBillingSettings(
   token: string,
   payload: PlatformBillingSettings,
@@ -1436,6 +1478,14 @@ export function fetchAdminInvoices(token: string): Promise<InvoiceItem[]> {
 
 export function fetchAdminTransactions(token: string): Promise<TransactionItem[]> {
   return request<TransactionItem[]>("/admin/transactions", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function fetchAdminPayouts(token: string): Promise<PayoutRequestItem[]> {
+  return request<PayoutRequestItem[]>("/admin/payouts", {
     headers: {
       Authorization: `Bearer ${token}`,
     },

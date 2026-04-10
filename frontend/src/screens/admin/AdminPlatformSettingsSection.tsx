@@ -1,8 +1,11 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
 import type {
+  ExchangeRateLookup,
+  ExchangeRateRefresh,
   NotificationTemplateItem,
   PlatformBillingSettings,
+  RateItem,
   SmtpBzTestPayload,
   SmtpBzTestResponse,
   TelegramAdminTestPayload,
@@ -14,6 +17,7 @@ import type {
 } from "../../api";
 
 type AdminPlatformSettingsSectionProps = {
+  adminAssetRates: RateItem[];
   loading: boolean;
   platformBillingSettings: PlatformBillingSettings | null;
   selectedTenantBillingPolicy: TenantBillingPolicy | null;
@@ -21,6 +25,8 @@ type AdminPlatformSettingsSectionProps = {
   tenants: TenantItem[];
   onSelectTenant: (tenantId: string) => void;
   onUpdatePlatformSettings: (payload: PlatformBillingSettings) => Promise<void>;
+  onFetchPlatformExchangeRate: (currency: string) => Promise<ExchangeRateLookup>;
+  onRefreshPlatformExchangeRate: () => Promise<ExchangeRateRefresh>;
   onInspectPlatformTelegramBot: (
     payload: TelegramBotInspectPayload,
   ) => Promise<TelegramBotIdentity>;
@@ -35,6 +41,7 @@ type AdminPlatformSettingsSectionProps = {
 
 type SettingsSectionKey =
   | "fees"
+  | "rates"
   | "payouts"
   | "brand"
   | "seo"
@@ -54,6 +61,7 @@ type SettingsSectionMeta = {
 
 const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { key: "fees", label: "Комиссии", eyebrow: "Биллинг", description: "Основные проценты платформы и базовая экономика.", icon: "01" },
+  { key: "rates", label: "Курсы", eyebrow: "Exchange", description: "Ручные override-курсы с приоритетом над API.", icon: "09" },
   { key: "payouts", label: "Выплаты", eyebrow: "Политики", description: "Глобальные правила переопределений и выплат.", icon: "02" },
   { key: "brand", label: "Бренд", eyebrow: "Коммуникации", description: "Имя, логотип и основная ссылка в уведомлениях.", icon: "03" },
   { key: "seo", label: "SEO", eyebrow: "Мета-теги", description: "Заголовки, описания, favicon и Open Graph для поисковиков.", icon: "07" },
@@ -73,9 +81,11 @@ function hasConfiguredTemplateContent(template: NotificationTemplateItem) {
 function SectionShell({
   meta,
   children,
+  actions,
 }: {
   meta: SettingsSectionMeta;
   children: ReactNode;
+  actions?: ReactNode;
 }) {
   return (
     <section className="aps-section-card" id={`settings-${meta.key}`}>
@@ -88,6 +98,7 @@ function SectionShell({
         </div>
       </div>
       <div className="aps-section-body">{children}</div>
+      {actions ? <div className="aps-section-actions">{actions}</div> : null}
     </section>
   );
 }
@@ -114,6 +125,7 @@ function StatPill({
 }
 
 export function AdminPlatformSettingsSection({
+  adminAssetRates,
   loading,
   platformBillingSettings,
   selectedTenantBillingPolicy,
@@ -121,12 +133,13 @@ export function AdminPlatformSettingsSection({
   tenants,
   onSelectTenant,
   onUpdatePlatformSettings,
+  onFetchPlatformExchangeRate,
+  onRefreshPlatformExchangeRate,
   onInspectPlatformTelegramBot,
   onSendPlatformTelegramTest,
   onSendPlatformSmtpBzTest,
   onUpdateTenantPolicy,
 }: AdminPlatformSettingsSectionProps) {
-  const platformFormRef = useRef<HTMLFormElement>(null);
   const [platformSettingsForm, setPlatformSettingsForm] =
     useState<PlatformBillingSettings | null>(platformBillingSettings);
   const [smtpBzApiKey, setSmtpBzApiKey] = useState("");
@@ -140,6 +153,11 @@ export function AdminPlatformSettingsSection({
   const [smtpTestRecipient, setSmtpTestRecipient] = useState("");
   const [smtpTestResult, setSmtpTestResult] = useState<SmtpBzTestResponse | null>(null);
   const [sendingSmtpTest, setSendingSmtpTest] = useState(false);
+  const [selectedManualRateCurrency, setSelectedManualRateCurrency] = useState("");
+  const [selectedExchangeRate, setSelectedExchangeRate] =
+    useState<ExchangeRateLookup | null>(null);
+  const [loadingSelectedExchangeRate, setLoadingSelectedExchangeRate] = useState(false);
+  const [refreshingSelectedExchangeRate, setRefreshingSelectedExchangeRate] = useState(false);
   const [tenantPolicyForm, setTenantPolicyForm] = useState<Omit<
     TenantBillingPolicy,
     "tenant_id"
@@ -210,6 +228,69 @@ export function AdminPlatformSettingsSection({
     return platformSettingsForm.notification_templates.filter(hasConfiguredTemplateContent).length;
   }, [platformSettingsForm]);
 
+  const manualRateCurrencies = useMemo(() => {
+    const all = new Set<string>();
+    for (const item of adminAssetRates) {
+      all.add(item.currency);
+    }
+    if (platformSettingsForm) {
+      for (const key of Object.keys(platformSettingsForm.manual_exchange_rates ?? {})) {
+        all.add(key);
+      }
+    }
+    return Array.from(all).sort((left, right) => left.localeCompare(right));
+  }, [adminAssetRates, platformSettingsForm]);
+
+  useEffect(() => {
+    if (manualRateCurrencies.length === 0) {
+      setSelectedManualRateCurrency("");
+      return;
+    }
+    if (
+      selectedManualRateCurrency.trim() === "" ||
+      !manualRateCurrencies.includes(selectedManualRateCurrency)
+    ) {
+      setSelectedManualRateCurrency(manualRateCurrencies[0]);
+    }
+  }, [manualRateCurrencies, selectedManualRateCurrency]);
+
+  useEffect(() => {
+    const currency = selectedManualRateCurrency.trim();
+    if (!currency) {
+      setSelectedExchangeRate(null);
+      setLoadingSelectedExchangeRate(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingSelectedExchangeRate(true);
+    void onFetchPlatformExchangeRate(currency)
+      .then((rate) => {
+        if (!cancelled) {
+          setSelectedExchangeRate(rate);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSelectedExchangeRate({
+            currency,
+            quote_currency: "USD",
+            rate: null,
+            source: "cached",
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingSelectedExchangeRate(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onFetchPlatformExchangeRate, selectedManualRateCurrency]);
+
   const overviewStats = useMemo(() => {
     if (!platformSettingsForm) return [];
     const enabledEvents = platformSettingsForm.notification_events.filter(
@@ -239,8 +320,7 @@ export function AdminPlatformSettingsSection({
     ];
   }, [platformSettingsForm]);
 
-  async function handleSubmitPlatformSettings(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSavePlatformSettings() {
     if (!platformSettingsForm) return;
     await onUpdatePlatformSettings({
       ...platformSettingsForm,
@@ -362,39 +442,153 @@ export function AdminPlatformSettingsSection({
   function renderFeesSection() {
     if (!platformSettingsForm) return renderUnavailable();
     return (
-      <FieldGrid>
-        <label>
-          <span>Комиссия провайдера (%)</span>
-          <input
-            type="number"
-            step="0.0001"
-            value={platformSettingsForm.provider_fee_percent}
-            onChange={(event) => updatePlatformSettings({ provider_fee_percent: event.target.value })}
-          />
+      <div className="aps-stack">
+        <FieldGrid>
+          <label>
+            <span>Комиссия провайдера (%)</span>
+            <input
+              type="number"
+              step="0.0001"
+              value={platformSettingsForm.provider_fee_percent}
+              onChange={(event) => updatePlatformSettings({ provider_fee_percent: event.target.value })}
+            />
+          </label>
+          <label>
+            <span>Наценка платформы (%)</span>
+            <input
+              type="number"
+              step="0.0001"
+              value={platformSettingsForm.default_markup_percent}
+              onChange={(event) =>
+                updatePlatformSettings({ default_markup_percent: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            <span>Комиссия с оборота (%)</span>
+            <input
+              type="number"
+              step="0.0001"
+              value={platformSettingsForm.default_turnover_fee_percent}
+              onChange={(event) =>
+                updatePlatformSettings({ default_turnover_fee_percent: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            <span>Накрутка курса (%)</span>
+            <input
+              type="number"
+              step="0.0001"
+              value={platformSettingsForm.exchange_rate_markup_percent}
+              onChange={(event) =>
+                updatePlatformSettings({ exchange_rate_markup_percent: event.target.value })
+              }
+            />
+          </label>
+        </FieldGrid>
+      </div>
+    );
+  }
+
+  function renderRatesSection() {
+    if (!platformSettingsForm) return renderUnavailable();
+    const currency = selectedManualRateCurrency;
+    const currentRate = selectedExchangeRate?.rate ?? null;
+    const manualRate = currency ? platformSettingsForm.manual_exchange_rates?.[currency] ?? "" : "";
+    const rateSource = manualRate
+      ? "Ручной"
+      : selectedExchangeRate?.source === "cached"
+        ? "Кэш БД"
+        : "API";
+
+    return (
+      <div className="aps-stack">
+        <label className="aps-field-span-2">
+          <span>Токен</span>
+          <select
+            value={currency}
+            onChange={(event) => setSelectedManualRateCurrency(event.target.value)}
+          >
+            {manualRateCurrencies.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
         </label>
-        <label>
-          <span>Наценка платформы (%)</span>
-          <input
-            type="number"
-            step="0.0001"
-            value={platformSettingsForm.default_markup_percent}
-            onChange={(event) =>
-              updatePlatformSettings({ default_markup_percent: event.target.value })
+        <div className="aps-inline-status">
+          <StatPill
+            label="Текущий курс"
+            value={
+              loadingSelectedExchangeRate
+                ? "Загрузка..."
+                : currency
+                  ? `${currentRate ?? "н/д"} USD`
+                  : "н/д"
+            }
+            tone={currentRate ? "good" : "muted"}
+          />
+          <StatPill
+            label="Источник"
+            value={rateSource}
+            tone={
+              manualRate
+                ? "good"
+                : selectedExchangeRate?.source === "cached"
+                  ? "default"
+                  : "muted"
             }
           />
-        </label>
-        <label>
-          <span>Комиссия с оборота (%)</span>
-          <input
-            type="number"
-            step="0.0001"
-            value={platformSettingsForm.default_turnover_fee_percent}
-            onChange={(event) =>
-              updatePlatformSettings({ default_turnover_fee_percent: event.target.value })
-            }
-          />
-        </label>
-      </FieldGrid>
+        </div>
+        <FieldGrid>
+          <label>
+            <span>Ручной курс {currency || "токена"} → USD</span>
+            <input
+              type="number"
+              step="0.00000001"
+              value={manualRate}
+              placeholder="Оставьте пустым для автокурса"
+              onChange={(event) => {
+                if (!currency) return;
+                const nextRates = { ...(platformSettingsForm.manual_exchange_rates ?? {}) };
+                const nextValue = event.target.value.trim();
+                if (nextValue === "") {
+                  delete nextRates[currency];
+                } else {
+                  nextRates[currency] = nextValue;
+                }
+                updatePlatformSettings({ manual_exchange_rates: nextRates });
+              }}
+            />
+          </label>
+        </FieldGrid>
+        <div className="aps-section-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={refreshingSelectedExchangeRate}
+            onClick={() => {
+              setRefreshingSelectedExchangeRate(true);
+              void onRefreshPlatformExchangeRate()
+                .then((result) => {
+                  if (!currency) return;
+                  return onFetchPlatformExchangeRate(currency).then((rate) => {
+                    setSelectedExchangeRate(rate);
+                  });
+                })
+                .finally(() => {
+                  setRefreshingSelectedExchangeRate(false);
+                });
+            }}
+          >
+            {refreshingSelectedExchangeRate ? "Обновляем все курсы..." : "Обновить все курсы"}
+          </button>
+        </div>
+        <p className="muted-text">
+          Ручной курс имеет приоритет над сохраненным курсом из БД. Автоматические курсы обновляются в фоне раз в 10 минут и читаются системой уже из базы.
+        </p>
+      </div>
     );
   }
 
@@ -1005,6 +1199,7 @@ export function AdminPlatformSettingsSection({
 
   const renderSectionContent: Record<SettingsSectionKey, () => ReactNode> = {
     fees: renderFeesSection,
+    rates: renderRatesSection,
     payouts: renderPayoutsSection,
     brand: renderBrandSection,
     seo: renderSeoSection,
@@ -1015,6 +1210,53 @@ export function AdminPlatformSettingsSection({
     tenant: renderTenantSection,
   };
 
+  function getSaveButtonLabel(section: SettingsSectionKey) {
+    switch (section) {
+      case "fees":
+        return "Сохранить изменения";
+      case "rates":
+        return "Сохранить курс";
+      case "payouts":
+        return "Сохранить изменения";
+      case "brand":
+        return "Сохранить изменения";
+      case "seo":
+        return "Сохранить изменения";
+      case "email":
+        return "Сохранить изменения";
+      case "telegram":
+        return "Сохранить изменения";
+      case "templates":
+        return "Сохранить изменения";
+      case "events":
+        return "Сохранить изменения";
+      default:
+        return "Сохранить";
+    }
+  }
+
+  function renderSectionActions(section: SettingsSectionKey) {
+    if (section === "tenant") {
+      return null;
+    }
+
+    return (
+      <div className="aps-inline-actions">
+        <button
+          className="primary-button"
+          type="button"
+          onClick={() => void handleSavePlatformSettings()}
+          disabled={loading || !platformSettingsForm}
+        >
+          {loading ? "Сохраняем..." : getSaveButtonLabel(section)}
+        </button>
+        <p className="muted-text aps-save-hint">
+          Кнопка сохраняет все текущие изменения глобальных настроек формы.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="platform-settings-page aps-page">
       <header className="aps-hero">
@@ -1022,8 +1264,8 @@ export function AdminPlatformSettingsSection({
           <p className="eyebrow">Control Center</p>
           <h1>Глобальные настройки платформы</h1>
           <p className="page-description">
-            Одна рабочая область для биллинга, каналов уведомлений, шаблонов и клиентских
-            переопределений.
+            Настройки разбиты по отдельным блокам: биллинг, выплаты, бренд, каналы и шаблоны.
+            Навигация по разделам не меняет модель сохранения: применяется вся текущая форма.
           </p>
         </div>
         <div className="aps-hero-stats">
@@ -1058,22 +1300,9 @@ export function AdminPlatformSettingsSection({
                 </button>
               ))}
             </nav>
-          </div>
-          <div className="aps-sidebar-card">
-            <p className="eyebrow">Действия</p>
-            <div className="aps-sidebar-actions">
-              <button
-                className="primary-button"
-                type="button"
-                onClick={() => platformFormRef.current?.requestSubmit()}
-                disabled={loading || !platformSettingsForm}
-              >
-                {loading ? "Сохраняем..." : "Сохранить платформу"}
-              </button>
-              <p className="muted-text">
-                Кнопка сохраняет глобальные настройки. Параметры клиента сохраняются отдельно.
-              </p>
-            </div>
+            <p className="muted-text aps-sidebar-note">
+              Переключайте разделы для редактирования, затем сохраняйте все текущие изменения формы.
+            </p>
           </div>
         </aside>
 
@@ -1098,38 +1327,28 @@ export function AdminPlatformSettingsSection({
                 </button>
                 {expandedSections.has(section.key) ? (
                   <div className="aps-mobile-body">
-                    <SectionShell meta={section}>{renderSectionContent[section.key]()}</SectionShell>
+                    <SectionShell meta={section} actions={renderSectionActions(section.key)}>
+                      {renderSectionContent[section.key]()}
+                    </SectionShell>
                   </div>
                 ) : null}
               </div>
             ))}
-            <div className="aps-mobile-actions">
-              <button
-                className="primary-button"
-                type="button"
-                onClick={() => platformFormRef.current?.requestSubmit()}
-                disabled={loading || !platformSettingsForm}
-              >
-                {loading ? "Сохраняем..." : "Сохранить платформу"}
-              </button>
-            </div>
           </div>
 
           <div className="aps-desktop-sections">
             {SETTINGS_SECTIONS.filter((section) => section.key === activeSection).map((section) => (
-              <SectionShell key={section.key} meta={section}>
+              <SectionShell
+                key={section.key}
+                meta={section}
+                actions={renderSectionActions(section.key)}
+              >
                 {renderSectionContent[section.key]()}
               </SectionShell>
             ))}
           </div>
         </div>
       </div>
-
-      <form
-        ref={platformFormRef}
-        className="aps-hidden-form"
-        onSubmit={handleSubmitPlatformSettings}
-      />
     </div>
   );
 }

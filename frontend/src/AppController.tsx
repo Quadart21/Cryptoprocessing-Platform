@@ -12,6 +12,7 @@ import {
   fetchAdminEvents,
   fetchAdminInvoiceDetail,
   fetchAdminInvoices,
+  fetchAdminPayouts,
   fetchAdminPublicPages,
   fetchAdminRoles,
   fetchAdminTransactions,
@@ -29,6 +30,8 @@ import {
   fetchOnboardingStatus,
   fetchPlatformAccountingSummary,
   fetchPlatformBillingSettings,
+  fetchPlatformExchangeRate,
+  refreshPlatformExchangeRate,
   fetchProjects,
   fetchRates,
   fetchSeoSettings,
@@ -112,6 +115,7 @@ import {
 import { FormEvent, useEffect, useState } from "react";
 
 import {
+  createMerchantOrderId,
   initialInvoiceForm,
   initialLoginForm,
   initialPayoutForm,
@@ -157,6 +161,7 @@ export function AppController() {
   const [selectedClientInvoiceDetail, setSelectedClientInvoiceDetail] = useState<InvoiceItem | null>(
     null,
   );
+  const [isClientInvoiceModalOpen, setIsClientInvoiceModalOpen] = useState(false);
   const [clientTransactions, setClientTransactions] = useState<TransactionItem[]>([]);
   const [payouts, setPayouts] = useState<PayoutRequestItem[]>([]);
   const [clientAccounting, setClientAccounting] = useState<AccountingSummary | null>(null);
@@ -178,6 +183,7 @@ export function AppController() {
   const [platformAccounting, setPlatformAccounting] = useState<AccountingSummary | null>(null);
   const [platformInvoices, setPlatformInvoices] = useState<InvoiceItem[]>([]);
   const [platformTransactions, setPlatformTransactions] = useState<TransactionItem[]>([]);
+  const [platformPayouts, setPlatformPayouts] = useState<PayoutRequestItem[]>([]);
   const [platformEvents, setPlatformEvents] = useState<ProviderEventItem[]>([]);
   const [platformBillingSettings, setPlatformBillingSettings] =
     useState<PlatformBillingSettings | null>(null);
@@ -238,6 +244,7 @@ export function AppController() {
       setSelectedTenantAccounting(null);
       setPlatformInvoices([]);
       setPlatformTransactions([]);
+      setPlatformPayouts([]);
       setPlatformEvents([]);
       setPlatformBillingSettings(null);
       setSelectedTenantBillingPolicy(null);
@@ -253,6 +260,7 @@ export function AppController() {
       setSelectedInvoiceEvents([]);
       setSelectedClientInvoiceId(null);
       setSelectedClientInvoiceDetail(null);
+      setIsClientInvoiceModalOpen(false);
       setPayoutForm(initialPayoutForm);
       setSeoSettings(null);
       return;
@@ -334,6 +342,7 @@ export function AppController() {
             platformSummary,
             allInvoices,
             allTransactions,
+            allPayouts,
             allEvents,
             billingSettings,
             assetRatesResponse,
@@ -351,6 +360,7 @@ export function AppController() {
               fetchPlatformAccountingSummary(accessToken),
               fetchAdminInvoices(accessToken),
               fetchAdminTransactions(accessToken),
+              fetchAdminPayouts(accessToken),
               safeLoad(() => fetchAdminEvents(accessToken), []),
               fetchPlatformBillingSettings(accessToken),
               fetchAdminAssets(accessToken),
@@ -367,6 +377,7 @@ export function AppController() {
           setPlatformAccounting(platformSummary);
           setPlatformInvoices(allInvoices);
           setPlatformTransactions(allTransactions);
+          setPlatformPayouts(allPayouts);
           setPlatformEvents(allEvents);
           setPlatformBillingSettings(billingSettings);
           setAdminAssetRates(assetRatesResponse.items);
@@ -390,11 +401,12 @@ export function AppController() {
           setSelectedTenantTransactions([]);
           setSelectedTenantPayouts([]);
           setSelectedTenantAccounting(null);
-          const [platformSummary, allInvoices, allTransactions, allEvents, billingSettings, assetRatesResponse, publicPagesResponse, roleItems, userItems] =
+          const [platformSummary, allInvoices, allTransactions, allPayouts, allEvents, billingSettings, assetRatesResponse, publicPagesResponse, roleItems, userItems] =
             await Promise.all([
               fetchPlatformAccountingSummary(accessToken),
               fetchAdminInvoices(accessToken),
               fetchAdminTransactions(accessToken),
+              fetchAdminPayouts(accessToken),
               safeLoad(() => fetchAdminEvents(accessToken), []),
               fetchPlatformBillingSettings(accessToken),
               fetchAdminAssets(accessToken),
@@ -405,6 +417,7 @@ export function AppController() {
           setPlatformAccounting(platformSummary);
           setPlatformInvoices(allInvoices);
           setPlatformTransactions(allTransactions);
+          setPlatformPayouts(allPayouts);
           setPlatformEvents(allEvents);
           setPlatformBillingSettings(billingSettings);
           setAdminAssetRates(assetRatesResponse.items);
@@ -480,6 +493,7 @@ export function AppController() {
         } else {
           setSelectedClientInvoiceId(null);
           setSelectedClientInvoiceDetail(null);
+          setIsClientInvoiceModalOpen(false);
         }
       } else {
         setProjects([]);
@@ -494,6 +508,7 @@ export function AppController() {
         setClientNotificationSettings(null);
         setSelectedClientInvoiceId(null);
         setSelectedClientInvoiceDetail(null);
+        setIsClientInvoiceModalOpen(false);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Не удалось загрузить сессию.";
@@ -965,29 +980,46 @@ export function AppController() {
   async function handleCreateInvoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
+    const merchantOrderId = invoiceForm.merchant_order_id.trim() || createMerchantOrderId();
     try {
       setLoading(true);
       setError(null);
       setSuccess(null);
       setNewApiSecret(null);
-      const invoice = await createInvoice(token, invoiceForm);
+      const invoice = await createInvoice(token, {
+        ...invoiceForm,
+        merchant_order_id: merchantOrderId,
+      });
       setSuccess(`Инвойс создан: ${invoice.provider_order_id}`);
-      const [invoiceItems, balanceInfo] = await Promise.all([fetchInvoices(token), fetchBalance(token)]);
-      const [transactionItems, accountingSummary, webhookItems] = await Promise.all([
-        fetchClientTransactions(token),
-        fetchClientAccountingSummary(token),
-        fetchWebhookConfigs(token),
-      ]);
-      setInvoices(invoiceItems);
+      setSelectedClientInvoiceId(invoice.id);
+      setSelectedClientInvoiceDetail(invoice);
+      setIsClientInvoiceModalOpen(true);
+      setInvoices((current) => {
+        const next = current.filter((item) => item.id !== invoice.id);
+        return [invoice, ...next];
+      });
+      const [createdDetail, invoiceItems, balanceInfo, transactionItems, accountingSummary, webhookItems] =
+        await Promise.all([
+          fetchClientInvoiceDetail(token, invoice.id).catch(() => invoice),
+          fetchInvoices(token).catch(() => null),
+          fetchBalance(token),
+          fetchClientTransactions(token),
+          fetchClientAccountingSummary(token),
+          fetchWebhookConfigs(token),
+        ]);
+      setSelectedClientInvoiceDetail(createdDetail);
+      if (invoiceItems) {
+        setInvoices(invoiceItems);
+      }
       setBalance(balanceInfo);
       setClientTransactions(transactionItems);
       setClientAccounting(accountingSummary);
       setWebhookConfigs(webhookItems);
-      if (invoiceItems.length > 0) {
-        setSelectedClientInvoiceId(invoice.id);
-        setSelectedClientInvoiceDetail(await fetchClientInvoiceDetail(token, invoice.id));
-      }
-      setInvoiceForm((current) => ({ ...current, merchant_order_id: "", amount_fiat: 100 }));
+      setInvoiceForm((current) => ({
+        ...current,
+        merchant_order_id: createMerchantOrderId(),
+        amount_fiat: 100,
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось создать инвойс.");
     } finally {
@@ -1097,6 +1129,7 @@ export function AppController() {
     setSelectedInvoiceEvents([]);
     setSelectedClientInvoiceId(null);
     setSelectedClientInvoiceDetail(null);
+    setIsClientInvoiceModalOpen(false);
     setClientTransactions([]);
     setPayouts([]);
     setClientAccounting(null);
@@ -1232,6 +1265,7 @@ export function AppController() {
       setError(null);
       setSelectedClientInvoiceId(invoiceId);
       setSelectedClientInvoiceDetail(await fetchClientInvoiceDetail(token, invoiceId));
+      setIsClientInvoiceModalOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось загрузить детали инвойса.");
     } finally {
@@ -1255,6 +1289,7 @@ export function AppController() {
       setInvoices(invoiceItems);
       setSelectedClientInvoiceId(invoice.id);
       setSelectedClientInvoiceDetail(invoice);
+      setIsClientInvoiceModalOpen(true);
       setClientTransactions(transactionItems);
       setClientAccounting(accountingSummary);
       setBalance(balanceInfo);
@@ -1301,14 +1336,16 @@ export function AppController() {
   }
 
   async function handleAdminRevokeApiKey(apiKeyId: string) {
-    if (!token || !selectedTenantId) return;
+    if (!token) return;
     try {
       setLoading(true);
       setError(null);
       setSuccess(null);
       setNewApiSecret(null);
       await revokeAdminApiKey(token, apiKeyId);
-      setSelectedTenantDetail(await fetchTenantDetail(token, selectedTenantId));
+      if (selectedTenantId) {
+        setSelectedTenantDetail(await fetchTenantDetail(token, selectedTenantId));
+      }
       setSuccess("API-ключ клиента отозван.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось отозвать API-ключ.");
@@ -1348,6 +1385,20 @@ export function AppController() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleFetchPlatformExchangeRate(currency: string) {
+    if (!token) {
+      throw new Error("Требуется авторизация.");
+    }
+    return await fetchPlatformExchangeRate(token, currency);
+  }
+
+  async function handleRefreshPlatformExchangeRate() {
+    if (!token) {
+      throw new Error("Требуется авторизация.");
+    }
+    return await refreshPlatformExchangeRate(token);
   }
 
   async function handleInspectPlatformTelegramBot(
@@ -1469,14 +1520,18 @@ export function AppController() {
         action: "approve",
         review_comment: "Одобрено супер-админом.",
       });
-      const [tenantPayoutItems, tenantTransactions, tenantSummary] = await Promise.all([
-        fetchTenantPayouts(token, selectedTenantId),
-        fetchTenantTransactions(token, selectedTenantId),
-        fetchTenantAccountingSummary(token, selectedTenantId),
-      ]);
-      setSelectedTenantPayouts(tenantPayoutItems);
-      setSelectedTenantTransactions(tenantTransactions);
-      setSelectedTenantAccounting(tenantSummary);
+      const adminPayoutItems = await fetchAdminPayouts(token);
+      setPlatformPayouts(adminPayoutItems);
+      if (selectedTenantId) {
+        const [tenantPayoutItems, tenantTransactions, tenantSummary] = await Promise.all([
+          fetchTenantPayouts(token, selectedTenantId),
+          fetchTenantTransactions(token, selectedTenantId),
+          fetchTenantAccountingSummary(token, selectedTenantId),
+        ]);
+        setSelectedTenantPayouts(tenantPayoutItems);
+        setSelectedTenantTransactions(tenantTransactions);
+        setSelectedTenantAccounting(tenantSummary);
+      }
       setSuccess("Запрос на вывод одобрен.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось одобрить запрос на вывод.");
@@ -1486,7 +1541,7 @@ export function AppController() {
   }
 
   async function handleRejectPayout(payoutId: string) {
-    if (!token || !selectedTenantId) return;
+    if (!token) return;
     try {
       setLoading(true);
       setError(null);
@@ -1495,14 +1550,18 @@ export function AppController() {
         action: "reject",
         review_comment: "Отклонено супер-админом.",
       });
-      const [tenantPayoutItems, tenantTransactions, tenantSummary] = await Promise.all([
-        fetchTenantPayouts(token, selectedTenantId),
-        fetchTenantTransactions(token, selectedTenantId),
-        fetchTenantAccountingSummary(token, selectedTenantId),
-      ]);
-      setSelectedTenantPayouts(tenantPayoutItems);
-      setSelectedTenantTransactions(tenantTransactions);
-      setSelectedTenantAccounting(tenantSummary);
+      const adminPayoutItems = await fetchAdminPayouts(token);
+      setPlatformPayouts(adminPayoutItems);
+      if (selectedTenantId) {
+        const [tenantPayoutItems, tenantTransactions, tenantSummary] = await Promise.all([
+          fetchTenantPayouts(token, selectedTenantId),
+          fetchTenantTransactions(token, selectedTenantId),
+          fetchTenantAccountingSummary(token, selectedTenantId),
+        ]);
+        setSelectedTenantPayouts(tenantPayoutItems);
+        setSelectedTenantTransactions(tenantTransactions);
+        setSelectedTenantAccounting(tenantSummary);
+      }
       setSuccess("Запрос на вывод отклонен.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось отклонить запрос на вывод.");
@@ -1611,6 +1670,7 @@ return (
           platformAccounting={platformAccounting}
           platformInvoices={platformInvoices}
           platformTransactions={platformTransactions}
+          platformPayouts={platformPayouts}
           platformEvents={platformEvents}
           platformBillingSettings={platformBillingSettings}
           publicPages={adminPublicPages}
@@ -1640,6 +1700,8 @@ return (
           onUpdateInvoiceStatus={(status) => void handleUpdateInvoiceStatus(status)}
           onSyncInvoice={(invoiceId) => void handleSyncInvoice(invoiceId)}
           onUpdatePlatformSettings={handleUpdatePlatformSettings}
+          onFetchPlatformExchangeRate={handleFetchPlatformExchangeRate}
+          onRefreshPlatformExchangeRate={handleRefreshPlatformExchangeRate}
           onInspectPlatformTelegramBot={(payload) => handleInspectPlatformTelegramBot(payload)}
           onSendPlatformTelegramTest={(payload) => handleSendPlatformTelegramTest(payload)}
           onSendPlatformSmtpBzTest={(payload) => handleSendPlatformSmtpBzTest(payload)}
@@ -1673,6 +1735,7 @@ return (
           invoices={invoices}
           selectedClientInvoiceId={selectedClientInvoiceId}
           selectedClientInvoiceDetail={selectedClientInvoiceDetail}
+          isClientInvoiceModalOpen={isClientInvoiceModalOpen}
           clientTransactions={clientTransactions}
           payouts={payouts}
           clientAccounting={clientAccounting}
@@ -1703,6 +1766,7 @@ return (
           onClientRevokeApiKey={(apiKeyId) => void handleClientRevokeApiKey(apiKeyId)}
           onSelectClientInvoice={(invoiceId) => void handleSelectClientInvoice(invoiceId)}
           onClientInvoiceSync={(invoiceId) => void handleClientInvoiceSync(invoiceId)}
+          onCloseClientInvoiceModal={() => setIsClientInvoiceModalOpen(false)}
           onSetupTwoFactor={() => void handleSetupTwoFactor()}
           onEnableTwoFactor={(code) => void handleEnableTwoFactor(code)}
           onDisableTwoFactor={(payload) => void handleDisableTwoFactor(payload)}

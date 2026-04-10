@@ -1,6 +1,7 @@
+from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Numeric, String
+from sqlalchemy import Boolean, DateTime, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -75,3 +76,16 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     seo_og_image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     seo_robots: Mapped[str] = mapped_column(String(100), nullable=False, default="index, follow")
     seo_canonical_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    exchange_rate_markup_percent: Mapped[Decimal] = mapped_column(
+        Numeric(10, 4), nullable=False, default=Decimal("0.0000")
+    )
+    manual_exchange_rates_json: Mapped[str] = mapped_column(
+        String(16000), nullable=False, default="{}"
+    )
+    cached_exchange_rates_json: Mapped[str] = mapped_column(
+        String(16000), nullable=False, default="{}"
+    )
+    cached_exchange_rates_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )

@@ -103,6 +103,7 @@ import {
   type ProjectAdminUpdatePayload,
 } from "../../api";
 import {
+  createMerchantOrderId,
   initialInvoiceForm,
   initialLoginForm,
   initialPayoutForm,
@@ -748,11 +749,15 @@ export function useAppController() {
   async function handleCreateInvoice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
+    const merchantOrderId = invoiceForm.merchant_order_id.trim() || createMerchantOrderId();
 
     try {
       setLoading(true);
       clearRuntimeState();
-      const invoice = await createInvoice(token, invoiceForm);
+      const invoice = await createInvoice(token, {
+        ...invoiceForm,
+        merchant_order_id: merchantOrderId,
+      });
       setSuccess(`Инвойс создан: ${invoice.provider_order_id}`);
 
       const [invoiceItems, balanceInfo, transactionItems, accountingSummary, webhookItems] =
@@ -775,7 +780,11 @@ export function useAppController() {
         setSelectedClientInvoiceDetail(await fetchClientInvoiceDetail(token, invoice.id));
       }
 
-      setInvoiceForm((current) => ({ ...current, merchant_order_id: "", amount_fiat: 100 }));
+      setInvoiceForm((current) => ({
+        ...current,
+        merchant_order_id: createMerchantOrderId(),
+        amount_fiat: 100,
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось создать инвойс.");
     } finally {

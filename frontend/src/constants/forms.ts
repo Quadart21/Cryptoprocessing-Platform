@@ -5,6 +5,10 @@ import type {
   TenantCreatePayload,
 } from "../api";
 
+export function createMerchantOrderId(): string {
+  return `order-${Date.now()}`;
+}
+
 export const initialTenantForm: TenantCreatePayload = {
   company_name: "",
   owner_email: "",
@@ -29,7 +33,7 @@ export const initialRegistrationForm: RegistrationPayload = {
 
 export const initialInvoiceForm: CreateInvoicePayload = {
   project_id: "",
-  merchant_order_id: "",
+  merchant_order_id: createMerchantOrderId(),
   amount_fiat: 100,
   fiat_currency: "USD",
   crypto_currency: "USDT",

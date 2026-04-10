@@ -225,6 +225,9 @@ class CryptoCashProvider(PaymentProviderInterface):
             "amount": self._format_amount(payload.amount_fiat),
             "externalId": external_id,
         }
+        webhook_url = self._resolve_webhook_url()
+        if webhook_url:
+            request_payload["webhookUrl"] = webhook_url
         ticker = self._resolve_ticker(payload.crypto_currency, payload.network)
         if ticker:
             request_payload["ticker"] = ticker
@@ -233,6 +236,12 @@ class CryptoCashProvider(PaymentProviderInterface):
         request_payload["currency"] = payload.crypto_currency.upper()
         request_payload["network"] = payload.network.upper()
         return request_payload
+
+    def _resolve_webhook_url(self) -> str | None:
+        base = settings.public_api_base_url
+        if not base:
+            return None
+        return f"{base.rstrip('/')}/internal/webhook/crypto-cash"
 
     def _resolve_ticker(self, currency: str, network: str) -> str | None:
         normalized_currency = currency.upper()

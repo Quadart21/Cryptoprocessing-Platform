@@ -303,12 +303,18 @@ class NotificationService:
                 raise ValueError("Укажите email отправителя SMTP.bz.")
             if "@" not in platform_settings.smtp_bz_sender_email:
                 raise ValueError("Email отправителя SMTP.bz указан некорректно.")
-            if not self.is_smtp_bz_api_key_configured(platform_settings):
+            if not (
+                (platform_settings.smtp_bz_api_key_encrypted or "").strip()
+                or (smtp_bz_api_key or "").strip()
+            ):
                 raise ValueError("Укажите API-ключ SMTP.bz для включенной email-отправки.")
 
         if (
             platform_settings.telegram_notifications_enabled
-            and not self.is_telegram_bot_token_configured(platform_settings)
+            and not (
+                (platform_settings.telegram_bot_token_encrypted or "").strip()
+                or (telegram_bot_token or "").strip()
+            )
         ):
             raise ValueError(
                 "Укажите Telegram Bot Token для включенных Telegram-уведомлений."
@@ -573,18 +579,24 @@ class NotificationService:
         )
 
     def is_smtp_bz_api_key_configured(self, platform_settings: PlatformSetting) -> bool:
-        return bool(self._get_smtp_bz_api_key(platform_settings))
+        return bool((platform_settings.smtp_bz_api_key_encrypted or "").strip())
 
     def get_masked_smtp_bz_api_key(self, platform_settings: PlatformSetting) -> str | None:
+        encrypted = (platform_settings.smtp_bz_api_key_encrypted or "").strip()
+        if not encrypted:
+            return None
         api_key = self._get_smtp_bz_api_key(platform_settings)
-        return self._mask_secret(api_key)
+        return self._mask_secret(api_key) if api_key else "Stored"
 
     def is_telegram_bot_token_configured(self, platform_settings: PlatformSetting) -> bool:
-        return bool(self._get_telegram_bot_token(platform_settings))
+        return bool((platform_settings.telegram_bot_token_encrypted or "").strip())
 
     def get_masked_telegram_bot_token(self, platform_settings: PlatformSetting) -> str | None:
+        encrypted = (platform_settings.telegram_bot_token_encrypted or "").strip()
+        if not encrypted:
+            return None
         token = self._get_telegram_bot_token(platform_settings)
-        return self._mask_token(token)
+        return self._mask_token(token) if token else "Stored"
 
     def inspect_telegram_bot(
         self,

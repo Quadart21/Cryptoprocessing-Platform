@@ -30,12 +30,13 @@ import { ApiKeysPanel } from "./client/ApiKeysPanel";
 import { AnalyticsFiltersPanel } from "./client/AnalyticsFiltersPanel";
 import { IntegrationTestingPanel } from "./client/IntegrationTestingPanel";
 import { InvoiceCreatePanel } from "./client/InvoiceCreatePanel";
-import { InvoiceDetailPanel } from "./client/InvoiceDetailPanel";
+import { InvoiceDetailModal } from "./client/InvoiceDetailModal";
 import { InvoicesPanel } from "./client/InvoicesPanel";
 import { ProjectsPanel } from "./client/ProjectsPanel";
 import { PayoutsPanel } from "./client/PayoutsPanel";
 import { TransactionsPanel } from "./client/TransactionsPanel";
 import { ClientSecurityNotificationsPanel } from "./client/ClientSecurityNotificationsPanel";
+import { formatDecimal } from "../utils/format";
 
 type WebhookFormState = {
   project_id: string;
@@ -55,6 +56,7 @@ type ClientDashboardProps = {
   invoices: InvoiceItem[];
   selectedClientInvoiceId: string | null;
   selectedClientInvoiceDetail: InvoiceItem | null;
+  isClientInvoiceModalOpen: boolean;
   clientTransactions: TransactionItem[];
   payouts: PayoutRequestItem[];
   clientAccounting: AccountingSummary | null;
@@ -85,6 +87,7 @@ type ClientDashboardProps = {
   onClientRevokeApiKey: (apiKeyId: string) => void;
   onSelectClientInvoice: (invoiceId: string) => void;
   onClientInvoiceSync: (invoiceId: string) => void;
+  onCloseClientInvoiceModal: () => void;
   onSetupTwoFactor: () => void;
   onEnableTwoFactor: (code: string) => void;
   onDisableTwoFactor: (payload: { password: string; code?: string }) => void;
@@ -221,6 +224,7 @@ export function ClientDashboard({
   invoices,
   selectedClientInvoiceId,
   selectedClientInvoiceDetail,
+  isClientInvoiceModalOpen,
   clientTransactions,
   payouts,
   clientAccounting,
@@ -251,6 +255,7 @@ export function ClientDashboard({
   onClientRevokeApiKey,
   onSelectClientInvoice,
   onClientInvoiceSync,
+  onCloseClientInvoiceModal,
   onSetupTwoFactor,
   onEnableTwoFactor,
   onDisableTwoFactor,
@@ -495,7 +500,6 @@ export function ClientDashboard({
               onSyncInvoice={onClientInvoiceSync}
               selectedClientInvoiceId={selectedClientInvoiceId}
             />
-            <InvoiceDetailPanel selectedClientInvoiceDetail={selectedClientInvoiceDetail} />
           </section>
         ) : null}
 
@@ -527,22 +531,28 @@ export function ClientDashboard({
           <>
             <section className="stats-grid">
               <article className="stat-card">
-                <span>Текущий баланс</span>
+                <span>Доступно к выводу</span>
                 <strong>
-                  {balance?.amount ?? "0"} {balance?.currency ?? "USDT"}
+                  {formatDecimal(balance?.available_amount ?? balance?.amount ?? "0")}{" "}
+                  {balance?.currency ?? "USDT"}
+                </strong>
+              </article>
+              <article className="stat-card">
+                <span>Заморожено</span>
+                <strong>
+                  {formatDecimal(balance?.locked_amount ?? "0")} {balance?.currency ?? "USDT"}
+                </strong>
+              </article>
+              <article className="stat-card">
+                <span>Общий баланс</span>
+                <strong>
+                  {formatDecimal(balance?.total_amount ?? balance?.amount ?? "0")}{" "}
+                  {balance?.currency ?? "USDT"}
                 </strong>
               </article>
               <article className="stat-card">
                 <span>К зачислению</span>
                 <strong>{analytics.summary.net}</strong>
-              </article>
-              <article className="stat-card">
-                <span>Комиссии</span>
-                <strong>{analytics.summary.fee}</strong>
-              </article>
-              <article className="stat-card">
-                <span>Успешность</span>
-                <strong>{analytics.summary.successRate}</strong>
               </article>
             </section>
 
@@ -577,6 +587,14 @@ export function ClientDashboard({
             />
           </section>
         ) : null}
+
+        <InvoiceDetailModal
+          invoice={selectedClientInvoiceDetail}
+          isOpen={isClientInvoiceModalOpen}
+          loading={loading}
+          onClose={onCloseClientInvoiceModal}
+          onSync={onClientInvoiceSync}
+        />
       </main>
     </div>
   );

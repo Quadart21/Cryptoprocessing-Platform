@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     app_name: str = Field(default="CryptoProcessing Platform", alias="APP_NAME")
     app_env: str = Field(default="local", alias="APP_ENV")
     app_debug: bool = Field(default=False, alias="APP_DEBUG")
+    public_api_base_url: str = Field(default="", alias="PUBLIC_API_BASE_URL")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")
 
     security_fail_fast: bool = Field(default=True, alias="SECURITY_FAIL_FAST")

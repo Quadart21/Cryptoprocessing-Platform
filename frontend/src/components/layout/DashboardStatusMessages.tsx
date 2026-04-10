@@ -26,9 +26,9 @@ export function DashboardStatusMessages({
       {success ? <p className="result-box page-message">{success}</p> : null}
       {error ? <p className="error-box page-message">{error}</p> : null}
       {newApiSecret ? (
-        <div className="nc-modal-overlay">
-          <div className="nc-modal">
-            <button className="nc-modal-close" onClick={onCloseSecretModal} type="button">
+        <div className="nc-modal-overlay" onClick={() => onCloseSecretModal?.()}>
+          <div className="nc-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="nc-modal-close" onClick={() => onCloseSecretModal?.()} type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
@@ -78,7 +78,7 @@ export function DashboardStatusMessages({
               </button>
               <button
                 className="primary-button"
-                onClick={onCloseSecretModal}
+                onClick={() => onCloseSecretModal?.()}
                 type="button"
                 style={{ flex: 1 }}
               >

@@ -1,10 +1,16 @@
+import json
+import logging
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models.platform_setting import PlatformSetting
 from app.models.tenant_fee_policy import TenantFeePolicy
+
+logger = logging.getLogger(__name__)
 
 
 class BillingPolicyService:
@@ -53,6 +59,84 @@ class BillingPolicyService:
     def get_provider_fee_percent(self) -> Decimal:
         return Decimal(self.get_platform_settings().provider_fee_percent)
 
+    def get_exchange_rate_markup_percent(self) -> Decimal:
+        try:
+            return Decimal(self.get_platform_settings().exchange_rate_markup_percent)
+        except SQLAlchemyError:
+            logger.exception(
+                "Failed to load exchange_rate_markup_percent from platform settings; using 0 fallback."
+            )
+            return Decimal("0")
+
+    def get_manual_exchange_rates(self) -> dict[str, Decimal]:
+        settings = self.get_platform_settings()
+        raw_value = settings.manual_exchange_rates_json or "{}"
+        try:
+            parsed = json.loads(raw_value)
+        except (TypeError, ValueError):
+            logger.exception("Failed to parse manual exchange rates JSON; using empty mapping.")
+            return {}
+
+        if not isinstance(parsed, dict):
+            return {}
+
+        normalized: dict[str, Decimal] = {}
+        for key, value in parsed.items():
+            symbol = str(key).strip().upper()
+            if not symbol:
+                continue
+            try:
+                rate = Decimal(str(value))
+            except Exception:
+                logger.warning("Skipping invalid manual exchange rate for %s: %r", symbol, value)
+                continue
+            if rate <= 0:
+                logger.warning("Skipping non-positive manual exchange rate for %s: %s", symbol, rate)
+                continue
+            normalized[symbol] = rate
+        return normalized
+
+    def get_cached_exchange_rates(self) -> dict[str, Decimal]:
+        settings = self.get_platform_settings()
+        raw_value = settings.cached_exchange_rates_json or "{}"
+        try:
+            parsed = json.loads(raw_value)
+        except (TypeError, ValueError):
+            logger.exception("Failed to parse cached exchange rates JSON; using empty mapping.")
+            return {}
+
+        if not isinstance(parsed, dict):
+            return {}
+
+        normalized: dict[str, Decimal] = {}
+        for key, value in parsed.items():
+            symbol = str(key).strip().upper()
+            if not symbol:
+                continue
+            try:
+                rate = Decimal(str(value))
+            except Exception:
+                logger.warning("Skipping invalid cached exchange rate for %s: %r", symbol, value)
+                continue
+            if rate <= 0:
+                logger.warning("Skipping non-positive cached exchange rate for %s: %s", symbol, rate)
+                continue
+            normalized[symbol] = rate
+        return normalized
+
+    def update_cached_exchange_rates(self, rates: dict[str, Decimal]) -> PlatformSetting:
+        normalized_rates = self._normalize_manual_exchange_rates(rates)
+        settings = self.get_platform_settings()
+        settings.cached_exchange_rates_json = json.dumps(
+            {key: str(value) for key, value in normalized_rates.items()},
+            sort_keys=True,
+        )
+        settings.cached_exchange_rates_updated_at = datetime.now(timezone.utc)
+        self.db.add(settings)
+        self.db.commit()
+        self.db.refresh(settings)
+        return settings
+
     def update_platform_settings(
         self,
         *,
@@ -62,6 +146,8 @@ class BillingPolicyService:
         allow_tenant_markup_override: bool,
         allow_tenant_turnover_fee_override: bool,
         payouts_enabled: bool,
+        exchange_rate_markup_percent: Decimal = Decimal("0"),
+        manual_exchange_rates: dict[str, Decimal] | None = None,
         seo_title: str | None = None,
         seo_description: str | None = None,
         seo_keywords: str | None = None,
@@ -73,6 +159,13 @@ class BillingPolicyService:
         self._validate_percent(provider_fee_percent, "provider_fee_percent")
         self._validate_percent(default_markup_percent, "default_markup_percent")
         self._validate_percent(default_turnover_fee_percent, "default_turnover_fee_percent")
+        self._validate_rate_adjustment_percent(
+            exchange_rate_markup_percent,
+            "exchange_rate_markup_percent",
+        )
+        normalized_manual_exchange_rates = self._normalize_manual_exchange_rates(
+            manual_exchange_rates or {}
+        )
 
         settings = self.get_platform_settings()
         settings.provider_fee_percent = provider_fee_percent
@@ -81,6 +174,11 @@ class BillingPolicyService:
         settings.allow_tenant_markup_override = allow_tenant_markup_override
         settings.allow_tenant_turnover_fee_override = allow_tenant_turnover_fee_override
         settings.payouts_enabled = payouts_enabled
+        settings.exchange_rate_markup_percent = exchange_rate_markup_percent
+        settings.manual_exchange_rates_json = json.dumps(
+            {key: str(value) for key, value in normalized_manual_exchange_rates.items()},
+            sort_keys=True,
+        )
         settings.seo_title = (seo_title or "").strip() or None
         settings.seo_description = (seo_description or "").strip() or None
         settings.seo_keywords = (seo_keywords or "").strip() or None
@@ -128,4 +226,27 @@ class BillingPolicyService:
     @staticmethod
     def _validate_percent(value: Decimal, field_name: str) -> None:
         if value < Decimal("0") or value > Decimal("100"):
-            raise ValueError(f"{field_name} должен быть в диапазоне от 0 до 100.")
+            raise ValueError(f"{field_name} must be between 0 and 100.")
+
+    @staticmethod
+    def _validate_rate_adjustment_percent(value: Decimal, field_name: str) -> None:
+        if value <= Decimal("-100") or value > Decimal("100"):
+            raise ValueError(f"{field_name} must be greater than -100 and less than or equal to 100.")
+
+    @staticmethod
+    def _normalize_manual_exchange_rates(
+        rates: dict[str, Decimal | str | float | int],
+    ) -> dict[str, Decimal]:
+        normalized: dict[str, Decimal] = {}
+        for raw_symbol, raw_rate in rates.items():
+            symbol = str(raw_symbol).strip().upper()
+            if not symbol:
+                continue
+            try:
+                rate = Decimal(str(raw_rate))
+            except Exception as exc:
+                raise ValueError(f"manual_exchange_rates[{symbol}] must be a valid decimal.") from exc
+            if rate <= Decimal("0"):
+                raise ValueError(f"manual_exchange_rates[{symbol}] must be greater than 0.")
+            normalized[symbol] = rate
+        return normalized

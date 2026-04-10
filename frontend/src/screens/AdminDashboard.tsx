@@ -15,6 +15,7 @@ import {
   PlatformTransactionsPanel,
 } from "./admin/AdminPlatformPanels";
 import { AdminPlatformSettingsSection } from "./admin/AdminPlatformSettingsSection";
+import { AdminPlatformPayoutsPanel } from "./admin/AdminPlatformPayoutsPanel";
 import { AdminPublicPagesSection } from "./admin/AdminPublicPagesSection";
 import { AssetManagementPage } from "./admin/AssetManagementPage";
 import { AdminUsersPanel } from "./admin/AdminUsersPanel";
@@ -42,6 +43,11 @@ const ADMIN_SECTION_META: Record<
     group: "Мониторинг",
     title: "Транзакции платформы",
     description: "Операционный мониторинг движений средств по всей системе.",
+  },
+  payouts: {
+    group: "Мониторинг",
+    title: "Выплаты платформы",
+    description: "Очередь заявок на вывод и история обработанных выплат по всем клиентам.",
   },
   events: {
     group: "Мониторинг",
@@ -108,6 +114,7 @@ export function AdminDashboard({
   platformAccounting,
   platformInvoices,
   platformTransactions,
+  platformPayouts,
   platformEvents,
   platformBillingSettings,
   publicPages,
@@ -140,6 +147,8 @@ export function AdminDashboard({
   onUpdateInvoiceStatus,
   onSyncInvoice,
   onUpdatePlatformSettings,
+  onFetchPlatformExchangeRate,
+  onRefreshPlatformExchangeRate,
   onInspectPlatformTelegramBot,
   onSendPlatformTelegramTest,
   onSendPlatformSmtpBzTest,
@@ -184,6 +193,7 @@ export function AdminDashboard({
           { key: "overview", label: "Обзор" },
           { key: "invoices", label: "Инвойсы" },
           { key: "transactions", label: "Транзакции" },
+          { key: "payouts", label: "Выплаты" },
           { key: "events", label: "События" },
         ],
       },
@@ -319,6 +329,21 @@ export function AdminDashboard({
           </section>
         ) : null}
 
+        {section === "payouts" ? (
+          <section className="dashboard-grid client-grid">
+            <AdminPlatformPayoutsPanel
+              payouts={platformPayouts}
+              loading={loading}
+              onApprove={onApprovePayout}
+              onReject={onRejectPayout}
+              onOpenTenant={(tenantId) => {
+                onSelectTenant(tenantId);
+                setSection("client-detail");
+              }}
+            />
+          </section>
+        ) : null}
+
         {section === "events" ? (
           <section className="dashboard-grid client-grid">
             <PlatformEventsPanel className="panel panel-span-2" events={platformEvents} />
@@ -398,12 +423,15 @@ export function AdminDashboard({
 
         {section === "platform-settings" ? (
           <AdminPlatformSettingsSection
+            adminAssetRates={adminAssetRates}
             loading={loading}
             platformBillingSettings={platformBillingSettings}
             selectedTenantBillingPolicy={selectedTenantBillingPolicy}
             selectedTenantId={selectedTenantId}
             tenants={tenants}
             onSelectTenant={onSelectTenant}
+            onFetchPlatformExchangeRate={onFetchPlatformExchangeRate}
+            onRefreshPlatformExchangeRate={onRefreshPlatformExchangeRate}
             onInspectPlatformTelegramBot={onInspectPlatformTelegramBot}
             onSendPlatformTelegramTest={onSendPlatformTelegramTest}
             onSendPlatformSmtpBzTest={onSendPlatformSmtpBzTest}

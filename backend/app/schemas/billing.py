@@ -59,6 +59,23 @@ class PlatformBillingSettingsResponse(BaseModel):
     seo_og_image_url: str | None = None
     seo_robots: str = "index, follow"
     seo_canonical_url: str | None = None
+    exchange_rate_markup_percent: Decimal = Decimal("0")
+    manual_exchange_rates: dict[str, Decimal] = Field(default_factory=dict)
+    current_exchange_rates: dict[str, Decimal] = Field(default_factory=dict)
+
+
+class ExchangeRateLookupResponse(BaseModel):
+    currency: str
+    quote_currency: str = "USD"
+    rate: Decimal | None = None
+    source: str = "api"
+
+
+class ExchangeRateRefreshResponse(BaseModel):
+    quote_currency: str = "USD"
+    refreshed_symbols: int = 0
+    cached_symbols: int = 0
+    refreshed: bool = False
 
 
 class PlatformBillingSettingsUpdateRequest(BaseModel):
@@ -91,6 +108,8 @@ class PlatformBillingSettingsUpdateRequest(BaseModel):
     seo_og_image_url: str | None = None
     seo_robots: str = "index, follow"
     seo_canonical_url: str | None = None
+    exchange_rate_markup_percent: Decimal = Decimal("0")
+    manual_exchange_rates: dict[str, Decimal] = Field(default_factory=dict)
 
 
 class TelegramBotInspectRequest(BaseModel):

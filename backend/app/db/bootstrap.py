@@ -1,9 +1,12 @@
+import logging
 from sqlalchemy import text
 
 from app.core.security import encrypt_value
 from app.db.session import engine
 from app.models import Base
 from app.services.key_service import KeyService
+
+logger = logging.getLogger(__name__)
 
 # Lightweight schema patches for environments where we don't run full Alembic yet.
 # Idempotent by design.
@@ -187,6 +190,50 @@ DDL_PATCHES = [
     ADD COLUMN IF NOT EXISTS telegram_bot_token_encrypted VARCHAR(1024)
     """,
     """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS seo_title VARCHAR(255)
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS seo_description VARCHAR(500)
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS seo_keywords VARCHAR(500)
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS seo_favicon_url VARCHAR(1000)
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS seo_og_image_url VARCHAR(1000)
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS seo_robots VARCHAR(100) NOT NULL DEFAULT 'index, follow'
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS seo_canonical_url VARCHAR(500)
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS exchange_rate_markup_percent NUMERIC(10, 4) NOT NULL DEFAULT 0.0000
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS manual_exchange_rates_json VARCHAR(16000) NOT NULL DEFAULT '{}'
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS cached_exchange_rates_json VARCHAR(16000) NOT NULL DEFAULT '{}'
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS cached_exchange_rates_updated_at TIMESTAMPTZ
+    """,
+    """
     ALTER TABLE tenant_fee_policies
     ADD COLUMN IF NOT EXISTS custom_turnover_fee_percent NUMERIC(10, 4)
     """,
@@ -279,6 +326,7 @@ RLS_TENANT_TABLES = [
 
 
 def ensure_database_ready() -> None:
+    logger.info("Running database readiness check and lightweight schema sync.")
     Base.metadata.create_all(bind=engine)
     with engine.begin() as connection:
         connection.execute(
@@ -292,6 +340,7 @@ def ensure_database_ready() -> None:
         _migrate_plaintext_webhook_secrets(connection)
         _ensure_provider_event_uniqueness(connection)
         _apply_rls_policies(connection)
+    logger.info("Database readiness check completed.")
 
 
 def _migrate_plaintext_webhook_secrets(connection) -> None:

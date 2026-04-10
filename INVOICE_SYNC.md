@@ -4,13 +4,15 @@
 
 The invoice status synchronization system ensures that invoice statuses (expired, paid, etc.) are automatically updated from the CryptoCash provider. This system includes:
 
-1. **Manual sync** - Admin and merchant users can manually sync individual invoices
-2. **Background sync** - Celery worker automatically syncs pending/paid invoices every 5 minutes
+1. **Webhook callback** - CryptoCash sends automatic callbacks to your server when invoice status changes (recommended)
+2. **Manual sync** - Admin and merchant users can manually sync individual invoices
+3. **Background sync** - Celery worker automatically syncs pending/paid invoices every 5 minutes
 
 ## Architecture
 
 ### Backend Components
 
+- **Webhook Endpoint** (`backend/app/api/routes/internal.py`) - `/internal/webhook/crypto-cash` receives status updates from CryptoCash
 - **Celery App** (`backend/app/celery_app.py`) - Celery configuration with beat schedule
 - **Celery Tasks** (`backend/app/tasks/invoice_sync.py`) - Background tasks for invoice synchronization
 - **Admin API** (`backend/app/api/routes/admin.py`) - `/admin/invoices/{invoice_id}/sync` endpoint
@@ -37,6 +39,10 @@ REDIS_URL=redis://localhost:6379/0
 CRYPTO_CASH_API_BASE_URL=https://api.crypto-cash.world
 CRYPTO_CASH_PUBLIC_KEY=your_public_key
 CRYPTO_CASH_SECRET_KEY=your_secret_key
+
+# Public API base URL (for CryptoCash webhook callback)
+# This is the URL where CryptoCash will send status update callbacks
+PUBLIC_API_BASE_URL=https://your-domain.com
 ```
 
 ### Docker Services
@@ -47,7 +53,27 @@ The `docker-compose.yml` includes the following services:
 - **celery-worker** - Celery worker that processes background tasks
 - **celery-beat** - Celery beat scheduler that triggers periodic tasks
 
+## Webhook Configuration (Recommended)
+
+CryptoCash will automatically send webhook callbacks to your server when invoice status changes. To enable this:
+
+1. Set `PUBLIC_API_BASE_URL` to your public server URL (e.g., `https://api.yourdomain.com`)
+2. Make sure your server is accessible from the internet
+3. CryptoCash will automatically use this URL when creating invoices
+
+The webhook endpoint is: `{PUBLIC_API_BASE_URL}/internal/webhook/crypto-cash`
+
+### Webhook Security
+
+The webhook endpoint validates incoming requests using:
+- Signature verification (if configured)
+- Timestamp validation to prevent replay attacks
+
 ## Usage
+
+### Automatic Webhook Updates (Recommended)
+
+When webhook is configured, CryptoCash will automatically send status updates to your server. No manual intervention required.
 
 ### Manual Sync (Admin)
 
@@ -69,38 +95,33 @@ The system automatically syncs all pending and paid invoices every 5 minutes via
 
 ## API Endpoints
 
+### Webhook Endpoint (Receives CryptoCash callbacks)
+
+```
+POST /internal/webhook/crypto-cash
+```
+
+**Response:**
+```json
+{
+  "id": "invoice_id",
+  "status": "paid",
+  "amount": "100.00",
+  "currency": "USD",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+
 ### Admin Sync Endpoint
 
 ```
 POST /api/v1/admin/invoices/{invoice_id}/sync
 ```
 
-**Response:**
-```json
-{
-  "id": "invoice_id",
-  "status": "paid",
-  "amount": "100.00",
-  "currency": "USD",
-  "updated_at": "2024-01-01T00:00:00Z"
-}
-```
-
 ### Client Sync Endpoint
 
 ```
 POST /api/v1/client/invoices/{invoice_id}/sync
-```
-
-**Response:**
-```json
-{
-  "id": "invoice_id",
-  "status": "paid",
-  "amount": "100.00",
-  "currency": "USD",
-  "updated_at": "2024-01-01T00:00:00Z"
-}
 ```
 
 ## Celery Tasks
@@ -175,6 +196,12 @@ Then visit `http://localhost:5555` to see task status and execution history.
 
 ## Troubleshooting
 
+### Webhook not receiving callbacks
+
+1. Check that `PUBLIC_API_BASE_URL` is set correctly
+2. Verify your server is accessible from the internet
+3. Check server logs for incoming webhook requests
+
 ### Celery worker not connecting to Redis
 
 Check that Redis is running and accessible:
@@ -187,7 +214,7 @@ docker-compose logs redis
 
 Check Celery worker logs:
 ```bash
-docker-compose logs celery-worker
+docker-compose logs celery-worker | grep invoice_sync
 ```
 
 ### Invoice status not updating
@@ -206,3 +233,4 @@ docker-compose logs celery-worker | grep invoice_sync
 - Client sync endpoint requires merchant role
 - CryptoCash API credentials should be stored securely in environment variables
 - Never commit secrets to version control
+- Webhook endpoint validates signatures to prevent spoofed callbacks

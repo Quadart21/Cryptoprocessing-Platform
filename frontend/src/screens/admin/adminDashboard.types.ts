@@ -11,6 +11,8 @@ import type {
   InvoiceItem,
   PayoutRequestItem,
   PlatformBillingSettings,
+  ExchangeRateLookup,
+  ExchangeRateRefresh,
   ProviderEventItem,
   PublicPageItem,
   RateItem,
@@ -40,6 +42,7 @@ export type AdminSection =
   | "clients"
   | "invoices"
   | "transactions"
+  | "payouts"
   | "events"
   | "client-detail"
   | "platform-settings"
@@ -54,6 +57,7 @@ export const ADMIN_MENU_ITEMS: DashboardRailItem[] = [
   { key: "clients", label: "Клиенты" },
   { key: "invoices", label: "Инвойсы" },
   { key: "transactions", label: "Транзакции" },
+  { key: "payouts", label: "Выплаты" },
   { key: "events", label: "События" },
   { key: "platform-settings", label: "Настройки" },
   { key: "public-pages", label: "Страницы" },
@@ -84,6 +88,7 @@ export type AdminDashboardProps = {
   platformAccounting: AccountingSummary | null;
   platformInvoices: InvoiceItem[];
   platformTransactions: TransactionItem[];
+  platformPayouts: PayoutRequestItem[];
   platformEvents: ProviderEventItem[];
   platformBillingSettings: PlatformBillingSettings | null;
   publicPages: PublicPageItem[];
@@ -116,6 +121,8 @@ export type AdminDashboardProps = {
   onUpdateInvoiceStatus: (status: string) => void;
   onSyncInvoice: (invoiceId: string) => void;
   onUpdatePlatformSettings: (payload: PlatformBillingSettings) => Promise<void>;
+  onFetchPlatformExchangeRate: (currency: string) => Promise<ExchangeRateLookup>;
+  onRefreshPlatformExchangeRate: () => Promise<ExchangeRateRefresh>;
   onInspectPlatformTelegramBot: (
     payload: TelegramBotInspectPayload,
   ) => Promise<TelegramBotIdentity>;

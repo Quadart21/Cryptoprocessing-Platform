@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -18,6 +19,8 @@ from app.core.config import settings
 from app.db.bootstrap import ensure_database_ready
 from app.middleware.csrf import CsrfProtectionMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIST_DIR = PROJECT_ROOT / "frontend" / "dist"
@@ -122,13 +125,18 @@ def _register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def handle_unexpected_error(_: Request, exc: Exception) -> JSONResponse:
+    async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
         if isinstance(exc, HTTPException):
             detail = exc.detail if isinstance(exc.detail, str) else "Request error."
             return JSONResponse(
                 status_code=exc.status_code,
                 content={"detail": detail, "code": "request_error"},
             )
+        logger.exception(
+            "Unhandled application error for %s %s",
+            request.method,
+            request.url.path,
+        )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={

@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -708,7 +709,19 @@ async def create_invoice(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    return _map_invoice_response(invoice)
+    except Exception:
+        logger.exception(
+            "Unexpected invoice create error for tenant_id=%s project_id=%s merchant_order_id=%s",
+            auth.tenant_id,
+            payload.project_id,
+            payload.merchant_order_id,
+        )
+        raise
+    try:
+        return _map_invoice_response(invoice)
+    except Exception:
+        logger.exception("Unexpected invoice create response mapping error")
+        raise
 
 
 @router.get("/invoices", response_model=list[InvoiceResponse])
@@ -720,10 +733,19 @@ async def list_invoices(
 ) -> list[InvoiceResponse]:
     _ensure_client_api_permission(auth, "client.invoices.read")
     invoice_service = InvoiceService(db)
-    return [
-        _map_invoice_response(invoice)
-        for invoice in invoice_service.list_invoices(auth.tenant_id, project_id=auth.project_id, limit=limit, offset=offset)
-    ]
+    try:
+        return [
+            _map_invoice_response(invoice)
+            for invoice in invoice_service.list_invoices(
+                auth.tenant_id,
+                project_id=auth.project_id,
+                limit=limit,
+                offset=offset,
+            )
+        ]
+    except Exception:
+        logger.exception("Unexpected invoice list error")
+        raise
 
 
 @router.get("/invoices/{invoice_id}", response_model=InvoiceResponse)
@@ -737,7 +759,11 @@ async def get_invoice(
     invoice = invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
-    return _map_invoice_response(invoice)
+    try:
+        return _map_invoice_response(invoice)
+    except Exception:
+        logger.exception("Unexpected invoice detail error for invoice_id=%s", invoice_id)
+        raise
 
 
 @router.post("/invoices/{invoice_id}/sync", response_model=InvoiceResponse)
@@ -766,7 +792,11 @@ async def sync_invoice(
         ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return _map_invoice_response(invoice)
+    try:
+        return _map_invoice_response(invoice)
+    except Exception:
+        logger.exception("Unexpected invoice sync response mapping error for invoice_id=%s", invoice_id)
+        raise
 
 
 @router.get("/balance", response_model=BalanceResponse)
@@ -777,9 +807,14 @@ async def get_balance(
     _ensure_client_api_permission(auth, "client.balance.read")
     balance_service = BalanceService(db)
     balance = balance_service.get_or_create_balance(auth.tenant_id, PayoutService.BALANCE_CURRENCY)
+    available_amount = balance.available_amount
+    locked_amount = balance.locked_amount
     return BalanceResponse(
         currency=PayoutService.BALANCE_CURRENCY,
-        amount=balance.available_amount,
+        amount=available_amount,
+        available_amount=available_amount,
+        locked_amount=locked_amount,
+        total_amount=available_amount + locked_amount,
     )
 
 
@@ -879,7 +914,8 @@ async def request_payout(
         ],
         owner_only=True,
     )
-    return _map_payout_response(payout)
+    project_name = db.scalar(select(Project.name).where(Project.id == payout.project_id)) if payout.project_id else None
+    return _map_payout_response(payout, project_name=project_name)
 
 
 @router.get("/payouts", response_model=list[PayoutRequestResponse])
@@ -890,9 +926,19 @@ async def list_payouts(
     offset: int = Query(default=0, ge=0),
 ) -> list[PayoutRequestResponse]:
     payout_service = PayoutService(db)
+    payouts = payout_service.list_by_tenant(current_user.tenant_id or "", limit=limit, offset=offset)
+    project_names = {
+        item.id: item.name
+        for item in db.scalars(
+            select(Project).where(Project.tenant_id == (current_user.tenant_id or ""))
+        ).all()
+    }
     return [
-        _map_payout_response(item)
-        for item in payout_service.list_by_tenant(current_user.tenant_id or "", limit=limit, offset=offset)
+        _map_payout_response(
+            item,
+            project_name=project_names.get(item.project_id) if item.project_id else None,
+        )
+        for item in payouts
     ]
 
 
@@ -945,11 +991,17 @@ def _map_transaction_response(transaction) -> TransactionResponse:
     )
 
 
-def _map_payout_response(payout) -> PayoutRequestResponse:
+def _map_payout_response(
+    payout,
+    *,
+    project_name: str | None = None,
+) -> PayoutRequestResponse:
     return PayoutRequestResponse(
         id=payout.id,
         tenant_id=payout.tenant_id,
+        tenant_name=None,
         project_id=payout.project_id,
+        project_name=project_name,
         requested_by_user_id=payout.requested_by_user_id,
         reviewed_by_user_id=payout.reviewed_by_user_id,
         destination_address=payout.destination_address,

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -6,8 +7,10 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.invoice import Invoice
 from app.models.transaction import Transaction
-from app.schemas.accounting import AccountingSummaryResponse
+from app.schemas.accounting import AccountingSummaryResponse, CryptoAmount
+from app.services.billing_policy_service import BillingPolicyService
 from app.services.cache_service import get_cache_service
+from app.services.exchange_rate_service import get_exchange_rate_service
 
 
 class AccountingService:
@@ -17,8 +20,11 @@ class AccountingService:
         self.db = db
 
     def build_summary(self, tenant_id: str | None = None) -> AccountingSummaryResponse:
+        billing_service = BillingPolicyService(self.db)
+        exchange_rate_markup = billing_service.get_exchange_rate_markup_percent()
+
         cache = get_cache_service()
-        cache_key = self._build_cache_key(tenant_id)
+        cache_key = self._build_cache_key(tenant_id, exchange_rate_markup)
         cached = cache.get_json(cache_key)
         if isinstance(cached, dict):
             try:
@@ -60,6 +66,9 @@ class AccountingService:
             else Decimal("0")
         )
 
+        crypto_amounts = self._calculate_crypto_amounts(invoices)
+        total_usd_value = self._calculate_total_usd_value(crypto_amounts)
+
         payload = AccountingSummaryResponse(
             tenant_id=tenant_id,
             invoices_total_count=invoices_total_count,
@@ -77,6 +86,9 @@ class AccountingService:
             total_platform_revenue_amount=total_platform_revenue_amount,
             net_amount=net_amount,
             average_invoice_amount=average_invoice_amount,
+            crypto_amounts=crypto_amounts,
+            total_usd_value=total_usd_value,
+            exchange_rate_markup_percent=exchange_rate_markup,
         )
         cache.set_json(
             cache_key,
@@ -85,16 +97,41 @@ class AccountingService:
         )
         return payload
 
+    def _calculate_crypto_amounts(self, invoices: list[Invoice]) -> list[CryptoAmount]:
+        crypto_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+
+        for invoice in invoices:
+            if invoice.status in {"paid", "confirmed"} and invoice.amount_crypto and invoice.crypto_currency:
+                currency = invoice.crypto_currency.upper()
+                crypto_totals[currency] += invoice.amount_crypto
+
+        rate_service = get_exchange_rate_service()
+        billing_service = BillingPolicyService(self.db)
+        markup_percent = billing_service.get_exchange_rate_markup_percent()
+
+        result = []
+        for currency, amount in sorted(crypto_totals.items()):
+            if amount > 0:
+                usd_value = rate_service.convert_to_fiat(amount, currency, "USD", markup_percent)
+                usd = usd_value if usd_value is not None else Decimal("0")
+                result.append(CryptoAmount(
+                    currency=currency,
+                    amount=amount.quantize(Decimal("0.00000001")),
+                    usd_value=usd,
+                ))
+
+        return result
+
+    def _calculate_total_usd_value(self, crypto_amounts: list[CryptoAmount]) -> Decimal:
+        return sum((ca.usd_value for ca in crypto_amounts), Decimal("0"))
+
     @classmethod
     def invalidate_cache(cls, tenant_id: str | None = None) -> None:
         cache = get_cache_service()
-        if tenant_id is None:
-            cache.delete_by_prefix(cls.CACHE_PREFIX)
-            return
-        cache.delete(cls._build_cache_key(tenant_id))
-        cache.delete(cls._build_cache_key(None))
+        cache.delete_by_prefix(cls.CACHE_PREFIX)
 
     @classmethod
-    def _build_cache_key(cls, tenant_id: str | None) -> str:
+    def _build_cache_key(cls, tenant_id: str | None, exchange_rate_markup: Decimal = Decimal("0")) -> str:
         scope = tenant_id or "platform"
-        return f"{cls.CACHE_PREFIX}{scope}"
+        markup_str = str(exchange_rate_markup.normalize())
+        return f"{cls.CACHE_PREFIX}{scope}:{markup_str}"

@@ -20,6 +20,11 @@ export const ADMIN_SECTION_META: Record<
     title: "Транзакции платформы",
     description: "Операционный мониторинг движений средств по всей системе.",
   },
+  payouts: {
+    group: "Мониторинг",
+    title: "Выплаты платформы",
+    description: "Глобальная очередь заявок на вывод и история их обработки.",
+  },
   events: {
     group: "Мониторинг",
     title: "События и webhooks",
@@ -38,7 +43,7 @@ export const ADMIN_SECTION_META: Record<
   "client-detail": {
     group: "Клиенты",
     title: "Карточка клиента",
-    description: "Полная детализация клиента: проекты, ключи, инвойсы и операции.",
+    description: "Полная детализация клиента: проекты, ключи, инвойсы, операции и выплаты.",
   },
   "platform-settings": {
     group: "Управление",
@@ -76,6 +81,7 @@ export function buildAdminMenuGroups(selectedTenantId: string | null): Dashboard
         { key: "overview", label: "Обзор" },
         { key: "invoices", label: "Инвойсы" },
         { key: "transactions", label: "Транзакции" },
+        { key: "payouts", label: "Выплаты" },
         { key: "events", label: "События" },
       ],
     },

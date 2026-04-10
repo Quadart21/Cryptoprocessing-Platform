@@ -33,8 +33,8 @@ export function InvoicesPanel({
               <div>
                 <strong>{invoice.merchant_order_id}</strong>
                 <p>
-                  {invoice.amount_fiat} {invoice.fiat_currency} / {invoice.amount_crypto}{" "}
-                  {invoice.crypto_currency}
+                  {invoice.amount_crypto} {invoice.crypto_currency} / учет: {invoice.amount_fiat}{" "}
+                  {invoice.fiat_currency}
                 </p>
                 <p>{invoice.payment_address}</p>
               </div>

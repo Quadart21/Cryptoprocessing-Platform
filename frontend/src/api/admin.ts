@@ -31,6 +31,8 @@ import type {
   TelegramAdminTestResponse,
   SmtpBzTestPayload,
   SmtpBzTestResponse,
+  ExchangeRateLookup,
+  ExchangeRateRefresh,
 } from "./base";
 
 export function fetchTenants(token: string): Promise<TenantItem[]> {
@@ -207,6 +209,12 @@ export function fetchAdminTransactions(token: string): Promise<TransactionItem[]
   });
 }
 
+export function fetchAdminPayouts(token: string): Promise<PayoutRequestItem[]> {
+  return request<PayoutRequestItem[]>("/admin/payouts", {
+    headers: authHeaders(token),
+  });
+}
+
 export function fetchAdminEvents(token: string): Promise<ProviderEventItem[]> {
   return request<ProviderEventItem[]>("/admin/events", {
     headers: authHeaders(token),
@@ -232,6 +240,27 @@ export function fetchPlatformBillingSettings(token: string): Promise<PlatformBil
   return request<PlatformBillingSettings>("/admin/billing/settings", {
     headers: authHeaders(token),
   });
+}
+
+export function fetchPlatformExchangeRate(
+  token: string,
+  currency: string,
+): Promise<ExchangeRateLookup> {
+  return request<ExchangeRateLookup>(`/admin/billing/exchange-rate/${encodeURIComponent(currency)}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export function refreshPlatformExchangeRate(
+  token: string,
+): Promise<ExchangeRateRefresh> {
+  return request<ExchangeRateRefresh>(
+    "/admin/billing/exchange-rates/refresh",
+    {
+      method: "POST",
+      headers: authHeaders(token),
+    },
+  );
 }
 
 export function updatePlatformBillingSettings(

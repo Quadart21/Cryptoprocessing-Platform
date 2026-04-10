@@ -12,6 +12,7 @@ def get_celery_app() -> Celery:
         "cryptorocessing",
         broker=settings.redis_url,
         backend=settings.redis_url,
+        include=["app.tasks.invoice_sync"],
     )
     celery_app.conf.update(
         task_serializer="json",
@@ -29,6 +30,10 @@ def get_celery_app() -> Celery:
         "sync-invoice-statuses-every-5-minutes": {
             "task": "app.tasks.invoice_sync.sync_all_pending_invoices",
             "schedule": crontab(minute="*/5"),
+        },
+        "refresh-exchange-rates-every-10-minutes": {
+            "task": "app.tasks.invoice_sync.refresh_exchange_rate_cache",
+            "schedule": crontab(minute="*/10"),
         },
     }
     return celery_app

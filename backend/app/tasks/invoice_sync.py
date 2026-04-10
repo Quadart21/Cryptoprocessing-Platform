@@ -1,13 +1,15 @@
 import logging
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.celery_app import celery_app
-from app.db.session import get_db
+from app.db.session import SessionLocal
 from app.models.invoice import Invoice
 from app.providers.crypto_cash import CryptoCashProviderError
+from app.services.billing_policy_service import BillingPolicyService
+from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_service import InvoiceService
+from app.services.rates_service import RatesService
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +19,7 @@ def sync_all_pending_invoices() -> dict:
     synced_count = 0
     failed_count = 0
     errors = []
-    
-    db_gen = get_db()
-    db = next(db_gen)
+    db = SessionLocal()
     
     try:
         pending_invoices = list(
@@ -73,8 +73,7 @@ def sync_all_pending_invoices() -> dict:
 
 @celery_app.task(name="app.tasks.invoice_sync.sync_single_invoice")
 def sync_single_invoice(invoice_id: str) -> dict:
-    db_gen = get_db()
-    db = next(db_gen)
+    db = SessionLocal()
     
     try:
         invoice = db.scalar(select(Invoice).where(Invoice.id == invoice_id))
@@ -100,5 +99,33 @@ def sync_single_invoice(invoice_id: str) -> dict:
     except Exception as exc:
         logger.exception(f"Error syncing invoice {invoice_id}")
         return {"success": False, "error": f"Unexpected error: {str(exc)}"}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.tasks.invoice_sync.refresh_exchange_rate_cache")
+def refresh_exchange_rate_cache() -> dict:
+    db = SessionLocal()
+
+    try:
+        rates_payload = RatesService(db).list_rates()
+        symbols = sorted(
+            {
+                str(item.currency).strip().upper()
+                for item in rates_payload.items
+                if str(item.currency).strip()
+            }
+        )
+        fresh_rates = get_exchange_rate_service().refresh_rates_for_symbols(symbols)
+        BillingPolicyService(db).update_cached_exchange_rates(fresh_rates)
+        result = {
+            "symbols_total": len(symbols),
+            "rates_cached": len(fresh_rates),
+        }
+        logger.info("Exchange rate cache refreshed: %s", result)
+        return result
+    except Exception as exc:
+        logger.exception("Failed to refresh exchange rate cache")
+        return {"success": False, "error": str(exc)}
     finally:
         db.close()

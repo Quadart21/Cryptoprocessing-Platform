@@ -1,8 +1,11 @@
 ﻿from decimal import Decimal
 
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db.tenant import apply_db_security_context
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.transaction import Transaction
@@ -14,7 +17,10 @@ from app.services.balance_service import BalanceService
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
+from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.rates_service import RatesService
+
+logger = logging.getLogger(__name__)
 
 
 class InvoiceAmountOutOfRangeError(ValueError):
@@ -69,6 +75,31 @@ class InvoiceService:
     def __init__(self, db: Session):
         self.db = db
 
+    @staticmethod
+    def _build_invoice_snapshot(invoice: Invoice) -> Invoice:
+        return Invoice(
+            id=invoice.id,
+            tenant_id=invoice.tenant_id,
+            project_id=invoice.project_id,
+            merchant_order_id=invoice.merchant_order_id,
+            provider_order_id=invoice.provider_order_id,
+            amount_fiat=invoice.amount_fiat,
+            fiat_currency=invoice.fiat_currency,
+            amount_crypto=invoice.amount_crypto,
+            crypto_currency=invoice.crypto_currency,
+            network=invoice.network,
+            payment_address=invoice.payment_address,
+            qr_url=invoice.qr_url,
+            status=invoice.status,
+            expires_at=invoice.expires_at,
+            paid_at=invoice.paid_at,
+            confirmed_at=invoice.confirmed_at,
+            metadata_json=invoice.metadata_json,
+            raw_provider_payload_json=invoice.raw_provider_payload_json,
+            created_at=invoice.created_at,
+            updated_at=invoice.updated_at,
+        )
+
     def create_invoice(self, tenant_id: str, payload: InvoiceCreateRequest) -> Invoice:
         project = self.db.scalar(
             select(Project).where(
@@ -102,15 +133,24 @@ class InvoiceService:
                 network=payload.network.upper(),
             )
         )
+        exchange_rate_markup = BillingPolicyService(self.db).get_exchange_rate_markup_percent()
+        resolved_amount_crypto = provider_response.amount_crypto or Decimal(payload.amount_fiat)
+        accounting_amount_fiat = get_exchange_rate_service().convert_to_fiat(
+            amount=resolved_amount_crypto,
+            from_currency=provider_response.crypto_currency,
+            to_fiat=payload.fiat_currency.upper(),
+            markup_percent=exchange_rate_markup,
+        )
+        resolved_amount_fiat = accounting_amount_fiat or Decimal(payload.amount_fiat)
 
         invoice = Invoice(
             tenant_id=tenant_id,
             project_id=project.id,
             merchant_order_id=payload.merchant_order_id,
             provider_order_id=provider_response.provider_order_id,
-            amount_fiat=payload.amount_fiat,
+            amount_fiat=resolved_amount_fiat,
             fiat_currency=payload.fiat_currency.upper(),
-            amount_crypto=provider_response.amount_crypto,
+            amount_crypto=resolved_amount_crypto,
             crypto_currency=provider_response.crypto_currency,
             network=provider_response.network,
             payment_address=provider_response.payment_address,
@@ -122,16 +162,17 @@ class InvoiceService:
         )
         self.db.add(invoice)
         self.db.flush()
+        invoice_snapshot = self._build_invoice_snapshot(invoice)
 
         transaction = Transaction(
             tenant_id=tenant_id,
             project_id=project.id,
             invoice_id=invoice.id,
-            gross_amount=Decimal(payload.amount_fiat),
+            gross_amount=resolved_amount_fiat,
             provider_fee=Decimal("0"),
             platform_fee=Decimal("0"),
             turnover_fee=Decimal("0"),
-            net_amount=Decimal(payload.amount_fiat),
+            net_amount=resolved_amount_fiat,
             currency=self.BALANCE_CURRENCY,
             status="pending",
         )
@@ -143,8 +184,49 @@ class InvoiceService:
             payload=provider_response.raw_payload,
         )
         self.db.flush()
-        AccountingService.invalidate_cache(tenant_id=tenant_id)
-        return invoice
+        invoice_id = invoice.id
+        project_id = project.id
+        try:
+            self.db.commit()
+        except Exception:
+            logger.exception(
+                "Invoice DB commit failed after provider creation for tenant_id=%s project_id=%s merchant_order_id=%s provider_order_id=%s",
+                tenant_id,
+                project.id,
+                payload.merchant_order_id,
+                provider_response.provider_order_id,
+            )
+            self.db.rollback()
+            raise
+        try:
+            apply_db_security_context(self.db)
+            refreshed_invoice = self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+            if refreshed_invoice is not None:
+                invoice = refreshed_invoice
+        except Exception:
+            logger.exception(
+                "Invoice created but post-commit refresh failed for invoice_id=%s tenant_id=%s",
+                invoice_id,
+                tenant_id,
+            )
+        try:
+            AccountingService.invalidate_cache(tenant_id=tenant_id)
+        except Exception:
+            logger.exception(
+                "Invoice created but accounting cache invalidation failed for invoice_id=%s tenant_id=%s",
+                invoice_id,
+                tenant_id,
+            )
+        refreshed_invoice = self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+        if refreshed_invoice is not None:
+            return refreshed_invoice
+        logger.warning(
+            "Invoice created and committed, but reread returned no row. Returning snapshot for invoice_id=%s tenant_id=%s project_id=%s",
+            invoice_id,
+            tenant_id,
+            project_id,
+        )
+        return invoice_snapshot
 
     def list_invoices(self, tenant_id: str, project_id: str | None = None, limit: int = 50, offset: int = 0) -> list[Invoice]:
         stmt = select(Invoice).where(Invoice.tenant_id == tenant_id)
@@ -267,10 +349,52 @@ class InvoiceService:
             transaction,
             event_name=f"invoice.{normalized_status}",
         )
+        tenant_id = invoice.tenant_id
+        invoice_id = invoice.id
+        project_id = invoice.project_id
+        invoice_snapshot = self._build_invoice_snapshot(invoice)
         self.db.add_all([invoice, transaction])
-        self.db.commit()
-        AccountingService.invalidate_cache(tenant_id=invoice.tenant_id)
-        return invoice
+        try:
+            self.db.commit()
+        except Exception:
+            logger.exception(
+                "Invoice status DB commit failed for invoice_id=%s tenant_id=%s project_id=%s status=%s",
+                invoice_id,
+                tenant_id,
+                project_id,
+                normalized_status,
+            )
+            self.db.rollback()
+            raise
+        try:
+            apply_db_security_context(self.db)
+            refreshed_invoice = self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+            if refreshed_invoice is not None:
+                invoice = refreshed_invoice
+        except Exception:
+            logger.exception(
+                "Invoice status updated but post-commit refresh failed for invoice_id=%s tenant_id=%s",
+                invoice_id,
+                tenant_id,
+            )
+        try:
+            AccountingService.invalidate_cache(tenant_id=tenant_id)
+        except Exception:
+            logger.exception(
+                "Invoice status updated but accounting cache invalidation failed for invoice_id=%s tenant_id=%s",
+                invoice_id,
+                tenant_id,
+            )
+        refreshed_invoice = self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+        if refreshed_invoice is not None:
+            return refreshed_invoice
+        logger.warning(
+            "Invoice status committed, but reread returned no row. Returning snapshot for invoice_id=%s tenant_id=%s project_id=%s",
+            invoice_id,
+            tenant_id,
+            project_id,
+        )
+        return invoice_snapshot
 
     def apply_invoice_status_by_id(
         self, invoice_id: str, provider_status: str, tx_hash: str | None = None

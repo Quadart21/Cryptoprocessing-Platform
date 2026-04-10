@@ -22,7 +22,9 @@ class PayoutReviewRequest(BaseModel):
 class PayoutRequestResponse(BaseModel):
     id: str
     tenant_id: str
+    tenant_name: str | None = None
     project_id: str | None
+    project_name: str | None = None
     requested_by_user_id: str | None
     reviewed_by_user_id: str | None
     destination_address: str

@@ -19,6 +19,8 @@ export function PayoutsPanel({
   onPayoutFormChange,
   onCreatePayout,
 }: PayoutsPanelProps) {
+  const projectNameById = new Map(projects.map((project) => [project.id, project.name]));
+
   return (
     <article className="panel panel-span-2">
       <div className="panel-header">
@@ -102,6 +104,11 @@ export function PayoutsPanel({
                   <strong>
                     {payout.amount_requested} {payout.currency}
                   </strong>
+                  <p>
+                    {payout.project_name ??
+                      (payout.project_id ? projectNameById.get(payout.project_id) : null) ??
+                      "Проект не указан"}
+                  </p>
                   <p>{payout.network}</p>
                   <p>{payout.destination_address}</p>
                   <p>{payout.review_comment ?? "Без комментария"}</p>

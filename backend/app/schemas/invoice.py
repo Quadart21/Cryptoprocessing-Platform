@@ -47,3 +47,6 @@ class InvoiceStatusUpdateRequest(BaseModel):
 class BalanceResponse(BaseModel):
     currency: str
     amount: Decimal
+    available_amount: Decimal
+    locked_amount: Decimal
+    total_amount: Decimal

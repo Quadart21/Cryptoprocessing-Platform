@@ -1,3 +1,4 @@
+from decimal import Decimal
 from secrets import choice
 from string import ascii_letters, digits
 
@@ -31,6 +32,8 @@ from app.schemas.assets import (
     AssetAvailabilityUpdateResponse,
 )
 from app.schemas.billing import (
+    ExchangeRateLookupResponse,
+    ExchangeRateRefreshResponse,
     PlatformBillingSettingsResponse,
     PlatformBillingSettingsUpdateRequest,
     SmtpBzTestRequest,
@@ -80,6 +83,7 @@ from app.schemas.user_management import (
 from app.services.auth_service import AuthService
 from app.services.accounting_service import AccountingService
 from app.services.billing_policy_service import BillingPolicyService
+from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_service import InvoiceService
 from app.services.notification_service import NotificationService
 from app.services.project_service import ProjectService
@@ -876,6 +880,8 @@ async def update_platform_billing_settings(
             allow_tenant_markup_override=payload.allow_tenant_markup_override,
             allow_tenant_turnover_fee_override=payload.allow_tenant_turnover_fee_override,
             payouts_enabled=payload.payouts_enabled,
+            exchange_rate_markup_percent=payload.exchange_rate_markup_percent,
+            manual_exchange_rates=payload.manual_exchange_rates,
             seo_title=payload.seo_title,
             seo_description=payload.seo_description,
             seo_keywords=payload.seo_keywords,
@@ -910,6 +916,62 @@ async def update_platform_billing_settings(
     return _map_platform_billing_settings_response(
         platform_settings=platform_settings,
         notification_service=NotificationService(db),
+    )
+
+
+@router.get("/billing/exchange-rate/{currency}", response_model=ExchangeRateLookupResponse)
+async def get_platform_exchange_rate(
+    currency: str,
+    _: User = Depends(require_platform_permission("admin.billing.read")),
+    db: Session = Depends(get_db),
+) -> ExchangeRateLookupResponse:
+    normalized_currency = currency.strip().upper()
+    manual_rates = BillingPolicyService(db).get_manual_exchange_rates()
+    manual_rate = manual_rates.get(normalized_currency)
+    if manual_rate is not None:
+        return ExchangeRateLookupResponse(
+            currency=normalized_currency,
+            quote_currency="USD",
+            rate=manual_rate,
+            source="manual",
+        )
+
+    rate = get_exchange_rate_service().get_rate(normalized_currency, "USD")
+    return ExchangeRateLookupResponse(
+        currency=normalized_currency,
+        quote_currency="USD",
+        rate=rate,
+        source="cached",
+    )
+
+
+@router.post(
+    "/billing/exchange-rates/refresh",
+    response_model=ExchangeRateRefreshResponse,
+)
+async def refresh_platform_exchange_rates(
+    _: User = Depends(require_platform_permission("admin.billing.write")),
+    db: Session = Depends(get_db),
+) -> ExchangeRateRefreshResponse:
+    billing_policy_service = BillingPolicyService(db)
+    rates_payload = RatesService(db).list_rates()
+    symbols = sorted(
+        {
+            str(item.currency).strip().upper()
+            for item in rates_payload.items
+            if str(item.currency).strip()
+        }
+    )
+    refreshed_rates = get_exchange_rate_service().refresh_rates_for_symbols(symbols)
+    if refreshed_rates:
+        cached_rates = billing_policy_service.get_cached_exchange_rates()
+        cached_rates.update(refreshed_rates)
+        billing_policy_service.update_cached_exchange_rates(cached_rates)
+    return ExchangeRateRefreshResponse(
+        quote_currency="USD",
+        refreshed_symbols=len(refreshed_rates),
+        cached_symbols=len(billing_policy_service.get_cached_exchange_rates()),
+        refreshed=bool(refreshed_rates),
     )
 
 
@@ -1194,7 +1256,23 @@ async def list_all_payout_requests(
     db: Session = Depends(get_db),
 ) -> list[PayoutRequestResponse]:
     payout_service = PayoutService(db)
-    return [_map_payout_response(item) for item in payout_service.list_all()]
+    payouts = payout_service.list_all()
+    tenant_names = {
+        item.id: item.name
+        for item in db.scalars(select(Tenant)).all()
+    }
+    project_names = {
+        item.id: item.name
+        for item in db.scalars(select(Project)).all()
+    }
+    return [
+        _map_payout_response(
+            item,
+            tenant_name=tenant_names.get(item.tenant_id),
+            project_name=project_names.get(item.project_id) if item.project_id else None,
+        )
+        for item in payouts
+    ]
 
 
 @router.get("/tenants/{tenant_id}/payouts", response_model=list[PayoutRequestResponse])
@@ -1204,7 +1282,20 @@ async def list_tenant_payout_requests(
     db: Session = Depends(get_db),
 ) -> list[PayoutRequestResponse]:
     payout_service = PayoutService(db)
-    return [_map_payout_response(item) for item in payout_service.list_by_tenant(tenant_id)]
+    payouts = payout_service.list_by_tenant(tenant_id)
+    project_names = {
+        item.id: item.name
+        for item in db.scalars(select(Project).where(Project.tenant_id == tenant_id)).all()
+    }
+    tenant_name = db.scalar(select(Tenant.name).where(Tenant.id == tenant_id))
+    return [
+        _map_payout_response(
+            item,
+            tenant_name=tenant_name,
+            project_name=project_names.get(item.project_id) if item.project_id else None,
+        )
+        for item in payouts
+    ]
 
 
 @router.post("/payouts/{payout_id}/review", response_model=PayoutRequestResponse)
@@ -1249,13 +1340,16 @@ async def review_payout_request(
         ],
         owner_only=True,
     )
-    return _map_payout_response(payout)
+    tenant_name = db.scalar(select(Tenant.name).where(Tenant.id == payout.tenant_id))
+    project_name = db.scalar(select(Project.name).where(Project.id == payout.project_id)) if payout.project_id else None
+    return _map_payout_response(payout, tenant_name=tenant_name, project_name=project_name)
 
 
 def _map_platform_billing_settings_response(
     *,
     platform_settings,
     notification_service: NotificationService,
+    current_exchange_rates: dict[str, Decimal] | None = None,
 ) -> PlatformBillingSettingsResponse:
     return PlatformBillingSettingsResponse(
         provider_fee_percent=platform_settings.provider_fee_percent,
@@ -1300,6 +1394,9 @@ def _map_platform_billing_settings_response(
         seo_og_image_url=platform_settings.seo_og_image_url,
         seo_robots=platform_settings.seo_robots,
         seo_canonical_url=platform_settings.seo_canonical_url,
+        exchange_rate_markup_percent=platform_settings.exchange_rate_markup_percent,
+        manual_exchange_rates=BillingPolicyService(notification_service.db).get_manual_exchange_rates(),
+        current_exchange_rates=current_exchange_rates or {},
     )
 
 
@@ -1382,11 +1479,18 @@ def _map_transaction_response(transaction) -> TransactionResponse:
     )
 
 
-def _map_payout_response(payout) -> PayoutRequestResponse:
+def _map_payout_response(
+    payout,
+    *,
+    tenant_name: str | None = None,
+    project_name: str | None = None,
+) -> PayoutRequestResponse:
     return PayoutRequestResponse(
         id=payout.id,
         tenant_id=payout.tenant_id,
+        tenant_name=tenant_name,
         project_id=payout.project_id,
+        project_name=project_name,
         requested_by_user_id=payout.requested_by_user_id,
         reviewed_by_user_id=payout.reviewed_by_user_id,
         destination_address=payout.destination_address,
