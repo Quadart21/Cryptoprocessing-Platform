@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.schemas.webhook import CryptoCashWebhookPayload
@@ -20,10 +20,10 @@ class CryptoCashWebhookSecurityError(Exception):
 class CryptoCashWebhookSecurityService:
     PROVIDER_NAME = "crypto-cash"
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.event_service = EventService(db)
 
-    def verify(self, payload: CryptoCashWebhookPayload, raw_payload: dict) -> None:
+    async def verify(self, payload: CryptoCashWebhookPayload, raw_payload: dict) -> None:
         if not payload.is_official_format:
             if settings.legacy_webhook_payload_allowed:
                 return
@@ -35,7 +35,7 @@ class CryptoCashWebhookSecurityService:
         assert payload.delivered_at is not None
 
         if (
-            self.event_service.get_event_by_provider_event_id(
+            await self.event_service.get_event_by_provider_event_id(
                 payload.id,
                 provider_name=self.PROVIDER_NAME,
             )

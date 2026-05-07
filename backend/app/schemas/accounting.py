@@ -1,12 +1,21 @@
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PlainSerializer
+
+
+def _decimal_json_str(value: Decimal) -> str:
+    """Avoid scientific notation in JSON for tiny decimals (e.g. 8e-8)."""
+    return format(value, "f")
+
+
+JsonDecimal = Annotated[Decimal, PlainSerializer(_decimal_json_str, return_type=str)]
 
 
 class CryptoAmount(BaseModel):
     currency: str
-    amount: Decimal
-    usd_value: Decimal = Decimal("0")
+    amount: JsonDecimal
+    usd_value: JsonDecimal = Decimal("0")
 
 
 class AccountingSummaryResponse(BaseModel):
@@ -16,16 +25,16 @@ class AccountingSummaryResponse(BaseModel):
     invoices_confirmed_count: int
     invoices_failed_count: int
     invoices_expired_count: int
-    invoices_total_amount: Decimal
-    invoices_paid_amount: Decimal
-    invoices_confirmed_amount: Decimal
-    gross_amount: Decimal
-    provider_fee_amount: Decimal
-    platform_fee_amount: Decimal
-    turnover_fee_amount: Decimal
-    total_platform_revenue_amount: Decimal
-    net_amount: Decimal
-    average_invoice_amount: Decimal
+    invoices_total_amount: JsonDecimal
+    invoices_paid_amount: JsonDecimal
+    invoices_confirmed_amount: JsonDecimal
+    gross_amount: JsonDecimal
+    provider_fee_amount: JsonDecimal
+    platform_fee_amount: JsonDecimal
+    turnover_fee_amount: JsonDecimal
+    total_platform_revenue_amount: JsonDecimal
+    net_amount: JsonDecimal
+    average_invoice_amount: JsonDecimal
     crypto_amounts: list[CryptoAmount] = []
-    total_usd_value: Decimal = Decimal("0")
-    exchange_rate_markup_percent: Decimal = Decimal("0")
+    total_usd_value: JsonDecimal = Decimal("0")
+    exchange_rate_markup_percent: JsonDecimal = Decimal("0")

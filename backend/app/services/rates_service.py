@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.asset_availability import AssetAvailability
@@ -45,10 +45,10 @@ class RatesService:
     MAX_WITHDRAW_KEYS = ("max_withdraw", "maxWithdraw")
     NETWORK_FEE_KEYS = ("network_fee", "fee", "networkFee")
 
-    def __init__(self, db: Session | None = None):
+    def __init__(self, db: AsyncSession | None = None):
         self.db = db
 
-    def list_rates(self) -> RatesResponse:
+    async def list_rates(self) -> RatesResponse:
         cache = get_cache_service()
         cached = cache.get_json(self.RATES_CACHE_KEY)
         if isinstance(cached, dict):
@@ -60,7 +60,7 @@ class RatesService:
         provider = get_payment_provider()
         response = provider.list_currencies()
         items = response.get("data", {}).get("items", [])
-        overrides = self._load_platform_overrides()
+        overrides = await self._load_platform_overrides()
         mapped_items: list[RateItemResponse] = []
 
         for item in items:
@@ -116,7 +116,7 @@ class RatesService:
         )
         return payload
 
-    def set_platform_asset_enabled(
+    async def set_platform_asset_enabled(
         self,
         *,
         currency: str,
@@ -130,7 +130,7 @@ class RatesService:
         if not self._asset_exists_on_provider(normalized_currency, normalized_network):
             raise ValueError("Токен или сеть не найдены в списке провайдера.")
 
-        rule = self.db.scalar(
+        rule = await self.db.scalar(
             select(AssetAvailability).where(
                 AssetAvailability.currency == normalized_currency,
                 AssetAvailability.network == normalized_network,
@@ -147,15 +147,15 @@ class RatesService:
             rule.is_enabled = platform_enabled
             self.db.add(rule)
 
-        self.db.commit()
+        await self.db.commit()
         self._invalidate_rates_cache()
         return normalized_currency, normalized_network, platform_enabled
 
-    def assert_asset_enabled_for_client(self, *, currency: str, network: str) -> None:
+    async def assert_asset_enabled_for_client(self, *, currency: str, network: str) -> None:
         if self.db is None:
             return
         normalized_currency, normalized_network = self._normalize_pair(currency, network)
-        rule = self.db.scalar(
+        rule = await self.db.scalar(
             select(AssetAvailability).where(
                 AssetAvailability.currency == normalized_currency,
                 AssetAvailability.network == normalized_network,
@@ -164,11 +164,11 @@ class RatesService:
         if rule is not None and not rule.is_enabled:
             raise ValueError("Выбранные токен и сеть отключены администратором платформы.")
 
-    def get_client_payin_limits(self, *, currency: str, network: str) -> PayInLimits:
+    async def get_client_payin_limits(self, *, currency: str, network: str) -> PayInLimits:
         normalized_currency, normalized_network = self._normalize_pair(currency, network)
         response = get_payment_provider().list_currencies()
         items = response.get("data", {}).get("items", [])
-        overrides = self._load_platform_overrides()
+        overrides = await self._load_platform_overrides()
 
         target_item = next(
             (
@@ -219,10 +219,10 @@ class RatesService:
             platform_enabled=platform_enabled,
         )
 
-    def _load_platform_overrides(self) -> dict[tuple[str, str], bool]:
+    async def _load_platform_overrides(self) -> dict[tuple[str, str], bool]:
         if self.db is None:
             return {}
-        rows = list(self.db.scalars(select(AssetAvailability)).all())
+        rows = list((await self.db.scalars(select(AssetAvailability))).all())
         return {(row.currency.upper(), row.network.upper()): bool(row.is_enabled) for row in rows}
 
     @staticmethod

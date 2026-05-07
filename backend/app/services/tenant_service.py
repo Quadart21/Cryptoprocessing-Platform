@@ -4,7 +4,7 @@ import secrets
 import string
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_password_hash
 from app.db.tenant import apply_db_security_context, set_db_security_context
@@ -17,12 +17,12 @@ from app.services.project_service import ProjectService
 
 
 class TenantService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def create_tenant_with_owner(self, payload: TenantCreateRequest) -> tuple[Tenant, User, str, str, str]:
+    async def create_tenant_with_owner(self, payload: TenantCreateRequest) -> tuple[Tenant, User, str, str, str]:
         slug_base = self._slugify(payload.company_name) or "tenant"
-        slug = self._build_unique_slug(slug_base)
+        slug = await self._build_unique_slug(slug_base)
 
         tenant = Tenant(
             name=payload.company_name,
@@ -33,8 +33,8 @@ class TenantService:
             plan=payload.plan,
         )
         self.db.add(tenant)
-        self.db.flush()
-        set_db_security_context(self.db, tenant_id=tenant.id, is_superadmin=True)
+        await self.db.flush()
+        await set_db_security_context(self.db, tenant_id=tenant.id, is_superadmin=True)
 
         owner = User(
             tenant_id=tenant.id,
@@ -47,7 +47,7 @@ class TenantService:
         )
         self.db.add(owner)
         project_service = ProjectService(self.db)
-        project = project_service.create_project(
+        project = await project_service.create_project(
             tenant.id,
             ProjectCreateRequest(
                 name=payload.company_name,
@@ -55,11 +55,11 @@ class TenantService:
                 description=payload.project_description,
             ),
         )
-        api_key, secret_key = project_service.create_api_key(tenant.id, project.id)
-        self.db.commit()
+        api_key, secret_key = await project_service.create_api_key(tenant.id, project.id)
+        await self.db.commit()
         return tenant, owner, project.id, api_key.public_key, secret_key
 
-    def list_tenants(self, limit: int = 50, offset: int = 0) -> list[tuple[Tenant, User]]:
+    async def list_tenants(self, limit: int = 50, offset: int = 0) -> list[tuple[Tenant, User]]:
         stmt = (
             select(Tenant, User)
             .join(User, User.tenant_id == Tenant.id)
@@ -68,9 +68,9 @@ class TenantService:
             .limit(limit)
             .offset(offset)
         )
-        return list(self.db.execute(stmt).all())
+        return list((await self.db.execute(stmt)).all())
 
-    def register_self_service(
+    async def register_self_service(
         self,
         company_name: str,
         owner_full_name: str,
@@ -83,7 +83,7 @@ class TenantService:
         plan: str,
     ) -> tuple[Tenant, User, Project]:
         slug_base = self._slugify(company_name) or "tenant"
-        slug = self._build_unique_slug(slug_base)
+        slug = await self._build_unique_slug(slug_base)
 
         tenant = Tenant(
             name=company_name,
@@ -94,10 +94,10 @@ class TenantService:
             plan=plan,
         )
         self.db.add(tenant)
-        self.db.flush()
+        await self.db.flush()
         # Self-service registration still bootstraps brand-new tenant-owned rows
         # through the backend service, so it needs elevated DB context during setup.
-        set_db_security_context(self.db, tenant_id=tenant.id, is_superadmin=True)
+        await set_db_security_context(self.db, tenant_id=tenant.id, is_superadmin=True)
 
         owner = User(
             tenant_id=tenant.id,
@@ -111,7 +111,7 @@ class TenantService:
         self.db.add(owner)
 
         project_service = ProjectService(self.db)
-        project = project_service.create_project(
+        project = await project_service.create_project(
             tenant.id,
             ProjectCreateRequest(
                 name=company_name,
@@ -119,26 +119,26 @@ class TenantService:
                 description=project_description,
             ),
         )
-        self.db.commit()
-        apply_db_security_context(self.db)
+        await self.db.commit()
+        await apply_db_security_context(self.db)
         return tenant, owner, project
 
-    def approve_tenant(
+    async def approve_tenant(
         self,
         tenant_id: str,
         review_comment: str | None = None,
     ) -> tuple[Tenant, Project, User, str, str, str]:
-        tenant = self.db.get(Tenant, tenant_id)
+        tenant = await self.db.get(Tenant, tenant_id)
         if tenant is None:
             raise ValueError("Tenant не найден.")
 
-        project = self.db.scalar(
+        project = await self.db.scalar(
             select(Project).where(Project.tenant_id == tenant_id).order_by(Project.created_at.asc())
         )
         if project is None:
             raise ValueError("Проект tenant не найден.")
 
-        owner = self.db.scalar(
+        owner = await self.db.scalar(
             select(User)
             .where(
                 User.tenant_id == tenant_id,
@@ -162,22 +162,22 @@ class TenantService:
         owner.last_failed_login_at = None
         owner.login_locked_until = None
 
-        set_db_security_context(self.db, tenant_id=tenant.id, is_superadmin=True)
+        await set_db_security_context(self.db, tenant_id=tenant.id, is_superadmin=True)
         project_service = ProjectService(self.db)
-        api_key, secret_key = project_service.create_api_key(tenant.id, project.id)
+        api_key, secret_key = await project_service.create_api_key(tenant.id, project.id)
         self.db.add_all([tenant, project, owner])
-        self.db.commit()
-        apply_db_security_context(self.db)
+        await self.db.commit()
+        await apply_db_security_context(self.db)
         return tenant, project, owner, generated_password, api_key.public_key, secret_key
 
-    def reject_tenant(self, tenant_id: str, review_comment: str | None = None) -> Tenant:
-        tenant = self.db.get(Tenant, tenant_id)
+    async def reject_tenant(self, tenant_id: str, review_comment: str | None = None) -> Tenant:
+        tenant = await self.db.get(Tenant, tenant_id)
         if tenant is None:
             raise ValueError("Tenant не найден.")
 
         tenant.status = "rejected"
         tenant.review_comment = review_comment
-        project = self.db.scalar(
+        project = await self.db.scalar(
             select(Project).where(Project.tenant_id == tenant_id).order_by(Project.created_at.asc())
         )
         if project is not None:
@@ -185,17 +185,17 @@ class TenantService:
             self.db.add(project)
         
         project_service = ProjectService(self.db)
-        revoked_count = project_service.revoke_all_tenant_api_keys(tenant_id)
+        revoked_count = await project_service.revoke_all_tenant_api_keys(tenant_id)
         
         self.db.add(tenant)
-        self.db.commit()
-        self.db.refresh(tenant)
+        await self.db.commit()
+        await self.db.refresh(tenant)
         return tenant
 
-    def _build_unique_slug(self, slug_base: str) -> str:
+    async def _build_unique_slug(self, slug_base: str) -> str:
         slug = slug_base
         counter = 1
-        while self.db.scalar(select(Tenant).where(Tenant.slug == slug)) is not None:
+        while await self.db.scalar(select(Tenant).where(Tenant.slug == slug)) is not None:
             counter += 1
             slug = f"{slug_base}-{counter}"
         return slug

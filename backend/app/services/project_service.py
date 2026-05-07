@@ -3,7 +3,7 @@ import socket
 from urllib.parse import urlparse
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from types import SimpleNamespace
 
 from app.core.config import settings
@@ -30,12 +30,12 @@ BLOCKED_WEBHOOK_SUFFIXES = (
 
 
 class ProjectService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def create_project(self, tenant_id: str, payload: ProjectCreateRequest) -> Project:
+    async def create_project(self, tenant_id: str, payload: ProjectCreateRequest) -> Project:
         normalized_domain = self._normalize_project_domain(payload.domain)
-        existing_project = self.db.scalar(
+        existing_project = await self.db.scalar(
             select(Project.id).where(Project.domain == normalized_domain)
         )
         if existing_project is not None:
@@ -49,11 +49,11 @@ class ProjectService:
             status="pending_review",
         )
         self.db.add(project)
-        self.db.flush()
+        await self.db.flush()
         return project
 
-    def create_api_key(self, tenant_id: str, project_id: str) -> tuple[ApiKey, str]:
-        public_key = self._ensure_unique_public_key()
+    async def create_api_key(self, tenant_id: str, project_id: str) -> tuple[ApiKey, str]:
+        public_key = await self._ensure_unique_public_key()
         secret_key = KeyService.generate_secret_key()
         api_key = ApiKey(
             tenant_id=tenant_id,
@@ -63,36 +63,36 @@ class ProjectService:
             status="active",
         )
         self.db.add(api_key)
-        self.db.flush()
+        await self.db.flush()
         return api_key, secret_key
 
-    def list_projects_by_tenant(self, tenant_id: str) -> list[Project]:
+    async def list_projects_by_tenant(self, tenant_id: str) -> list[Project]:
         stmt = (
             select(Project)
             .where(Project.tenant_id == tenant_id)
             .order_by(Project.created_at.desc())
         )
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
-    def list_api_keys_by_tenant(self, tenant_id: str) -> list[ApiKey]:
+    async def list_api_keys_by_tenant(self, tenant_id: str) -> list[ApiKey]:
         stmt = (
             select(ApiKey)
             .where(ApiKey.tenant_id == tenant_id)
             .order_by(ApiKey.created_at.desc())
         )
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
-    def get_project(self, project_id: str) -> Project | None:
-        return self.db.get(Project, project_id)
+    async def get_project(self, project_id: str) -> Project | None:
+        return await self.db.get(Project, project_id)
 
-    def update_webhook_config(
+    async def update_webhook_config(
         self,
         tenant_id: str,
         project_id: str,
         webhook_url: str,
         webhook_secret: str | None = None,
     ) -> Project:
-        project = self.get_project(project_id)
+        project = await self.get_project(project_id)
         if project is None or project.tenant_id != tenant_id:
             raise ValueError("Project not found.")
 
@@ -104,15 +104,15 @@ class ProjectService:
             project.webhook_secret_encrypted = encrypt_value(secret)
 
         self.db.add(project)
-        self.db.commit()
-        apply_db_security_context(self.db)
+        await self.db.commit()
+        await apply_db_security_context(self.db)
         return project
 
-    def get_api_key(self, api_key_id: str) -> ApiKey | None:
-        return self.db.get(ApiKey, api_key_id)
+    async def get_api_key(self, api_key_id: str) -> ApiKey | None:
+        return await self.db.get(ApiKey, api_key_id)
 
-    def revoke_api_key(self, api_key_id: str) -> ApiKey:
-        api_key = self.get_api_key(api_key_id)
+    async def revoke_api_key(self, api_key_id: str) -> ApiKey:
+        api_key = await self.get_api_key(api_key_id)
         if api_key is None:
             raise ValueError("API key not found.")
 
@@ -126,32 +126,32 @@ class ProjectService:
 
         api_key.status = "revoked"
         self.db.add(api_key)
-        self.db.commit()
-        apply_db_security_context(self.db)
+        await self.db.commit()
+        await apply_db_security_context(self.db)
         return snapshot
 
 
-    def revoke_all_tenant_api_keys(self, tenant_id: str) -> int:
+    async def revoke_all_tenant_api_keys(self, tenant_id: str) -> int:
         stmt = (
             select(ApiKey)
             .where(ApiKey.tenant_id == tenant_id, ApiKey.status == "active")
         )
-        api_keys = list(self.db.scalars(stmt).all())
+        api_keys = list((await self.db.scalars(stmt)).all())
         count = len(api_keys)
         for api_key in api_keys:
             api_key.status = "revoked"
             self.db.add(api_key)
         if api_keys:
-            self.db.commit()
-            apply_db_security_context(self.db)
+            await self.db.commit()
+            await apply_db_security_context(self.db)
         return count
 
-    def regenerate_api_key(self, api_key_id: str) -> tuple[ApiKey, str]:
-        api_key = self.get_api_key(api_key_id)
+    async def regenerate_api_key(self, api_key_id: str) -> tuple[ApiKey, str]:
+        api_key = await self.get_api_key(api_key_id)
         if api_key is None:
             raise ValueError("API key not found.")
 
-        new_public_key = self._ensure_unique_public_key()
+        new_public_key = await self._ensure_unique_public_key()
         secret_key = KeyService.generate_secret_key()
 
         snapshot = SimpleNamespace(
@@ -166,15 +166,15 @@ class ProjectService:
         api_key.secret_hash = KeyService.hash_secret(secret_key)
         api_key.status = "active"
         self.db.add(api_key)
-        self.db.commit()
-        apply_db_security_context(self.db)
+        await self.db.commit()
+        await apply_db_security_context(self.db)
         return snapshot, secret_key
 
 
-    def _ensure_unique_public_key(self) -> str:
+    async def _ensure_unique_public_key(self) -> str:
         public_key = KeyService.generate_public_key()
         while (
-            self.db.scalar(select(ApiKey).where(ApiKey.public_key == public_key))
+            await self.db.scalar(select(ApiKey).where(ApiKey.public_key == public_key))
             is not None
         ):
             public_key = KeyService.generate_public_key()

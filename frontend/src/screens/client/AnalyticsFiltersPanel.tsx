@@ -18,10 +18,10 @@ type AnalyticsFiltersPanelProps = {
 
 const PERIODS: Array<{ key: AnalyticsPeriod; label: string }> = [
   { key: "today", label: "Сегодня" },
-  { key: "7d", label: "7 дней" },
-  { key: "30d", label: "30 дней" },
-  { key: "90d", label: "90 дней" },
-  { key: "all", label: "Весь период" },
+  { key: "7d", label: "7 дн." },
+  { key: "30d", label: "30 дн." },
+  { key: "90d", label: "90 дн." },
+  { key: "all", label: "Всё" },
 ];
 
 export function AnalyticsFiltersPanel({
@@ -30,16 +30,16 @@ export function AnalyticsFiltersPanel({
   summary,
 }: AnalyticsFiltersPanelProps) {
   return (
-    <section className="analytics-toolbar">
-      <div className="analytics-toolbar-head">
+    <section className="mc-analytics">
+      <div className="mc-analytics-top">
         <div>
-          <p className="eyebrow">Аналитика</p>
-          <h2>Обзор за выбранный период</h2>
+          <p className="mc-analytics-eyebrow">Аналитика</p>
+          <h2 className="mc-analytics-title">Срез по периоду</h2>
         </div>
-        <p className="analytics-range">{summary.periodLabel}</p>
+        <p className="mc-analytics-range">{summary.periodLabel}</p>
       </div>
 
-      <div className="analytics-periods">
+      <div className="mc-analytics-chips" role="group" aria-label="Период">
         {PERIODS.map((item) => (
           <button
             className={`segment-button ${period === item.key ? "segment-button-active" : ""}`}
@@ -52,28 +52,28 @@ export function AnalyticsFiltersPanel({
         ))}
       </div>
 
-      <div className="analytics-kpis">
-        <article className="analytics-kpi-card">
+      <div className="mc-analytics-kpis">
+        <article className="mc-kpi">
           <span>Оборот</span>
           <strong>{summary.turnover}</strong>
         </article>
-        <article className="analytics-kpi-card">
-          <span>Чистый доход</span>
+        <article className="mc-kpi">
+          <span>Чистый</span>
           <strong>{summary.net}</strong>
         </article>
-        <article className="analytics-kpi-card">
+        <article className="mc-kpi">
           <span>Комиссии</span>
           <strong>{summary.fee}</strong>
         </article>
-        <article className="analytics-kpi-card">
-          <span>Успешность</span>
+        <article className="mc-kpi">
+          <span>Успех</span>
           <strong>{summary.successRate}</strong>
         </article>
-        <article className="analytics-kpi-card">
-          <span>Средний чек</span>
+        <article className="mc-kpi">
+          <span>Ср. чек</span>
           <strong>{summary.averageCheck}</strong>
         </article>
-        <article className="analytics-kpi-card">
+        <article className="mc-kpi">
           <span>Транзакций</span>
           <strong>{summary.transactionCount}</strong>
         </article>
@@ -81,4 +81,3 @@ export function AnalyticsFiltersPanel({
     </section>
   );
 }
-

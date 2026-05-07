@@ -112,8 +112,16 @@ import {
   updateTenantBillingPolicy,
   updateWebhookConfig,
 } from "./api";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 
+import {
+  AdminDashboardLazy,
+  ClientDashboardLazy,
+  LandingPageLazy,
+  OnboardingScreenLazy,
+  PublicCmsPageLazy,
+  PublicDocsPageLazy,
+} from "./app/controller/lazyScreens";
 import {
   createMerchantOrderId,
   initialInvoiceForm,
@@ -128,12 +136,7 @@ import { useAdminPublicPagesCrud } from "./hooks/useAdminPublicPagesCrud";
 import { useClientDashboard } from "./hooks/useClientDashboard";
 import { usePublicSiteNavigation } from "./hooks/usePublicSiteNavigation";
 import { useSession } from "./hooks/useSession";
-import { AdminDashboard } from "./screens/AdminDashboard";
-import { ClientDashboard } from "./screens/ClientDashboard";
-import { LandingPage } from "./screens/LandingPage";
-import { OnboardingScreen } from "./screens/OnboardingScreen";
-import { PublicDocsPage } from "./screens/PublicDocsPage";
-import { PublicCmsPage } from "./screens/PublicCmsPage";
+import { AppRouteFallback } from "./components/AppRouteFallback";
 import { SeoHead } from "./components/SeoHead";
 import { safeLoad } from "./utils/async";
 
@@ -266,6 +269,30 @@ export function AppController() {
       return;
     }
     void loadSession(token);
+  }, [token]);
+
+  useEffect(() => {
+    if (token) {
+      return;
+    }
+    let cancelled = false;
+    const warmPublicDocs = () => {
+      if (!cancelled) {
+        void import("./screens/PublicDocsPage");
+      }
+    };
+    const handle =
+      typeof requestIdleCallback === "function"
+        ? requestIdleCallback(warmPublicDocs, { timeout: 4000 })
+        : window.setTimeout(warmPublicDocs, 1800);
+    return () => {
+      cancelled = true;
+      if (typeof requestIdleCallback === "function" && typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(handle as number);
+      } else {
+        window.clearTimeout(handle as number);
+      }
+    };
   }, [token]);
 
   useEffect(() => {
@@ -1604,9 +1631,10 @@ export function AppController() {
 return (
     <>
       <SeoHead settings={seoSettings} />
+      <Suspense fallback={<AppRouteFallback />}>
       {!token || !user ? (
         publicRoute.view === "docs" ? (
-          <PublicDocsPage
+          <PublicDocsPageLazy
             onBackToLanding={() => openPublicPage("landing")}
             onOpenLogin={() => {
               setMode("login");
@@ -1618,13 +1646,13 @@ return (
             }}
           />
         ) : publicRoute.view === "cms" ? (
-          <PublicCmsPage
+          <PublicCmsPageLazy
             loading={loading}
             page={publicPageDetail}
             onBackToLanding={() => openPublicPage("landing")}
           />
         ) : (
-          <LandingPage
+          <LandingPageLazy
             mode={mode}
             loginStep={loginStep}
             registrationEnabled
@@ -1652,7 +1680,7 @@ return (
           />
         )
 ) : isPlatformRole(user.role) ? (
-        <AdminDashboard
+        <AdminDashboardLazy
           user={user}
           loading={loading}
           success={success}
@@ -1721,9 +1749,9 @@ return (
           {...adminDerived}
         />
       ) : onboarding?.tenant_status !== "approved" ? (
-        <OnboardingScreen onboarding={onboarding} onLogout={handleLogout} />
+        <OnboardingScreenLazy onboarding={onboarding} onLogout={handleLogout} />
       ) : (
-        <ClientDashboard
+        <ClientDashboardLazy
           user={user}
           onboarding={onboarding}
           success={success}
@@ -1775,6 +1803,7 @@ return (
           onCloseSecretModal={() => setNewApiSecret(null)}
         />
       )}
+      </Suspense>
     </>
   );
 }

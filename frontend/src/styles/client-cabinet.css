@@ -1,0 +1,367 @@
+/* Merchant cabinet: layout, touch targets, mobile bottom nav, overflow safety */
+
+:root {
+  --merchant-bottom-nav-h: 60px;
+}
+
+.merchant-app-frame {
+  position: relative;
+}
+
+.merchant-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 300;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: rgba(21, 31, 62, 0.98);
+  border: 1px solid rgba(51, 215, 255, 0.4);
+  color: var(--text-0);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.merchant-skip-link:focus {
+  left: 12px;
+  top: 68px;
+  outline: none;
+}
+
+.merchant-shell-main {
+  box-sizing: border-box;
+}
+
+/* Нижняя панель: только узкие экраны */
+.merchant-bottom-nav {
+  display: none;
+}
+
+.client-dashboard-shell {
+  padding-bottom: 28px;
+}
+
+.client-cabinet {
+  width: min(var(--content-max), 100%);
+  margin: 0 auto;
+  padding: 0 clamp(12px, 4vw, 28px) 32px;
+  box-sizing: border-box;
+}
+
+.client-section-header {
+  margin: 0 0 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line-soft);
+  max-width: 100%;
+}
+
+.client-section-header-eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.client-section-header-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(20px, 5.2vw, 32px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.client-section-header-desc {
+  margin: 8px 0 0;
+  color: var(--text-1);
+  font-size: clamp(13px, 3.4vw, 15px);
+  line-height: 1.55;
+  max-width: 70ch;
+}
+
+.client-cabinet .stats-grid,
+.client-cabinet .dashboard-grid,
+.client-cabinet .analytics-toolbar,
+.client-cabinet .section-context {
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.client-cabinet .stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
+  gap: 10px;
+}
+
+.client-cabinet .stat-card {
+  padding: 14px 16px;
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.client-cabinet .stat-card strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.client-cabinet .panel,
+.client-cabinet .tenant-card,
+.client-cabinet .stat-card,
+.client-cabinet .result-box,
+.client-cabinet .detail-chip {
+  min-width: 0;
+}
+
+.client-cabinet .tenant-card p,
+.client-cabinet .tenant-card strong,
+.client-cabinet .panel-header h2 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.client-cabinet .tenant-list {
+  min-width: 0;
+}
+
+.client-cabinet .dashboard-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 10px;
+}
+
+.client-cabinet .dashboard-shortcut {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  min-height: 76px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  width: 100%;
+}
+
+.client-cabinet .dashboard-shortcut span {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.client-cabinet .page-message {
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Аналитика: горизонтальный скролл периодов на телефоне */
+.client-cabinet .analytics-toolbar {
+  overflow: visible;
+}
+
+.client-cabinet .analytics-toolbar-head h2 {
+  font-size: clamp(18px, 4.5vw, 28px);
+}
+
+.client-cabinet .analytics-periods {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 8px;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  scrollbar-width: thin;
+}
+
+.client-cabinet .analytics-periods .segment-button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 14px;
+}
+
+.client-cabinet .analytics-kpis {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .client-cabinet .analytics-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .client-cabinet .analytics-kpis {
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+  }
+}
+
+.client-cabinet .analytics-kpi-card {
+  min-height: 72px;
+}
+
+/* Транзакции: форма фильтров в колонку на узкой ширине */
+.client-cabinet .tx-toolbar {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 720px) {
+  .client-cabinet .tx-toolbar {
+    grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) minmax(200px, 1fr);
+  }
+}
+
+.client-cabinet .tx-toolbar select,
+.client-cabinet .tx-toolbar input {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.client-cabinet .panel-header {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+@media (min-width: 560px) {
+  .client-cabinet .panel-header {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}
+
+.client-cabinet .panel-header .ghost-button {
+  min-height: 44px;
+  width: 100%;
+}
+
+@media (min-width: 560px) {
+  .client-cabinet .panel-header .ghost-button {
+    width: auto;
+    align-self: flex-start;
+  }
+}
+
+/* Контекстные чипы: строка с прокруткой */
+.client-cabinet .section-context {
+  gap: 8px;
+}
+
+.client-cabinet .section-context-chip {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .client-cabinet .section-context {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .client-cabinet .section-context-chip {
+    flex: 0 0 auto;
+    min-width: 132px;
+    max-width: 200px;
+  }
+
+  .client-cabinet .section-context-chip strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Нижняя навигация */
+@media (max-width: 960px) {
+  .merchant-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 55;
+    min-height: calc(var(--merchant-bottom-nav-h) + env(safe-area-inset-bottom, 0px));
+    padding: 6px 4px env(safe-area-inset-bottom, 8px);
+    margin: 0;
+    border-top: 1px solid var(--line-soft);
+    background: rgba(8, 15, 30, 0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+  }
+
+  .merchant-shell-main {
+    padding-bottom: calc(var(--merchant-bottom-nav-h) + env(safe-area-inset-bottom, 12px) + 8px);
+  }
+
+  .client-dashboard-shell {
+    padding-bottom: 12px;
+  }
+}
+
+.merchant-bottom-nav-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.merchant-bottom-nav-item:focus-visible {
+  outline: 2px solid rgba(51, 215, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.merchant-bottom-nav-item-active {
+  color: var(--text-0);
+  background: linear-gradient(135deg, rgba(51, 215, 255, 0.16), rgba(100, 140, 255, 0.14));
+  box-shadow: inset 0 0 0 1px rgba(51, 215, 255, 0.22);
+}
+
+.merchant-bottom-nav-item-hint {
+  color: var(--text-0);
+  background: rgba(246, 195, 92, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(246, 195, 92, 0.28);
+}
+
+.merchant-bottom-nav-icon {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+}
+
+.merchant-bottom-nav-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.merchant-bottom-nav-label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

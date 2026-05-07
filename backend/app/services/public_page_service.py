@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.public_page import PublicPage
 
@@ -129,7 +129,7 @@ class PublicPageService:
     VALID_STATUSES = {STATUS_DRAFT, STATUS_PUBLISHED}
     SLUG_PATTERN = re.compile(r"[^a-z0-9-]+")
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
     @classmethod
@@ -156,40 +156,40 @@ class PublicPageService:
         parser.close()
         return parser.get_html()
 
-    def list_pages(self) -> list[PublicPage]:
+    async def list_pages(self) -> list[PublicPage]:
         stmt = select(PublicPage).order_by(PublicPage.created_at.desc())
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
-    def list_published_pages(self) -> list[PublicPage]:
+    async def list_published_pages(self) -> list[PublicPage]:
         stmt = (
             select(PublicPage)
             .where(PublicPage.status == self.STATUS_PUBLISHED)
             .order_by(PublicPage.header_order.asc(), PublicPage.footer_order.asc(), PublicPage.title.asc())
         )
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
-    def get_published_page_by_slug(self, slug: str) -> PublicPage | None:
+    async def get_published_page_by_slug(self, slug: str) -> PublicPage | None:
         normalized = self.normalize_slug(slug)
         stmt = select(PublicPage).where(
             PublicPage.slug == normalized,
             PublicPage.status == self.STATUS_PUBLISHED,
         )
-        return self.db.scalar(stmt)
+        return await self.db.scalar(stmt)
 
-    def create_page(self, **payload) -> PublicPage:
+    async def create_page(self, **payload) -> PublicPage:
         normalized = self._normalize_payload(payload)
         page = PublicPage(id=str(uuid4()), **normalized)
         self.db.add(page)
         try:
-            self.db.commit()
+            await self.db.commit()
         except IntegrityError as exc:
-            self.db.rollback()
+            await self.db.rollback()
             raise ValueError("Страница с таким slug уже существует.") from exc
-        self.db.refresh(page)
+        await self.db.refresh(page)
         return page
 
-    def update_page(self, page_id: str, updates: dict) -> PublicPage:
-        page = self.db.get(PublicPage, page_id)
+    async def update_page(self, page_id: str, updates: dict) -> PublicPage:
+        page = await self.db.get(PublicPage, page_id)
         if page is None:
             raise ValueError("Страница не найдена.")
 
@@ -211,19 +211,19 @@ class PublicPageService:
 
         self.db.add(page)
         try:
-            self.db.commit()
+            await self.db.commit()
         except IntegrityError as exc:
-            self.db.rollback()
+            await self.db.rollback()
             raise ValueError("Страница с таким slug уже существует.") from exc
-        self.db.refresh(page)
+        await self.db.refresh(page)
         return page
 
-    def delete_page(self, page_id: str) -> None:
-        page = self.db.get(PublicPage, page_id)
+    async def delete_page(self, page_id: str) -> None:
+        page = await self.db.get(PublicPage, page_id)
         if page is None:
             raise ValueError("Страница не найдена.")
-        self.db.delete(page)
-        self.db.commit()
+        await self.db.delete(page)
+        await self.db.commit()
 
     def _normalize_payload(self, payload: dict) -> dict:
         slug = self.normalize_slug(str(payload.get("slug") or ""))

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from secrets import token_urlsafe
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.rbac import (
@@ -21,16 +21,16 @@ from app.models.user import User
 class UserService:
     ALLOWED_STATUSES = {"invited", "active", "suspended"}
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def get_by_email(self, email: str) -> User | None:
-        return self.db.scalar(select(User).where(User.email == email))
+    async def get_by_email(self, email: str) -> User | None:
+        return await self.db.scalar(select(User).where(User.email == email))
 
-    def get_by_id(self, user_id: str) -> User | None:
-        return self.db.get(User, user_id)
+    async def get_by_id(self, user_id: str) -> User | None:
+        return await self.db.get(User, user_id)
 
-    def list_users(self, tenant_id: str | None = None, limit: int = 50, offset: int = 0) -> list[tuple[User, str | None]]:
+    async def list_users(self, tenant_id: str | None = None, limit: int = 50, offset: int = 0) -> list[tuple[User, str | None]]:
         stmt = (
             select(User, Tenant.name)
             .outerjoin(Tenant, Tenant.id == User.tenant_id)
@@ -40,9 +40,9 @@ class UserService:
         )
         if tenant_id:
             stmt = stmt.where(User.tenant_id == tenant_id)
-        return list(self.db.execute(stmt).all())
+        return list((await self.db.execute(stmt)).all())
 
-    def create_user(
+    async def create_user(
         self,
         *,
         email: str,
@@ -53,14 +53,14 @@ class UserService:
         password: str | None,
     ) -> User:
         normalized_email = email.strip().lower()
-        if self.get_by_email(normalized_email):
+        if await self.get_by_email(normalized_email):
             raise ValueError("Пользователь с таким email уже существует.")
 
         normalized_role = normalize_role(role)
         normalized_status = self._normalize_status(status)
         self._validate_role_tenant_scope(normalized_role, tenant_id)
         if tenant_id:
-            self._ensure_tenant_exists(tenant_id)
+            await self._ensure_tenant_exists(tenant_id)
 
         now = datetime.now(timezone.utc)
         user = User(
@@ -74,12 +74,12 @@ class UserService:
             activated_at=now if normalized_status == "active" else None,
         )
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        await self.db.commit()
+        await self.db.refresh(user)
         return user
 
-    def update_user(self, user_id: str, updates: dict) -> User:
-        user = self.get_by_id(user_id)
+    async def update_user(self, user_id: str, updates: dict) -> User:
+        user = await self.get_by_id(user_id)
         if user is None:
             raise ValueError("Пользователь не найден.")
 
@@ -91,7 +91,7 @@ class UserService:
 
         self._validate_role_tenant_scope(next_role, next_tenant_id)
         if next_tenant_id:
-            self._ensure_tenant_exists(next_tenant_id)
+            await self._ensure_tenant_exists(next_tenant_id)
 
         if "full_name" in updates and updates["full_name"] is not None:
             user.full_name = str(updates["full_name"]).strip()
@@ -116,13 +116,13 @@ class UserService:
             user.totp_confirmed_at = None
 
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        await self.db.commit()
+        await self.db.refresh(user)
         return user
 
-    def ensure_superadmin(self) -> User:
+    async def ensure_superadmin(self) -> User:
         normalized_email = settings.superadmin_email.strip().lower()
-        existing = self.get_by_email(normalized_email)
+        existing = await self.get_by_email(normalized_email)
         if existing is not None:
             has_changes = False
             if existing.role != "superadmin":
@@ -147,8 +147,8 @@ class UserService:
 
             if has_changes:
                 self.db.add(existing)
-                self.db.commit()
-                self.db.refresh(existing)
+                await self.db.commit()
+                await self.db.refresh(existing)
             return existing
 
         user = User(
@@ -161,8 +161,8 @@ class UserService:
             activated_at=datetime.now(timezone.utc),
         )
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        await self.db.commit()
+        await self.db.refresh(user)
         return user
 
     @classmethod
@@ -185,7 +185,7 @@ class UserService:
         if is_tenant_role(role) and not tenant_id:
             raise ValueError("Для роли клиента нужно указать tenant_id.")
 
-    def _ensure_tenant_exists(self, tenant_id: str) -> None:
-        tenant = self.db.get(Tenant, tenant_id)
+    async def _ensure_tenant_exists(self, tenant_id: str) -> None:
+        tenant = await self.db.get(Tenant, tenant_id)
         if tenant is None:
             raise ValueError("Указанный tenant не найден.")

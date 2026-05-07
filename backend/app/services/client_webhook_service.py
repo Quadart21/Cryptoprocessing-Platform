@@ -35,7 +35,7 @@ class ClientWebhookService:
     def __init__(self, event_service: EventService):
         self.event_service = event_service
 
-    def deliver_invoice_update(
+    async def deliver_invoice_update(
         self,
         project: Project | None,
         invoice: Invoice,
@@ -92,7 +92,7 @@ class ClientWebhookService:
                 body=body,
             )
         except ValueError as exc:
-            self.event_service.create_event(
+            await self.event_service.create_event(
                 invoice_id=invoice.id,
                 event_type="client_webhook.failed",
                 source="system",
@@ -112,7 +112,7 @@ class ClientWebhookService:
         result = self._post_with_retry(project.webhook_url, body, headers)
 
         if result.ok:
-            self.event_service.create_event(
+            await self.event_service.create_event(
                 invoice_id=invoice.id,
                 event_type="client_webhook.sent",
                 source="system",
@@ -129,7 +129,7 @@ class ClientWebhookService:
             )
             return
 
-        self.event_service.create_event(
+        await self.event_service.create_event(
             invoice_id=invoice.id,
             event_type="client_webhook.failed",
             source="system",

@@ -1,5 +1,5 @@
 @media (max-width: 1200px) {
-  .app-frame,
+  .app-frame:not(.merchant-app-frame),
   .public-docs-page {
     padding-left: 18px;
     padding-right: 18px;
@@ -22,13 +22,28 @@
     transform: translateX(-100%);
   }
 
+  .dashboard-topbar .topbar-title {
+    min-width: 0;
+  }
+
+  .dashboard-topbar .topbar-section {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: min(260px, 46vw);
+  }
+
   .dashboard-topbar {
     left: 0;
     padding: 0 16px;
   }
 
   .mobile-menu-toggle {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .topbar-title {
@@ -96,6 +111,37 @@
     border-radius: 22px;
   }
 
+  .api-docs-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .api-docs-toc {
+    position: static;
+    max-height: none;
+    order: -1;
+  }
+
+  .api-docs-toc-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: none;
+  }
+
+  .api-docs-toc-nav a {
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(117, 158, 255, 0.16);
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 12px;
+  }
+
+  .api-docs-toc-title-sub {
+    width: 100%;
+    flex-basis: 100%;
+    margin-top: 10px;
+  }
+
   .aps-test-actions,
   .aps-event-row {
     grid-template-columns: 1fr;
@@ -121,7 +167,11 @@
 }
 
 @media (max-width: 720px) {
-  .app-frame,
+  .app-frame.merchant-app-frame {
+    padding: 0;
+  }
+
+  .app-frame:not(.merchant-app-frame),
   .public-docs-page,
   .nc-landing {
     padding: 12px;

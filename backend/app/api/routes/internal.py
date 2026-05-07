@@ -1,7 +1,8 @@
 from json import JSONDecodeError
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
+from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.db.tenant import set_db_security_context
@@ -19,9 +20,9 @@ router = APIRouter()
 @router.post("/webhook/crypto-cash", response_model=InvoiceResponse)
 async def crypto_cash_webhook(
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> InvoiceResponse:
-    set_db_security_context(db, tenant_id=None, is_superadmin=True)
+    await set_db_security_context(db, tenant_id=None, is_superadmin=True)
 
     try:
         raw_payload = await request.json()
@@ -32,14 +33,14 @@ async def crypto_cash_webhook(
         ) from exc
     try:
         payload = CryptoCashWebhookPayload.model_validate(raw_payload)
-    except ValueError as exc:
+    except ValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(exc),
+            detail=exc.errors(),
         ) from exc
 
     try:
-        CryptoCashWebhookSecurityService(db).verify(payload, raw_payload)
+        await CryptoCashWebhookSecurityService(db).verify(payload, raw_payload)
     except CryptoCashWebhookSecurityError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,7 +49,7 @@ async def crypto_cash_webhook(
 
     invoice_service = InvoiceService(db)
     try:
-        invoice = invoice_service.apply_provider_status(
+        invoice = await invoice_service.apply_provider_status(
             provider_order_id=payload.resolved_provider_order_id,
             merchant_order_id=payload.resolved_merchant_order_id,
             provider_status=payload.resolved_status or "",

@@ -86,49 +86,54 @@ export function TwoFactorPanel({
   }
 
   return (
-    <article className="panel">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Безопасность</p>
-          <h2>Google 2FA</h2>
+    <article className="mc-surface">
+      <header className="mc-surface-header">
+        <p className="mc-surface-eyebrow">Защита</p>
+        <h2 className="mc-surface-title">Двухфакторная аутентификация</h2>
+        <p className="mc-surface-desc">
+          Подключите приложение вроде Google Authenticator. После включения для входа потребуется одноразовый код.
+        </p>
+      </header>
+
+      <div className="mc-kv-strip">
+        <div className="mc-kv">
+          <span>Статус</span>
+          <code>{status?.enabled ? "включена" : "выключена"}</code>
+        </div>
+        <div className="mc-kv">
+          <span>Секрет</span>
+          <code>{status?.configured ? "создан" : "не создан"}</code>
+        </div>
+        <div className="mc-kv">
+          <span>Подтверждение</span>
+          <code>{status?.confirmed_at ?? "—"}</code>
         </div>
       </div>
 
-      <div className="result-box">
-        <p>Статус: {status?.enabled ? "включен" : "выключен"}</p>
-        <p>Секрет сохранен: {status?.configured ? "да" : "нет"}</p>
-        <p>Подтвержден: {status?.confirmed_at ?? "еще не подтвержден"}</p>
-      </div>
-
-      <div className="action-row-inline" style={{ marginTop: 12 }}>
+      <div className="mc-form-actions" style={{ marginBottom: 16 }}>
         <button className="ghost-button" disabled={loading} onClick={onSetup} type="button">
-          {loading ? "Готовим..." : "Сгенерировать секрет"}
+          {loading ? "Готовим…" : "Сгенерировать секрет"}
         </button>
       </div>
 
       {setupData ? (
-        <div className="result-box twofactor-setup-card" style={{ marginTop: 12 }}>
+        <div className="mc-nested twofactor-setup-card" style={{ marginBottom: 20 }}>
           <div className="twofactor-setup-grid">
             <section className="twofactor-qr-panel">
-              <p className="twofactor-label">QR для Google Authenticator</p>
+              <p className="twofactor-label">QR для приложения</p>
               {qrDataUrl ? (
                 <img className="twofactor-qr-image" src={qrDataUrl} alt="QR-код для настройки 2FA" />
               ) : (
-                <div className="twofactor-qr-placeholder">QR генерируется...</div>
+                <div className="twofactor-qr-placeholder">QR генерируется…</div>
               )}
-              <p className="muted-text">
-                Сканируйте QR в Google Authenticator или введите код регистрации вручную.
-              </p>
+              <p className="muted-text">Отсканируйте или введите код ниже вручную.</p>
             </section>
 
             <section className="twofactor-live-panel">
-              <p className="twofactor-label">Код для регистрации в приложении</p>
+              <p className="twofactor-label">Секрет для ввода</p>
               <div className="twofactor-live-code">{formatRegistrationSecret(setupData.secret)}</div>
-              <p className="twofactor-live-timer">
-                Это секретный код аккаунта. Сохраните его в Google Authenticator.
-              </p>
               <button className="ghost-button" onClick={() => void handleCopyRegistrationCode()} type="button">
-                {copiedSecret ? "Скопировано" : "Скопировать код"}
+                {copiedSecret ? "Скопировано" : "Копировать секрет"}
               </button>
             </section>
           </div>
@@ -143,16 +148,13 @@ export function TwoFactorPanel({
             <p>
               <strong>Секрет:</strong> <code>{setupData.secret}</code>
             </p>
-            <p>
-              <strong>OTP URL:</strong> скрыт и зашит в QR-код
-            </p>
           </div>
         </div>
       ) : null}
 
-      <form className="form" onSubmit={handleEnable}>
-        <label>
-          <span>Код подтверждения 2FA</span>
+      <form className="mc-form" onSubmit={handleEnable}>
+        <label className="mc-field">
+          <span>Код из приложения</span>
           <input
             value={enableCode}
             onChange={(event) => setEnableCode(event.target.value)}
@@ -165,39 +167,45 @@ export function TwoFactorPanel({
           />
         </label>
         <button className="primary-button" disabled={loading} type="submit">
-          {loading ? "Проверяем..." : "Включить 2FA"}
+          {loading ? "Проверяем…" : "Включить 2FA"}
         </button>
       </form>
 
       {status?.enabled ? (
-        <form className="form" onSubmit={handleDisable}>
-          <label>
-            <span>Текущий пароль</span>
-            <input
-              value={disablePassword}
-              onChange={(event) => setDisablePassword(event.target.value)}
-              autoComplete="current-password"
-              minLength={8}
-              required
-              type="password"
-            />
-          </label>
-          <label>
-            <span>Код 2FA (опционально)</span>
-            <input
-              value={disableCode}
-              onChange={(event) => setDisableCode(event.target.value)}
-              inputMode="numeric"
-              minLength={6}
-              maxLength={8}
-              placeholder="123456"
-              type="text"
-            />
-          </label>
-          <button className="ghost-button" disabled={loading} type="submit">
-            {loading ? "Отключаем..." : "Отключить 2FA"}
-          </button>
-        </form>
+        <>
+          <hr className="mc-divider" />
+          <form className="mc-form" onSubmit={handleDisable}>
+            <p className="mc-surface-eyebrow" style={{ marginBottom: 4 }}>
+              Отключение
+            </p>
+            <label className="mc-field">
+              <span>Текущий пароль</span>
+              <input
+                value={disablePassword}
+                onChange={(event) => setDisablePassword(event.target.value)}
+                autoComplete="current-password"
+                minLength={8}
+                required
+                type="password"
+              />
+            </label>
+            <label className="mc-field">
+              <span>Код 2FA (по желанию)</span>
+              <input
+                value={disableCode}
+                onChange={(event) => setDisableCode(event.target.value)}
+                inputMode="numeric"
+                minLength={6}
+                maxLength={8}
+                placeholder="123456"
+                type="text"
+              />
+            </label>
+            <button className="ghost-button" disabled={loading} type="submit">
+              {loading ? "Отключаем…" : "Отключить 2FA"}
+            </button>
+          </form>
+        </>
       ) : null}
     </article>
   );

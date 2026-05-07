@@ -307,6 +307,124 @@
   gap: 16px;
 }
 
+.api-docs-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.api-docs-layout-main {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.api-docs-toc {
+  position: sticky;
+  top: 16px;
+  align-self: start;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 14px 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(117, 158, 255, 0.14);
+  background: rgba(3, 8, 22, 0.42);
+}
+
+.api-docs-toc-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.api-docs-toc-title-sub {
+  margin-top: 16px;
+}
+
+.api-docs-toc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.api-docs-toc-nav a {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  text-decoration: none;
+  line-height: 1.35;
+}
+
+.api-docs-toc-nav a:hover {
+  background: rgba(51, 215, 255, 0.08);
+  color: var(--text-0);
+}
+
+.api-docs-method-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.api-docs-method-get {
+  border: 1px solid rgba(126, 194, 255, 0.35);
+  color: #9fd8ff;
+  background: rgba(51, 215, 255, 0.08);
+}
+
+.api-docs-method-post {
+  border: 1px solid rgba(65, 227, 162, 0.35);
+  color: #8df6cb;
+  background: rgba(65, 227, 162, 0.1);
+}
+
+.api-docs-table-link {
+  font-size: 13px;
+  font-weight: 700;
+  color: #7ec4ff;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.api-docs-table-link:hover {
+  text-decoration: underline;
+}
+
+.api-docs-code-card .json-box {
+  max-height: min(55vh, 420px);
+}
+
+.api-docs-copy-toast {
+  position: fixed;
+  z-index: 2000;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(65, 227, 162, 0.35);
+  background: rgba(8, 22, 18, 0.94);
+  color: #c8ffe8;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
 .api-docs-head {
   align-items: flex-start;
 }
@@ -507,6 +625,7 @@
   border-radius: 22px;
   border: 1px solid rgba(117, 158, 255, 0.12);
   background: rgba(255, 255, 255, 0.025);
+  scroll-margin-top: 88px;
 }
 
 .api-docs-endpoint-head {

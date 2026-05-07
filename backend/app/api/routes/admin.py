@@ -1,10 +1,10 @@
-from decimal import Decimal
+﻿from decimal import Decimal
 from secrets import choice
 from string import ascii_letters, digits
 
 from fastapi import Depends, HTTPException, Query, status
 from sqlalchemy import delete, select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
     get_db,
@@ -114,10 +114,10 @@ async def list_tenants(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.tenants.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[TenantSummary]:
     tenant_service = TenantService(db)
-    tenant_rows = tenant_service.list_tenants(limit=limit, offset=offset)
+    tenant_rows = await tenant_service.list_tenants(limit=limit, offset=offset)
     return [
         TenantSummary(
             id=tenant.id,
@@ -139,7 +139,7 @@ async def list_tenants(
 async def create_tenant(
     payload: TenantCreateRequest,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantSummary:
     tenant_service = TenantService(db)
     auth_service = AuthService(db)
@@ -147,17 +147,17 @@ async def create_tenant(
 
     try:
         tenant, owner, project_id, api_public_key, api_secret_key = (
-            tenant_service.create_tenant_with_owner(payload)
+            await tenant_service.create_tenant_with_owner(payload)
         )
-        invite_token = auth_service.create_invite(owner)
+        invite_token = await auth_service.create_invite(owner)
     except Exception as exc:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Не удалось создать tenant: {exc}",
         ) from exc
 
-    notification_service.notify_user(
+    await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_API_KEY_GENERATED,
         subject="Проект создан администратором",
@@ -219,9 +219,9 @@ async def list_users(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.users.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[UserSummaryResponse]:
-    rows = UserService(db).list_users(tenant_id=tenant_id, limit=limit, offset=offset)
+    rows = await UserService(db).list_users(tenant_id=tenant_id, limit=limit, offset=offset)
     return [_map_user_summary(user=user, tenant_name=tenant_name) for user, tenant_name in rows]
 
 
@@ -233,13 +233,13 @@ async def list_users(
 async def create_user(
     payload: UserCreateRequest,
     _: User = Depends(require_platform_permission("admin.users.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> UserCreateResponse:
     user_service = UserService(db)
     auth_service = AuthService(db)
 
     try:
-        user = user_service.create_user(
+        user = await user_service.create_user(
             email=payload.email,
             full_name=payload.full_name,
             role=payload.role,
@@ -247,12 +247,12 @@ async def create_user(
             status=payload.status,
             password=payload.password,
         )
-        invite_token = auth_service.create_invite(user) if payload.create_invite else None
+        invite_token = await auth_service.create_invite(user) if payload.create_invite else None
     except ValueError as exc:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    tenant_name = db.scalar(select(Tenant.name).where(Tenant.id == user.tenant_id)) if user.tenant_id else None
+    tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == user.tenant_id)) if user.tenant_id else None
     return UserCreateResponse(
         user=_map_user_summary(user=user, tenant_name=tenant_name),
         invite_token=invite_token,
@@ -264,7 +264,7 @@ async def update_user(
     user_id: str,
     payload: UserUpdateRequest,
     _: User = Depends(require_platform_permission("admin.users.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> UserSummaryResponse:
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
@@ -275,11 +275,11 @@ async def update_user(
 
     user_service = UserService(db)
     try:
-        user = user_service.update_user(user_id, updates)
+        user = await user_service.update_user(user_id, updates)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    tenant_name = db.scalar(select(Tenant.name).where(Tenant.id == user.tenant_id)) if user.tenant_id else None
+    tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == user.tenant_id)) if user.tenant_id else None
     return _map_user_summary(user=user, tenant_name=tenant_name)
 
 
@@ -288,12 +288,12 @@ async def approve_tenant(
     tenant_id: str,
     payload: TenantApprovalRequest,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     tenant_service = TenantService(db)
     notification_service = NotificationService(db)
     try:
-        tenant, project, owner, generated_password, public_key, secret_key = tenant_service.approve_tenant(
+        tenant, project, owner, generated_password, public_key, secret_key = await tenant_service.approve_tenant(
             tenant_id, payload.review_comment
         )
     except ValueError as exc:
@@ -302,7 +302,7 @@ async def approve_tenant(
             detail=str(exc),
         ) from exc
 
-    notification_service.notify_user(
+    await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_APPLICATION_APPROVED,
         subject="Заявка на подключение проекта одобрена",
@@ -312,7 +312,7 @@ async def approve_tenant(
         ],
         force_email=True,
     )
-    notification_service.notify_user(
+    await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_PASSWORD_GENERATED,
         subject="Сгенерирован пароль для входа в кабинет мерчанта",
@@ -323,7 +323,7 @@ async def approve_tenant(
         ],
         force_email=True,
     )
-    notification_service.notify_user(
+    await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_API_KEY_GENERATED,
         subject="Сгенерирован API-ключ проекта",
@@ -351,19 +351,19 @@ async def reject_tenant(
     tenant_id: str,
     payload: TenantApprovalRequest,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantSummary:
     tenant_service = TenantService(db)
     notification_service = NotificationService(db)
     try:
-        tenant = tenant_service.reject_tenant(tenant_id, payload.review_comment)
+        tenant = await tenant_service.reject_tenant(tenant_id, payload.review_comment)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
 
-    owner = db.scalar(
+    owner = await db.scalar(
         select(User).where(User.tenant_id == tenant.id, User.role == "tenant_owner")
     )
     if owner is not None:
@@ -371,7 +371,7 @@ async def reject_tenant(
         notification_lines = [f"Проект: {tenant.name}"]
         if review_comment:
             notification_lines.append(f"Комментарий: {review_comment}")
-        notification_service.notify_user(
+        await notification_service.notify_user(
             owner,
             event_code=NotificationService.EVENT_APPLICATION_REJECTED,
             subject="Заявка на подключение проекта отклонена",
@@ -391,13 +391,13 @@ async def reject_tenant(
 async def reset_tenant_owner_password(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    tenant = db.get(Tenant, tenant_id)
+    tenant = await db.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Мерчант не найден.")
 
-    owner = db.scalar(
+    owner = await db.scalar(
         select(User).where(User.tenant_id == tenant_id, User.role == "tenant_owner")
     )
     if owner is None:
@@ -407,14 +407,14 @@ async def reset_tenant_owner_password(
         )
 
     generated_password = _generate_temporary_password()
-    owner = UserService(db).update_user(
+    owner = await UserService(db).update_user(
         owner.id,
         {
             "password": generated_password,
             "status": "active",
         },
     )
-    NotificationService(db).notify_user(
+    await NotificationService(db).notify_user(
         owner,
         event_code=NotificationService.EVENT_PASSWORD_GENERATED,
         subject="Администратор сбросил пароль от кабинета",
@@ -438,13 +438,13 @@ async def reset_tenant_owner_password(
 async def reset_tenant_owner_two_factor(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantOwnerSummary:
-    tenant = db.get(Tenant, tenant_id)
+    tenant = await db.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Мерчант не найден.")
 
-    owner = db.scalar(
+    owner = await db.scalar(
         select(User).where(User.tenant_id == tenant_id, User.role == "tenant_owner")
     )
     if owner is None:
@@ -453,8 +453,8 @@ async def reset_tenant_owner_two_factor(
             detail="Владелец мерчанта не найден.",
         )
 
-    owner = UserService(db).update_user(owner.id, {"reset_two_factor": True})
-    NotificationService(db).notify_user(
+    owner = await UserService(db).update_user(owner.id, {"reset_two_factor": True})
+    await NotificationService(db).notify_user(
         owner,
         event_code=NotificationService.EVENT_TWO_FACTOR_DISABLED,
         subject="2FA отключена администратором",
@@ -476,7 +476,7 @@ async def reset_tenant_owner_two_factor(
 async def list_tenant_projects(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[ProjectSummary]:
     project_service = ProjectService(db)
     return [
@@ -488,7 +488,7 @@ async def list_tenant_projects(
             description=project.description,
             status=project.status,
         )
-        for project in project_service.list_projects_by_tenant(tenant_id)
+        for project in await project_service.list_projects_by_tenant(tenant_id)
     ]
 
 
@@ -496,7 +496,7 @@ async def list_tenant_projects(
 async def list_tenant_api_keys(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[ApiKeySummary]:
     project_service = ProjectService(db)
     return [
@@ -506,7 +506,7 @@ async def list_tenant_api_keys(
             public_key=api_key.public_key,
             status=api_key.status,
         )
-        for api_key in project_service.list_api_keys_by_tenant(tenant_id)
+        for api_key in await project_service.list_api_keys_by_tenant(tenant_id)
     ]
 
 
@@ -514,18 +514,18 @@ async def list_tenant_api_keys(
 async def revoke_admin_api_key(
     api_key_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ApiKeySummary:
     project_service = ProjectService(db)
     notification_service = NotificationService(db)
-    api_key = project_service.get_api_key(api_key_id)
+    api_key = await project_service.get_api_key(api_key_id)
     if api_key is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found.")
     try:
-        revoked = project_service.revoke_api_key(api_key_id)
+        revoked = await project_service.revoke_api_key(api_key_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    notification_service.notify_tenant_users(
+    await notification_service.notify_tenant_users(
         revoked.tenant_id,
         event_code=NotificationService.EVENT_API_KEY_REVOKED,
         subject="API-ключ отозван администратором",
@@ -547,15 +547,15 @@ async def revoke_admin_api_key(
 async def regenerate_admin_api_key(
     api_key_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ApiKeyRegenerateResponse:
     project_service = ProjectService(db)
     notification_service = NotificationService(db)
     try:
-        regenerated, secret_key = project_service.regenerate_api_key(api_key_id)
+        regenerated, secret_key = await project_service.regenerate_api_key(api_key_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    notification_service.notify_tenant_users(
+    await notification_service.notify_tenant_users(
         regenerated.tenant_id,
         event_code=NotificationService.EVENT_API_KEY_REGENERATED,
         subject="API-ключ перевыпущен администратором",
@@ -580,21 +580,21 @@ async def regenerate_admin_api_key(
 async def get_tenant_detail(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantDetailResponse:
     tenant_service = TenantService(db)
     project_service = ProjectService(db)
     invoice_service = InvoiceService(db)
 
-    tenant_rows = tenant_service.list_tenants()
+    tenant_rows = await tenant_service.list_tenants()
     row = next(((tenant, owner) for tenant, owner in tenant_rows if tenant.id == tenant_id), None)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant не найден.")
 
     tenant, owner = row
-    projects = project_service.list_projects_by_tenant(tenant_id)
-    api_keys = project_service.list_api_keys_by_tenant(tenant_id)
-    invoices = invoice_service.list_invoices_by_tenant(tenant_id)
+    projects = await project_service.list_projects_by_tenant(tenant_id)
+    api_keys = await project_service.list_api_keys_by_tenant(tenant_id)
+    invoices = await invoice_service.list_invoices_by_tenant(tenant_id)
 
     return TenantDetailResponse(
         tenant=TenantSummary(
@@ -646,13 +646,13 @@ async def update_tenant(
     tenant_id: str,
     payload: TenantAdminUpdateRequest,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantDetailResponse:
-    tenant = db.get(Tenant, tenant_id)
+    tenant = await db.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant не найден.")
 
-    owner = db.scalar(
+    owner = await db.scalar(
         select(User)
         .where(User.tenant_id == tenant_id, User.role == "tenant_owner")
         .order_by(User.created_at.asc())
@@ -660,13 +660,13 @@ async def update_tenant(
     if owner is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Владелец tenant не найден.")
 
-    duplicate_tenant = db.scalar(
+    duplicate_tenant = await db.scalar(
         select(Tenant).where(Tenant.slug == payload.slug, Tenant.id != tenant_id)
     )
     if duplicate_tenant is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Slug уже используется.")
 
-    duplicate_owner = db.scalar(
+    duplicate_owner = await db.scalar(
         select(User).where(User.email == payload.owner_email, User.id != owner.id)
     )
     if duplicate_owner is not None:
@@ -683,7 +683,7 @@ async def update_tenant(
     owner.full_name = payload.owner_full_name.strip()
 
     db.add_all([tenant, owner])
-    db.commit()
+    await db.commit()
     return await get_tenant_detail(tenant_id=tenant_id, _=_, db=db)
 
 
@@ -692,13 +692,13 @@ async def update_admin_project(
     project_id: str,
     payload: ProjectAdminUpdateRequest,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ProjectSummary:
-    project = db.get(Project, project_id)
+    project = await db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Проект не найден.")
 
-    duplicate_project = db.scalar(
+    duplicate_project = await db.scalar(
         select(Project).where(Project.domain == payload.domain, Project.id != project_id)
     )
     if duplicate_project is not None:
@@ -710,8 +710,8 @@ async def update_admin_project(
     project.webhook_url = (payload.webhook_url or "").strip() or None
     project.status = payload.status.strip()
     db.add(project)
-    db.commit()
-    db.refresh(project)
+    await db.commit()
+    await db.refresh(project)
     return ProjectSummary(
         id=project.id,
         tenant_id=project.tenant_id,
@@ -728,19 +728,19 @@ async def update_admin_project(
 async def delete_tenant(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    tenant = db.get(Tenant, tenant_id)
+    tenant = await db.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant не найден.")
 
     has_history = any(
         [
-            db.scalar(select(Invoice.id).where(Invoice.tenant_id == tenant_id).limit(1)),
-            db.scalar(select(Project.id).where(Project.tenant_id == tenant_id, Project.status == "active").limit(1)),
-            db.scalar(select(PayoutRequest.id).where(PayoutRequest.tenant_id == tenant_id).limit(1)),
-            db.scalar(select(TenantBalance.id).where(TenantBalance.tenant_id == tenant_id).limit(1)),
-            db.scalar(select(LedgerEntry.id).where(LedgerEntry.tenant_id == tenant_id).limit(1)),
+            await db.scalar(select(Invoice.id).where(Invoice.tenant_id == tenant_id).limit(1)),
+            await db.scalar(select(Project.id).where(Project.tenant_id == tenant_id, Project.status == "active").limit(1)),
+            await db.scalar(select(PayoutRequest.id).where(PayoutRequest.tenant_id == tenant_id).limit(1)),
+            await db.scalar(select(TenantBalance.id).where(TenantBalance.tenant_id == tenant_id).limit(1)),
+            await db.scalar(select(LedgerEntry.id).where(LedgerEntry.tenant_id == tenant_id).limit(1)),
         ]
     )
     if has_history:
@@ -750,29 +750,29 @@ async def delete_tenant(
         )
 
     project_ids = list(
-        db.scalars(select(Project.id).where(Project.tenant_id == tenant_id)).all()
+        (await db.scalars(select(Project.id).where(Project.tenant_id == tenant_id))).all()
     )
     user_ids = list(
-        db.scalars(select(User.id).where(User.tenant_id == tenant_id)).all()
+        (await db.scalars(select(User.id).where(User.tenant_id == tenant_id))).all()
     )
     invoice_ids = list(
-        db.scalars(select(Invoice.id).where(Invoice.tenant_id == tenant_id)).all()
+        (await db.scalars(select(Invoice.id).where(Invoice.tenant_id == tenant_id))).all()
     )
 
     if invoice_ids:
-        db.execute(delete(ProviderEvent).where(ProviderEvent.invoice_id.in_(invoice_ids)))
+        await db.execute(delete(ProviderEvent).where(ProviderEvent.invoice_id.in_(invoice_ids)))
     if user_ids:
-        db.execute(delete(UserSession).where(UserSession.user_id.in_(user_ids)))
-        db.execute(delete(InviteToken).where(InviteToken.user_id.in_(user_ids)))
+        await db.execute(delete(UserSession).where(UserSession.user_id.in_(user_ids)))
+        await db.execute(delete(InviteToken).where(InviteToken.user_id.in_(user_ids)))
     if project_ids:
-        db.execute(delete(ApiKey).where(ApiKey.project_id.in_(project_ids)))
-        db.execute(delete(Project).where(Project.id.in_(project_ids)))
+        await db.execute(delete(ApiKey).where(ApiKey.project_id.in_(project_ids)))
+        await db.execute(delete(Project).where(Project.id.in_(project_ids)))
     if user_ids:
-        db.execute(delete(User).where(User.id.in_(user_ids)))
+        await db.execute(delete(User).where(User.id.in_(user_ids)))
 
-    db.execute(delete(TenantFeePolicy).where(TenantFeePolicy.tenant_id == tenant_id))
-    db.execute(delete(Tenant).where(Tenant.id == tenant_id))
-    db.commit()
+    await db.execute(delete(TenantFeePolicy).where(TenantFeePolicy.tenant_id == tenant_id))
+    await db.execute(delete(Tenant).where(Tenant.id == tenant_id))
+    await db.commit()
     return {"status": "deleted", "tenant_id": tenant_id}
 
 
@@ -782,10 +782,10 @@ async def list_tenant_invoices(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.invoices.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[InvoiceResponse]:
     invoice_service = InvoiceService(db)
-    invoices = invoice_service.list_invoices_by_tenant(tenant_id, limit=limit, offset=offset)
+    invoices = await invoice_service.list_invoices_by_tenant(tenant_id, limit=limit, offset=offset)
     return [_map_invoice_response(invoice) for invoice in invoices]
 
 
@@ -794,10 +794,10 @@ async def list_all_invoices(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.invoices.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[InvoiceResponse]:
     invoice_service = InvoiceService(db)
-    invoices = invoice_service.list_all_invoices(limit=limit, offset=offset)
+    invoices = await invoice_service.list_all_invoices(limit=limit, offset=offset)
     return [_map_invoice_response(invoice) for invoice in invoices]
 
 
@@ -807,12 +807,12 @@ async def list_tenant_transactions(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.transactions.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
     transaction_service = TransactionService(db)
     return [
         _map_transaction_response(transaction)
-        for transaction in transaction_service.list_by_tenant(tenant_id, limit=limit, offset=offset)
+        for transaction in await transaction_service.list_by_tenant(tenant_id, limit=limit, offset=offset)
     ]
 
 
@@ -821,12 +821,12 @@ async def list_all_transactions(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.transactions.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
     transaction_service = TransactionService(db)
     return [
         _map_transaction_response(transaction)
-        for transaction in transaction_service.list_all(limit=limit, offset=offset)
+        for transaction in await transaction_service.list_all(limit=limit, offset=offset)
     ]
 
 
@@ -837,29 +837,29 @@ async def list_all_transactions(
 async def get_tenant_accounting_summary(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.overview.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> AccountingSummaryResponse:
     accounting_service = AccountingService(db)
-    return accounting_service.build_summary(tenant_id)
+    return await accounting_service.build_summary(tenant_id)
 
 
 @router.get("/accounting/summary", response_model=AccountingSummaryResponse)
 async def get_platform_accounting_summary(
     _: User = Depends(require_platform_permission("admin.overview.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> AccountingSummaryResponse:
     accounting_service = AccountingService(db)
-    return accounting_service.build_summary()
+    return await accounting_service.build_summary()
 
 
 @router.get("/billing/settings", response_model=PlatformBillingSettingsResponse)
 async def get_platform_billing_settings(
     _: User = Depends(require_platform_permission("admin.billing.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> PlatformBillingSettingsResponse:
-    platform_settings = BillingPolicyService(db).get_platform_settings()
+    platform_settings = await BillingPolicyService(db).get_platform_settings()
     notification_service = NotificationService(db)
-    return _map_platform_billing_settings_response(
+    return await _map_platform_billing_settings_response(
         platform_settings=platform_settings,
         notification_service=notification_service,
     )
@@ -869,11 +869,11 @@ async def get_platform_billing_settings(
 async def update_platform_billing_settings(
     payload: PlatformBillingSettingsUpdateRequest,
     _: User = Depends(require_platform_permission("admin.billing.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> PlatformBillingSettingsResponse:
     billing_policy_service = BillingPolicyService(db)
     try:
-        platform_settings = billing_policy_service.update_platform_settings(
+        platform_settings = await billing_policy_service.update_platform_settings(
             provider_fee_percent=payload.provider_fee_percent,
             default_markup_percent=payload.default_markup_percent,
             default_turnover_fee_percent=payload.default_turnover_fee_percent,
@@ -891,7 +891,7 @@ async def update_platform_billing_settings(
             seo_canonical_url=payload.seo_canonical_url,
         )
         notification_service = NotificationService(db)
-        platform_settings = notification_service.update_platform_notification_settings(
+        platform_settings = await notification_service.update_platform_notification_settings(
             platform_settings,
             email_notifications_enabled=payload.email_notifications_enabled,
             telegram_notifications_enabled=payload.telegram_notifications_enabled,
@@ -913,7 +913,7 @@ async def update_platform_billing_settings(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    return _map_platform_billing_settings_response(
+    return await _map_platform_billing_settings_response(
         platform_settings=platform_settings,
         notification_service=NotificationService(db),
     )
@@ -923,10 +923,10 @@ async def update_platform_billing_settings(
 async def get_platform_exchange_rate(
     currency: str,
     _: User = Depends(require_platform_permission("admin.billing.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ExchangeRateLookupResponse:
     normalized_currency = currency.strip().upper()
-    manual_rates = BillingPolicyService(db).get_manual_exchange_rates()
+    manual_rates = await BillingPolicyService(db).get_manual_exchange_rates()
     manual_rate = manual_rates.get(normalized_currency)
     if manual_rate is not None:
         return ExchangeRateLookupResponse(
@@ -936,7 +936,7 @@ async def get_platform_exchange_rate(
             source="manual",
         )
 
-    rate = get_exchange_rate_service().get_rate(normalized_currency, "USD")
+    rate = await get_exchange_rate_service().get_rate(normalized_currency, "USD")
     return ExchangeRateLookupResponse(
         currency=normalized_currency,
         quote_currency="USD",
@@ -951,10 +951,10 @@ async def get_platform_exchange_rate(
 )
 async def refresh_platform_exchange_rates(
     _: User = Depends(require_platform_permission("admin.billing.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ExchangeRateRefreshResponse:
     billing_policy_service = BillingPolicyService(db)
-    rates_payload = RatesService(db).list_rates()
+    rates_payload = await RatesService(db).list_rates()
     symbols = sorted(
         {
             str(item.currency).strip().upper()
@@ -964,13 +964,13 @@ async def refresh_platform_exchange_rates(
     )
     refreshed_rates = get_exchange_rate_service().refresh_rates_for_symbols(symbols)
     if refreshed_rates:
-        cached_rates = billing_policy_service.get_cached_exchange_rates()
+        cached_rates = await billing_policy_service.get_cached_exchange_rates()
         cached_rates.update(refreshed_rates)
-        billing_policy_service.update_cached_exchange_rates(cached_rates)
+        await billing_policy_service.update_cached_exchange_rates(cached_rates)
     return ExchangeRateRefreshResponse(
         quote_currency="USD",
         refreshed_symbols=len(refreshed_rates),
-        cached_symbols=len(billing_policy_service.get_cached_exchange_rates()),
+        cached_symbols=len(await billing_policy_service.get_cached_exchange_rates()),
         refreshed=bool(refreshed_rates),
     )
 
@@ -979,11 +979,11 @@ async def refresh_platform_exchange_rates(
 async def send_platform_smtp_bz_test(
     payload: SmtpBzTestRequest,
     current_user: User = Depends(require_platform_permission("admin.billing.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> SmtpBzTestResponse:
     billing_policy_service = BillingPolicyService(db)
     notification_service = NotificationService(db)
-    platform_settings = billing_policy_service.get_platform_settings()
+    platform_settings = await billing_policy_service.get_platform_settings()
     try:
         result = notification_service.send_smtp_bz_test_email(
             platform_settings=platform_settings,
@@ -1005,11 +1005,11 @@ async def send_platform_smtp_bz_test(
 async def inspect_platform_telegram_bot(
     payload: TelegramBotInspectRequest,
     _: User = Depends(require_platform_permission("admin.billing.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TelegramBotIdentityResponse:
     billing_policy_service = BillingPolicyService(db)
     notification_service = NotificationService(db)
-    platform_settings = billing_policy_service.get_platform_settings()
+    platform_settings = await billing_policy_service.get_platform_settings()
     try:
         bot_info = notification_service.inspect_telegram_bot(
             platform_settings=platform_settings,
@@ -1025,11 +1025,11 @@ async def inspect_platform_telegram_bot(
 async def send_platform_telegram_test(
     payload: TelegramAdminTestRequest,
     current_user: User = Depends(require_platform_permission("admin.billing.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TelegramAdminTestResponse:
     billing_policy_service = BillingPolicyService(db)
     notification_service = NotificationService(db)
-    platform_settings = billing_policy_service.get_platform_settings()
+    platform_settings = await billing_policy_service.get_platform_settings()
     try:
         result = notification_service.send_telegram_test_to_admin(
             platform_settings=platform_settings,
@@ -1047,9 +1047,9 @@ async def send_platform_telegram_test(
 async def get_tenant_billing_policy(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.billing.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantBillingPolicyResponse:
-    policy = BillingPolicyService(db).get_or_create_tenant_policy(tenant_id)
+    policy = await BillingPolicyService(db).get_or_create_tenant_policy(tenant_id)
     return TenantBillingPolicyResponse(
         tenant_id=tenant_id,
         custom_markup_percent=policy.custom_markup_percent,
@@ -1064,11 +1064,11 @@ async def update_tenant_billing_policy(
     tenant_id: str,
     payload: TenantBillingPolicyUpdateRequest,
     _: User = Depends(require_platform_permission("admin.billing.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantBillingPolicyResponse:
     billing_policy_service = BillingPolicyService(db)
     try:
-        policy = billing_policy_service.update_tenant_policy(
+        policy = await billing_policy_service.update_tenant_policy(
             tenant_id,
             custom_markup_percent=payload.custom_markup_percent,
             custom_turnover_fee_percent=payload.custom_turnover_fee_percent,
@@ -1090,20 +1090,20 @@ async def update_tenant_billing_policy(
 @router.get("/assets", response_model=RatesResponse)
 async def list_platform_assets(
     _: User = Depends(require_platform_permission("admin.assets.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> RatesResponse:
-    return RatesService(db).list_rates()
+    return await RatesService(db).list_rates()
 
 
 @router.put("/assets", response_model=AssetAvailabilityUpdateResponse)
 async def update_platform_asset_availability(
     payload: AssetAvailabilityUpdateRequest,
     _: User = Depends(require_platform_permission("admin.assets.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> AssetAvailabilityUpdateResponse:
     rates_service = RatesService(db)
     try:
-        currency, network, platform_enabled = rates_service.set_platform_asset_enabled(
+        currency, network, platform_enabled = await rates_service.set_platform_asset_enabled(
             currency=payload.currency,
             network=payload.network,
             platform_enabled=payload.platform_enabled,
@@ -1121,11 +1121,11 @@ async def update_platform_asset_availability(
 @router.get("/public-pages", response_model=list[PublicPageResponse])
 async def list_public_pages(
     _: User = Depends(require_platform_permission("admin.billing.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[PublicPageResponse]:
     return [
         _map_public_page_response(item)
-        for item in PublicPageService(db).list_pages()
+        for item in await PublicPageService(db).list_pages()
     ]
 
 
@@ -1133,11 +1133,11 @@ async def list_public_pages(
 async def create_public_page(
     payload: PublicPageCreateRequest,
     _: User = Depends(require_platform_permission("admin.billing.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> PublicPageResponse:
     service = PublicPageService(db)
     try:
-        page = service.create_page(**payload.model_dump())
+        page = await service.create_page(**payload.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _map_public_page_response(page)
@@ -1148,14 +1148,14 @@ async def update_public_page(
     page_id: str,
     payload: PublicPageUpdateRequest,
     _: User = Depends(require_platform_permission("admin.billing.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> PublicPageResponse:
     service = PublicPageService(db)
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Нет полей для обновления.")
     try:
-        page = service.update_page(page_id=page_id, updates=updates)
+        page = await service.update_page(page_id=page_id, updates=updates)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _map_public_page_response(page)
@@ -1165,11 +1165,11 @@ async def update_public_page(
 async def delete_public_page(
     page_id: str,
     _: User = Depends(require_platform_permission("admin.billing.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> None:
     service = PublicPageService(db)
     try:
-        service.delete_page(page_id)
+        await service.delete_page(page_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
@@ -1178,10 +1178,10 @@ async def delete_public_page(
 async def get_admin_transaction(
     transaction_id: str,
     _: User = Depends(require_platform_permission("admin.transactions.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TransactionResponse:
     transaction_service = TransactionService(db)
-    transaction = transaction_service.get_by_id(transaction_id)
+    transaction = await transaction_service.get_by_id(transaction_id)
     if transaction is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Транзакция не найдена.")
     return _map_transaction_response(transaction)
@@ -1191,10 +1191,10 @@ async def get_admin_transaction(
 async def get_invoice_detail(
     invoice_id: str,
     _: User = Depends(require_platform_permission("admin.invoices.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> InvoiceAdminDetailResponse:
     invoice_service = InvoiceService(db)
-    invoice = invoice_service.get_invoice_by_id(invoice_id)
+    invoice = await invoice_service.get_invoice_by_id(invoice_id)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
     return _map_invoice_admin_detail_response(invoice)
@@ -1205,11 +1205,11 @@ async def update_invoice_status(
     invoice_id: str,
     payload: InvoiceStatusUpdateRequest,
     _: User = Depends(require_platform_permission("admin.invoices.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> InvoiceAdminDetailResponse:
     invoice_service = InvoiceService(db)
     try:
-        invoice = invoice_service.apply_invoice_status_by_id(
+        invoice = await invoice_service.apply_invoice_status_by_id(
             invoice_id=invoice_id,
             provider_status=payload.status,
             tx_hash=payload.tx_hash,
@@ -1226,16 +1226,16 @@ async def update_invoice_status(
 async def sync_invoice_status(
     invoice_id: str,
     _: User = Depends(require_platform_permission("admin.invoices.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> InvoiceAdminDetailResponse:
     from app.providers.crypto_cash import CryptoCashProviderError
     
     invoice_service = InvoiceService(db)
-    invoice = invoice_service.get_invoice_by_id(invoice_id)
+    invoice = await invoice_service.get_invoice_by_id(invoice_id)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
     try:
-        invoice = invoice_service.sync_invoice_status(
+        invoice = await invoice_service.sync_invoice_status(
             tenant_id=invoice.tenant_id,
             invoice_id=invoice_id,
             project_id=invoice.project_id,
@@ -1253,17 +1253,17 @@ async def sync_invoice_status(
 @router.get("/payouts", response_model=list[PayoutRequestResponse])
 async def list_all_payout_requests(
     _: User = Depends(require_platform_permission("admin.payouts.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[PayoutRequestResponse]:
     payout_service = PayoutService(db)
-    payouts = payout_service.list_all()
+    payouts = await payout_service.list_all()
     tenant_names = {
         item.id: item.name
-        for item in db.scalars(select(Tenant)).all()
+        for item in (await db.scalars(select(Tenant))).all()
     }
     project_names = {
         item.id: item.name
-        for item in db.scalars(select(Project)).all()
+        for item in (await db.scalars(select(Project))).all()
     }
     return [
         _map_payout_response(
@@ -1279,15 +1279,15 @@ async def list_all_payout_requests(
 async def list_tenant_payout_requests(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.payouts.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[PayoutRequestResponse]:
     payout_service = PayoutService(db)
-    payouts = payout_service.list_by_tenant(tenant_id)
+    payouts = await payout_service.list_by_tenant(tenant_id)
     project_names = {
         item.id: item.name
-        for item in db.scalars(select(Project).where(Project.tenant_id == tenant_id)).all()
+        for item in (await db.scalars(select(Project).where(Project.tenant_id == tenant_id))).all()
     }
-    tenant_name = db.scalar(select(Tenant.name).where(Tenant.id == tenant_id))
+    tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == tenant_id))
     return [
         _map_payout_response(
             item,
@@ -1303,12 +1303,12 @@ async def review_payout_request(
     payout_id: str,
     payload: PayoutReviewRequest,
     reviewer: User = Depends(require_platform_permission("admin.payouts.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> PayoutRequestResponse:
     payout_service = PayoutService(db)
     notification_service = NotificationService(db)
     try:
-        payout = payout_service.review_request(
+        payout = await payout_service.review_request(
             payout_request_id=payout_id,
             reviewer_user_id=reviewer.id,
             action=payload.action,
@@ -1320,7 +1320,7 @@ async def review_payout_request(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     is_approved = payload.action == "approve"
-    notification_service.notify_tenant_users(
+    await notification_service.notify_tenant_users(
         payout.tenant_id,
         event_code=(
             NotificationService.EVENT_PAYOUT_APPROVED
@@ -1340,12 +1340,12 @@ async def review_payout_request(
         ],
         owner_only=True,
     )
-    tenant_name = db.scalar(select(Tenant.name).where(Tenant.id == payout.tenant_id))
-    project_name = db.scalar(select(Project.name).where(Project.id == payout.project_id)) if payout.project_id else None
+    tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == payout.tenant_id))
+    project_name = await db.scalar(select(Project.name).where(Project.id == payout.project_id)) if payout.project_id else None
     return _map_payout_response(payout, tenant_name=tenant_name, project_name=project_name)
 
 
-def _map_platform_billing_settings_response(
+async def _map_platform_billing_settings_response(
     *,
     platform_settings,
     notification_service: NotificationService,
@@ -1395,7 +1395,7 @@ def _map_platform_billing_settings_response(
         seo_robots=platform_settings.seo_robots,
         seo_canonical_url=platform_settings.seo_canonical_url,
         exchange_rate_markup_percent=platform_settings.exchange_rate_markup_percent,
-        manual_exchange_rates=BillingPolicyService(notification_service.db).get_manual_exchange_rates(),
+        manual_exchange_rates=await BillingPolicyService(notification_service.db).get_manual_exchange_rates(),
         current_exchange_rates=current_exchange_rates or {},
     )
 
@@ -1525,7 +1525,7 @@ def _map_public_page_response(page) -> PublicPageResponse:
 @router.get("/security/health", response_model=dict)
 async def security_health_check(
     _: User = Depends(require_platform_permission("admin.security.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     from app.core.config import settings
     from app.core.security import get_password_hash
@@ -1549,7 +1549,7 @@ async def security_health_check(
         if settings.app_debug:
             issues.append({"code": "debug_enabled", "message": "APP_DEBUG is enabled in production"})
 
-    superadmin = db.scalar(
+    superadmin = await db.scalar(
         select(User).where(User.role == "superadmin").order_by(User.created_at.asc())
     )
     if superadmin:
@@ -1561,9 +1561,9 @@ async def security_health_check(
            superadmin.password_hash == get_password_hash("ChangeMe123!"):
             issues.append({"code": "weak_superadmin_password", "message": "Superadmin password appears to be weak"})
 
-    pending_tenants = list(db.scalars(
+    pending_tenants = list((await db.scalars(
         select(Tenant).where(Tenant.status == "pending_review")
-    ))
+    )).all())
     if len(pending_tenants) > 50:
         warnings.append({"code": "many_pending_tenants", "message": f"{len(pending_tenants)} tenants pending review"})
 

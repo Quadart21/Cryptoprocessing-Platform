@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { InvoiceItem } from "../../api";
+import { formatDecimal } from "../../utils/format";
 
 type InvoiceDetailModalProps = {
   invoice: InvoiceItem | null;
@@ -8,6 +9,7 @@ type InvoiceDetailModalProps = {
   loading: boolean;
   onClose: () => void;
   onSync: (invoiceId: string) => void;
+  canSyncInvoices: boolean;
 };
 
 function formatDateTime(value: string | null | undefined): string {
@@ -80,6 +82,7 @@ export function InvoiceDetailModal({
   loading,
   onClose,
   onSync,
+  canSyncInvoices,
 }: InvoiceDetailModalProps) {
   const [countdown, setCountdown] = useState(() =>
     formatCountdown(invoice?.expires_at, invoice?.status ?? ""),
@@ -118,7 +121,7 @@ export function InvoiceDetailModal({
 
   return (
     <div className="nc-modal-overlay" onClick={onClose}>
-      <div className="nc-modal invoice-modal" onClick={(event) => event.stopPropagation()}>
+      <div className="nc-modal invoice-modal mc-invoice-modal" onClick={(event) => event.stopPropagation()}>
         <button className="nc-modal-close" onClick={onClose} type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6L6 18M6 6l12 12" />
@@ -142,13 +145,13 @@ export function InvoiceDetailModal({
               <div className="detail-chip">
                 <span>Сумма в токене</span>
                 <strong>
-                  {invoice.amount_crypto} {invoice.crypto_currency}
+                  {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency}
                 </strong>
               </div>
               <div className="detail-chip">
                 <span>Учетная сумма в системе</span>
                 <strong>
-                  {invoice.amount_fiat} {invoice.fiat_currency}
+                  {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency}
                 </strong>
               </div>
               <div className="detail-chip">
@@ -227,9 +230,13 @@ export function InvoiceDetailModal({
             <div className="invoice-modal-card">
               <p className="eyebrow">Действия</p>
               <div className="action-row">
-                <button className="primary-button" disabled={loading} onClick={() => onSync(invoice.id)} type="button">
-                  {loading ? "Синхронизация..." : "Синхронизировать статус"}
-                </button>
+                {canSyncInvoices ? (
+                  <button className="primary-button" disabled={loading} onClick={() => onSync(invoice.id)} type="button">
+                    {loading ? "Синхронизация..." : "Синхронизировать статус"}
+                  </button>
+                ) : (
+                  <p className="muted-text">Синхронизация доступна при праве client.invoices.write.</p>
+                )}
                 <button className="ghost-button" onClick={onClose} type="button">
                   Закрыть
                 </button>

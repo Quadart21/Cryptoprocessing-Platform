@@ -1,4 +1,5 @@
 import type { InvoiceItem } from "../../api";
+import { formatDecimal } from "../../utils/format";
 
 type InvoiceDetailPanelProps = {
   selectedClientInvoiceDetail: InvoiceItem | null;
@@ -23,13 +24,14 @@ export function InvoiceDetailPanel({ selectedClientInvoiceDetail }: InvoiceDetai
             <div className="detail-chip">
               <span>Сумма</span>
               <strong>
-                {selectedClientInvoiceDetail.amount_fiat} {selectedClientInvoiceDetail.fiat_currency}
+                {formatDecimal(selectedClientInvoiceDetail.amount_fiat)}{" "}
+                {selectedClientInvoiceDetail.fiat_currency}
               </strong>
             </div>
             <div className="detail-chip">
               <span>Крипта</span>
               <strong>
-                {selectedClientInvoiceDetail.amount_crypto}{" "}
+                {formatDecimal(selectedClientInvoiceDetail.amount_crypto)}{" "}
                 {selectedClientInvoiceDetail.crypto_currency}
               </strong>
             </div>

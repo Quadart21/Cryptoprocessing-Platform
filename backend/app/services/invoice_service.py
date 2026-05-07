@@ -3,7 +3,7 @@
 import logging
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.tenant import apply_db_security_context
 from app.models.invoice import Invoice
@@ -72,7 +72,7 @@ class InvoiceService:
     AMOUNT_PRECISION = Decimal("0.00000001")
     BALANCE_CURRENCY = "USDT"
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
     @staticmethod
@@ -100,8 +100,8 @@ class InvoiceService:
             updated_at=invoice.updated_at,
         )
 
-    def create_invoice(self, tenant_id: str, payload: InvoiceCreateRequest) -> Invoice:
-        project = self.db.scalar(
+    async def create_invoice(self, tenant_id: str, payload: InvoiceCreateRequest) -> Invoice:
+        project = await self.db.scalar(
             select(Project).where(
                 Project.id == payload.project_id,
                 Project.tenant_id == tenant_id,
@@ -111,7 +111,7 @@ class InvoiceService:
             raise ValueError("Проект не найден.")
 
         rates_service = RatesService(self.db)
-        limits = rates_service.get_client_payin_limits(
+        limits = await rates_service.get_client_payin_limits(
             currency=payload.crypto_currency,
             network=payload.network,
         )
@@ -133,9 +133,9 @@ class InvoiceService:
                 network=payload.network.upper(),
             )
         )
-        exchange_rate_markup = BillingPolicyService(self.db).get_exchange_rate_markup_percent()
+        exchange_rate_markup = await BillingPolicyService(self.db).get_exchange_rate_markup_percent()
         resolved_amount_crypto = provider_response.amount_crypto or Decimal(payload.amount_fiat)
-        accounting_amount_fiat = get_exchange_rate_service().convert_to_fiat(
+        accounting_amount_fiat = await get_exchange_rate_service().convert_to_fiat(
             amount=resolved_amount_crypto,
             from_currency=provider_response.crypto_currency,
             to_fiat=payload.fiat_currency.upper(),
@@ -161,7 +161,7 @@ class InvoiceService:
             raw_provider_payload_json=provider_response.raw_payload,
         )
         self.db.add(invoice)
-        self.db.flush()
+        await self.db.flush()
         invoice_snapshot = self._build_invoice_snapshot(invoice)
 
         transaction = Transaction(
@@ -177,17 +177,17 @@ class InvoiceService:
             status="pending",
         )
         self.db.add(transaction)
-        EventService(self.db).create_event(
+        await EventService(self.db).create_event(
             invoice_id=invoice.id,
             event_type="invoice.created",
             source="system",
             payload=provider_response.raw_payload,
         )
-        self.db.flush()
+        await self.db.flush()
         invoice_id = invoice.id
         project_id = project.id
         try:
-            self.db.commit()
+            await self.db.commit()
         except Exception:
             logger.exception(
                 "Invoice DB commit failed after provider creation for tenant_id=%s project_id=%s merchant_order_id=%s provider_order_id=%s",
@@ -196,11 +196,11 @@ class InvoiceService:
                 payload.merchant_order_id,
                 provider_response.provider_order_id,
             )
-            self.db.rollback()
+            await self.db.rollback()
             raise
         try:
-            apply_db_security_context(self.db)
-            refreshed_invoice = self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+            await apply_db_security_context(self.db)
+            refreshed_invoice = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
             if refreshed_invoice is not None:
                 invoice = refreshed_invoice
         except Exception:
@@ -217,7 +217,7 @@ class InvoiceService:
                 invoice_id,
                 tenant_id,
             )
-        refreshed_invoice = self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+        refreshed_invoice = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
         if refreshed_invoice is not None:
             return refreshed_invoice
         logger.warning(
@@ -228,41 +228,41 @@ class InvoiceService:
         )
         return invoice_snapshot
 
-    def list_invoices(self, tenant_id: str, project_id: str | None = None, limit: int = 50, offset: int = 0) -> list[Invoice]:
+    async def list_invoices(self, tenant_id: str, project_id: str | None = None, limit: int = 50, offset: int = 0) -> list[Invoice]:
         stmt = select(Invoice).where(Invoice.tenant_id == tenant_id)
         if project_id is not None:
             stmt = stmt.where(Invoice.project_id == project_id)
         stmt = stmt.order_by(Invoice.created_at.desc()).limit(limit).offset(offset)
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
-    def list_all_invoices(self, limit: int = 50, offset: int = 0) -> list[Invoice]:
+    async def list_all_invoices(self, limit: int = 50, offset: int = 0) -> list[Invoice]:
         stmt = select(Invoice).order_by(Invoice.created_at.desc()).limit(limit).offset(offset)
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
-    def get_invoice(
+    async def get_invoice(
         self, tenant_id: str, invoice_id: str, project_id: str | None = None
     ) -> Invoice | None:
         stmt = select(Invoice).where(Invoice.id == invoice_id, Invoice.tenant_id == tenant_id)
         if project_id is not None:
             stmt = stmt.where(Invoice.project_id == project_id)
-        return self.db.scalar(stmt)
+        return await self.db.scalar(stmt)
 
-    def get_invoice_by_id(self, invoice_id: str) -> Invoice | None:
-        return self.db.scalar(select(Invoice).where(Invoice.id == invoice_id))
+    async def get_invoice_by_id(self, invoice_id: str) -> Invoice | None:
+        return await self.db.scalar(select(Invoice).where(Invoice.id == invoice_id))
 
-    def get_balance(self, tenant_id: str, project_id: str | None = None) -> Decimal:
+    async def get_balance(self, tenant_id: str, project_id: str | None = None) -> Decimal:
         paid_statuses = {"paid", "confirmed"}
         stmt = select(Transaction).where(Transaction.tenant_id == tenant_id)
         if project_id is not None:
             stmt = stmt.where(Transaction.project_id == project_id)
-        transactions = list(self.db.scalars(stmt).all())
+        transactions = list((await self.db.scalars(stmt)).all())
         total = Decimal("0")
         for transaction in transactions:
             if transaction.status in paid_statuses:
                 total += Decimal(transaction.net_amount)
         return total
 
-    def list_invoices_by_tenant(self, tenant_id: str, limit: int = 50, offset: int = 0) -> list[Invoice]:
+    async def list_invoices_by_tenant(self, tenant_id: str, limit: int = 50, offset: int = 0) -> list[Invoice]:
         stmt = (
             select(Invoice)
             .where(Invoice.tenant_id == tenant_id)
@@ -270,9 +270,9 @@ class InvoiceService:
             .limit(limit)
             .offset(offset)
         )
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
-    def apply_provider_status(
+    async def apply_provider_status(
         self,
         provider_order_id: str | None,
         provider_status: str,
@@ -284,24 +284,55 @@ class InvoiceService:
     ) -> Invoice:
         invoice = None
         if provider_order_id:
-            invoice = self.db.scalar(
+            invoice = await self.db.scalar(
                 select(Invoice).where(Invoice.provider_order_id == provider_order_id)
             )
         if invoice is None and merchant_order_id:
-            invoice = self.db.scalar(
+            invoice = await self.db.scalar(
                 select(Invoice).where(Invoice.merchant_order_id == merchant_order_id)
             )
         if invoice is None:
             raise ValueError("Инвойс по webhook-идентификаторам не найден.")
 
-        transaction = self.db.scalar(
+        transaction = await self.db.scalar(
             select(Transaction).where(Transaction.invoice_id == invoice.id)
         )
         if transaction is None:
             raise ValueError("Транзакция для инвойса не найдена.")
 
+        event_service = EventService(self.db)
+        if provider_event_id:
+            existing_event = await event_service.get_event_by_provider_event_id(
+                provider_event_id,
+                provider_name="crypto-cash",
+            )
+            if existing_event is not None:
+                refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=None)
+                return refreshed if refreshed is not None else invoice
+
         previous_status = invoice.status
         normalized_status = self._normalize_provider_status(provider_status)
+
+        if previous_status == normalized_status:
+            stored_payload = dict(invoice.raw_provider_payload_json or {})
+            meta_changed = False
+            if tx_hash and stored_payload.get("tx_hash") != tx_hash:
+                stored_payload["tx_hash"] = tx_hash
+                meta_changed = True
+            if raw_payload is not None and stored_payload.get("last_webhook_payload") != raw_payload:
+                stored_payload["last_webhook_payload"] = raw_payload
+                meta_changed = True
+            if provider_status and stored_payload.get("last_webhook_status") != provider_status:
+                stored_payload["last_webhook_status"] = provider_status
+                meta_changed = True
+            if not meta_changed:
+                return invoice
+            invoice.raw_provider_payload_json = stored_payload
+            self.db.add(invoice)
+            await self.db.commit()
+            refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=None)
+            return refreshed if refreshed is not None else invoice
+
         invoice.status = normalized_status
 
         stored_payload = dict(invoice.raw_provider_payload_json or {})
@@ -313,7 +344,7 @@ class InvoiceService:
         invoice.raw_provider_payload_json = stored_payload
 
         transaction.status = normalized_status
-        self._apply_financial_state_transition(
+        await self._apply_financial_state_transition(
             invoice=invoice,
             transaction=transaction,
             previous_status=previous_status,
@@ -334,16 +365,15 @@ class InvoiceService:
 
             invoice.confirmed_at = invoice.confirmed_at or datetime.now(timezone.utc)
 
-        event_service = EventService(self.db)
-        event_service.create_event(
+        await event_service.create_event(
             invoice_id=invoice.id,
             event_type=f"invoice.{normalized_status}",
             source=source,
             payload=stored_payload,
             provider_event_id=provider_event_id,
         )
-        project = self.db.get(Project, invoice.project_id)
-        ClientWebhookService(event_service).deliver_invoice_update(
+        project = await self.db.get(Project, invoice.project_id)
+        await ClientWebhookService(event_service).deliver_invoice_update(
             project,
             invoice,
             transaction,
@@ -355,7 +385,7 @@ class InvoiceService:
         invoice_snapshot = self._build_invoice_snapshot(invoice)
         self.db.add_all([invoice, transaction])
         try:
-            self.db.commit()
+            await self.db.commit()
         except Exception:
             logger.exception(
                 "Invoice status DB commit failed for invoice_id=%s tenant_id=%s project_id=%s status=%s",
@@ -364,11 +394,11 @@ class InvoiceService:
                 project_id,
                 normalized_status,
             )
-            self.db.rollback()
+            await self.db.rollback()
             raise
         try:
-            apply_db_security_context(self.db)
-            refreshed_invoice = self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+            await apply_db_security_context(self.db)
+            refreshed_invoice = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
             if refreshed_invoice is not None:
                 invoice = refreshed_invoice
         except Exception:
@@ -385,7 +415,7 @@ class InvoiceService:
                 invoice_id,
                 tenant_id,
             )
-        refreshed_invoice = self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+        refreshed_invoice = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
         if refreshed_invoice is not None:
             return refreshed_invoice
         logger.warning(
@@ -396,26 +426,26 @@ class InvoiceService:
         )
         return invoice_snapshot
 
-    def apply_invoice_status_by_id(
+    async def apply_invoice_status_by_id(
         self, invoice_id: str, provider_status: str, tx_hash: str | None = None
     ) -> Invoice:
-        invoice = self.get_invoice_by_id(invoice_id)
+        invoice = await self.get_invoice_by_id(invoice_id)
         if invoice is None:
             raise ValueError("Инвойс не найден.")
-        return self.apply_provider_status(
+        return await self.apply_provider_status(
             invoice.provider_order_id,
             provider_status,
             tx_hash=tx_hash,
             source="manual",
         )
 
-    def sync_invoice_status(
+    async def sync_invoice_status(
         self,
         tenant_id: str,
         invoice_id: str,
         project_id: str | None = None,
     ) -> Invoice:
-        invoice = self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+        invoice = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
         if invoice is None:
             raise ValueError("Инвойс не найден.")
 
@@ -425,7 +455,7 @@ class InvoiceService:
         provider_status = str(item.get("status") or invoice.status)
         provider_order_id = str(item.get("id") or invoice.provider_order_id)
         tx_hash = item.get("hash")
-        return self.apply_provider_status(
+        return await self.apply_provider_status(
             provider_order_id=provider_order_id,
             merchant_order_id=invoice.merchant_order_id,
             provider_status=provider_status,
@@ -434,7 +464,7 @@ class InvoiceService:
             raw_payload=provider_response,
         )
 
-    def _apply_financial_state_transition(
+    async def _apply_financial_state_transition(
         self,
         invoice: Invoice,
         transaction: Transaction,
@@ -446,17 +476,17 @@ class InvoiceService:
             return
 
         balance_service = BalanceService(self.db)
-        balance = balance_service.get_or_create_balance(invoice.tenant_id, self.BALANCE_CURRENCY)
+        balance = await balance_service.get_or_create_balance(invoice.tenant_id, self.BALANCE_CURRENCY)
 
         if previous_status not in paid_like_statuses and new_status in paid_like_statuses:
-            self._apply_initial_settlement(invoice, transaction, balance_service, balance)
+            await self._apply_initial_settlement(invoice, transaction, balance_service, balance)
 
         if previous_status == "paid" and new_status == "confirmed":
-            self._release_pending_to_available(invoice, transaction, balance_service, balance)
+            await self._release_pending_to_available(invoice, transaction, balance_service, balance)
         elif previous_status not in paid_like_statuses and new_status == "confirmed":
-            self._release_pending_to_available(invoice, transaction, balance_service, balance)
+            await self._release_pending_to_available(invoice, transaction, balance_service, balance)
 
-    def _apply_initial_settlement(
+    async def _apply_initial_settlement(
         self,
         invoice: Invoice,
         transaction: Transaction,
@@ -464,7 +494,7 @@ class InvoiceService:
         balance,
     ) -> None:
         gross_amount = Decimal(invoice.amount_fiat).quantize(self.AMOUNT_PRECISION)
-        provider_fee, platform_fee, turnover_fee, net_amount = self._calculate_financials(
+        provider_fee, platform_fee, turnover_fee, net_amount = await self._calculate_financials(
             tenant_id=invoice.tenant_id,
             gross_amount=gross_amount,
         )
@@ -475,16 +505,16 @@ class InvoiceService:
         transaction.turnover_fee = turnover_fee
         transaction.net_amount = net_amount
 
-        balance_service.apply_bucket_delta(balance, "provider_gross_amount", gross_amount)
-        balance_service.apply_bucket_delta(balance, "pending_amount", net_amount)
+        await balance_service.apply_bucket_delta(balance, "provider_gross_amount", gross_amount)
+        await balance_service.apply_bucket_delta(balance, "pending_amount", net_amount)
 
-        provider_percent = BillingPolicyService(self.db).get_provider_fee_percent()
-        markup_percent = BillingPolicyService(self.db).get_effective_markup_percent(invoice.tenant_id)
-        turnover_percent = BillingPolicyService(self.db).get_effective_turnover_fee_percent(
+        provider_percent = await BillingPolicyService(self.db).get_provider_fee_percent()
+        markup_percent = await BillingPolicyService(self.db).get_effective_markup_percent(invoice.tenant_id)
+        turnover_percent = await BillingPolicyService(self.db).get_effective_turnover_fee_percent(
             invoice.tenant_id
         )
 
-        balance_service.add_ledger_entry(
+        await balance_service.add_ledger_entry(
             tenant_id=invoice.tenant_id,
             currency=self.BALANCE_CURRENCY,
             amount=gross_amount,
@@ -495,7 +525,7 @@ class InvoiceService:
             transaction_id=transaction.id,
             description="Начисление валовой суммы по инвойсу.",
         )
-        balance_service.add_ledger_entry(
+        await balance_service.add_ledger_entry(
             tenant_id=invoice.tenant_id,
             currency=self.BALANCE_CURRENCY,
             amount=provider_fee,
@@ -507,7 +537,7 @@ class InvoiceService:
             description="Удержание комиссии Crypto-Cash.",
             metadata_json={"percent": str(provider_percent)},
         )
-        balance_service.add_ledger_entry(
+        await balance_service.add_ledger_entry(
             tenant_id=invoice.tenant_id,
             currency=self.BALANCE_CURRENCY,
             amount=platform_fee,
@@ -519,7 +549,7 @@ class InvoiceService:
             description="Удержание наценки платформы.",
             metadata_json={"percent": str(markup_percent)},
         )
-        balance_service.add_ledger_entry(
+        await balance_service.add_ledger_entry(
             tenant_id=invoice.tenant_id,
             currency=self.BALANCE_CURRENCY,
             amount=turnover_fee,
@@ -532,7 +562,7 @@ class InvoiceService:
             metadata_json={"percent": str(turnover_percent)},
         )
 
-    def _release_pending_to_available(
+    async def _release_pending_to_available(
         self,
         invoice: Invoice,
         transaction: Transaction,
@@ -543,10 +573,10 @@ class InvoiceService:
         if net_amount <= 0:
             return
 
-        balance_service.apply_bucket_delta(balance, "pending_amount", -net_amount)
-        balance_service.apply_bucket_delta(balance, "available_amount", net_amount)
+        await balance_service.apply_bucket_delta(balance, "pending_amount", -net_amount)
+        await balance_service.apply_bucket_delta(balance, "available_amount", net_amount)
 
-        balance_service.add_ledger_entry(
+        await balance_service.add_ledger_entry(
             tenant_id=invoice.tenant_id,
             currency=self.BALANCE_CURRENCY,
             amount=net_amount,
@@ -557,7 +587,7 @@ class InvoiceService:
             transaction_id=transaction.id,
             description="Списание суммы из pending после подтверждения.",
         )
-        balance_service.add_ledger_entry(
+        await balance_service.add_ledger_entry(
             tenant_id=invoice.tenant_id,
             currency=self.BALANCE_CURRENCY,
             amount=net_amount,
@@ -569,15 +599,15 @@ class InvoiceService:
             description="Зачисление суммы в доступный баланс клиента.",
         )
 
-    def _calculate_financials(
+    async def _calculate_financials(
         self,
         tenant_id: str,
         gross_amount: Decimal,
     ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
         billing_policy_service = BillingPolicyService(self.db)
-        provider_fee_percent = billing_policy_service.get_provider_fee_percent()
-        markup_percent = billing_policy_service.get_effective_markup_percent(tenant_id)
-        turnover_fee_percent = billing_policy_service.get_effective_turnover_fee_percent(tenant_id)
+        provider_fee_percent = await billing_policy_service.get_provider_fee_percent()
+        markup_percent = await billing_policy_service.get_effective_markup_percent(tenant_id)
+        turnover_fee_percent = await billing_policy_service.get_effective_turnover_fee_percent(tenant_id)
 
         # Sequential fee overlay:
         # provider fee -> platform markup -> turnover fee.

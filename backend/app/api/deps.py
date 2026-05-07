@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Generator
+import hmac
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rbac import get_role_permissions, has_permission, is_platform_role
 from app.core.security import decode_token
-from app.db.session import SessionLocal
+from app.db.session import AsyncSessionLocal
 from app.db.tenant import clear_db_security_context, set_db_security_context
 from app.models.api_key import ApiKey
 from app.models.project import Project
@@ -31,18 +32,18 @@ class ClientAuthContext:
     auth_mode: str
 
 
-def get_db() -> Generator[Session]:
-    db = SessionLocal()
+async def get_db() -> AsyncGenerator[AsyncSession]:
+    db = AsyncSessionLocal()
     try:
         yield db
     finally:
         clear_db_security_context()
-        db.close()
+        await db.close()
 
 
-def _resolve_user_from_credentials(
+async def _resolve_user_from_credentials(
     credentials: HTTPAuthorizationCredentials | None,
-    db: Session,
+    db: AsyncSession,
 ) -> User:
     if credentials is None:
         raise HTTPException(
@@ -65,13 +66,13 @@ def _resolve_user_from_credentials(
             detail="Token does not contain subject.",
         )
 
-    user = UserService(db).get_by_id(user_id)
+    user = await UserService(db).get_by_id(user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found.",
         )
-    if user.status not in {"active", "invited"}:
+    if user.status != "active":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is suspended or inactive.",
@@ -79,33 +80,33 @@ def _resolve_user_from_credentials(
     return user
 
 
-def _bind_user_security_context(db: Session, user: User) -> None:
+async def _bind_user_security_context(db: AsyncSession, user: User) -> None:
     if user.role == "superadmin" or is_platform_role(user.role):
-        set_db_security_context(db, tenant_id=None, is_superadmin=True)
+        await set_db_security_context(db, tenant_id=None, is_superadmin=True)
         return
-    set_db_security_context(db, tenant_id=user.tenant_id, is_superadmin=False)
+    await set_db_security_context(db, tenant_id=user.tenant_id, is_superadmin=False)
 
 
-def get_current_user(
+async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
-    user = _resolve_user_from_credentials(credentials, db)
-    _bind_user_security_context(db, user)
+    user = await _resolve_user_from_credentials(credentials, db)
+    await _bind_user_security_context(db, user)
     return user
 
 
-def get_client_auth_context(
+async def get_client_auth_context(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     x_api_secret: str | None = Header(default=None, alias="X-API-Secret"),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ClientAuthContext:
     # Bootstrap auth lookup under platform context, then switch to tenant context.
-    set_db_security_context(db, tenant_id=None, is_superadmin=True)
+    await set_db_security_context(db, tenant_id=None, is_superadmin=True)
 
     if credentials is not None:
-        user = _resolve_user_from_credentials(credentials, db)
+        user = await _resolve_user_from_credentials(credentials, db)
         if is_platform_role(user.role):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -116,13 +117,13 @@ def get_client_auth_context(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not bound to tenant.",
             )
-        tenant = db.get(Tenant, user.tenant_id)
+        tenant = await db.get(Tenant, user.tenant_id)
         if tenant is None or tenant.status != "approved":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Tenant must be approved before API access.",
             )
-        set_db_security_context(db, tenant_id=user.tenant_id, is_superadmin=False)
+        await set_db_security_context(db, tenant_id=user.tenant_id, is_superadmin=False)
         return ClientAuthContext(
             tenant_id=user.tenant_id,
             project_id=None,
@@ -137,27 +138,30 @@ def get_client_auth_context(
             detail="Send Bearer token or X-API-Key/X-API-Secret pair.",
         )
 
-    api_key = db.scalar(select(ApiKey).where(ApiKey.public_key == x_api_key))
+    api_key = await db.scalar(select(ApiKey).where(ApiKey.public_key == x_api_key))
     if api_key is None or api_key.status != "active":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API key not found or revoked.",
         )
-    if api_key.secret_hash != KeyService.hash_secret(x_api_secret):
+    if not hmac.compare_digest(
+        api_key.secret_hash,
+        KeyService.hash_secret(x_api_secret),
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API secret.",
         )
 
-    project = db.get(Project, api_key.project_id)
-    tenant = db.get(Tenant, api_key.tenant_id)
+    project = await db.get(Project, api_key.project_id)
+    tenant = await db.get(Tenant, api_key.tenant_id)
     if project is None or tenant is None or tenant.status != "approved":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Project or tenant is unavailable.",
         )
 
-    set_db_security_context(db, tenant_id=api_key.tenant_id, is_superadmin=False)
+    await set_db_security_context(db, tenant_id=api_key.tenant_id, is_superadmin=False)
     return ClientAuthContext(
         tenant_id=api_key.tenant_id,
         project_id=api_key.project_id,
@@ -171,7 +175,7 @@ def user_permissions(current_user: User) -> list[str]:
     return sorted(get_role_permissions(current_user.role))
 
 
-def require_superadmin(current_user: User = Depends(get_current_user)) -> User:
+async def require_superadmin(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != "superadmin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -180,7 +184,7 @@ def require_superadmin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-def require_platform_user(current_user: User = Depends(get_current_user)) -> User:
+async def require_platform_user(current_user: User = Depends(get_current_user)) -> User:
     if not is_platform_role(current_user.role):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -190,7 +194,7 @@ def require_platform_user(current_user: User = Depends(get_current_user)) -> Use
 
 
 def require_platform_permission(permission: str):
-    def dependency(current_user: User = Depends(require_platform_user)) -> User:
+    async def dependency(current_user: User = Depends(require_platform_user)) -> User:
         if not has_permission(current_user.role, permission):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -202,7 +206,7 @@ def require_platform_permission(permission: str):
 
 
 def require_any_platform_permission(*permissions: str):
-    def dependency(current_user: User = Depends(require_platform_user)) -> User:
+    async def dependency(current_user: User = Depends(require_platform_user)) -> User:
         if not any(has_permission(current_user.role, item) for item in permissions):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -213,7 +217,7 @@ def require_any_platform_permission(*permissions: str):
     return dependency
 
 
-def require_tenant_user(current_user: User = Depends(get_current_user)) -> User:
+async def require_tenant_user(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role == "superadmin":
         return current_user
 
@@ -231,9 +235,9 @@ def require_tenant_user(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-def require_approved_tenant_user(
+async def require_approved_tenant_user(
     current_user: User = Depends(require_tenant_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     if current_user.role == "superadmin":
         return current_user
@@ -242,7 +246,7 @@ def require_approved_tenant_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User is not bound to tenant.",
         )
-    tenant = db.get(Tenant, current_user.tenant_id)
+    tenant = await db.get(Tenant, current_user.tenant_id)
     if tenant is None or tenant.status != "approved":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -252,7 +256,7 @@ def require_approved_tenant_user(
 
 
 def require_tenant_permission(permission: str):
-    def dependency(current_user: User = Depends(require_approved_tenant_user)) -> User:
+    async def dependency(current_user: User = Depends(require_approved_tenant_user)) -> User:
         if current_user.role == "superadmin":
             return current_user
         if not has_permission(current_user.role, permission):

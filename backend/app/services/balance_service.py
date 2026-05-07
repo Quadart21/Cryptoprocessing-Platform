@@ -2,18 +2,18 @@
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ledger_entry import LedgerEntry
 from app.models.tenant_balance import TenantBalance
 
 
 class BalanceService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def get_or_create_balance(self, tenant_id: str, currency: str) -> TenantBalance:
-        balance = self.db.scalar(
+    async def get_or_create_balance(self, tenant_id: str, currency: str) -> TenantBalance:
+        balance = await self.db.scalar(
             select(TenantBalance).where(
                 TenantBalance.tenant_id == tenant_id,
                 TenantBalance.currency == currency,
@@ -22,7 +22,7 @@ class BalanceService:
         if balance is None:
             normalized_currency = currency.upper()
             if normalized_currency == "USDT":
-                legacy_balance = self.db.scalar(
+                legacy_balance = await self.db.scalar(
                     select(TenantBalance).where(
                         TenantBalance.tenant_id == tenant_id,
                         TenantBalance.currency == "USD",
@@ -40,7 +40,7 @@ class BalanceService:
                         updated_balance_at=legacy_balance.updated_balance_at or datetime.now(timezone.utc),
                     )
                     self.db.add(balance)
-                    self.db.flush()
+                    await self.db.flush()
                     return balance
 
             balance = TenantBalance(
@@ -54,10 +54,10 @@ class BalanceService:
                 updated_balance_at=datetime.now(timezone.utc),
             )
             self.db.add(balance)
-            self.db.flush()
+            await self.db.flush()
         return balance
 
-    def apply_bucket_delta(
+    async def apply_bucket_delta(
         self,
         balance: TenantBalance,
         bucket: str,
@@ -67,10 +67,10 @@ class BalanceService:
         setattr(balance, bucket, current_value + delta)
         balance.updated_balance_at = datetime.now(timezone.utc)
         self.db.add(balance)
-        self.db.flush()
+        await self.db.flush()
         return balance
 
-    def add_ledger_entry(
+    async def add_ledger_entry(
         self,
         tenant_id: str,
         currency: str,
@@ -98,6 +98,6 @@ class BalanceService:
             metadata_json=metadata_json,
         )
         self.db.add(entry)
-        self.db.flush()
+        await self.db.flush()
         return entry
 

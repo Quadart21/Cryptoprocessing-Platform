@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.security import (
@@ -24,11 +24,11 @@ class AuthError(Exception):
 
 
 class AuthService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         self.session_service = SessionService(db)
 
-    def login(
+    async def login(
         self,
         email: str,
         password: str,
@@ -38,7 +38,7 @@ class AuthService:
         user_agent: str | None = None,
     ) -> TokenPairResponse:
         normalized_email = email.strip().lower()
-        user = self.db.scalar(select(User).where(User.email == normalized_email))
+        user = await self.db.scalar(select(User).where(User.email == normalized_email))
         now = datetime.now(timezone.utc)
 
         if user is None:
@@ -49,7 +49,7 @@ class AuthService:
             raise AuthError(f"Account is temporarily locked. Try again after {locked_until}.")
 
         if not verify_password(password, user.password_hash):
-            self._register_failed_login(user, now=now)
+            await self._register_failed_login(user, now=now)
             raise AuthError("Invalid email or password.")
 
         if user.status != "active":
@@ -58,7 +58,7 @@ class AuthService:
         try:
             TwoFactorService(self.db).verify_login_code(user, otp_code)
         except TwoFactorError as exc:
-            self._register_failed_login(user, now=now)
+            await self._register_failed_login(user, now=now)
             raise AuthError(str(exc)) from exc
 
         user.last_login_at = now
@@ -66,12 +66,12 @@ class AuthService:
         user.last_failed_login_at = None
         user.login_locked_until = None
         self.db.add(user)
-        self.db.commit()
+        await self.db.commit()
 
         access_token = create_access_token(user.id)
         refresh_token = create_refresh_token(user.id)
 
-        self.session_service.create_session(
+        await self.session_service.create_session(
             user=user,
             refresh_token=refresh_token,
             device_fingerprint=device_fingerprint,
@@ -84,7 +84,7 @@ class AuthService:
             refresh_token=refresh_token,
         )
 
-    def create_invite(self, user: User, ttl_hours: int = 24) -> str:
+    async def create_invite(self, user: User, ttl_hours: int = 24) -> str:
         raw_token = generate_invite_token()
         invite = InviteToken(
             user_id=user.id,
@@ -92,11 +92,11 @@ class AuthService:
             expires_at=datetime.now(timezone.utc) + timedelta(hours=ttl_hours),
         )
         self.db.add(invite)
-        self.db.commit()
+        await self.db.commit()
         return raw_token
 
-    def set_password_by_invite(self, token: str, password: str) -> User:
-        invite = self.db.scalar(
+    async def set_password_by_invite(self, token: str, password: str) -> User:
+        invite = await self.db.scalar(
             select(InviteToken).where(InviteToken.token_hash == self._hash_token(token))
         )
         if invite is None:
@@ -106,7 +106,7 @@ class AuthService:
         if invite.expires_at < datetime.now(timezone.utc):
             raise AuthError("Invite token has expired.")
 
-        user = self.db.get(User, invite.user_id)
+        user = await self.db.get(User, invite.user_id)
         if user is None:
             raise AuthError("Invite owner user not found.")
 
@@ -118,11 +118,11 @@ class AuthService:
         user.login_locked_until = None
         invite.used_at = datetime.now(timezone.utc)
         self.db.add_all([user, invite])
-        self.db.commit()
-        self.db.refresh(user)
+        await self.db.commit()
+        await self.db.refresh(user)
         return user
 
-    def change_password(self, user: User, *, current_password: str, new_password: str) -> User:
+    async def change_password(self, user: User, *, current_password: str, new_password: str) -> User:
         if not verify_password(current_password, user.password_hash):
             raise AuthError("Invalid current password.")
         if verify_password(new_password, user.password_hash):
@@ -133,11 +133,11 @@ class AuthService:
         user.last_failed_login_at = None
         user.login_locked_until = None
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        await self.db.commit()
+        await self.db.refresh(user)
         return user
 
-    def _register_failed_login(self, user: User, *, now: datetime) -> None:
+    async def _register_failed_login(self, user: User, *, now: datetime) -> None:
         attempts = max(int(user.failed_login_attempts or 0), 0) + 1
         user.failed_login_attempts = attempts
         user.last_failed_login_at = now
@@ -145,7 +145,7 @@ class AuthService:
             user.login_locked_until = now + timedelta(minutes=settings.auth_lockout_minutes)
             user.failed_login_attempts = 0
         self.db.add(user)
-        self.db.commit()
+        await self.db.commit()
 
     @staticmethod
     def _hash_token(token: str) -> str:

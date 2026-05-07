@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException, Query, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db, require_platform_permission
 from app.models.tenant import Tenant
@@ -15,7 +16,7 @@ from app.services.notification_service import NotificationService
 @router.get("/tenants", response_model=list[TenantSummary])
 async def list_tenants(
     _: User = Depends(require_platform_permission("admin.tenants.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> list[TenantSummary]:
@@ -27,7 +28,7 @@ async def list_tenants(
         .offset(offset)
         .limit(limit)
     )
-    rows = list(db.execute(stmt).all())
+    rows = list((await db.execute(stmt)).all())
     return [
         TenantSummary(
             id=tenant.id,
@@ -49,7 +50,7 @@ async def list_tenants(
 async def create_tenant(
     payload: TenantCreateRequest,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantCreateResponse:
     tenant_service = TenantService(db)
     auth_service = AuthService(db)
@@ -57,9 +58,9 @@ async def create_tenant(
 
     try:
         tenant, owner, project_id, api_public_key, api_secret_key = (
-            tenant_service.create_tenant_with_owner(payload)
+            await tenant_service.create_tenant_with_owner(payload)
         )
-        invite_token = auth_service.create_invite(owner)
+        invite_token = await auth_service.create_invite(owner)
 
         await notification_service.send_tenant_created_notification(
             tenant, owner, project_id, api_public_key, api_secret_key, invite_token
@@ -85,13 +86,13 @@ async def create_tenant(
 async def get_tenant(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TenantSummary:
-    tenant = db.get(Tenant, tenant_id)
+    tenant = await db.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
     
-    owner = db.scalar(
+    owner = await db.scalar(
         select(User)
         .where(User.tenant_id == tenant_id, User.role == "tenant_owner")
         .order_by(User.created_at.asc())
@@ -110,7 +111,7 @@ async def get_tenant(
 async def approve_tenant(
     tenant_id: str,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     from app.services.project_service import ProjectService
     from app.services.notification_service import NotificationService
@@ -120,7 +121,7 @@ async def approve_tenant(
 
     try:
         tenant, project, owner, password, api_public_key, api_secret_key = (
-            tenant_service.approve_tenant(tenant_id)
+            await tenant_service.approve_tenant(tenant_id)
         )
 
         await notification_service.send_tenant_approved_notification(
@@ -146,13 +147,13 @@ async def reject_tenant(
     tenant_id: str,
     payload: dict,
     _: User = Depends(require_platform_permission("admin.tenants.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     review_comment = payload.get("review_comment")
     tenant_service = TenantService(db)
 
     try:
-        tenant = tenant_service.reject_tenant(tenant_id, review_comment)
+        tenant = await tenant_service.reject_tenant(tenant_id, review_comment)
         return {"id": tenant.id, "name": tenant.name, "status": tenant.status}
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

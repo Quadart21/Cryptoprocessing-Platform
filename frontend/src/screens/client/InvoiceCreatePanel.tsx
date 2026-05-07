@@ -31,21 +31,20 @@ export function InvoiceCreatePanel({
     invoiceForm.amount_fiat > 0;
 
   return (
-    <article className="panel invoice-create-panel">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">Создание платежа</p>
-          <h2>Новый инвойс</h2>
-          <p className="invoice-create-subtitle">
-            Выставите счет в выбранном токене и сразу получите платежные реквизиты.
-          </p>
-        </div>
-      </div>
-      <form className="form invoice-create-form" onSubmit={onCreateInvoice}>
-        <div className="invoice-create-grid">
-          <label className="invoice-create-field invoice-create-field-wide">
+    <article className="mc-surface">
+      <header className="mc-surface-header">
+        <p className="mc-surface-eyebrow">Новый платёж</p>
+        <h2 className="mc-surface-title">Создать инвойс</h2>
+        <p className="mc-surface-desc">
+          Выберите проект, токен и сеть. После создания вы получите адрес и сможете отследить статус в списке справа.
+        </p>
+      </header>
+
+      <form className="mc-form" onSubmit={onCreateInvoice}>
+        <div className="mc-form-grid mc-form-grid--2">
+          <label className="mc-field mc-field-span-2">
             <span>Проект</span>
-            <small>К какому проекту относится платеж</small>
+            <small>К какому проекту относится оплата</small>
             <select
               value={invoiceForm.project_id}
               onChange={(event) => onInvoiceFormChange({ ...invoiceForm, project_id: event.target.value })}
@@ -59,9 +58,9 @@ export function InvoiceCreatePanel({
             </select>
           </label>
 
-          <label className="invoice-create-field">
+          <label className="mc-field">
             <span>Токен</span>
-            <small>Актив, который оплатит клиент</small>
+            <small>Чем платит клиент</small>
             <select
               value={invoiceForm.crypto_currency}
               onChange={(event) =>
@@ -77,7 +76,7 @@ export function InvoiceCreatePanel({
             </select>
           </label>
 
-          <label className="invoice-create-field">
+          <label className="mc-field">
             <span>Сеть</span>
             <small>Маршрут перевода</small>
             <select
@@ -96,9 +95,9 @@ export function InvoiceCreatePanel({
             </select>
           </label>
 
-          <label className="invoice-create-field">
+          <label className="mc-field">
             <span>Номер заказа</span>
-            <small>Ваш внутренний идентификатор платежа</small>
+            <small>Ваш ID во внутренней системе</small>
             <input
               value={invoiceForm.merchant_order_id}
               onChange={(event) =>
@@ -108,11 +107,9 @@ export function InvoiceCreatePanel({
             />
           </label>
 
-          <label className="invoice-create-field">
-            <span>Сумма в токене</span>
-            <small>
-              Сумма платежа в выбранном токене; эквивалент в USD/USDT считается в панели отдельно
-            </small>
+          <label className="mc-field">
+            <span>Сумма</span>
+            <small>В токене; лимиты см. ниже</small>
             <input
               value={invoiceForm.amount_fiat}
               onChange={(event) =>
@@ -126,26 +123,20 @@ export function InvoiceCreatePanel({
         </div>
 
         {selectedNetwork ? (
-          <div className="result-box hint-box invoice-create-hint">
-            <div className="invoice-create-hint-head">
-              <strong>
-                {invoiceForm.crypto_currency} / {selectedNetwork.network}
-              </strong>
-              <span>Проверьте маршрут перед созданием инвойса</span>
-            </div>
-            <div className="invoice-create-hint-grid">
-              <p>Инвойс создается в токене, а учетный эквивалент в системе считается по курсу.</p>
-              <p>Мин. депозит: {selectedNetwork.min_deposit ?? "не указан"}</p>
-              <p>Макс. депозит: {selectedNetwork.max_deposit ?? "не ограничен"}</p>
-              <p>Сетевая комиссия: {selectedNetwork.network_fee ?? "не указана"}</p>
-              <p>Memo/tag: {selectedNetwork.memo_required ? "требуется" : "не требуется"}</p>
-            </div>
+          <div className="mc-hint-box">
+            <strong>
+              {invoiceForm.crypto_currency} · {selectedNetwork.network}
+            </strong>
+            <p>Мин. депозит: {selectedNetwork.min_deposit ?? "—"}</p>
+            <p>Макс. депозит: {selectedNetwork.max_deposit ?? "—"}</p>
+            <p>Комиссия сети: {selectedNetwork.network_fee ?? "—"}</p>
+            <p>Memo: {selectedNetwork.memo_required ? "нужен" : "не нужен"}</p>
           </div>
         ) : null}
 
-        <div className="invoice-create-actions">
+        <div className="mc-form-actions">
           <button className="primary-button" disabled={!canSubmit} type="submit">
-            {loading ? "Создаем..." : "Создать инвойс"}
+            {loading ? "Создаём…" : "Создать инвойс"}
           </button>
         </div>
       </form>

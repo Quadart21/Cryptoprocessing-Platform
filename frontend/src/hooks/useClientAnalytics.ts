@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { TransactionItem } from "../api";
+import { formatMoneyAmount } from "../utils/format";
 
 export type AnalyticsPeriod = "today" | "7d" | "30d" | "90d" | "all";
 
@@ -196,11 +197,10 @@ function toAmount(value: string): number {
 }
 
 function formatAmount(value: number, currency: string): string {
-  const formatted = value.toLocaleString("ru-RU", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 8,
+  return formatMoneyAmount(value, currency, {
+    minFractionDigits: 2,
+    maxFractionDigits: 8,
   });
-  return `${formatted} ${currency}`;
 }
 
 function formatPercent(value: number): string {

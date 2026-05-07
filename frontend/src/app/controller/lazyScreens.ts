@@ -1,21 +1,35 @@
 import { lazy } from "react";
 
-export const AdminDashboardScreen = lazy(async () => ({
-  default: (await import("../../screens/AdminDashboard")).AdminDashboard,
-}));
+/** Консоль платформы (~ platform/* + секции админки) */
+export const AdminDashboardLazy = lazy(async () => {
+  const m = await import("../../screens/AdminDashboard");
+  return { default: m.AdminDashboard };
+});
 
-export const ClientDashboardScreen = lazy(async () => ({
-  default: (await import("../../screens/ClientDashboard")).ClientDashboard,
-}));
+/** Кабинет мерчанта (~ merchant/*) */
+export const ClientDashboardLazy = lazy(async () => {
+  const m = await import("../../screens/ClientDashboard");
+  return { default: m.ClientDashboard };
+});
 
-export const LandingPageScreen = lazy(async () => ({
-  default: (await import("../../screens/LandingPage")).LandingPage,
-}));
+/** Публичный лендинг (~ landing/*) */
+export const LandingPageLazy = lazy(async () => {
+  const m = await import("../../screens/LandingPage");
+  return { default: m.LandingPage };
+});
 
-export const OnboardingScreenPage = lazy(async () => ({
-  default: (await import("../../screens/OnboardingScreen")).OnboardingScreen,
-}));
+export const OnboardingScreenLazy = lazy(async () => {
+  const m = await import("../../screens/OnboardingScreen");
+  return { default: m.OnboardingScreen };
+});
 
-export const PublicDocsPageScreen = lazy(async () => ({
-  default: (await import("../../screens/PublicDocsPage")).PublicDocsPage,
-}));
+/** API-документация (тяжёлая MerchantApiReference из merchant/) */
+export const PublicDocsPageLazy = lazy(async () => {
+  const m = await import("../../screens/PublicDocsPage");
+  return { default: m.PublicDocsPage };
+});
+
+export const PublicCmsPageLazy = lazy(async () => {
+  const m = await import("../../screens/PublicCmsPage");
+  return { default: m.PublicCmsPage };
+});

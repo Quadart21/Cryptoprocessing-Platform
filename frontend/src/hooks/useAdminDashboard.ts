@@ -5,7 +5,7 @@ import type {
   TenantItem,
   TransactionItem,
 } from "../api";
-import { formatMetric } from "../utils/format";
+import { formatDecimal } from "../utils/format";
 
 type UseAdminDashboardParams = {
   tenants: TenantItem[];
@@ -31,7 +31,7 @@ export function useAdminDashboard({
 
   return {
     heroRows,
-    heroPrimaryValue: formatMetric(platformAccounting?.invoices_total_amount),
-    heroSecondaryValue: formatMetric(platformAccounting?.net_amount),
+    heroPrimaryValue: formatDecimal(platformAccounting?.invoices_total_amount),
+    heroSecondaryValue: formatDecimal(platformAccounting?.net_amount),
   };
 }

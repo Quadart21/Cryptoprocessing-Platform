@@ -1,17 +1,17 @@
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.platform_setting import PlatformSetting
 
 
 class SeoService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def get_public_settings(self) -> dict[str, Any]:
-        settings = self.db.scalar(
+    async def get_public_settings(self) -> dict[str, Any]:
+        settings = await self.db.scalar(
             select(PlatformSetting).where(PlatformSetting.code == "default")
         )
         if settings is None:

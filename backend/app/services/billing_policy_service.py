@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.platform_setting import PlatformSetting
 from app.models.tenant_fee_policy import TenantFeePolicy
@@ -16,27 +16,27 @@ logger = logging.getLogger(__name__)
 class BillingPolicyService:
     DEFAULT_CODE = "default"
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def get_platform_settings(self) -> PlatformSetting:
-        settings = self.db.scalar(
+    async def get_platform_settings(self) -> PlatformSetting:
+        settings = await self.db.scalar(
             select(PlatformSetting).where(PlatformSetting.code == self.DEFAULT_CODE)
         )
         if settings is None:
             settings = PlatformSetting(code=self.DEFAULT_CODE)
             self.db.add(settings)
-            self.db.flush()
+            await self.db.flush()
         return settings
 
-    def get_tenant_policy(self, tenant_id: str) -> TenantFeePolicy | None:
-        return self.db.scalar(
+    async def get_tenant_policy(self, tenant_id: str) -> TenantFeePolicy | None:
+        return await self.db.scalar(
             select(TenantFeePolicy).where(TenantFeePolicy.tenant_id == tenant_id)
         )
 
-    def get_effective_markup_percent(self, tenant_id: str) -> Decimal:
-        platform_settings = self.get_platform_settings()
-        tenant_policy = self.get_tenant_policy(tenant_id)
+    async def get_effective_markup_percent(self, tenant_id: str) -> Decimal:
+        platform_settings = await self.get_platform_settings()
+        tenant_policy = await self.get_tenant_policy(tenant_id)
         if (
             tenant_policy is not None
             and tenant_policy.custom_markup_percent is not None
@@ -45,9 +45,9 @@ class BillingPolicyService:
             return Decimal(tenant_policy.custom_markup_percent)
         return Decimal(platform_settings.default_markup_percent)
 
-    def get_effective_turnover_fee_percent(self, tenant_id: str) -> Decimal:
-        platform_settings = self.get_platform_settings()
-        tenant_policy = self.get_tenant_policy(tenant_id)
+    async def get_effective_turnover_fee_percent(self, tenant_id: str) -> Decimal:
+        platform_settings = await self.get_platform_settings()
+        tenant_policy = await self.get_tenant_policy(tenant_id)
         if (
             tenant_policy is not None
             and tenant_policy.custom_turnover_fee_percent is not None
@@ -56,20 +56,20 @@ class BillingPolicyService:
             return Decimal(tenant_policy.custom_turnover_fee_percent)
         return Decimal(platform_settings.default_turnover_fee_percent)
 
-    def get_provider_fee_percent(self) -> Decimal:
-        return Decimal(self.get_platform_settings().provider_fee_percent)
+    async def get_provider_fee_percent(self) -> Decimal:
+        return Decimal((await self.get_platform_settings()).provider_fee_percent)
 
-    def get_exchange_rate_markup_percent(self) -> Decimal:
+    async def get_exchange_rate_markup_percent(self) -> Decimal:
         try:
-            return Decimal(self.get_platform_settings().exchange_rate_markup_percent)
+            return Decimal((await self.get_platform_settings()).exchange_rate_markup_percent)
         except SQLAlchemyError:
             logger.exception(
                 "Failed to load exchange_rate_markup_percent from platform settings; using 0 fallback."
             )
             return Decimal("0")
 
-    def get_manual_exchange_rates(self) -> dict[str, Decimal]:
-        settings = self.get_platform_settings()
+    async def get_manual_exchange_rates(self) -> dict[str, Decimal]:
+        settings = await self.get_platform_settings()
         raw_value = settings.manual_exchange_rates_json or "{}"
         try:
             parsed = json.loads(raw_value)
@@ -96,8 +96,8 @@ class BillingPolicyService:
             normalized[symbol] = rate
         return normalized
 
-    def get_cached_exchange_rates(self) -> dict[str, Decimal]:
-        settings = self.get_platform_settings()
+    async def get_cached_exchange_rates(self) -> dict[str, Decimal]:
+        settings = await self.get_platform_settings()
         raw_value = settings.cached_exchange_rates_json or "{}"
         try:
             parsed = json.loads(raw_value)
@@ -124,20 +124,20 @@ class BillingPolicyService:
             normalized[symbol] = rate
         return normalized
 
-    def update_cached_exchange_rates(self, rates: dict[str, Decimal]) -> PlatformSetting:
+    async def update_cached_exchange_rates(self, rates: dict[str, Decimal]) -> PlatformSetting:
         normalized_rates = self._normalize_manual_exchange_rates(rates)
-        settings = self.get_platform_settings()
+        settings = await self.get_platform_settings()
         settings.cached_exchange_rates_json = json.dumps(
             {key: str(value) for key, value in normalized_rates.items()},
             sort_keys=True,
         )
         settings.cached_exchange_rates_updated_at = datetime.now(timezone.utc)
         self.db.add(settings)
-        self.db.commit()
-        self.db.refresh(settings)
+        await self.db.commit()
+        await self.db.refresh(settings)
         return settings
 
-    def update_platform_settings(
+    async def update_platform_settings(
         self,
         *,
         provider_fee_percent: Decimal,
@@ -167,7 +167,7 @@ class BillingPolicyService:
             manual_exchange_rates or {}
         )
 
-        settings = self.get_platform_settings()
+        settings = await self.get_platform_settings()
         settings.provider_fee_percent = provider_fee_percent
         settings.default_markup_percent = default_markup_percent
         settings.default_turnover_fee_percent = default_turnover_fee_percent
@@ -187,19 +187,19 @@ class BillingPolicyService:
         settings.seo_robots = (seo_robots or "index, follow").strip() or "index, follow"
         settings.seo_canonical_url = (seo_canonical_url or "").strip() or None
         self.db.add(settings)
-        self.db.commit()
-        self.db.refresh(settings)
+        await self.db.commit()
+        await self.db.refresh(settings)
         return settings
 
-    def get_or_create_tenant_policy(self, tenant_id: str) -> TenantFeePolicy:
-        policy = self.get_tenant_policy(tenant_id)
+    async def get_or_create_tenant_policy(self, tenant_id: str) -> TenantFeePolicy:
+        policy = await self.get_tenant_policy(tenant_id)
         if policy is None:
             policy = TenantFeePolicy(tenant_id=tenant_id)
             self.db.add(policy)
-            self.db.flush()
+            await self.db.flush()
         return policy
 
-    def update_tenant_policy(
+    async def update_tenant_policy(
         self,
         tenant_id: str,
         *,
@@ -213,14 +213,14 @@ class BillingPolicyService:
         if custom_turnover_fee_percent is not None:
             self._validate_percent(custom_turnover_fee_percent, "custom_turnover_fee_percent")
 
-        policy = self.get_or_create_tenant_policy(tenant_id)
+        policy = await self.get_or_create_tenant_policy(tenant_id)
         policy.custom_markup_percent = custom_markup_percent
         policy.custom_turnover_fee_percent = custom_turnover_fee_percent
         policy.payouts_enabled = payouts_enabled
         policy.requires_manual_payout_review = requires_manual_payout_review
         self.db.add(policy)
-        self.db.commit()
-        self.db.refresh(policy)
+        await self.db.commit()
+        await self.db.refresh(policy)
         return policy
 
     @staticmethod

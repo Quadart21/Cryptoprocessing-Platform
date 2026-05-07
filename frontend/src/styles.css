@@ -1,6 +1,12 @@
+@import "./styles/route-fallback.css";
 @import "./styles/base.css";
 @import "./styles/landing-new.css";
 @import "./styles/dashboard.css";
 @import "./styles/integration.css";
+@import "./styles/client-cabinet.css";
+@import "./styles/merchant-pages.css";
+@import "./styles/merchant-workspace.css";
+@import "./styles/platform-workspace.css";
+@import "./styles/landing-experience.css";
 @import "./styles/responsive.css";
 @import "./styles/theme-overrides.css";

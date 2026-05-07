@@ -3,7 +3,7 @@ from decimal import Decimal
 import re
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.payout_request import PayoutRequest
 from app.models.project import Project
@@ -16,12 +16,12 @@ class PayoutService:
     BALANCE_NETWORK = "TRC20"
     AMOUNT_PRECISION = Decimal("0.00000001")
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         self.balance_service = BalanceService(db)
         self.billing_service = BillingPolicyService(db)
 
-    def create_request(
+    async def create_request(
         self,
         *,
         tenant_id: str,
@@ -31,20 +31,20 @@ class PayoutService:
         amount: Decimal,
         note: str | None,
     ) -> PayoutRequest:
-        self._ensure_payouts_enabled(tenant_id)
+        await self._ensure_payouts_enabled(tenant_id)
         self._validate_trc20_address(destination_address)
-        self._validate_project_ownership(tenant_id, project_id)
+        await self._validate_project_ownership(tenant_id, project_id)
 
         normalized_amount = self._normalize_amount(amount)
-        balance = self.balance_service.get_or_create_balance(tenant_id, self.BALANCE_CURRENCY)
+        balance = await self.balance_service.get_or_create_balance(tenant_id, self.BALANCE_CURRENCY)
         available_amount = Decimal(balance.available_amount).quantize(self.AMOUNT_PRECISION)
         if normalized_amount > available_amount:
             raise ValueError(
                 f"Недостаточно доступного баланса. Доступно: {available_amount} {self.BALANCE_CURRENCY}."
             )
 
-        self.balance_service.apply_bucket_delta(balance, "available_amount", -normalized_amount)
-        self.balance_service.apply_bucket_delta(balance, "locked_amount", normalized_amount)
+        await self.balance_service.apply_bucket_delta(balance, "available_amount", -normalized_amount)
+        await self.balance_service.apply_bucket_delta(balance, "locked_amount", normalized_amount)
 
         payout = PayoutRequest(
             tenant_id=tenant_id,
@@ -58,9 +58,9 @@ class PayoutService:
             review_comment=note,
         )
         self.db.add(payout)
-        self.db.flush()
+        await self.db.flush()
 
-        self.balance_service.add_ledger_entry(
+        await self.balance_service.add_ledger_entry(
             tenant_id=tenant_id,
             currency=self.BALANCE_CURRENCY,
             amount=normalized_amount,
@@ -70,7 +70,7 @@ class PayoutService:
             payout_request_id=payout.id,
             description="Блокировка суммы по запросу на вывод.",
         )
-        self.balance_service.add_ledger_entry(
+        await self.balance_service.add_ledger_entry(
             tenant_id=tenant_id,
             currency=self.BALANCE_CURRENCY,
             amount=normalized_amount,
@@ -80,11 +80,11 @@ class PayoutService:
             payout_request_id=payout.id,
             description="Перевод суммы в locked до решения администратора.",
         )
-        self.db.commit()
-        self.db.refresh(payout)
+        await self.db.commit()
+        await self.db.refresh(payout)
         return payout
 
-    def list_by_tenant(self, tenant_id: str, limit: int = 50, offset: int = 0) -> list[PayoutRequest]:
+    async def list_by_tenant(self, tenant_id: str, limit: int = 50, offset: int = 0) -> list[PayoutRequest]:
         stmt = (
             select(PayoutRequest)
             .where(PayoutRequest.tenant_id == tenant_id)
@@ -92,13 +92,13 @@ class PayoutService:
             .limit(limit)
             .offset(offset)
         )
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
-    def list_all(self, limit: int = 200, offset: int = 0) -> list[PayoutRequest]:
+    async def list_all(self, limit: int = 200, offset: int = 0) -> list[PayoutRequest]:
         stmt = select(PayoutRequest).order_by(PayoutRequest.created_at.desc()).limit(limit).offset(offset)
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
-    def review_request(
+    async def review_request(
         self,
         *,
         payout_request_id: str,
@@ -108,7 +108,7 @@ class PayoutService:
         external_payout_id: str | None,
         amount_approved: Decimal | None,
     ) -> PayoutRequest:
-        payout = self.db.get(PayoutRequest, payout_request_id)
+        payout = await self.db.get(PayoutRequest, payout_request_id)
         if payout is None:
             raise ValueError("Запрос на вывод не найден.")
         if payout.status != "pending_review":
@@ -118,7 +118,7 @@ class PayoutService:
 
         requested = self._normalize_amount(Decimal(payout.amount_requested))
         approved = self._normalize_amount(amount_approved) if amount_approved is not None else requested
-        balance = self.balance_service.get_or_create_balance(
+        balance = await self.balance_service.get_or_create_balance(
             payout.tenant_id, self.BALANCE_CURRENCY
         )
         locked_amount = Decimal(balance.locked_amount).quantize(self.AMOUNT_PRECISION)
@@ -137,13 +137,13 @@ class PayoutService:
                 raise ValueError("Сумма одобрения не может быть больше суммы запроса.")
 
             release_back = (requested - approved).quantize(self.AMOUNT_PRECISION)
-            self.balance_service.apply_bucket_delta(balance, "locked_amount", -requested)
+            await self.balance_service.apply_bucket_delta(balance, "locked_amount", -requested)
             if approved > 0:
-                self.balance_service.apply_bucket_delta(balance, "withdrawn_amount", approved)
+                await self.balance_service.apply_bucket_delta(balance, "withdrawn_amount", approved)
             if release_back > 0:
-                self.balance_service.apply_bucket_delta(balance, "available_amount", release_back)
+                await self.balance_service.apply_bucket_delta(balance, "available_amount", release_back)
 
-            self.balance_service.add_ledger_entry(
+            await self.balance_service.add_ledger_entry(
                 tenant_id=payout.tenant_id,
                 currency=self.BALANCE_CURRENCY,
                 amount=requested,
@@ -154,7 +154,7 @@ class PayoutService:
                 description="Списание заблокированной суммы после одобрения выплаты.",
             )
             if approved > 0:
-                self.balance_service.add_ledger_entry(
+                await self.balance_service.add_ledger_entry(
                     tenant_id=payout.tenant_id,
                     currency=self.BALANCE_CURRENCY,
                     amount=approved,
@@ -166,7 +166,7 @@ class PayoutService:
                     metadata_json={"external_payout_id": external_payout_id},
                 )
             if release_back > 0:
-                self.balance_service.add_ledger_entry(
+                await self.balance_service.add_ledger_entry(
                     tenant_id=payout.tenant_id,
                     currency=self.BALANCE_CURRENCY,
                     amount=release_back,
@@ -180,9 +180,9 @@ class PayoutService:
             payout.amount_approved = approved
             payout.status = "processed"
         else:
-            self.balance_service.apply_bucket_delta(balance, "locked_amount", -requested)
-            self.balance_service.apply_bucket_delta(balance, "available_amount", requested)
-            self.balance_service.add_ledger_entry(
+            await self.balance_service.apply_bucket_delta(balance, "locked_amount", -requested)
+            await self.balance_service.apply_bucket_delta(balance, "available_amount", requested)
+            await self.balance_service.add_ledger_entry(
                 tenant_id=payout.tenant_id,
                 currency=self.BALANCE_CURRENCY,
                 amount=requested,
@@ -192,7 +192,7 @@ class PayoutService:
                 payout_request_id=payout.id,
                 description="Снятие блокировки после отклонения запроса на вывод.",
             )
-            self.balance_service.add_ledger_entry(
+            await self.balance_service.add_ledger_entry(
                 tenant_id=payout.tenant_id,
                 currency=self.BALANCE_CURRENCY,
                 amount=requested,
@@ -206,16 +206,16 @@ class PayoutService:
             payout.status = "rejected"
 
         self.db.add(payout)
-        self.db.commit()
-        self.db.refresh(payout)
+        await self.db.commit()
+        await self.db.refresh(payout)
         return payout
 
-    def _ensure_payouts_enabled(self, tenant_id: str) -> None:
-        settings = self.billing_service.get_platform_settings()
+    async def _ensure_payouts_enabled(self, tenant_id: str) -> None:
+        settings = await self.billing_service.get_platform_settings()
         if not settings.payouts_enabled:
             raise ValueError("Выводы временно отключены на уровне платформы.")
 
-        policy = self.billing_service.get_or_create_tenant_policy(tenant_id)
+        policy = await self.billing_service.get_or_create_tenant_policy(tenant_id)
         if not policy.payouts_enabled:
             raise ValueError("Для вашего аккаунта выводы отключены администратором.")
 
@@ -224,10 +224,10 @@ class PayoutService:
         if not re.fullmatch(r"T[1-9A-HJ-NP-Za-km-z]{25,45}", address):
             raise ValueError("Укажите корректный адрес USDT TRC20 (начинается с T).")
 
-    def _validate_project_ownership(self, tenant_id: str, project_id: str | None) -> None:
+    async def _validate_project_ownership(self, tenant_id: str, project_id: str | None) -> None:
         if project_id is None:
             return
-        project = self.db.scalar(
+        project = await self.db.scalar(
             select(Project).where(
                 Project.id == project_id,
                 Project.tenant_id == tenant_id,

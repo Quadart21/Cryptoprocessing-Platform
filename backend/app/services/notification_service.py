@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 import requests
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decrypt_value, encrypt_value
 from app.models.platform_setting import PlatformSetting
@@ -143,7 +143,7 @@ class NotificationService:
         "utc_now",
     )
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
     def get_platform_event_views(self, platform_settings: PlatformSetting) -> list[dict[str, Any]]:
@@ -185,7 +185,7 @@ class NotificationService:
     def get_template_variables(self) -> list[str]:
         return list(self.TEMPLATE_VARIABLES)
 
-    def update_platform_notification_settings(
+    async def update_platform_notification_settings(
         self,
         platform_settings: PlatformSetting,
         *,
@@ -321,8 +321,8 @@ class NotificationService:
             )
 
         self.db.add(platform_settings)
-        self.db.commit()
-        self.db.refresh(platform_settings)
+        await self.db.commit()
+        await self.db.refresh(platform_settings)
         return platform_settings
 
     def get_user_notification_settings(self, user: User) -> dict[str, Any]:
@@ -334,7 +334,7 @@ class NotificationService:
             "telegram_connected": bool((user.telegram_chat_id or "").strip()),
         }
 
-    def update_user_notification_settings(
+    async def update_user_notification_settings(
         self,
         user: User,
         *,
@@ -347,11 +347,11 @@ class NotificationService:
         normalized_chat_id = (telegram_chat_id or "").strip()
         user.telegram_chat_id = normalized_chat_id or None
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        await self.db.commit()
+        await self.db.refresh(user)
         return user
 
-    def notify_user(
+    async def notify_user(
         self,
         user: User,
         *,
@@ -364,7 +364,7 @@ class NotificationService:
         if event_code not in self.EVENT_DEFINITION_BY_CODE:
             return
 
-        platform_settings = BillingPolicyService(self.db).get_platform_settings()
+        platform_settings = await BillingPolicyService(self.db).get_platform_settings()
         email_events = self._parse_event_codes(
             platform_settings.email_notification_events_json,
             fallback=self.DEFAULT_EMAIL_EVENTS,
@@ -410,7 +410,7 @@ class NotificationService:
                 message_text=rendered_payload.telegram_text,
             )
 
-    def notify_tenant_users(
+    async def notify_tenant_users(
         self,
         tenant_id: str,
         *,
@@ -422,11 +422,11 @@ class NotificationService:
         force_email: bool = False,
         force_telegram: bool = False,
     ) -> None:
-        recipients = self._list_tenant_recipients(tenant_id=tenant_id, owner_only=owner_only)
+        recipients = await self._list_tenant_recipients(tenant_id=tenant_id, owner_only=owner_only)
         for recipient in recipients:
             if exclude_user_id and recipient.id == exclude_user_id:
                 continue
-            self.notify_user(
+            await self.notify_user(
                 recipient,
                 event_code=event_code,
                 subject=subject,
@@ -435,7 +435,7 @@ class NotificationService:
                 force_telegram=force_telegram,
             )
 
-    def _list_tenant_recipients(self, *, tenant_id: str, owner_only: bool) -> list[User]:
+    async def _list_tenant_recipients(self, *, tenant_id: str, owner_only: bool) -> list[User]:
         stmt = select(User).where(
             User.tenant_id == tenant_id,
             User.status.in_(["active", "invited"]),
@@ -443,7 +443,7 @@ class NotificationService:
         if owner_only:
             stmt = stmt.where(User.role == "tenant_owner")
         stmt = stmt.order_by(User.created_at.asc())
-        return list(self.db.scalars(stmt).all())
+        return list((await self.db.scalars(stmt)).all())
 
     @classmethod
     def _parse_event_codes(cls, raw_value: str | None, *, fallback: set[str]) -> set[str]:

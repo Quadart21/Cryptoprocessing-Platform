@@ -1,11 +1,11 @@
-﻿from typing import Any
+﻿from typing import Any, Literal
 
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import (
     ClientAuthContext,
@@ -83,12 +83,11 @@ async def client_health() -> dict[str, str]:
 
 @router.get("/public-pages", response_model=PublicPageListResponse)
 async def list_public_pages(
-    status_filter: str = "published",
-    db: Session = Depends(get_db),
+    status_filter: Literal["published"] = "published",
+    db: AsyncSession = Depends(get_db),
 ) -> PublicPageListResponse:
     service = PublicPageService(db)
-    _ = status_filter
-    pages = service.list_published_pages()
+    pages = await service.list_published_pages()
     return PublicPageListResponse(
         items=[
             PublicPageNavigationItem(
@@ -107,9 +106,9 @@ async def list_public_pages(
 @router.get("/public-pages/{slug}", response_model=PublicPageResponse)
 async def get_public_page_by_slug(
     slug: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> PublicPageResponse:
-    page = PublicPageService(db).get_published_page_by_slug(slug)
+    page = await PublicPageService(db).get_published_page_by_slug(slug)
     if page is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Страница не найдена.")
     return PublicPageResponse(
@@ -128,7 +127,7 @@ async def get_public_page_by_slug(
 
 
 @router.post("/auth/login", response_model=TokenPairResponse)
-async def login(payload: dict[str, Any], request: Request, db: Session = Depends(get_db)) -> TokenPairResponse:
+async def login(payload: dict[str, Any], request: Request, db: AsyncSession = Depends(get_db)) -> TokenPairResponse:
     email = _normalize_input(payload.get("email"))
     password = _normalize_input(payload.get("password"))
     otp_code = _normalize_input(payload.get("otp_code"))
@@ -149,7 +148,7 @@ async def login(payload: dict[str, Any], request: Request, db: Session = Depends
 
     auth_service = AuthService(db)
     try:
-        return auth_service.login(
+        return await auth_service.login(
             email, password, otp_code=otp_code or None,
             device_fingerprint=device_fingerprint,
             ip_address=ip_address,
@@ -164,7 +163,7 @@ async def login(payload: dict[str, Any], request: Request, db: Session = Depends
 
 @router.post("/auth/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
 async def register(
-    payload: dict[str, Any], db: Session = Depends(get_db)
+    payload: dict[str, Any], db: AsyncSession = Depends(get_db)
 ) -> RegistrationResponse:
     company_name = _normalize_input(payload.get("company_name"))
     owner_full_name = _normalize_input(payload.get("owner_full_name"))
@@ -210,7 +209,7 @@ async def register(
 
     tenant_service = TenantService(db)
     try:
-        tenant, user, _project = tenant_service.register_self_service(
+        tenant, user, _project = await tenant_service.register_self_service(
             company_name=company_name,
             owner_full_name=owner_full_name,
             owner_email=owner_email,
@@ -222,14 +221,14 @@ async def register(
             plan=plan,
         )
     except ValueError as exc:
-        db.rollback()
+        await db.rollback()
         logger.warning("Registration validation failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
     except IntegrityError as exc:
-        db.rollback()
+        await db.rollback()
         logger.exception("Registration integrity error")
         error_text = str(exc).lower()
         if "ix_projects_domain" in error_text or "projects_domain" in error_text:
@@ -245,21 +244,21 @@ async def register(
             detail=detail,
         ) from exc
     except OperationalError as exc:
-        db.rollback()
+        await db.rollback()
         logger.exception("Registration database connectivity error")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Сервис регистрации временно недоступен: ошибка подключения к базе данных.",
         ) from exc
     except Exception as exc:
-        db.rollback()
+        await db.rollback()
         logger.exception("Unexpected registration error")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Не удалось подключить проект. Проверьте корректность данных и попробуйте снова.",
         ) from exc
 
-    NotificationService(db).notify_user(
+    await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_APPLICATION_SUBMITTED,
         subject="Заявка на подключение проекта получена",
@@ -279,18 +278,18 @@ async def register(
 
 @router.post("/auth/set-password")
 async def set_password(
-    payload: SetPasswordRequest, db: Session = Depends(get_db)
+    payload: SetPasswordRequest, db: AsyncSession = Depends(get_db)
 ) -> dict[str, str]:
     auth_service = AuthService(db)
     try:
-        user = auth_service.set_password_by_invite(payload.token, payload.password)
+        user = await auth_service.set_password_by_invite(payload.token, payload.password)
     except AuthError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
 
-    NotificationService(db).notify_user(
+    await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_PASSWORD_CHANGED,
         subject="Пароль для входа установлен",
@@ -311,10 +310,10 @@ async def set_password(
 @router.post("/auth/recover-password", response_model=PasswordRecoveryResponse)
 async def recover_password(
     payload: PasswordRecoveryRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> PasswordRecoveryResponse:
     normalized_email = payload.email.strip().lower()
-    user = db.scalar(
+    user = await db.scalar(
         select(User).where(
             User.email == normalized_email,
             User.tenant_id.is_not(None),
@@ -323,8 +322,8 @@ async def recover_password(
     )
 
     if user is not None and user.status in {"active", "invited"}:
-        token = AuthService(db).create_invite(user)
-        NotificationService(db).notify_user(
+        token = await AuthService(db).create_invite(user)
+        await NotificationService(db).notify_user(
             user,
             event_code=NotificationService.EVENT_PASSWORD_GENERATED,
             subject="Запрошено восстановление пароля",
@@ -361,7 +360,7 @@ async def client_me(current_user: User = Depends(get_current_user)) -> CurrentUs
 @router.get("/security/2fa/status", response_model=TwoFactorStatusResponse)
 async def get_two_factor_status(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TwoFactorStatusResponse:
     payload = TwoFactorService(db).get_status(current_user)
     return TwoFactorStatusResponse(**payload)
@@ -370,9 +369,9 @@ async def get_two_factor_status(
 @router.post("/security/2fa/setup", response_model=TwoFactorSetupResponse)
 async def setup_two_factor(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TwoFactorSetupResponse:
-    payload = TwoFactorService(db).setup(current_user)
+    payload = await TwoFactorService(db).setup(current_user)
     return TwoFactorSetupResponse(**payload)
 
 
@@ -380,14 +379,14 @@ async def setup_two_factor(
 async def enable_two_factor(
     payload: TwoFactorEnableRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TwoFactorStatusResponse:
     two_factor_service = TwoFactorService(db)
     try:
-        user = two_factor_service.enable(current_user, payload.code)
+        user = await two_factor_service.enable(current_user, payload.code)
     except TwoFactorError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    NotificationService(db).notify_user(
+    await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_TWO_FACTOR_ENABLED,
         subject="2FA включена",
@@ -404,18 +403,18 @@ async def enable_two_factor(
 async def disable_two_factor(
     payload: TwoFactorDisableRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TwoFactorStatusResponse:
     two_factor_service = TwoFactorService(db)
     try:
-        user = two_factor_service.disable(
+        user = await two_factor_service.disable(
             current_user,
             password=payload.password,
             code=payload.code,
         )
     except TwoFactorError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    NotificationService(db).notify_user(
+    await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_TWO_FACTOR_DISABLED,
         subject="2FA отключена",
@@ -432,11 +431,11 @@ async def disable_two_factor(
 async def change_password(
     payload: PasswordChangeRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     auth_service = AuthService(db)
     try:
-        user = auth_service.change_password(
+        user = await auth_service.change_password(
             current_user,
             current_password=payload.current_password,
             new_password=payload.new_password,
@@ -444,7 +443,7 @@ async def change_password(
     except AuthError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    NotificationService(db).notify_user(
+    await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_PASSWORD_CHANGED,
         subject="Пароль изменен",
@@ -459,7 +458,7 @@ async def change_password(
 @router.get("/notifications/settings", response_model=MerchantNotificationSettingsResponse)
 async def get_notification_settings(
     current_user: User = Depends(require_tenant_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> MerchantNotificationSettingsResponse:
     payload = NotificationService(db).get_user_notification_settings(current_user)
     return MerchantNotificationSettingsResponse(**payload)
@@ -469,10 +468,10 @@ async def get_notification_settings(
 async def update_notification_settings(
     payload: MerchantNotificationSettingsUpdateRequest,
     current_user: User = Depends(require_tenant_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> MerchantNotificationSettingsResponse:
     notification_service = NotificationService(db)
-    user = notification_service.update_user_notification_settings(
+    user = await notification_service.update_user_notification_settings(
         current_user,
         notify_email_enabled=payload.notify_email_enabled,
         notify_telegram_enabled=payload.notify_telegram_enabled,
@@ -493,14 +492,15 @@ async def client_cabinet(current_user: User = Depends(require_tenant_user)) -> d
 
 @router.get("/onboarding/status", response_model=OnboardingStatusResponse)
 async def onboarding_status(
-    current_user: User = Depends(require_tenant_user), db: Session = Depends(get_db)
+    current_user: User = Depends(require_tenant_user), db: AsyncSession = Depends(get_db)
 ) -> OnboardingStatusResponse:
-    tenant = db.get(Tenant, current_user.tenant_id) if current_user.tenant_id else None
+    tenant = await db.get(Tenant, current_user.tenant_id) if current_user.tenant_id else None
     project = (
-        db.query(Project)
-        .filter(Project.tenant_id == current_user.tenant_id)
-        .order_by(Project.created_at.asc())
-        .first()
+        await db.scalar(
+            select(Project)
+            .where(Project.tenant_id == current_user.tenant_id)
+            .order_by(Project.created_at.asc())
+        )
         if current_user.tenant_id
         else None
     )
@@ -518,7 +518,7 @@ async def onboarding_status(
 @router.get("/projects", response_model=list[ProjectSummary])
 async def client_projects(
     current_user: User = Depends(require_tenant_permission("client.projects.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[ProjectSummary]:
     project_service = ProjectService(db)
     return [
@@ -530,14 +530,14 @@ async def client_projects(
             description=project.description,
             status=project.status,
         )
-        for project in project_service.list_projects_by_tenant(current_user.tenant_id or "")
+        for project in await project_service.list_projects_by_tenant(current_user.tenant_id or "")
     ]
 
 
 @router.get("/api-keys", response_model=list[ApiKeySummary])
 async def client_api_keys(
     current_user: User = Depends(require_tenant_permission("client.api_keys.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[ApiKeySummary]:
     project_service = ProjectService(db)
     return [
@@ -547,7 +547,7 @@ async def client_api_keys(
             public_key=api_key.public_key,
             status=api_key.status,
         )
-        for api_key in project_service.list_api_keys_by_tenant(current_user.tenant_id or "")
+        for api_key in await project_service.list_api_keys_by_tenant(current_user.tenant_id or "")
     ]
 
 
@@ -555,15 +555,15 @@ async def client_api_keys(
 async def revoke_client_api_key(
     api_key_id: str,
     current_user: User = Depends(require_tenant_permission("client.api_keys.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ApiKeySummary:
     project_service = ProjectService(db)
     notification_service = NotificationService(db)
-    api_key = project_service.get_api_key(api_key_id)
+    api_key = await project_service.get_api_key(api_key_id)
     if api_key is None or api_key.tenant_id != (current_user.tenant_id or ""):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key не найден.")
-    revoked = project_service.revoke_api_key(api_key_id)
-    notification_service.notify_tenant_users(
+    revoked = await project_service.revoke_api_key(api_key_id)
+    await notification_service.notify_tenant_users(
         revoked.tenant_id,
         event_code=NotificationService.EVENT_API_KEY_REVOKED,
         subject="API-ключ отозван",
@@ -585,15 +585,15 @@ async def revoke_client_api_key(
 async def regenerate_client_api_key(
     api_key_id: str,
     current_user: User = Depends(require_tenant_permission("client.api_keys.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> ApiKeyRegenerateResponse:
     project_service = ProjectService(db)
     notification_service = NotificationService(db)
-    api_key = project_service.get_api_key(api_key_id)
+    api_key = await project_service.get_api_key(api_key_id)
     if api_key is None or api_key.tenant_id != (current_user.tenant_id or ""):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key не найден.")
-    regenerated, secret_key = project_service.regenerate_api_key(api_key_id)
-    notification_service.notify_tenant_users(
+    regenerated, secret_key = await project_service.regenerate_api_key(api_key_id)
+    await notification_service.notify_tenant_users(
         regenerated.tenant_id,
         event_code=NotificationService.EVENT_API_KEY_REGENERATED,
         subject="API-ключ перевыпущен",
@@ -617,11 +617,11 @@ async def regenerate_client_api_key(
 async def configure_webhook(
     payload: WebhookConfigRequest,
     current_user: User = Depends(require_tenant_permission("client.webhooks.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> WebhookConfigResponse:
     project_service = ProjectService(db)
     try:
-        project = project_service.update_webhook_config(
+        project = await project_service.update_webhook_config(
             tenant_id=current_user.tenant_id or "",
             project_id=payload.project_id,
             webhook_url=payload.webhook_url,
@@ -639,7 +639,7 @@ async def configure_webhook(
 @router.get("/webhooks", response_model=list[WebhookConfigResponse])
 async def list_webhooks(
     current_user: User = Depends(require_tenant_permission("client.webhooks.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[WebhookConfigResponse]:
     project_service = ProjectService(db)
     return [
@@ -648,7 +648,7 @@ async def list_webhooks(
             webhook_url=project.webhook_url,
             has_secret=ProjectService.has_webhook_secret(project),
         )
-        for project in project_service.list_projects_by_tenant(current_user.tenant_id or "")
+        for project in await project_service.list_projects_by_tenant(current_user.tenant_id or "")
     ]
 
 
@@ -656,10 +656,10 @@ async def list_webhooks(
 async def test_webhook_delivery(
     payload: WebhookTestRequest,
     current_user: User = Depends(require_tenant_permission("client.webhooks.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> WebhookTestResponse:
     project_service = ProjectService(db)
-    project = project_service.get_project(payload.project_id)
+    project = await project_service.get_project(payload.project_id)
     if project is None or project.tenant_id != (current_user.tenant_id or ""):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Проект не найден.")
 
@@ -683,7 +683,7 @@ async def test_webhook_delivery(
 async def create_invoice(
     payload: InvoiceCreateRequest,
     auth: ClientAuthContext = Depends(get_client_auth_context),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> InvoiceResponse:
     _ensure_client_api_permission(auth, "client.invoices.write")
     if auth.project_id is not None and payload.project_id != auth.project_id:
@@ -693,7 +693,7 @@ async def create_invoice(
         )
     invoice_service = InvoiceService(db)
     try:
-        invoice = invoice_service.create_invoice(auth.tenant_id, payload)
+        invoice = await invoice_service.create_invoice(auth.tenant_id, payload)
     except InvoiceAmountOutOfRangeError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -727,7 +727,7 @@ async def create_invoice(
 @router.get("/invoices", response_model=list[InvoiceResponse])
 async def list_invoices(
     auth: ClientAuthContext = Depends(get_client_auth_context),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> list[InvoiceResponse]:
@@ -736,7 +736,7 @@ async def list_invoices(
     try:
         return [
             _map_invoice_response(invoice)
-            for invoice in invoice_service.list_invoices(
+            for invoice in await invoice_service.list_invoices(
                 auth.tenant_id,
                 project_id=auth.project_id,
                 limit=limit,
@@ -752,11 +752,11 @@ async def list_invoices(
 async def get_invoice(
     invoice_id: str,
     auth: ClientAuthContext = Depends(get_client_auth_context),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> InvoiceResponse:
     _ensure_client_api_permission(auth, "client.invoices.read")
     invoice_service = InvoiceService(db)
-    invoice = invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
+    invoice = await invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
     try:
@@ -770,17 +770,17 @@ async def get_invoice(
 async def sync_invoice(
     invoice_id: str,
     auth: ClientAuthContext = Depends(get_client_auth_context),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> InvoiceResponse:
-    _ensure_client_api_permission(auth, "client.invoices.read")
+    _ensure_client_api_permission(auth, "client.invoices.write")
     invoice_service = InvoiceService(db)
-    invoice = invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
+    invoice = await invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
     if auth.project_id is not None and invoice.project_id != auth.project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
     try:
-        invoice = invoice_service.sync_invoice_status(
+        invoice = await invoice_service.sync_invoice_status(
             tenant_id=auth.tenant_id,
             invoice_id=invoice_id,
             project_id=auth.project_id,
@@ -802,11 +802,11 @@ async def sync_invoice(
 @router.get("/balance", response_model=BalanceResponse)
 async def get_balance(
     auth: ClientAuthContext = Depends(get_client_auth_context),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> BalanceResponse:
     _ensure_client_api_permission(auth, "client.balance.read")
     balance_service = BalanceService(db)
-    balance = balance_service.get_or_create_balance(auth.tenant_id, PayoutService.BALANCE_CURRENCY)
+    balance = await balance_service.get_or_create_balance(auth.tenant_id, PayoutService.BALANCE_CURRENCY)
     available_amount = balance.available_amount
     locked_amount = balance.locked_amount
     return BalanceResponse(
@@ -821,16 +821,16 @@ async def get_balance(
 @router.get("/rates", response_model=RatesResponse)
 async def get_rates(
     auth: ClientAuthContext = Depends(get_client_auth_context),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> RatesResponse:
     _ensure_client_api_permission(auth, "client.rates.read")
-    return RatesService(db).list_rates()
+    return await RatesService(db).list_rates()
 
 
 @router.get("/transactions", response_model=list[TransactionResponse])
 async def list_transactions(
     auth: ClientAuthContext = Depends(get_client_auth_context),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> list[TransactionResponse]:
@@ -838,7 +838,7 @@ async def list_transactions(
     transaction_service = TransactionService(db)
     return [
         _map_transaction_response(transaction)
-        for transaction in transaction_service.list_by_tenant(
+        for transaction in await transaction_service.list_by_tenant(
             auth.tenant_id,
             project_id=auth.project_id,
             limit=limit,
@@ -851,11 +851,11 @@ async def list_transactions(
 async def get_transaction(
     transaction_id: str,
     auth: ClientAuthContext = Depends(get_client_auth_context),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> TransactionResponse:
     _ensure_client_api_permission(auth, "client.transactions.read")
     transaction_service = TransactionService(db)
-    transaction = transaction_service.get_by_id(transaction_id)
+    transaction = await transaction_service.get_by_id(transaction_id)
     if transaction is None or transaction.tenant_id != auth.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -872,17 +872,17 @@ async def get_transaction(
 @router.get("/accounting/summary", response_model=AccountingSummaryResponse)
 async def get_accounting_summary(
     current_user: User = Depends(require_tenant_permission("client.accounting.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> AccountingSummaryResponse:
     accounting_service = AccountingService(db)
-    return accounting_service.build_summary(current_user.tenant_id or "")
+    return await accounting_service.build_summary(current_user.tenant_id or "")
 
 
 @router.post("/payouts", response_model=PayoutRequestResponse, status_code=status.HTTP_201_CREATED)
 async def request_payout(
     payload: PayoutRequestCreateRequest,
     current_user: User = Depends(require_tenant_permission("client.payouts.write")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> PayoutRequestResponse:
     # Payout requests are available only for authenticated cabinet users.
     if payload.project_id is None:
@@ -892,7 +892,7 @@ async def request_payout(
         )
     payout_service = PayoutService(db)
     try:
-        payout = payout_service.create_request(
+        payout = await payout_service.create_request(
             tenant_id=current_user.tenant_id or "",
             requested_by_user_id=current_user.id,
             project_id=payload.project_id,
@@ -902,7 +902,7 @@ async def request_payout(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    NotificationService(db).notify_tenant_users(
+    await NotificationService(db).notify_tenant_users(
         current_user.tenant_id or "",
         event_code=NotificationService.EVENT_PAYOUT_REQUESTED,
         subject="Создан запрос на выплату",
@@ -914,25 +914,25 @@ async def request_payout(
         ],
         owner_only=True,
     )
-    project_name = db.scalar(select(Project.name).where(Project.id == payout.project_id)) if payout.project_id else None
+    project_name = await db.scalar(select(Project.name).where(Project.id == payout.project_id)) if payout.project_id else None
     return _map_payout_response(payout, project_name=project_name)
 
 
 @router.get("/payouts", response_model=list[PayoutRequestResponse])
 async def list_payouts(
     current_user: User = Depends(require_tenant_permission("client.payouts.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> list[PayoutRequestResponse]:
     payout_service = PayoutService(db)
-    payouts = payout_service.list_by_tenant(current_user.tenant_id or "", limit=limit, offset=offset)
-    project_names = {
-        item.id: item.name
-        for item in db.scalars(
+    payouts = await payout_service.list_by_tenant(current_user.tenant_id or "", limit=limit, offset=offset)
+    projects = (
+        await db.scalars(
             select(Project).where(Project.tenant_id == (current_user.tenant_id or ""))
-        ).all()
-    }
+        )
+    ).all()
+    project_names = {item.id: item.name for item in projects}
     return [
         _map_payout_response(
             item,

@@ -19,6 +19,8 @@ type DashboardRailProps = {
   items?: DashboardRailItem[];
   groups?: DashboardRailGroup[];
   activeKey?: string;
+  /** Подзаголовок в топбаре (например, название текущей страницы кабинета). Если не задан — показывается группа меню. */
+  topbarSubtitle?: string;
   onSelect?: (key: string) => void;
   user?: CurrentUser;
   onLogout?: () => void;
@@ -98,6 +100,7 @@ export function DashboardRail({
   items,
   groups,
   activeKey,
+  topbarSubtitle,
   onSelect,
   user,
   onLogout,
@@ -111,8 +114,14 @@ export function DashboardRail({
       }
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const openMenu = () => setIsMobileMenuOpen(true);
+    window.addEventListener("merchant-open-nav", openMenu);
+    return () => window.removeEventListener("merchant-open-nav", openMenu);
   }, []);
 
   useEffect(() => {
@@ -217,7 +226,9 @@ export function DashboardRail({
           </button>
           <div className="topbar-title">
             <span className="topbar-role">{role === "admin" ? "Админ-панель" : "Кабинет клиента"}</span>
-            <span className="topbar-section">{findActiveGroupLabel(railGroups, resolvedActiveKey)}</span>
+            <span className="topbar-section">
+              {topbarSubtitle ?? findActiveGroupLabel(railGroups, resolvedActiveKey)}
+            </span>
           </div>
         </div>
         <div className="topbar-right">

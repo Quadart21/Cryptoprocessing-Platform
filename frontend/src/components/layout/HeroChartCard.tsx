@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
+import { formatDecimal } from "../../utils/format";
+
 const VIEWBOX_WIDTH = 1000;
 const VIEWBOX_HEIGHT = 320;
 const CHART_PADDING_X = 24;
@@ -269,9 +271,6 @@ export function HeroChartCard({
 }
 
 function formatValue(value: number, unit: string): string {
-  const formatted = value.toLocaleString("ru-RU", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const formatted = formatDecimal(value, { minFractionDigits: 2, maxFractionDigits: 2 });
   return unit ? `${formatted} ${unit}` : formatted;
 }

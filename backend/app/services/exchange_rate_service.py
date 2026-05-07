@@ -4,7 +4,7 @@ from typing import Optional
 
 import requests
 
-from app.db.session import SessionLocal
+from app.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class ExchangeRateService:
     PAGE_LIMIT = 100
     MAX_PAGES = 200
 
-    def get_rate(self, currency: str, quote: str = "USD") -> Optional[Decimal]:
+    async def get_rate(self, currency: str, quote: str = "USD") -> Optional[Decimal]:
         currency = currency.upper()
         quote = quote.upper()
 
@@ -24,34 +24,34 @@ class ExchangeRateService:
         if quote not in {"USD", "USDT"}:
             return None
 
-        manual_rate = self._get_manual_rate(currency, quote)
+        manual_rate = await self._get_manual_rate(currency, quote)
         if manual_rate is not None:
             return manual_rate
 
-        return self._get_cached_rate(currency, quote)
+        return await self._get_cached_rate(currency, quote)
 
-    def _get_manual_rate(self, currency: str, quote: str) -> Optional[Decimal]:
+    async def _get_manual_rate(self, currency: str, quote: str) -> Optional[Decimal]:
         if quote not in {"USD", "USDT"}:
             return None
         try:
             from app.services.billing_policy_service import BillingPolicyService
 
-            with SessionLocal() as session:
-                manual_rates = BillingPolicyService(session).get_manual_exchange_rates()
+            async with AsyncSessionLocal() as session:
+                manual_rates = await BillingPolicyService(session).get_manual_exchange_rates()
         except Exception:
             logger.exception("Failed to load manual exchange rates for %s/%s", currency, quote)
             return None
 
         return manual_rates.get(currency)
 
-    def _get_cached_rate(self, currency: str, quote: str) -> Optional[Decimal]:
+    async def _get_cached_rate(self, currency: str, quote: str) -> Optional[Decimal]:
         if quote not in {"USD", "USDT"}:
             return None
         try:
             from app.services.billing_policy_service import BillingPolicyService
 
-            with SessionLocal() as session:
-                cached_rates = BillingPolicyService(session).get_cached_exchange_rates()
+            async with AsyncSessionLocal() as session:
+                cached_rates = await BillingPolicyService(session).get_cached_exchange_rates()
         except Exception:
             logger.exception("Failed to load cached exchange rates for %s/%s", currency, quote)
             return None
@@ -116,14 +116,14 @@ class ExchangeRateService:
                 resolved[symbol] = rate
         return resolved
 
-    def convert_to_fiat(
+    async def convert_to_fiat(
         self,
         amount: Decimal,
         from_currency: str,
         to_fiat: str = "USD",
         markup_percent: Decimal = Decimal("0"),
     ) -> Optional[Decimal]:
-        rate = self.get_rate(from_currency, to_fiat)
+        rate = await self.get_rate(from_currency, to_fiat)
         if rate is None:
             return None
         adjusted_rate = rate * (Decimal("1") + markup_percent / Decimal("100"))
@@ -131,14 +131,14 @@ class ExchangeRateService:
             return None
         return (amount * adjusted_rate).quantize(Decimal("0.01"))
 
-    def convert_from_fiat(
+    async def convert_from_fiat(
         self,
         amount_fiat: Decimal,
         to_currency: str,
         from_fiat: str = "USD",
         markup_percent: Decimal = Decimal("0"),
     ) -> Optional[Decimal]:
-        rate = self.get_rate(to_currency, from_fiat)
+        rate = await self.get_rate(to_currency, from_fiat)
         if rate is None:
             return None
         adjusted_rate = rate * (Decimal("1") + markup_percent / Decimal("100"))
@@ -146,7 +146,7 @@ class ExchangeRateService:
             return None
         return (amount_fiat / adjusted_rate).quantize(Decimal("0.00000001"))
 
-    def get_rates_for_symbols(
+    async def get_rates_for_symbols(
         self,
         symbols: list[str],
         quote: str = "USD",
@@ -158,7 +158,7 @@ class ExchangeRateService:
             if not symbol or symbol in seen:
                 continue
             seen.add(symbol)
-            rate = self.get_rate(symbol, quote)
+            rate = await self.get_rate(symbol, quote)
             if rate is not None:
                 resolved[symbol] = rate
         return resolved

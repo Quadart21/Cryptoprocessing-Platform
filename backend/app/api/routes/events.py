@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, require_platform_permission
 from app.models.user import User
@@ -12,9 +12,9 @@ router = APIRouter()
 @router.get("/events", response_model=list[ProviderEventResponse])
 async def list_events(
     _: User = Depends(require_platform_permission("admin.events.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[ProviderEventResponse]:
-    events = EventService(db).list_events()
+    events = await EventService(db).list_events()
     return [_map_event(event) for event in events]
 
 
@@ -22,9 +22,9 @@ async def list_events(
 async def list_invoice_events(
     invoice_id: str,
     _: User = Depends(require_platform_permission("admin.events.read")),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> list[ProviderEventResponse]:
-    events = EventService(db).list_events_by_invoice(invoice_id)
+    events = await EventService(db).list_events_by_invoice(invoice_id)
     if not events:
         return []
     return [_map_event(event) for event in events]

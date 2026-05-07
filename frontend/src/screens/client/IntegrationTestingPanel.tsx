@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import type { ProjectItem } from "../../api";
 
@@ -178,58 +178,73 @@ export function IntegrationTestingPanel({
     }
   }
 
+  useEffect(() => {
+    if (!copyMessage) {
+      return;
+    }
+    const timer = window.setTimeout(() => setCopyMessage(null), 2800);
+    return () => window.clearTimeout(timer);
+  }, [copyMessage]);
+
   return (
-    <article className="panel panel-span-2">
-      <div className="panel-header">
+    <article className="mc-surface mc-surface--span">
+      <header className="mc-surface-header mc-surface-header--row">
         <div>
-          <p className="eyebrow">Тестирование интеграции</p>
-          <h2>Центр интеграции API</h2>
+          <p className="mc-surface-eyebrow">Интеграция</p>
+          <h2 className="mc-surface-title">Центр проверки API</h2>
+          <p className="mc-surface-desc" style={{ marginTop: 8, marginBottom: 0 }}>
+            Сценарии curl, webhook и быстрые ссылки — без перехода в другие разделы.
+          </p>
         </div>
-        <span
-          className={`integration-env-badge ${isSandbox ? "integration-env-badge-sandbox" : "integration-env-badge-live"}`}
-        >
-          {isSandbox ? "Песочница / тестнет" : "Боевая среда"}
+        <span className={`mc-env-pill ${isSandbox ? "mc-env-pill--sandbox" : "mc-env-pill--live"}`}>
+          {isSandbox ? "Песочница" : "Бой"}
         </span>
-      </div>
+      </header>
 
-      <div className="detail-summary detail-summary-compact integration-summary">
-        <div className="detail-chip">
+      <div className="mc-kv-strip">
+        <div className="mc-kv">
           <span>Base URL</span>
-          <code className="detail-tech-value">{apiBaseUrl}</code>
+          <code>{apiBaseUrl}</code>
         </div>
-        <div className="detail-chip">
-          <span>Активный API key</span>
-          <code className="detail-tech-value">{activeApiKeyPublic ?? "Нет активного ключа"}</code>
+        <div className="mc-kv">
+          <span>API key</span>
+          <code>{activeApiKeyPublic ?? "—"}</code>
         </div>
-        <div className="detail-chip">
-          <span>Webhook URL</span>
-          <code className="detail-tech-value">{activeWebhookUrl ?? "Не задан"}</code>
+        <div className="mc-kv">
+          <span>Webhook</span>
+          <code>{activeWebhookUrl ?? "—"}</code>
         </div>
-        <div className="detail-chip">
-          <span>Клиентский контур</span>
-          <code className="detail-tech-value">{selectedRoute}</code>
+        <div className="mc-kv">
+          <span>Контур</span>
+          <code>{selectedRoute}</code>
         </div>
       </div>
 
-      <div className="integration-tabs">
+      <div className="mc-tabs" role="tablist" aria-label="Раздел интеграции">
         <button
-          className={`segment-button ${tab === "sandbox" ? "segment-button-active" : ""}`}
+          className={`mc-tab ${tab === "sandbox" ? "mc-tab--active" : ""}`}
           onClick={() => setTab("sandbox")}
           type="button"
+          role="tab"
+          aria-selected={tab === "sandbox"}
         >
           Песочница
         </button>
         <button
-          className={`segment-button ${tab === "webhook" ? "segment-button-active" : ""}`}
+          className={`mc-tab ${tab === "webhook" ? "mc-tab--active" : ""}`}
           onClick={() => setTab("webhook")}
           type="button"
+          role="tab"
+          aria-selected={tab === "webhook"}
         >
           Webhook
         </button>
         <button
-          className={`segment-button ${tab === "swagger" ? "segment-button-active" : ""}`}
+          className={`mc-tab ${tab === "swagger" ? "mc-tab--active" : ""}`}
           onClick={() => setTab("swagger")}
           type="button"
+          role="tab"
+          aria-selected={tab === "swagger"}
         >
           Swagger
         </button>
@@ -237,8 +252,8 @@ export function IntegrationTestingPanel({
 
       {tab === "sandbox" ? (
         <div className="integration-tab-pane">
-          <div className="integration-grid">
-            <section className="result-box integration-card">
+          <div className="mc-integration-grid">
+            <section className="mc-nested integration-card">
               <div className="integration-card-head">
                 <strong>Сценарии тестирования</strong>
                 <span>Пошаговый запуск API</span>
@@ -279,7 +294,7 @@ export function IntegrationTestingPanel({
               </div>
             </section>
 
-            <section className="result-box integration-card">
+            <section className="mc-nested integration-card">
               <div className="integration-card-head">
                 <strong>Чек-лист готовности</strong>
                 <span>Что проверить перед продом</span>
@@ -319,8 +334,8 @@ export function IntegrationTestingPanel({
 
       {tab === "webhook" ? (
         <div className="integration-tab-pane">
-          <div className="integration-grid">
-            <section className="result-box integration-card">
+          <div className="mc-integration-grid">
+            <section className="mc-nested integration-card">
               <div className="integration-card-head">
                 <strong>Webhook: формат и отладка</strong>
                 <span>Тест доставки событий</span>
@@ -369,8 +384,8 @@ export function IntegrationTestingPanel({
               </div>
             </section>
 
-            <form className="form integration-form" onSubmit={onSaveWebhook}>
-              <label>
+            <form className="mc-form mc-nested" onSubmit={onSaveWebhook}>
+              <label className="mc-field">
                 <span>Проект для webhook</span>
                 <select
                   value={webhookForm.project_id}
@@ -384,7 +399,7 @@ export function IntegrationTestingPanel({
                   ))}
                 </select>
               </label>
-              <label>
+              <label className="mc-field">
                 <span>Webhook URL</span>
                 <input
                   value={webhookForm.webhook_url}
@@ -392,7 +407,7 @@ export function IntegrationTestingPanel({
                   placeholder="https://merchant.example.com/webhooks/crypto"
                 />
               </label>
-              <label>
+              <label className="mc-field">
                 <span>Webhook secret</span>
                 <input
                   value={webhookForm.webhook_secret}
@@ -432,7 +447,7 @@ export function IntegrationTestingPanel({
           </div>
 
           <div className="integration-endpoints-grid">
-            <article className="result-box integration-card">
+            <article className="mc-nested integration-card">
               <strong className="integration-subtitle">Ключевые endpoint'ы для интеграции</strong>
               <ul className="integration-list">
                 <li>`POST /api/v1/client/invoices` - создать инвойс.</li>
@@ -443,7 +458,7 @@ export function IntegrationTestingPanel({
               </ul>
             </article>
 
-            <article className="result-box integration-card">
+            <article className="mc-nested integration-card">
               <strong className="integration-subtitle">Что тестировать в Swagger в первую очередь</strong>
               <ul className="integration-list">
                 <li>Ошибки лимитов сумм (min/max) при создании инвойса.</li>
@@ -457,7 +472,7 @@ export function IntegrationTestingPanel({
         </div>
       ) : null}
 
-      {copyMessage ? <p className="muted-text integration-copy-note">{copyMessage}</p> : null}
+      {copyMessage ? <p className="mc-inline-toast">{copyMessage}</p> : null}
     </article>
   );
 }

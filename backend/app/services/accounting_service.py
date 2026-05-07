@@ -2,7 +2,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.invoice import Invoice
@@ -16,12 +16,12 @@ from app.services.exchange_rate_service import get_exchange_rate_service
 class AccountingService:
     CACHE_PREFIX = "accounting:summary:"
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def build_summary(self, tenant_id: str | None = None) -> AccountingSummaryResponse:
+    async def build_summary(self, tenant_id: str | None = None) -> AccountingSummaryResponse:
         billing_service = BillingPolicyService(self.db)
-        exchange_rate_markup = billing_service.get_exchange_rate_markup_percent()
+        exchange_rate_markup = await billing_service.get_exchange_rate_markup_percent()
 
         cache = get_cache_service()
         cache_key = self._build_cache_key(tenant_id, exchange_rate_markup)
@@ -38,8 +38,8 @@ class AccountingService:
             invoice_stmt = invoice_stmt.where(Invoice.tenant_id == tenant_id)
             transaction_stmt = transaction_stmt.where(Transaction.tenant_id == tenant_id)
 
-        invoices = list(self.db.scalars(invoice_stmt).all())
-        transactions = list(self.db.scalars(transaction_stmt).all())
+        invoices = list((await self.db.scalars(invoice_stmt)).all())
+        transactions = list((await self.db.scalars(transaction_stmt)).all())
 
         invoices_total_count = len(invoices)
         invoices_paid = [invoice for invoice in invoices if invoice.status in {"paid", "confirmed"}]
@@ -66,7 +66,7 @@ class AccountingService:
             else Decimal("0")
         )
 
-        crypto_amounts = self._calculate_crypto_amounts(invoices)
+        crypto_amounts = await self._calculate_crypto_amounts(invoices)
         total_usd_value = self._calculate_total_usd_value(crypto_amounts)
 
         payload = AccountingSummaryResponse(
@@ -97,7 +97,7 @@ class AccountingService:
         )
         return payload
 
-    def _calculate_crypto_amounts(self, invoices: list[Invoice]) -> list[CryptoAmount]:
+    async def _calculate_crypto_amounts(self, invoices: list[Invoice]) -> list[CryptoAmount]:
         crypto_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
         for invoice in invoices:
@@ -107,12 +107,12 @@ class AccountingService:
 
         rate_service = get_exchange_rate_service()
         billing_service = BillingPolicyService(self.db)
-        markup_percent = billing_service.get_exchange_rate_markup_percent()
+        markup_percent = await billing_service.get_exchange_rate_markup_percent()
 
         result = []
         for currency, amount in sorted(crypto_totals.items()):
             if amount > 0:
-                usd_value = rate_service.convert_to_fiat(amount, currency, "USD", markup_percent)
+                usd_value = await rate_service.convert_to_fiat(amount, currency, "USD", markup_percent)
                 usd = usd_value if usd_value is not None else Decimal("0")
                 result.append(CryptoAmount(
                     currency=currency,

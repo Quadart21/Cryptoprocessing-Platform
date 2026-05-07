@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.security import decrypt_value, encrypt_value, verify_password
@@ -15,7 +15,7 @@ class TwoFactorError(Exception):
 
 
 class TwoFactorService:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
     def get_status(self, user: User) -> dict[str, object]:
@@ -25,14 +25,14 @@ class TwoFactorService:
             "confirmed_at": user.totp_confirmed_at,
         }
 
-    def setup(self, user: User) -> dict[str, object]:
+    async def setup(self, user: User) -> dict[str, object]:
         secret = TotpService.generate_secret()
         user.totp_secret_encrypted = encrypt_value(secret)
         user.totp_enabled = False
         user.totp_confirmed_at = None
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        await self.db.commit()
+        await self.db.refresh(user)
 
         issuer = (settings.app_name or "CryptoProcessing").strip()
         account_name = user.email.strip().lower()
@@ -49,7 +49,7 @@ class TwoFactorService:
             "otpauth_url": otpauth_url,
         }
 
-    def enable(self, user: User, code: str) -> User:
+    async def enable(self, user: User, code: str) -> User:
         if not user.totp_secret_encrypted:
             raise TwoFactorError("Сначала запустите настройку 2FA.")
 
@@ -60,11 +60,11 @@ class TwoFactorService:
         user.totp_enabled = True
         user.totp_confirmed_at = datetime.now(timezone.utc)
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        await self.db.commit()
+        await self.db.refresh(user)
         return user
 
-    def disable(self, user: User, *, password: str, code: str | None) -> User:
+    async def disable(self, user: User, *, password: str, code: str | None) -> User:
         if not verify_password(password, user.password_hash):
             raise TwoFactorError("Неверный пароль.")
 
@@ -77,8 +77,8 @@ class TwoFactorService:
         user.totp_secret_encrypted = None
         user.totp_confirmed_at = None
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        await self.db.commit()
+        await self.db.refresh(user)
         return user
 
     def verify_login_code(self, user: User, code: str | None) -> None:
