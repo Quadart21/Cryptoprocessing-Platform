@@ -30,6 +30,18 @@ class PlatformBillingSettingsResponse(BaseModel):
     provider_fee_percent: Decimal
     default_markup_percent: Decimal
     default_turnover_fee_percent: Decimal
+    platform_markup_min_usdt: Decimal = Field(
+        default=Decimal("0.5"),
+        description="Минимальная наценка платформы в USDT при депозите в целевом диапазоне.",
+    )
+    platform_markup_min_band_usdt_low: Decimal = Field(
+        default=Decimal("10"),
+        description="Нижняя граница суммы инвойса (эквивалент USDT), включительно.",
+    )
+    platform_markup_min_band_usdt_high: Decimal = Field(
+        default=Decimal("250"),
+        description="Верхняя граница суммы инвойса (эквивалент USDT), включительно.",
+    )
     allow_tenant_markup_override: bool
     allow_tenant_turnover_fee_override: bool
     payouts_enabled: bool
@@ -82,6 +94,9 @@ class PlatformBillingSettingsUpdateRequest(BaseModel):
     provider_fee_percent: Decimal
     default_markup_percent: Decimal
     default_turnover_fee_percent: Decimal
+    platform_markup_min_usdt: Decimal = Decimal("0.5")
+    platform_markup_min_band_usdt_low: Decimal = Decimal("10")
+    platform_markup_min_band_usdt_high: Decimal = Decimal("250")
     allow_tenant_markup_override: bool
     allow_tenant_turnover_fee_override: bool
     payouts_enabled: bool

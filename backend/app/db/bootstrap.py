@@ -234,6 +234,18 @@ DDL_PATCHES = [
     ADD COLUMN IF NOT EXISTS cached_exchange_rates_updated_at TIMESTAMPTZ
     """,
     """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS platform_markup_min_usdt NUMERIC(18, 8) NOT NULL DEFAULT 0.5
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS platform_markup_min_band_usdt_low NUMERIC(18, 8) NOT NULL DEFAULT 10
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS platform_markup_min_band_usdt_high NUMERIC(18, 8) NOT NULL DEFAULT 250
+    """,
+    """
     ALTER TABLE tenant_fee_policies
     ADD COLUMN IF NOT EXISTS custom_turnover_fee_percent NUMERIC(10, 4)
     """,

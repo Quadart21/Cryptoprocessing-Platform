@@ -89,3 +89,13 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    # Минимальная наценка платформы (USDT) для депозитов в диапазоне эквивалента в USDT [low, high].
+    platform_markup_min_usdt: Mapped[Decimal] = mapped_column(
+        Numeric(18, 8), nullable=False, default=Decimal("0.5")
+    )
+    platform_markup_min_band_usdt_low: Mapped[Decimal] = mapped_column(
+        Numeric(18, 8), nullable=False, default=Decimal("10")
+    )
+    platform_markup_min_band_usdt_high: Mapped[Decimal] = mapped_column(
+        Numeric(18, 8), nullable=False, default=Decimal("250")
+    )

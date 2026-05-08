@@ -372,6 +372,11 @@ class InvoiceService:
             payload=stored_payload,
             provider_event_id=provider_event_id,
         )
+        # Flush + refresh so all columns (created_at / updated_at) are loaded in the async session.
+        # Without this, the instance can be expired after nested flushes — lazy-load then raises MissingGreenlet.
+        await self.db.flush()
+        await self.db.refresh(invoice)
+        await self.db.refresh(transaction)
         project = await self.db.get(Project, invoice.project_id)
         await ClientWebhookService(event_service).deliver_invoice_update(
             project,
@@ -382,6 +387,8 @@ class InvoiceService:
         tenant_id = invoice.tenant_id
         invoice_id = invoice.id
         project_id = invoice.project_id
+        await self.db.flush()
+        await self.db.refresh(invoice)
         invoice_snapshot = self._build_invoice_snapshot(invoice)
         self.db.add_all([invoice, transaction])
         try:
@@ -497,6 +504,7 @@ class InvoiceService:
         provider_fee, platform_fee, turnover_fee, net_amount = await self._calculate_financials(
             tenant_id=invoice.tenant_id,
             gross_amount=gross_amount,
+            fiat_currency=invoice.fiat_currency,
         )
 
         transaction.gross_amount = gross_amount
@@ -603,8 +611,10 @@ class InvoiceService:
         self,
         tenant_id: str,
         gross_amount: Decimal,
+        fiat_currency: str,
     ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
         billing_policy_service = BillingPolicyService(self.db)
+        platform_settings = await billing_policy_service.get_platform_settings()
         provider_fee_percent = await billing_policy_service.get_provider_fee_percent()
         markup_percent = await billing_policy_service.get_effective_markup_percent(tenant_id)
         turnover_fee_percent = await billing_policy_service.get_effective_turnover_fee_percent(tenant_id)
@@ -615,13 +625,80 @@ class InvoiceService:
         after_provider = (gross_amount - provider_fee).quantize(self.AMOUNT_PRECISION)
 
         platform_fee = self._calculate_percent_amount(after_provider, markup_percent)
+        platform_fee = await self._apply_platform_markup_minimum_usdt(
+            gross_amount=gross_amount,
+            fiat_currency=fiat_currency,
+            after_provider=after_provider,
+            platform_fee=platform_fee,
+            platform_settings=platform_settings,
+        )
         after_platform = (after_provider - platform_fee).quantize(self.AMOUNT_PRECISION)
+        if after_platform < Decimal("0"):
+            raise ValueError(
+                "Минимальная наценка платформы превышает остаток после комиссии провайдера.",
+            )
 
         turnover_fee = self._calculate_percent_amount(after_platform, turnover_fee_percent)
         net_amount = (after_platform - turnover_fee).quantize(self.AMOUNT_PRECISION)
         if net_amount < Decimal("0"):
             raise ValueError("Чистая сумма клиента не может быть отрицательной.")
         return provider_fee, platform_fee, turnover_fee, net_amount
+
+    async def _apply_platform_markup_minimum_usdt(
+        self,
+        *,
+        gross_amount: Decimal,
+        fiat_currency: str,
+        after_provider: Decimal,
+        platform_fee: Decimal,
+        platform_settings,
+    ) -> Decimal:
+        """Для депозитов в диапазоне [low, high] USDT-эквивалента: наценка платформы ≥ min_usdt (в пересчёте в валюту инвойса)."""
+        fc = (fiat_currency or "USD").strip().upper()
+        min_usdt = Decimal(platform_settings.platform_markup_min_usdt)
+        band_low = Decimal(platform_settings.platform_markup_min_band_usdt_low)
+        band_high = Decimal(platform_settings.platform_markup_min_band_usdt_high)
+        if min_usdt <= Decimal("0") or band_high < band_low:
+            return platform_fee
+
+        rate_svc = get_exchange_rate_service()
+        zero_markup = Decimal("0")
+        gross_usdt = await rate_svc.convert_to_fiat(gross_amount, fc, "USDT", zero_markup)
+        if gross_usdt is None:
+            logger.warning(
+                "Skipping platform markup USDT floor: no USDT rate for invoice fiat %s",
+                fc,
+            )
+            return platform_fee
+
+        if gross_usdt < band_low or gross_usdt > band_high:
+            return platform_fee
+
+        fee_usdt = await rate_svc.convert_to_fiat(platform_fee, fc, "USDT", zero_markup)
+        if fee_usdt is None:
+            logger.warning(
+                "Skipping platform markup USDT floor: could not convert platform fee to USDT (fiat=%s)",
+                fc,
+            )
+            return platform_fee
+
+        target_usdt = max(fee_usdt, min_usdt)
+        if target_usdt <= fee_usdt:
+            return platform_fee
+
+        bumped = await rate_svc.convert_from_fiat(target_usdt, fc, "USDT", zero_markup)
+        if bumped is None:
+            logger.warning(
+                "Skipping platform markup USDT floor: could not convert %s USDT to fiat %s",
+                target_usdt,
+                fc,
+            )
+            return platform_fee
+
+        bumped = bumped.quantize(self.AMOUNT_PRECISION)
+        if bumped > after_provider:
+            bumped = after_provider.quantize(self.AMOUNT_PRECISION)
+        return bumped
 
     def _calculate_percent_amount(self, base_amount: Decimal, percent: Decimal) -> Decimal:
         return ((base_amount * percent) / Decimal("100")).quantize(self.AMOUNT_PRECISION)

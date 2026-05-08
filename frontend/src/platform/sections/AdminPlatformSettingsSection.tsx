@@ -169,7 +169,18 @@ export function AdminPlatformSettingsSection({
   );
 
   useEffect(() => {
-    setPlatformSettingsForm(platformBillingSettings);
+    setPlatformSettingsForm(
+      platformBillingSettings
+        ? {
+            ...platformBillingSettings,
+            platform_markup_min_usdt: platformBillingSettings.platform_markup_min_usdt ?? "0.5",
+            platform_markup_min_band_usdt_low:
+              platformBillingSettings.platform_markup_min_band_usdt_low ?? "10",
+            platform_markup_min_band_usdt_high:
+              platformBillingSettings.platform_markup_min_band_usdt_high ?? "250",
+          }
+        : null,
+    );
     setSmtpBzApiKey("");
     setTelegramBotToken("");
     setAdminTelegramChatId("");
@@ -483,6 +494,49 @@ export function AdminPlatformSettingsSection({
               value={platformSettingsForm.exchange_rate_markup_percent}
               onChange={(event) =>
                 updatePlatformSettings({ exchange_rate_markup_percent: event.target.value })
+              }
+            />
+          </label>
+        </FieldGrid>
+        <p className="muted-text aps-field-span-2" style={{ gridColumn: "1 / -1", marginTop: "0.5rem" }}>
+          Для депозитов с суммой инвойса в эквиваленте USDT от нижней до верхней границы (включительно):
+          наценка платформы не ниже указанного минимума в USDT (после комиссии провайдера). Пример: 0,15 USDT по
+          проценту → 0,5 USDT; 0,55 USDT → без изменений.
+        </p>
+        <FieldGrid>
+          <label>
+            <span>Мин. наценка (USDT)</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={platformSettingsForm.platform_markup_min_usdt}
+              onChange={(event) =>
+                updatePlatformSettings({ platform_markup_min_usdt: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            <span>Диапазон: от (USDT экв.)</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={platformSettingsForm.platform_markup_min_band_usdt_low}
+              onChange={(event) =>
+                updatePlatformSettings({ platform_markup_min_band_usdt_low: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            <span>Диапазон: до (USDT экв.)</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={platformSettingsForm.platform_markup_min_band_usdt_high}
+              onChange={(event) =>
+                updatePlatformSettings({ platform_markup_min_band_usdt_high: event.target.value })
               }
             />
           </label>

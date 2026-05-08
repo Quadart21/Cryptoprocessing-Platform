@@ -146,6 +146,9 @@ class BillingPolicyService:
         allow_tenant_markup_override: bool,
         allow_tenant_turnover_fee_override: bool,
         payouts_enabled: bool,
+        platform_markup_min_usdt: Decimal = Decimal("0.5"),
+        platform_markup_min_band_usdt_low: Decimal = Decimal("10"),
+        platform_markup_min_band_usdt_high: Decimal = Decimal("250"),
         exchange_rate_markup_percent: Decimal = Decimal("0"),
         manual_exchange_rates: dict[str, Decimal] | None = None,
         seo_title: str | None = None,
@@ -159,6 +162,13 @@ class BillingPolicyService:
         self._validate_percent(provider_fee_percent, "provider_fee_percent")
         self._validate_percent(default_markup_percent, "default_markup_percent")
         self._validate_percent(default_turnover_fee_percent, "default_turnover_fee_percent")
+        self._validate_non_negative(platform_markup_min_usdt, "platform_markup_min_usdt")
+        self._validate_non_negative(platform_markup_min_band_usdt_low, "platform_markup_min_band_usdt_low")
+        self._validate_non_negative(platform_markup_min_band_usdt_high, "platform_markup_min_band_usdt_high")
+        if platform_markup_min_band_usdt_high < platform_markup_min_band_usdt_low:
+            raise ValueError(
+                "platform_markup_min_band_usdt_high must be greater than or equal to platform_markup_min_band_usdt_low.",
+            )
         self._validate_rate_adjustment_percent(
             exchange_rate_markup_percent,
             "exchange_rate_markup_percent",
@@ -174,6 +184,9 @@ class BillingPolicyService:
         settings.allow_tenant_markup_override = allow_tenant_markup_override
         settings.allow_tenant_turnover_fee_override = allow_tenant_turnover_fee_override
         settings.payouts_enabled = payouts_enabled
+        settings.platform_markup_min_usdt = platform_markup_min_usdt
+        settings.platform_markup_min_band_usdt_low = platform_markup_min_band_usdt_low
+        settings.platform_markup_min_band_usdt_high = platform_markup_min_band_usdt_high
         settings.exchange_rate_markup_percent = exchange_rate_markup_percent
         settings.manual_exchange_rates_json = json.dumps(
             {key: str(value) for key, value in normalized_manual_exchange_rates.items()},
@@ -222,6 +235,11 @@ class BillingPolicyService:
         await self.db.commit()
         await self.db.refresh(policy)
         return policy
+
+    @staticmethod
+    def _validate_non_negative(value: Decimal, field_name: str) -> None:
+        if value < Decimal("0"):
+            raise ValueError(f"{field_name} must be greater than or equal to 0.")
 
     @staticmethod
     def _validate_percent(value: Decimal, field_name: str) -> None:
