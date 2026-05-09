@@ -690,7 +690,16 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const data = (await response.json()) as T;
+  if (
+    data &&
+    typeof data === "object" &&
+    "csrf_token" in data &&
+    typeof (data as { csrf_token: unknown }).csrf_token === "string"
+  ) {
+    setCsrfToken((data as { csrf_token: string }).csrf_token);
+  }
+  return data;
 }
 
 export function authHeaders(token: string): Record<string, string> {

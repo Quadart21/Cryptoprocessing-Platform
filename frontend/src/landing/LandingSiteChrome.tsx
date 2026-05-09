@@ -10,6 +10,8 @@ import {
 
   LANDING_FEATURE_CARDS,
 
+  LANDING_FEATURE_SHOWCASE,
+
   LANDING_FLOW_STEPS,
 
   LANDING_FAQ,
@@ -270,7 +272,10 @@ export function LandingSiteChrome({
 
             <div className="lpx-logo-text">
 
-              <span className="lpx-logo-title">Noren</span>
+              <span className="lpx-logo-title">
+                <span className="lpx-logo-title-lime">Crypto</span>Proc
+                <span className="lpx-logo-title-dot">.</span>
+              </span>
 
               <span className="lpx-logo-sub">Digital Acquiring</span>
 
@@ -310,9 +315,9 @@ export function LandingSiteChrome({
 
             </button>
 
-            <button className="nc-btn-primary lpx-btn-min" type="button" onClick={() => openAuth("register")}>
+            <button className="nc-btn-primary lpx-btn-min lpx-header-cta" type="button" onClick={() => openAuth("register")}>
 
-              Подключить
+              Старт
 
             </button>
 
@@ -452,55 +457,79 @@ export function LandingSiteChrome({
 
         <div className="lpx-hero-visual-bg" aria-hidden>
 
-          <div className="lpx-hero-orbit" />
+          <div className="lpx-hero-grid-fine" />
 
-          <div className="lpx-hero-grid" />
+          <div className="lpx-hero-glow-arc" />
 
         </div>
-
-
 
         <div className="lpx-container lpx-hero-layout">
 
           <div className="lpx-hero-copy">
 
-            <p className="lpx-eyebrow">
-
-              <span className="lpx-eyebrow-dot" aria-hidden />
-
-              Крипто-эквайринг для e-commerce
-
-            </p>
+            <p className="lpx-hero-kicker">Сохраняйте оборот под контролем</p>
 
             <h1 id="lpx-hero-heading" className="lpx-hero-title">
 
-              Платежи в криптовалюте
+              Лучшая платформа для{" "}
 
-              <span className="lpx-hero-title-break"> </span>
+              <span className="lpx-hero-title-lime">приёма криптовалюты</span>
 
-              <span className="lpx-hero-title-accent">на уровне премиум-сервиса</span>
+              <span className="lpx-hero-title-dot">.</span>
 
             </h1>
 
             <p className="lpx-hero-lead">
 
-              Встраиваем приём цифровых активов в ваш бренд: прозрачные статусы, API и вебхуки, сопровождение до
-
-              боевого запуска — без ощущения «техно-стартапа без поддержки».
+              REST API, вебхуки и кабинет мерчанта в одном контуре — без лишней суеты и с понятной экономикой комиссий.
 
             </p>
+
+            <div className="lpx-hero-social" aria-label="Активные пользователи">
+
+              <div className="lpx-hero-avatars" aria-hidden>
+
+                {[0, 1, 2, 3, 4].map((i) => (
+
+                  <span key={i} className={`lpx-hero-avatar lpx-hero-avatar--${i}`} />
+
+                ))}
+
+              </div>
+
+              <span className="lpx-hero-social-text">
+
+                <strong>168K+</strong> активных операций в сети
+
+              </span>
+
+            </div>
 
             <div className="lpx-hero-actions">
 
               <button className="nc-btn-primary nc-btn-lg lpx-hero-primary" type="button" onClick={() => openAuth("register")}>
 
-                Обсудить подключение
+                Подключиться
 
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+              </button>
+
+              <button className="nc-btn-ghost nc-btn-lg lpx-hero-outline" type="button" onClick={onOpenPublicDocs}>
+
+                Документация
+
+              </button>
+
+            </div>
+
+            <div className="lpx-hero-micro">
+
+              <span className="lpx-hero-arrow-btn" aria-hidden>
+
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 
                   <path
 
-                    d="M5 12H19M19 12L12 5M19 12L12 19"
+                    d="M7 17L17 7M17 7H9M17 7V15"
 
                     stroke="currentColor"
 
@@ -514,17 +543,17 @@ export function LandingSiteChrome({
 
                 </svg>
 
-              </button>
+              </span>
 
-              <button className="nc-btn-ghost nc-btn-lg" type="button" onClick={onOpenPublicDocs}>
+              <p className="lpx-hero-micro-text">
 
-                Документация
+                Инвойсы, синхронизация статусов и выплаты — всё через единый API и подписанные события.
 
-              </button>
+              </p>
 
             </div>
 
-            <div className="lpx-token-row" aria-label="Поддерживаемые сети и активы (кратко)">
+            <div className="lpx-token-row" aria-label="Поддерживаемые активы">
 
               {LANDING_TOKEN_STRIP.map((token) => (
 
@@ -540,55 +569,91 @@ export function LandingSiteChrome({
 
           </div>
 
+          <aside className="lpx-hero-panel" aria-label="Интерфейс платформы">
 
+            <div className="lpx-phone-stage">
 
-          <aside className="lpx-hero-panel" aria-label="Ключевые параметры интеграции">
+              <div className="lpx-phone lpx-phone--back" aria-hidden>
 
-            <div className="lpx-glass-card">
+                <div className="lpx-phone-notch" />
 
-              <div className="lpx-glass-card-header">
+                <div className="lpx-phone-body">
 
-                <span className="lpx-glass-pill">Live-ready</span>
+                  <div className="lpx-phone-chart">
 
-                <span className="lpx-glass-meta">Merchant console · API keys</span>
+                    <svg viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
 
-              </div>
+                      <path
 
-              <div className="lpx-glass-metrics">
+                        d="M10 95 L45 70 L80 82 L115 45 L150 55 L190 25"
 
-                {LANDING_HERO_STATS_CARD.map((row) => (
+                        stroke="var(--lp-lime)"
 
-                  <div key={row.label} className="lpx-glass-metric">
+                        strokeWidth="3"
 
-                    <span className="lpx-glass-metric-value">{row.value}</span>
+                        strokeLinecap="round"
 
-                    <span className="lpx-glass-metric-label">{row.label}</span>
+                        strokeLinejoin="round"
+
+                      />
+
+                      <circle cx="115" cy="45" r="5" fill="var(--lp-lime)" />
+
+                    </svg>
 
                   </div>
 
-                ))}
+                  <div className="lpx-phone-metrics">
+
+                    {LANDING_HERO_STATS_CARD.map((row) => (
+
+                      <div key={row.label} className="lpx-phone-metric">
+
+                        <span>{row.value}</span>
+
+                        <small>{row.label}</small>
+
+                      </div>
+
+                    ))}
+
+                  </div>
+
+                </div>
 
               </div>
 
-              <pre className="lpx-code-snippet">
+              <div className="lpx-phone lpx-phone--front" aria-hidden>
 
-                <code>{`POST /v1/invoices
+                <div className="lpx-phone-notch" />
+
+                <div className="lpx-phone-body">
+
+                  <span className="lpx-phone-badge">Live</span>
+
+                  <pre className="lpx-phone-code">
+
+                    <code>{`POST /v1/invoices
 
 {
 
-  "amount_fiat": "120.00",
+  "amount_fiat": "120",
 
   "fiat_currency": "EUR"
 
 }`}</code>
 
-              </pre>
+                  </pre>
 
-              <p className="lpx-glass-foot">
+                  <button type="button" className="lpx-phone-cta" tabIndex={-1}>
 
-                Оформление инвойса и отслеживание статуса — в едином контуре с вашим бэкендом.
+                    Создать инвойс
 
-              </p>
+                  </button>
+
+                </div>
+
+              </div>
 
             </div>
 
@@ -600,17 +665,17 @@ export function LandingSiteChrome({
 
 
 
-      <section className="lpx-trust" aria-label="Преимущества доверия">
+      <section className="lpx-trust-strip" aria-label="Кратко о платформе">
 
-        <div className="lpx-container lpx-trust-grid">
+        <div className="lpx-container lpx-trust-strip-inner">
 
           {LANDING_TRUST_PILLARS.map((pillar) => (
 
-            <div key={pillar.title} className="lpx-trust-item">
+            <div key={pillar.title} className="lpx-trust-strip-item">
 
-              <h2 className="lpx-trust-title">{pillar.title}</h2>
+              <h2 className="lpx-trust-strip-title">{pillar.title}</h2>
 
-              <p className="lpx-trust-sub">{pillar.subtitle}</p>
+              <p className="lpx-trust-strip-sub">{pillar.subtitle}</p>
 
             </div>
 
@@ -634,15 +699,15 @@ export function LandingSiteChrome({
 
               <h2 id="lpx-bento-heading" className="lpx-section-title">
 
-                Архитектура, которую не стыдно показать инвестору
+                Ваш надёжный партнёр в{" "}
+
+                <span className="lpx-section-title-accent">приёме криптовалюты</span>
 
               </h2>
 
               <p className="lpx-section-deck">
 
-                Каждое преимущество — это не маркетинговый лозунг, а конкретная возможность API и кабинета для
-
-                контроля оборота.
+                REST API, подписанные вебхуки и прозрачная экономика — без скрытых условий и лишнего шума в интерфейсе.
 
               </p>
 
@@ -650,17 +715,19 @@ export function LandingSiteChrome({
 
           </header>
 
-          <div className="lpx-bento">
+          <div className="lpx-bento lpx-bento--three">
 
-            {LANDING_FEATURE_CARDS.map((feature) => (
+            {LANDING_FEATURE_SHOWCASE.map((feature, index) => (
 
               <article
 
                 key={feature.title}
 
-                className={`lpx-bento-card lpx-bento-card--${feature.bento}`}
+                className={`lpx-bento-card lpx-bento-card--${feature.bento} ${index === 1 ? "lpx-bento-card--accent" : ""}`}
 
               >
+
+                <span className="lpx-bento-num">{String(index + 1).padStart(2, "0")}.</span>
 
                 <div className="lpx-bento-icon" aria-hidden>
 
@@ -672,9 +739,189 @@ export function LandingSiteChrome({
 
                 <p className="lpx-bento-desc">{feature.description}</p>
 
+                {index === 1 ? (
+
+                  <button type="button" className="lpx-bento-more" onClick={() => openAuth("register")}>
+
+                    Узнать больше
+
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+
+                      <path
+
+                        d="M5 12H19M19 12L12 5M19 12L12 19"
+
+                        stroke="currentColor"
+
+                        strokeWidth="2"
+
+                        strokeLinecap="round"
+
+                        strokeLinejoin="round"
+
+                      />
+
+                    </svg>
+
+                  </button>
+
+                ) : null}
+
               </article>
 
             ))}
+
+          </div>
+
+          {LANDING_FEATURE_CARDS[3] ? (
+
+            <article className="lpx-bento-wide">
+
+              <div className="lpx-bento-icon" aria-hidden>
+
+                <FeatureIcon name={LANDING_FEATURE_CARDS[3].icon} />
+
+              </div>
+
+              <div>
+
+                <span className="lpx-bento-num">04.</span>
+
+                <h3 className="lpx-bento-title">{LANDING_FEATURE_CARDS[3].title}</h3>
+
+                <p className="lpx-bento-desc">{LANDING_FEATURE_CARDS[3].description}</p>
+
+              </div>
+
+            </article>
+
+          ) : null}
+
+        </div>
+
+      </section>
+
+
+
+      <section className="lpx-proof" aria-labelledby="lpx-proof-heading">
+
+        <div className="lpx-container lpx-proof-grid">
+
+          <div className="lpx-proof-chart" aria-hidden>
+
+            <div className="lpx-proof-chart-float lpx-proof-chart-float--a">
+
+              <span>$4,528</span>
+
+              <small>USDT</small>
+
+            </div>
+
+            <div className="lpx-proof-chart-float lpx-proof-chart-float--b">
+
+              <span>1.44 BTC</span>
+
+              <small>объём</small>
+
+            </div>
+
+            <svg viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+              <defs>
+
+                <linearGradient id="lpxChartGrad" x1="0" y1="0" x2="0" y2="1">
+
+                  <stop offset="0%" stopColor="var(--lp-lime)" stopOpacity="0.35" />
+
+                  <stop offset="100%" stopColor="var(--lp-lime)" stopOpacity="0" />
+
+                </linearGradient>
+
+              </defs>
+
+              <path
+
+                d="M0 160 Q80 140 120 100 T200 80 T320 40 L320 200 L0 200 Z"
+
+                fill="url(#lpxChartGrad)"
+
+              />
+
+              <path
+
+                d="M0 155 Q90 130 140 95 T260 70 L320 45"
+
+                stroke="var(--lp-lime)"
+
+                strokeWidth="3"
+
+                fill="none"
+
+                strokeLinecap="round"
+
+              />
+
+              <circle cx="200" cy="80" r="6" fill="var(--lp-lime)" />
+
+              <circle cx="260" cy="70" r="6" fill="var(--lp-lime)" />
+
+            </svg>
+
+          </div>
+
+          <div className="lpx-proof-copy">
+
+            <h2 id="lpx-proof-heading" className="lpx-proof-title">
+
+              Надёжная платформа <span className="lpx-proof-title-lime">в любое время</span> и в любой точке мира.
+
+            </h2>
+
+            <div className="lpx-proof-stars" aria-label="Рейтинг 4 из 5">
+
+              {[1, 2, 3, 4].map((s) => (
+
+                <span key={s} className="lpx-proof-star lpx-proof-star--on">
+
+                  ★
+
+                </span>
+
+              ))}
+
+              <span className="lpx-proof-star">★</span>
+
+            </div>
+
+            <p className="lpx-proof-lead">
+
+              SLA и сопровождение при интеграции — без «чёрного ящика». Видите статусы инвойсов, события webhook и сводки
+
+              оборота в одном кабинете.
+
+            </p>
+
+            <p className="lpx-proof-text">
+
+              Подключение проходит по понятному чек-листу: тестовая среда, приёмка сценариев и только затем боевой режим.
+
+            </p>
+
+            <div className="lpx-proof-actions">
+
+              <button type="button" className="nc-btn-primary nc-btn-lg" onClick={() => openAuth("register")}>
+
+                Узнать больше
+
+              </button>
+
+              <button type="button" className="lpx-proof-link" onClick={() => openAuth("login")}>
+
+                Есть вопрос?
+
+              </button>
+
+            </div>
 
           </div>
 
@@ -984,9 +1231,9 @@ export function LandingSiteChrome({
 
             </div>
 
-            <p className="lpx-footer-tagline">Noren Digital — криптопроцессинг для команд, которым важен контроль.</p>
+            <p className="lpx-footer-tagline">NorenDigital — криптопроцессинг и приём стейблкоинов для e-commerce и SaaS.</p>
 
-            <p className="lpx-footer-copy">© {new Date().getFullYear()} Noren Digital</p>
+            <p className="lpx-footer-copy">© {new Date().getFullYear()} NorenDigital</p>
 
           </div>
 

@@ -1,0 +1,385 @@
+/* Управление активами в консоли платформы (.app-frame) */
+
+.app-frame .pw-assets-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  min-width: 0;
+  max-width: min(var(--content-max, 1460px), 100%);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.app-frame .pw-assets-intro {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  border-left: 3px solid var(--cu-amber, #00a3ff);
+  background: linear-gradient(90deg, var(--cu-glow, rgba(0, 163, 255, 0.14)), var(--cu-surface-2, #323846));
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.app-frame .pw-assets-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.app-frame .pw-assets-search-field > span {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-1, var(--cu-text-muted));
+}
+
+.app-frame .pw-assets-search {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  background: rgba(0, 0, 0, 0.22);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.app-frame .pw-assets-search:focus-within {
+  border-color: color-mix(in srgb, var(--cu-amber, #00a3ff) 55%, transparent);
+  box-shadow: 0 0 0 2px var(--cu-glow, rgba(0, 163, 255, 0.14));
+}
+
+.app-frame .pw-assets-search svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--text-2, var(--cu-text-dim));
+  flex-shrink: 0;
+}
+
+.app-frame .pw-assets-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-0, var(--cu-text));
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.app-frame .pw-assets-search input::placeholder {
+  color: var(--text-2, var(--cu-text-dim));
+}
+
+/* Оболочка списка (вместо вложенной «второй шапки») */
+.app-frame .pw-assets-panel {
+  border-radius: 16px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  background: var(--cu-surface, #13161d);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.app-frame .pw-assets-panel-cap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  background: var(--cu-surface-2, #1a1e28);
+}
+
+.app-frame .pw-assets-panel-cap h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.app-frame .pw-assets-panel-cap p {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--text-2, var(--cu-text-dim));
+  line-height: 1.45;
+  max-width: 56ch;
+}
+
+.app-frame .pw-assets-toolbar {
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 560px) {
+  .app-frame .pw-assets-toolbar {
+    grid-template-columns: minmax(0, 280px);
+  }
+}
+
+.app-frame .pw-assets-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-1, var(--cu-text-muted));
+}
+
+.app-frame .pw-assets-toolbar select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  background: #0a0c10;
+  color: var(--text-0, var(--cu-text));
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.app-frame .pw-assets-list {
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.app-frame .pw-assets-group {
+  border-radius: 14px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.app-frame .pw-assets-group-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  min-height: 52px;
+  transition: background 0.15s ease;
+}
+
+.app-frame .pw-assets-group-head:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.app-frame .pw-assets-group-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.app-frame .pw-assets-group-meta strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.app-frame .pw-assets-group-meta span {
+  font-size: 0.78rem;
+  color: var(--text-2, var(--cu-text-dim));
+}
+
+.app-frame .pw-assets-chevron {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.app-frame .pw-assets-chevron svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--text-2, var(--cu-text-dim));
+}
+
+.app-frame .pw-assets-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.app-frame .pw-assets-networks {
+  border-top: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  padding: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.app-frame .pw-assets-network-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.06));
+  background: rgba(255, 255, 255, 0.02);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .app-frame .pw-assets-network-card {
+    grid-template-columns: minmax(0, 1fr) auto minmax(7.5rem, auto);
+    align-items: center;
+    gap: 1rem;
+  }
+}
+
+.app-frame .pw-assets-network-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.app-frame .pw-assets-network-title strong {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.app-frame .pw-assets-network-ticker {
+  font-size: 0.78rem;
+  color: var(--text-2, var(--cu-text-dim));
+}
+
+.app-frame .pw-assets-network-reason {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--text-2, var(--cu-text-dim));
+  max-width: 70ch;
+}
+
+.app-frame .pw-assets-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .app-frame .pw-assets-badges {
+    justify-content: flex-end;
+  }
+}
+
+.app-frame .pw-assets-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.08));
+  white-space: nowrap;
+}
+
+.app-frame .pw-assets-badge--ok {
+  border-color: color-mix(in srgb, var(--green, #34d399) 45%, transparent);
+  background: rgba(52, 211, 153, 0.12);
+  color: #a7f3d0;
+}
+
+.app-frame .pw-assets-badge--off {
+  border-color: var(--cu-line, rgba(255, 255, 255, 0.1));
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--text-2, var(--cu-text-dim));
+}
+
+.app-frame .pw-assets-badge--provider {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 0.7rem;
+}
+
+.app-frame .pw-assets-network-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-frame .pw-assets-network-actions .primary-button,
+.app-frame .pw-assets-network-actions .ghost-button {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
+}
+
+@media (min-width: 768px) {
+  .app-frame .pw-assets-network-actions .primary-button,
+  .app-frame .pw-assets-network-actions .ghost-button {
+    width: auto;
+    min-width: 6.5rem;
+  }
+}
+
+/* Полноразмерная панель (AssetAvailabilityPanel), если используется в консоли */
+.app-frame .pw-assets-toolbar-legacy {
+  display: grid;
+  gap: 1rem 1.25rem;
+  grid-template-columns: 1fr;
+  margin-bottom: 1rem;
+  min-width: 0;
+}
+
+@media (min-width: 640px) {
+  .app-frame .pw-assets-toolbar-legacy {
+    grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  }
+}
+
+.app-frame .pw-assets-toolbar-legacy label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-1, var(--cu-text-muted));
+}
+
+.app-frame .pw-assets-toolbar-legacy input,
+.app-frame .pw-assets-toolbar-legacy select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  background: #0a0c10;
+  color: var(--text-0, var(--cu-text));
+  font: inherit;
+  font-size: 0.92rem;
+}

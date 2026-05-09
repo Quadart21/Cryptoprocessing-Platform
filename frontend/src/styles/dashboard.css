@@ -824,6 +824,12 @@
   color: #ffc3c3;
 }
 
+.invoice-status-badge-expired {
+  border-color: rgba(255, 171, 64, 0.38);
+  background: rgba(255, 171, 64, 0.12);
+  color: #ffd9a3;
+}
+
 .invoice-status-badge-neutral {
   border-color: rgba(148, 163, 184, 0.28);
   background: rgba(148, 163, 184, 0.12);

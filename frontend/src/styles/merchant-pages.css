@@ -271,6 +271,11 @@
   color: #ffd78e;
 }
 
+.mc-badge-bad {
+  border-color: rgba(255, 82, 82, 0.42);
+  color: #ff8a80;
+}
+
 /* Two-column page blocks */
 .mc-split {
   display: grid;

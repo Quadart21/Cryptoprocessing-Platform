@@ -94,7 +94,7 @@ export function LandingExperienceRoot(props: LandingPageProps) {
   };
 
   return (
-    <main className="lpx-landing nc-landing lp-root">
+    <main className="lpx-landing nc-landing lp-root lp-theme-lime">
       <LandingSiteChrome
         mobileMenuOpen={mobileMenuOpen}
         openAuth={openAuth}

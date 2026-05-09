@@ -88,7 +88,7 @@ function SectionShell({
   actions?: ReactNode;
 }) {
   return (
-    <section className="aps-section-card" id={`settings-${meta.key}`}>
+    <section className="aps-section-card pw-settings-section-card" id={`settings-${meta.key}`}>
       <div className="aps-section-head">
         <div className="aps-section-mark">{meta.icon}</div>
         <div className="aps-section-copy">
@@ -117,7 +117,7 @@ function StatPill({
   tone?: string;
 }) {
   return (
-    <div className={`aps-stat-pill aps-stat-pill-${tone}`}>
+    <div className={`aps-stat-pill aps-stat-pill-${tone} pw-settings-stat-pill`}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
@@ -1312,17 +1312,13 @@ export function AdminPlatformSettingsSection({
   }
 
   return (
-    <div className="platform-settings-page aps-page">
-      <header className="aps-hero">
-        <div className="aps-hero-copy">
-          <p className="eyebrow">Control Center</p>
-          <h1>Глобальные настройки платформы</h1>
-          <p className="page-description">
-            Настройки разбиты по отдельным блокам: биллинг, выплаты, бренд, каналы и шаблоны.
-            Навигация по разделам не меняет модель сохранения: применяется вся текущая форма.
-          </p>
-        </div>
-        <div className="aps-hero-stats">
+    <div className="pw-platform-settings platform-settings-page aps-page">
+      <div className="pw-platform-settings-top">
+        <p className="muted-text pw-platform-settings-intro">
+          Блоки ниже соответствуют биллингу, курсам, выплатам, бренду, SEO, каналам и шаблонам. Переключение
+          раздела не сбрасывает черновик: по кнопке сохранения уходит вся текущая форма глобальных настроек.
+        </p>
+        <div className="pw-platform-settings-stats aps-hero-stats">
           {overviewStats.map((item) => (
             <StatPill
               key={item.label}
@@ -1332,7 +1328,7 @@ export function AdminPlatformSettingsSection({
             />
           ))}
         </div>
-      </header>
+      </div>
 
       <div className="aps-layout">
         <aside className="aps-sidebar">

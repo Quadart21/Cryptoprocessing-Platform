@@ -31,7 +31,7 @@ export function useAdminDashboard({
 
   return {
     heroRows,
-    heroPrimaryValue: formatDecimal(platformAccounting?.invoices_total_amount),
+    heroPrimaryValue: formatDecimal(platformAccounting?.invoices_paid_amount),
     heroSecondaryValue: formatDecimal(platformAccounting?.net_amount),
   };
 }

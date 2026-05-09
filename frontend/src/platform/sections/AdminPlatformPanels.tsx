@@ -1,5 +1,10 @@
 import type { InvoiceItem, ProviderEventItem, TransactionItem } from "../../api";
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
+import {
+  invoiceCompactPillClass,
+  invoiceStatusLabelRu,
+  invoiceStatusTone,
+} from "../../utils/invoiceStatus";
 
 type PlatformInvoicesPanelProps = {
   invoices: InvoiceItem[];
@@ -30,30 +35,38 @@ export function PlatformInvoicesPanel({
           <h2>Последние инвойсы платформы</h2>
         </div>
       </div>
-      <div className="tenant-list">
+      <div className="tenant-list tenant-list--invoice-compact">
         {invoices.length === 0 ? (
           <p className="muted-text">Инвойсов пока нет.</p>
         ) : (
-          invoices.map((invoice) => (
-            <article className="tenant-card" key={invoice.id}>
-              <div>
-                <strong>{invoice.merchant_order_id}</strong>
-                <p>
-                  {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency} /{" "}
-                  {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency}
-                </p>
-              </div>
-              <div className="tenant-meta">
-                <span>{invoice.network}</span>
-                <span>{invoice.status}</span>
-                {onSyncInvoice && (
-                  <button className="ghost-button" onClick={() => onSyncInvoice(invoice.id)} type="button">
-                    Синхронизировать
-                  </button>
-                )}
-              </div>
-            </article>
-          ))
+          invoices.map((invoice) => {
+            const tone = invoiceStatusTone(invoice.status);
+            return (
+              <article
+                className={`invoice-compact-row invoice-compact-row--${tone}`}
+                key={invoice.id}
+              >
+                <div className="invoice-compact-row__main">
+                  <strong className="invoice-compact-row__id">{invoice.merchant_order_id}</strong>
+                  <span className="invoice-compact-row__amounts">
+                    {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency} ·{" "}
+                    {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency}
+                  </span>
+                </div>
+                <div className="invoice-compact-row__meta">
+                  <span className="invoice-compact-network">{invoice.network}</span>
+                  <span className={invoiceCompactPillClass(invoice.status)}>
+                    {invoiceStatusLabelRu(invoice.status)}
+                  </span>
+                  {onSyncInvoice ? (
+                    <button className="ghost-button" onClick={() => onSyncInvoice(invoice.id)} type="button">
+                      Синхронизировать
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })
         )}
       </div>
     </article>

@@ -1,0 +1,306 @@
+/* Формы консоли (.app-frame): сетка, отступы, без переполнений и «склейки» полей */
+
+.app-frame form:not(.nc-form) {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.app-frame .tenant-card form,
+.app-frame .panel form {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Общие сетки (в т.ч. AdminUsers, legacy form-grid) */
+.app-frame .form-grid,
+.app-frame .form-grid-2 {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 1rem 1.25rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .app-frame .form-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.app-frame .form-grid label,
+.app-frame .form-grid-2 label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0;
+  font-size: inherit;
+}
+
+.app-frame .form-grid label > span:first-child,
+.app-frame .form-grid-2 label > span:first-child {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-1, var(--cu-text-muted));
+  line-height: 1.3;
+}
+
+.app-frame .form-grid input:not([type="checkbox"]):not([type="radio"]),
+.app-frame .form-grid select,
+.app-frame .form-grid textarea,
+.app-frame .form-grid-2 input:not([type="checkbox"]):not([type="radio"]),
+.app-frame .form-grid-2 select,
+.app-frame .form-grid-2 textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.app-frame .form-grid-2 .switch-row,
+.app-frame .form-grid .switch-row {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  background: rgba(0, 0, 0, 0.22);
+  gap: 1rem;
+}
+
+.app-frame .form-grid-2 .switch-row > span,
+.app-frame .form-grid .switch-row > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+/* Полная ширина в сетке pw / panel-span-2 */
+.app-frame .pw-form-fields.form-grid-2 > .panel-span-2,
+.app-frame .form-grid-2 > .panel-span-2 {
+  grid-column: 1 / -1;
+}
+
+.app-frame .pw-form-fields.form-grid-2 > .pw-field-toggle-row,
+.app-frame .pw-form-fields.form-grid-2 > label.pw-switch.pw-field-toggle-row {
+  grid-column: 1 / -1;
+}
+
+/* Fieldset: вертикальный ритм внутри body */
+.app-frame .pw-fieldset {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-frame .pw-fieldset-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.app-frame .pw-fieldset-body > .pw-form-actions {
+  margin-top: 0;
+}
+
+.app-frame .pw-form-fields {
+  gap: 1rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.app-frame .pw-form-fields.form-grid-2 {
+  gap: 1rem 1.25rem;
+}
+
+.app-frame .pw-form-fields > label:not(.pw-switch):not(.pw-toggle-field) {
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  gap: 0.45rem;
+}
+
+.app-frame .pw-form-fields input:not([type="checkbox"]):not([type="radio"]),
+.app-frame .pw-form-fields textarea,
+.app-frame .pw-form-fields select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-frame .pw-toggle-grid {
+  margin-top: 0;
+  gap: 0.65rem;
+}
+
+.app-frame .pw-fieldset-body-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.app-frame .pw-form-block,
+.app-frame .detail-section.pw-form-block,
+.app-frame .pw-cms-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.app-frame .pw-form-actions {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+/* Настройки платформы (aps) */
+.app-frame .aps-field-grid {
+  gap: 1rem 1.25rem;
+}
+
+@media (max-width: 900px) {
+  .app-frame .aps-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-frame .aps-field-span-2 {
+    grid-column: auto;
+  }
+}
+
+.app-frame .aps-stack {
+  gap: 1.1rem;
+}
+
+.app-frame .aps-stack > label,
+.app-frame .aps-select-block {
+  min-width: 0;
+}
+
+.app-frame .aps-stack input:not([type="checkbox"]):not([type="radio"]),
+.app-frame .aps-stack select,
+.app-frame .aps-stack textarea,
+.app-frame .aps-select-block select,
+.app-frame .aps-select-block input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.app-frame .aps-switch-card,
+.app-frame .aps-switch-inline {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.app-frame .aps-switch-card strong,
+.app-frame .aps-switch-inline strong {
+  min-width: 0;
+}
+
+.app-frame .aps-test-actions {
+  gap: 0.65rem;
+}
+
+@media (max-width: 720px) {
+  .app-frame .aps-test-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .app-frame .aps-test-actions .primary-button,
+  .app-frame .aps-test-actions .ghost-button {
+    width: 100%;
+  }
+}
+
+/* Тулбар активов */
+@media (max-width: 640px) {
+  .app-frame .asset-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.app-frame .asset-toolbar label {
+  min-width: 0;
+}
+
+/* Merchant: формы и вложенные блоки */
+.app-frame .mc-form {
+  gap: 1.125rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.app-frame .mc-field,
+.app-frame .mc-switch {
+  min-width: 0;
+}
+
+.app-frame .mc-nested {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.app-frame .mc-form .action-row-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 520px) {
+  .app-frame .mc-form .action-row-inline .primary-button,
+  .app-frame .mc-form .action-row-inline .ghost-button {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
+.app-frame .mc-form-grid {
+  gap: 1rem;
+}
+
+/* Мастер инвойса */
+.app-frame .mw-wizard-form {
+  min-width: 0;
+}
+
+.app-frame .mw-wizard-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.app-frame .mw-wizard-nav {
+  margin-top: 0.25rem;
+}
+
+/* Карточка пользователя в AdminUsersPanel */
+.app-frame .pw-tenant-user-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.app-frame .pw-form-actions--compact {
+  border-top: none;
+  padding-top: 0.35rem;
+  margin-top: 0;
+}

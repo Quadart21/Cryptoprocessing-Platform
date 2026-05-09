@@ -1,12 +1,5 @@
 import { formatDecimal } from "../../utils/format";
-import type {
-  AccountingSummary,
-  CurrentUser,
-  InvoiceItem,
-  ProviderEventItem,
-  TenantItem,
-  TransactionItem,
-} from "../../api";
+import type { AccountingSummary, InvoiceItem, ProviderEventItem, TransactionItem } from "../../api";
 import {
   PlatformEventsPanel,
   PlatformInvoicesPanel,
@@ -14,8 +7,6 @@ import {
 } from "./AdminPlatformPanels";
 
 type AdminOverviewSectionProps = {
-  user: CurrentUser;
-  tenants: TenantItem[];
   platformAccounting: AccountingSummary | null;
   platformInvoices: InvoiceItem[];
   platformTransactions: TransactionItem[];
@@ -24,8 +15,6 @@ type AdminOverviewSectionProps = {
 };
 
 export function AdminOverviewSection({
-  user,
-  tenants,
   platformAccounting,
   platformInvoices,
   platformTransactions,
@@ -34,30 +23,11 @@ export function AdminOverviewSection({
 }: AdminOverviewSectionProps) {
   return (
     <>
-      <section className="stats-grid">
-        <article className="stat-card">
-          <span>Роль</span>
-          <strong>{user.role}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Статус</span>
-          <strong>{user.status}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Количество клиентов</span>
-          <strong>{tenants.length}</strong>
-        </article>
-        <article className="stat-card">
-          <span>Инвойсов всего</span>
-          <strong>{platformAccounting?.invoices_total_count ?? 0}</strong>
-        </article>
-      </section>
-
       {platformAccounting ? (
         <section className="stats-grid">
           <article className="stat-card">
-            <span>Оборот по инвойсам</span>
-            <strong>{formatDecimal(platformAccounting.invoices_total_amount)}</strong>
+            <span>Оборот (оплаченные инвойсы)</span>
+            <strong>{formatDecimal(platformAccounting.invoices_paid_amount)}</strong>
           </article>
           <article className="stat-card">
             <span>Подтверждено</span>

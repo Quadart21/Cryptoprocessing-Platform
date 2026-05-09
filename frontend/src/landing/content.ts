@@ -186,4 +186,7 @@ export const LANDING_HERO_STATS_CARD = [
 
 ] as const;
 
+/** Три карточки в ряд (как на референсе); четвёртая — в сетке ниже */
+export const LANDING_FEATURE_SHOWCASE = LANDING_FEATURE_CARDS.slice(0, 3);
+
 

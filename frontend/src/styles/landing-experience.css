@@ -1,17 +1,5 @@
-/* Модуль лендинга: якорная обёртка и улучшенный порог на малых экранах */
+/* Модуль лендинга: якорная обёртка */
 
 .lp-root.nc-landing {
   min-height: 100dvh;
-}
-
-@media (max-width: 560px) {
-  .lp-auth-sheet.nc-modal {
-    width: min(100%, 100vw - 2rem);
-    margin: auto auto 1rem;
-    border-radius: 16px;
-  }
-
-  .lp-auth-overlay.nc-modal-overlay {
-    align-items: flex-end;
-  }
 }

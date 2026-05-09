@@ -1,0 +1,155 @@
+/* Единая оболочка консолей (платформа + мерчант): док снизу, топбар, формы */
+
+.app-frame {
+  --console-rail-w: 0px;
+  --console-topbar-h: 56px;
+  --console-content-pad-x: clamp(12px, 3.2vw, 28px);
+}
+
+.app-frame .dashboard-shell {
+  min-width: 0;
+  padding-left: 0;
+  padding-top: var(--console-topbar-h);
+  padding-bottom: calc(var(--console-dock-h, 92px) + max(12px, env(safe-area-inset-bottom, 0px)));
+  box-sizing: border-box;
+}
+
+/* Левый сайдбар отключён — навигация в нижнем доке */
+.app-frame .dashboard-rail {
+  display: none !important;
+}
+
+.app-frame .dashboard-topbar {
+  left: 0;
+  right: 0;
+  height: var(--console-topbar-h);
+  padding: 0 clamp(14px, 2.5vw, 26px);
+  border-bottom-color: color-mix(in srgb, var(--line-soft) 80%, transparent);
+}
+
+.app-frame .mobile-menu-toggle {
+  display: none;
+}
+
+.app-frame .merchant-bottom-nav {
+  display: none !important;
+}
+
+.app-frame .pw-console-main,
+.app-frame .pw-console-workspace,
+.app-frame .mw-workspace {
+  min-width: 0;
+}
+
+.app-frame .pw-console-workspace {
+  padding-inline: var(--console-content-pad-x);
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  gap: clamp(1.35rem, 2.2vw, 2rem);
+}
+
+.app-frame .client-cabinet.mw-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.35rem, 2.2vw, 2rem);
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.app-frame .pw-console-workspace > .stats-grid,
+.app-frame .pw-console-workspace > .dashboard-grid,
+.app-frame .pw-console-workspace > .section-context,
+.app-frame .pw-console-workspace > .console-section-stack,
+.app-frame .client-cabinet.mw-workspace > .stats-grid,
+.app-frame .client-cabinet.mw-workspace > .dashboard-grid,
+.app-frame .client-cabinet.mw-workspace > .section-context,
+.app-frame .client-cabinet.mw-workspace > .console-section-stack {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+.app-frame .pw-console-main > .page-message {
+  margin-inline: var(--console-content-pad-x);
+  width: auto;
+  max-width: min(var(--content-max), calc(100% - 2 * var(--console-content-pad-x)));
+}
+
+.app-frame .dashboard-shell .stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: clamp(12px, 2vw, 18px);
+}
+
+.app-frame .dashboard-shell .dashboard-grid {
+  gap: clamp(14px, 2.2vw, 22px);
+}
+
+.app-frame .dashboard-shell .section-context-chip {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .app-frame .pw-console-workspace .section-context {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .app-frame .pw-console-workspace .section-context-chip {
+    flex: 0 0 auto;
+    min-width: 132px;
+    max-width: 220px;
+  }
+
+  .app-frame .pw-console-workspace .section-context-chip strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-frame .dashboard-shell .form-grid-2,
+  .app-frame .dashboard-shell .detail-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .app-frame .dashboard-shell .pw-form-fields.form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .app-frame .dashboard-shell .pw-fieldset-desc {
+    max-width: none;
+  }
+}
+
+.app-frame .dashboard-shell :where(.tx-table-wrap, .api-docs-table-wrap) {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-frame .dashboard-shell .panel .tx-table-wrap {
+  margin-inline: -4px;
+  padding-inline: 4px;
+}
+
+@media (max-width: 640px) {
+  .app-frame .dashboard-shell .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-frame .dashboard-shell .panel-header .action-row-inline,
+  .app-frame .dashboard-shell .panel-header .ghost-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (min-width: 641px) {
+  .app-frame .dashboard-shell .panel-header .ghost-button {
+    width: auto;
+  }
+}

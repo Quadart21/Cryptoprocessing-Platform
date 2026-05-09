@@ -257,58 +257,60 @@ export function AdminPublicPagesSection({
                 <p className="pw-fieldset-desc">Включение ссылки в шапке и в подвале сайта и порядок сортировки.</p>
               </div>
               <div className="pw-fieldset-body">
-            <div className="pw-toggle-grid">
-              <label className="switch-row pw-switch pw-field-toggle-row">
-                <span>В главном меню</span>
-                <input
-                  checked={draftNew.show_in_header}
-                  onChange={(event) =>
-                    setDraftNew((prev) => ({ ...prev, show_in_header: event.target.checked }))
-                  }
-                  type="checkbox"
-                />
-              </label>
-              <label className="switch-row pw-switch pw-field-toggle-row">
-                <span>В футере</span>
-                <input
-                  checked={draftNew.show_in_footer}
-                  onChange={(event) =>
-                    setDraftNew((prev) => ({ ...prev, show_in_footer: event.target.checked }))
-                  }
-                  type="checkbox"
-                />
-              </label>
-            </div>
-            <div className="form-grid-2 pw-form-fields">
-              <label>
-                <span>Порядок в меню</span>
-                <input
-                  min={0}
-                  type="number"
-                  value={draftNew.header_order}
-                  onChange={(event) =>
-                    setDraftNew((prev) => ({
-                      ...prev,
-                      header_order: Number(event.target.value) || 0,
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                <span>Порядок в футере</span>
-                <input
-                  min={0}
-                  type="number"
-                  value={draftNew.footer_order}
-                  onChange={(event) =>
-                    setDraftNew((prev) => ({
-                      ...prev,
-                      footer_order: Number(event.target.value) || 0,
-                    }))
-                  }
-                />
-              </label>
-            </div>
+                <div className="pw-fieldset-body-inner">
+                  <div className="pw-toggle-grid">
+                    <label className="pw-switch pw-field-toggle-row">
+                      <span>В главном меню</span>
+                      <input
+                        checked={draftNew.show_in_header}
+                        onChange={(event) =>
+                          setDraftNew((prev) => ({ ...prev, show_in_header: event.target.checked }))
+                        }
+                        type="checkbox"
+                      />
+                    </label>
+                    <label className="pw-switch pw-field-toggle-row">
+                      <span>В футере</span>
+                      <input
+                        checked={draftNew.show_in_footer}
+                        onChange={(event) =>
+                          setDraftNew((prev) => ({ ...prev, show_in_footer: event.target.checked }))
+                        }
+                        type="checkbox"
+                      />
+                    </label>
+                  </div>
+                  <div className="form-grid-2 pw-form-fields">
+                    <label>
+                      <span>Порядок в меню</span>
+                      <input
+                        min={0}
+                        type="number"
+                        value={draftNew.header_order}
+                        onChange={(event) =>
+                          setDraftNew((prev) => ({
+                            ...prev,
+                            header_order: Number(event.target.value) || 0,
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Порядок в футере</span>
+                      <input
+                        min={0}
+                        type="number"
+                        value={draftNew.footer_order}
+                        onChange={(event) =>
+                          setDraftNew((prev) => ({
+                            ...prev,
+                            footer_order: Number(event.target.value) || 0,
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                </div>
               </div>
             </fieldset>
             <div className="pw-form-actions">
@@ -395,60 +397,62 @@ export function AdminPublicPagesSection({
                   <p className="pw-fieldset-desc">Видимость и порядок в навигации.</p>
                 </div>
                 <div className="pw-fieldset-body">
-              <div className="pw-toggle-grid">
-                <label className="switch-row pw-switch pw-field-toggle-row">
-                  <span>В меню</span>
-                  <input
-                    checked={editDraft.show_in_header}
-                    onChange={(event) =>
-                      setEditDraft((d) =>
-                        d ? { ...d, show_in_header: event.target.checked } : d,
-                      )
-                    }
-                    type="checkbox"
-                  />
-                </label>
-                <label className="switch-row pw-switch pw-field-toggle-row">
-                  <span>В футере</span>
-                  <input
-                    checked={editDraft.show_in_footer}
-                    onChange={(event) =>
-                      setEditDraft((d) =>
-                        d ? { ...d, show_in_footer: event.target.checked } : d,
-                      )
-                    }
-                    type="checkbox"
-                  />
-                </label>
-              </div>
-              <div className="form-grid-2 pw-form-fields">
-                <label>
-                  <span>Порядок меню</span>
-                  <input
-                    min={0}
-                    type="number"
-                    value={editDraft.header_order}
-                    onChange={(event) =>
-                      setEditDraft((d) =>
-                        d ? { ...d, header_order: Number(event.target.value) || 0 } : d,
-                      )
-                    }
-                  />
-                </label>
-                <label>
-                  <span>Порядок футера</span>
-                  <input
-                    min={0}
-                    type="number"
-                    value={editDraft.footer_order}
-                    onChange={(event) =>
-                      setEditDraft((d) =>
-                        d ? { ...d, footer_order: Number(event.target.value) || 0 } : d,
-                      )
-                    }
-                  />
-                </label>
-              </div>
+                  <div className="pw-fieldset-body-inner">
+                    <div className="pw-toggle-grid">
+                      <label className="pw-switch pw-field-toggle-row">
+                        <span>В меню</span>
+                        <input
+                          checked={editDraft.show_in_header}
+                          onChange={(event) =>
+                            setEditDraft((d) =>
+                              d ? { ...d, show_in_header: event.target.checked } : d,
+                            )
+                          }
+                          type="checkbox"
+                        />
+                      </label>
+                      <label className="pw-switch pw-field-toggle-row">
+                        <span>В футере</span>
+                        <input
+                          checked={editDraft.show_in_footer}
+                          onChange={(event) =>
+                            setEditDraft((d) =>
+                              d ? { ...d, show_in_footer: event.target.checked } : d,
+                            )
+                          }
+                          type="checkbox"
+                        />
+                      </label>
+                    </div>
+                    <div className="form-grid-2 pw-form-fields">
+                      <label>
+                        <span>Порядок меню</span>
+                        <input
+                          min={0}
+                          type="number"
+                          value={editDraft.header_order}
+                          onChange={(event) =>
+                            setEditDraft((d) =>
+                              d ? { ...d, header_order: Number(event.target.value) || 0 } : d,
+                            )
+                          }
+                        />
+                      </label>
+                      <label>
+                        <span>Порядок футера</span>
+                        <input
+                          min={0}
+                          type="number"
+                          value={editDraft.footer_order}
+                          onChange={(event) =>
+                            setEditDraft((d) =>
+                              d ? { ...d, footer_order: Number(event.target.value) || 0 } : d,
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </fieldset>
               <div className="pw-form-actions">

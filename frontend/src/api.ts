@@ -1,4 +1,5 @@
 import { resolveApiBaseUrl } from "./config/apiBase";
+import { getCsrfToken, setCsrfToken } from "./storage";
 
 const API_BASE_URL = resolveApiBaseUrl();
 
@@ -651,13 +652,20 @@ function extractErrorMessage(payload: unknown): {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const csrfToken = getCsrfToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(csrfToken && { "X-CSRF-Token": csrfToken }),
       ...(init?.headers ?? {}),
     },
   });
+
+  const csrfHeader = response.headers.get("X-CSRF-Token");
+  if (csrfHeader) {
+    setCsrfToken(csrfHeader);
+  }
 
   if (!response.ok) {
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
@@ -737,7 +745,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  const data = (await response.json()) as T;
+  if (
+    data &&
+    typeof data === "object" &&
+    "csrf_token" in data &&
+    typeof (data as { csrf_token: unknown }).csrf_token === "string"
+  ) {
+    setCsrfToken((data as { csrf_token: string }).csrf_token);
+  }
+  return data;
 }
 
 export function login(
@@ -964,6 +981,14 @@ export function fetchClientAccountingSummary(token: string): Promise<AccountingS
 
 export function fetchRates(token: string): Promise<RatesResponse> {
   return request<RatesResponse>("/client/rates", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function fetchCsrfToken(token: string): Promise<{ csrf_token: string }> {
+  return request<{ csrf_token: string }>("/admin/security/csrf", {
     headers: {
       Authorization: `Bearer ${token}`,
     },

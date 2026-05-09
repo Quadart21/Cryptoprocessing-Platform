@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type { TransactionItem } from "../api";
+import type { InvoiceItem, TransactionItem } from "../api";
 import { formatMoneyAmount } from "../utils/format";
 
 export type AnalyticsPeriod = "today" | "7d" | "30d" | "90d" | "all";
@@ -10,13 +10,17 @@ const CHART_LIMIT = 28;
 
 type UseClientAnalyticsParams = {
   transactions: TransactionItem[];
+  /** Если передан — в оборот и KPI попадают только транзакции по инвойсам в статусе paid/confirmed. */
+  invoices?: InvoiceItem[];
   currencyFallback: string;
 };
 
-type AnalyticsSummary = {
+export type ClientAnalyticsSummary = {
   turnover: string;
   net: string;
   fee: string;
+  /** Net зачисление + комиссия платформы (platform_fee + turnover_fee) по оплаченным. */
+  pureProfit: string;
   successRate: string;
   averageCheck: string;
   transactionCount: number;
@@ -47,7 +51,7 @@ type UseClientAnalyticsResult = {
   transactionsInPeriod: TransactionItem[];
   filteredTransactions: TransactionItem[];
   pagedTransactions: TransactionItem[];
-  summary: AnalyticsSummary;
+  summary: ClientAnalyticsSummary;
   chartPoints: AnalyticsChartPoint[];
   chartCurrency: string;
 };
@@ -60,8 +64,17 @@ const PERIOD_LABELS: Record<AnalyticsPeriod, string> = {
   all: "Весь период",
 };
 
+function isPaidLikeInvoiceStatus(status: string): boolean {
+  return status === "paid" || status === "confirmed";
+}
+
+function isPaidLikeTransactionStatus(status: string): boolean {
+  return status === "paid" || status === "confirmed";
+}
+
 export function useClientAnalytics({
   transactions,
+  invoices,
   currencyFallback,
 }: UseClientAnalyticsParams): UseClientAnalyticsResult {
   const [period, setPeriod] = useState<AnalyticsPeriod>("30d");
@@ -120,9 +133,21 @@ export function useClientAnalytics({
   const start = (Math.max(page, 1) - 1) * PAGE_SIZE;
   const pagedTransactions = filteredTransactions.slice(start, start + PAGE_SIZE);
 
+  const paidInvoiceIds =
+    invoices && invoices.length > 0
+      ? new Set(invoices.filter((inv) => isPaidLikeInvoiceStatus(inv.status)).map((inv) => inv.id))
+      : null;
+
+  const transactionContributesToTurnover = (tx: TransactionItem) => {
+    if (paidInvoiceIds && !paidInvoiceIds.has(tx.invoice_id)) {
+      return false;
+    }
+    return isPaidLikeTransactionStatus(tx.status);
+  };
+
   const chartCurrency = currencyFallback || transactionsInPeriod[0]?.currency || "USDT";
-  const summary = buildSummary(transactionsInPeriod, period, chartCurrency);
-  const chartPoints = buildChartPoints(transactionsInPeriod, period);
+  const summary = buildSummary(transactionsInPeriod, period, chartCurrency, transactionContributesToTurnover);
+  const chartPoints = buildChartPoints(transactionsInPeriod, period, transactionContributesToTurnover);
 
   return {
     period,
@@ -229,23 +254,27 @@ function buildSummary(
   transactions: TransactionItem[],
   period: AnalyticsPeriod,
   currency: string,
-): AnalyticsSummary {
+  contributesToTurnover: (tx: TransactionItem) => boolean,
+): ClientAnalyticsSummary {
   let turnover = 0;
   let net = 0;
   let fee = 0;
+  let pureProfit = 0;
   let paidOrConfirmed = 0;
 
   for (const transaction of transactions) {
-    const isPaidOrConfirmed = transaction.status === "paid" || transaction.status === "confirmed";
-    if (isPaidOrConfirmed) {
-      turnover += toAmount(transaction.gross_amount);
-      net += toAmount(transaction.net_amount);
-      fee +=
-        toAmount(transaction.provider_fee) +
-        toAmount(transaction.platform_fee) +
-        toAmount(transaction.turnover_fee);
-      paidOrConfirmed += 1;
+    if (!contributesToTurnover(transaction)) {
+      continue;
     }
+    turnover += toAmount(transaction.gross_amount);
+    net += toAmount(transaction.net_amount);
+    const platformPart = toAmount(transaction.platform_fee) + toAmount(transaction.turnover_fee);
+    pureProfit += toAmount(transaction.net_amount) + platformPart;
+    fee +=
+      toAmount(transaction.provider_fee) +
+      toAmount(transaction.platform_fee) +
+      toAmount(transaction.turnover_fee);
+    paidOrConfirmed += 1;
   }
 
   const transactionCount = transactions.length;
@@ -265,6 +294,7 @@ function buildSummary(
     turnover: formatAmount(turnover, currency),
     net: formatAmount(net, currency),
     fee: formatAmount(fee, currency),
+    pureProfit: formatAmount(pureProfit, currency),
     successRate: formatPercent(successRate),
     averageCheck: formatAmount(averageCheck, currency),
     transactionCount,
@@ -275,10 +305,9 @@ function buildSummary(
 function buildChartPoints(
   transactions: TransactionItem[],
   period: AnalyticsPeriod,
+  contributesToTurnover: (tx: TransactionItem) => boolean,
 ): AnalyticsChartPoint[] {
-  const paidTransactions = transactions.filter(
-    (tx) => tx.status === "paid" || tx.status === "confirmed",
-  );
+  const paidTransactions = transactions.filter((tx) => contributesToTurnover(tx));
 
   if (paidTransactions.length === 0) {
     return [];

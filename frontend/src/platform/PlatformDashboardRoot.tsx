@@ -171,7 +171,7 @@ export function PlatformDashboardRoot({
           <SectionContextChips items={contextChips} />
 
           {section === "overview" ? (
-            <>
+            <div className="console-section-stack">
               <section className="stats-grid pw-console-stats">
                 <article className="stat-card">
                   <span>Роль</span>
@@ -186,11 +186,11 @@ export function PlatformDashboardRoot({
                   <strong>{tenants.length}</strong>
                 </article>
                 <article className="stat-card">
-                  <span>Оборот</span>
+                  <span>Оборот (оплач.)</span>
                   <strong>{heroPrimaryValue}</strong>
                 </article>
                 <article className="stat-card">
-                  <span>Net</span>
+                  <span>К зачислению</span>
                   <strong>{heroSecondaryValue}</strong>
                 </article>
                 {heroRows.slice(0, 1).map((row) => (
@@ -206,159 +206,179 @@ export function PlatformDashboardRoot({
                 platformEvents={platformEvents}
                 platformInvoices={platformInvoices}
                 platformTransactions={platformTransactions}
-                tenants={tenants}
-                user={user}
                 onSyncInvoice={onSyncInvoice}
               />
-            </>
+            </div>
           ) : null}
 
           {section === "invoices" ? (
-            <section className="dashboard-grid client-grid">
-              <PlatformInvoicesPanel
-                className="panel panel-span-2"
-                invoices={platformInvoices}
-                onSyncInvoice={onSyncInvoice}
-              />
-            </section>
+            <div className="console-section-stack">
+              <section className="dashboard-grid client-grid">
+                <PlatformInvoicesPanel
+                  className="panel panel-span-2"
+                  invoices={platformInvoices}
+                  onSyncInvoice={onSyncInvoice}
+                />
+              </section>
+            </div>
           ) : null}
 
           {section === "transactions" ? (
-            <section className="dashboard-grid client-grid">
-              <PlatformTransactionsPanel
-                className="panel panel-span-2"
-                transactions={platformTransactions}
-              />
-            </section>
+            <div className="console-section-stack">
+              <section className="dashboard-grid client-grid">
+                <PlatformTransactionsPanel
+                  className="panel panel-span-2"
+                  transactions={platformTransactions}
+                />
+              </section>
+            </div>
           ) : null}
 
           {section === "payouts" ? (
-            <section className="dashboard-grid client-grid">
-              <AdminPlatformPayoutsPanel
-                payouts={platformPayouts}
-                loading={loading}
-                onApprove={onApprovePayout}
-                onReject={onRejectPayout}
-                onOpenTenant={(tenantId) => {
-                  onSelectTenant(tenantId);
-                  setSection("client-detail");
-                }}
-              />
-            </section>
+            <div className="console-section-stack">
+              <section className="dashboard-grid client-grid">
+                <AdminPlatformPayoutsPanel
+                  payouts={platformPayouts}
+                  loading={loading}
+                  onApprove={onApprovePayout}
+                  onReject={onRejectPayout}
+                  onOpenTenant={(tenantId) => {
+                    onSelectTenant(tenantId);
+                    setSection("client-detail");
+                  }}
+                />
+              </section>
+            </div>
           ) : null}
 
           {section === "events" ? (
-            <section className="dashboard-grid client-grid">
-              <PlatformEventsPanel className="panel panel-span-2" events={platformEvents} />
-            </section>
+            <div className="console-section-stack">
+              <section className="dashboard-grid client-grid">
+                <PlatformEventsPanel className="panel panel-span-2" events={platformEvents} />
+              </section>
+            </div>
           ) : null}
 
           {section === "clients" || section === "requests" ? (
-            <AdminClientsSection
-              key={tenants.length + tenants.map((t) => t.status).join(",")}
-              createdTenant={createdTenant}
-              loading={loading}
-              mode={section}
-              selectedTenantId={selectedTenantId}
-              tenantForm={tenantForm}
-              tenants={tenants}
-              onApproveTenant={onApproveTenant}
-              onCreateTenant={onCreateTenant}
-              onDeleteTenant={onDeleteAdminTenant}
-              onOpenTenant={handleOpenTenant}
-              onRejectTenant={onRejectTenant}
-              onTenantFormChange={onTenantFormChange}
-            />
+            <div className="console-section-stack">
+              <AdminClientsSection
+                key={tenants.length + tenants.map((t) => t.status).join(",")}
+                createdTenant={createdTenant}
+                loading={loading}
+                mode={section}
+                selectedTenantId={selectedTenantId}
+                tenantForm={tenantForm}
+                tenants={tenants}
+                onApproveTenant={onApproveTenant}
+                onCreateTenant={onCreateTenant}
+                onDeleteTenant={onDeleteAdminTenant}
+                onOpenTenant={handleOpenTenant}
+                onRejectTenant={onRejectTenant}
+                onTenantFormChange={onTenantFormChange}
+              />
+            </div>
           ) : null}
 
           {section === "client-detail" ? (
-            <AdminClientDetailSection
-              loading={loading}
-              selectedInvoiceDetail={selectedInvoiceDetail}
-              selectedInvoiceEvents={selectedInvoiceEvents}
-              selectedInvoiceId={selectedInvoiceId}
-              selectedTenantAccounting={selectedTenantAccounting}
-              selectedTenantDetail={selectedTenantDetail}
-              selectedTenantInvoices={selectedTenantInvoices}
-              selectedTenantName={selectedTenantName}
-              selectedTenantPayouts={selectedTenantPayouts}
-              selectedTenantTransactions={selectedTenantTransactions}
-              onDeleteTenant={onDeleteAdminTenant}
-              onResetTenantOwnerPassword={onResetTenantOwnerPassword}
-              onResetTenantOwnerTwoFactor={onResetTenantOwnerTwoFactor}
-              onAdminRegenerateApiKey={onAdminRegenerateApiKey}
-              onAdminRevokeApiKey={onAdminRevokeApiKey}
-              onApprovePayout={onApprovePayout}
-              onBackToClients={() => setSection("clients")}
-              onRejectPayout={onRejectPayout}
-              onSelectInvoice={onSelectInvoice}
-              onUpdateAdminProject={onUpdateAdminProject}
-              onUpdateAdminTenant={onUpdateAdminTenant}
-              onUpdateInvoiceStatus={onUpdateInvoiceStatus}
-            />
+            <div className="console-section-stack">
+              <AdminClientDetailSection
+                loading={loading}
+                selectedInvoiceDetail={selectedInvoiceDetail}
+                selectedInvoiceEvents={selectedInvoiceEvents}
+                selectedInvoiceId={selectedInvoiceId}
+                selectedTenantAccounting={selectedTenantAccounting}
+                selectedTenantDetail={selectedTenantDetail}
+                selectedTenantInvoices={selectedTenantInvoices}
+                selectedTenantName={selectedTenantName}
+                selectedTenantPayouts={selectedTenantPayouts}
+                selectedTenantTransactions={selectedTenantTransactions}
+                onDeleteTenant={onDeleteAdminTenant}
+                onResetTenantOwnerPassword={onResetTenantOwnerPassword}
+                onResetTenantOwnerTwoFactor={onResetTenantOwnerTwoFactor}
+                onAdminRegenerateApiKey={onAdminRegenerateApiKey}
+                onAdminRevokeApiKey={onAdminRevokeApiKey}
+                onApprovePayout={onApprovePayout}
+                onBackToClients={() => setSection("clients")}
+                onRejectPayout={onRejectPayout}
+                onSelectInvoice={onSelectInvoice}
+                onUpdateAdminProject={onUpdateAdminProject}
+                onUpdateAdminTenant={onUpdateAdminTenant}
+                onUpdateInvoiceStatus={onUpdateInvoiceStatus}
+              />
+            </div>
           ) : null}
 
           {section === "team" ? (
-            <section className="dashboard-grid client-grid">
-              <AdminUsersPanel
-                loading={loading}
-                roles={roleDefinitions}
-                tenants={tenants}
-                users={adminUsers}
-                onCreate={onCreateAdminUser}
-                onUpdate={onUpdateAdminUser}
-              />
-            </section>
+            <div className="console-section-stack">
+              <section className="dashboard-grid client-grid">
+                <AdminUsersPanel
+                  loading={loading}
+                  roles={roleDefinitions}
+                  tenants={tenants}
+                  users={adminUsers}
+                  onCreate={onCreateAdminUser}
+                  onUpdate={onUpdateAdminUser}
+                />
+              </section>
+            </div>
           ) : null}
 
           {section === "security" ? (
-            <section className="dashboard-grid client-grid">
-              <TwoFactorPanel
-                loading={loading}
-                setupData={twoFactorSetup}
-                status={twoFactorStatus}
-                onDisable={onDisableTwoFactor}
-                onEnable={onEnableTwoFactor}
-                onSetup={onSetupTwoFactor}
-              />
-            </section>
+            <div className="console-section-stack">
+              <section className="dashboard-grid client-grid">
+                <TwoFactorPanel
+                  loading={loading}
+                  setupData={twoFactorSetup}
+                  status={twoFactorStatus}
+                  onDisable={onDisableTwoFactor}
+                  onEnable={onEnableTwoFactor}
+                  onSetup={onSetupTwoFactor}
+                />
+              </section>
+            </div>
           ) : null}
 
           {section === "platform-settings" ? (
-            <AdminPlatformSettingsSection
-              adminAssetRates={adminAssetRates}
-              loading={loading}
-              platformBillingSettings={platformBillingSettings}
-              selectedTenantBillingPolicy={selectedTenantBillingPolicy}
-              selectedTenantId={selectedTenantId}
-              tenants={tenants}
-              onSelectTenant={onSelectTenant}
-              onFetchPlatformExchangeRate={onFetchPlatformExchangeRate}
-              onRefreshPlatformExchangeRate={onRefreshPlatformExchangeRate}
-              onInspectPlatformTelegramBot={onInspectPlatformTelegramBot}
-              onSendPlatformTelegramTest={onSendPlatformTelegramTest}
-              onSendPlatformSmtpBzTest={onSendPlatformSmtpBzTest}
-              onUpdatePlatformSettings={onUpdatePlatformSettings}
-              onUpdateTenantPolicy={onUpdateTenantPolicy}
-            />
+            <div className="console-section-stack">
+              <AdminPlatformSettingsSection
+                adminAssetRates={adminAssetRates}
+                loading={loading}
+                platformBillingSettings={platformBillingSettings}
+                selectedTenantBillingPolicy={selectedTenantBillingPolicy}
+                selectedTenantId={selectedTenantId}
+                tenants={tenants}
+                onSelectTenant={onSelectTenant}
+                onFetchPlatformExchangeRate={onFetchPlatformExchangeRate}
+                onRefreshPlatformExchangeRate={onRefreshPlatformExchangeRate}
+                onInspectPlatformTelegramBot={onInspectPlatformTelegramBot}
+                onSendPlatformTelegramTest={onSendPlatformTelegramTest}
+                onSendPlatformSmtpBzTest={onSendPlatformSmtpBzTest}
+                onUpdatePlatformSettings={onUpdatePlatformSettings}
+                onUpdateTenantPolicy={onUpdateTenantPolicy}
+              />
+            </div>
           ) : null}
 
           {section === "public-pages" ? (
-            <AdminPublicPagesSection
-              loading={loading}
-              pages={publicPages}
-              onCreate={onCreatePublicPage}
-              onUpdate={onUpdatePublicPage}
-              onDelete={onDeletePublicPage}
-            />
+            <div className="console-section-stack">
+              <AdminPublicPagesSection
+                loading={loading}
+                pages={publicPages}
+                onCreate={onCreatePublicPage}
+                onUpdate={onUpdatePublicPage}
+                onDelete={onDeletePublicPage}
+              />
+            </div>
           ) : null}
 
           {section === "assets" ? (
-            <AssetManagementPage
-              loading={loading}
-              adminAssetRates={adminAssetRates}
-              onUpdateAssetAvailability={onUpdateAssetAvailability}
-            />
+            <div className="console-section-stack">
+              <AssetManagementPage
+                loading={loading}
+                adminAssetRates={adminAssetRates}
+                onUpdateAssetAvailability={onUpdateAssetAvailability}
+              />
+            </div>
           ) : null}
         </div>
       </main>

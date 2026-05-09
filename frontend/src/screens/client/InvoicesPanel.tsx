@@ -1,5 +1,6 @@
 import type { InvoiceItem } from "../../api";
 import { formatDecimal } from "../../utils/format";
+import { invoiceMerchantBadgeClass, invoiceStatusLabelRu } from "../../utils/invoiceStatus";
 
 type InvoicesPanelProps = {
   invoices: InvoiceItem[];
@@ -8,20 +9,6 @@ type InvoicesPanelProps = {
   onSyncInvoice: (invoiceId: string) => void;
   canSyncInvoices: boolean;
 };
-
-function invoiceStatusBadge(status: string): string {
-  const s = status.toLowerCase();
-  if (s === "confirmed" || s === "paid") {
-    return "mc-badge-ok";
-  }
-  if (s === "pending") {
-    return "mc-badge-warn";
-  }
-  if (s === "failed" || s === "expired") {
-    return "mc-badge-neutral";
-  }
-  return "mc-badge-neutral";
-}
 
 export function InvoicesPanel({
   invoices,
@@ -58,7 +45,9 @@ export function InvoicesPanel({
                 <p className="mc-row-sub mc-row-mono">{invoice.payment_address}</p>
                 <div className="mc-row-badges" style={{ marginTop: 8 }}>
                   <span className="mc-badge mc-badge-neutral">{invoice.network}</span>
-                  <span className={`mc-badge ${invoiceStatusBadge(invoice.status)}`}>{invoice.status}</span>
+                  <span className={invoiceMerchantBadgeClass(invoice.status)}>
+                    {invoiceStatusLabelRu(invoice.status)}
+                  </span>
                 </div>
               </div>
               <div className="mc-row-actions">
@@ -67,7 +56,7 @@ export function InvoicesPanel({
                 </button>
                 {canSyncInvoices ? (
                   <button className="ghost-button" onClick={() => onSyncInvoice(invoice.id)} type="button">
-                    Sync
+                    Синхронизировать
                   </button>
                 ) : null}
               </div>

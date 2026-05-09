@@ -70,6 +70,7 @@ def create_application() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-CSRF-Token"],
     )
     _register_error_handlers(app)
     _register_security_headers(app)

@@ -104,118 +104,134 @@ export function AdminUsersPanel({
         ))}
       </div>
 
-      <form className="form" onSubmit={handleCreate}>
-        <div className="form-grid form-grid-2">
-          <label>
-            <span>Email</span>
-            <input
-              value={createForm.email}
-              onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
-              required
-              type="email"
-            />
-          </label>
-          <label>
-            <span>ФИО</span>
-            <input
-              value={createForm.full_name}
-              onChange={(event) =>
-                setCreateForm((current) => ({ ...current, full_name: event.target.value }))
-              }
-              required
-              type="text"
-            />
-          </label>
-          <label>
-            <span>Роль</span>
-            <select
-              value={createForm.role}
-              onChange={(event) =>
-                setCreateForm((current) => ({
-                  ...current,
-                  role: event.target.value,
-                }))
-              }
-            >
-              {roles.map((role) => (
-                <option key={role.role} value={role.role}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Статус</span>
-            <select
-              value={createForm.status}
-              onChange={(event) =>
-                setCreateForm((current) => ({
-                  ...current,
-                  status: event.target.value as "invited" | "active" | "suspended",
-                }))
-              }
-            >
-              {STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
-          {roleScope(createForm.role) === "tenant" ? (
-            <label>
-              <span>Клиент (tenant)</span>
-              <select
-                value={createForm.tenant_id ?? ""}
-                onChange={(event) =>
-                  setCreateForm((current) => ({
-                    ...current,
-                    tenant_id: event.target.value || null,
-                  }))
-                }
-                required
-              >
-                <option value="">Выберите клиента</option>
-                {tenants.map((tenant) => (
-                  <option key={tenant.id} value={tenant.id}>
-                    {tenant.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <label>
-            <span>Пароль (опционально)</span>
-            <input
-              value={createForm.password ?? ""}
-              onChange={(event) =>
-                setCreateForm((current) => ({
-                  ...current,
-                  password: event.target.value,
-                }))
-              }
-              minLength={8}
-              placeholder="если пусто - сгенерируется временный"
-              type="password"
-            />
-          </label>
-          <label className="switch-row">
-            <span>Сгенерировать invite-token</span>
-            <input
-              checked={createForm.create_invite}
-              onChange={(event) =>
-                setCreateForm((current) => ({
-                  ...current,
-                  create_invite: event.target.checked,
-                }))
-              }
-              type="checkbox"
-            />
-          </label>
-        </div>
-        <button className="primary-button" disabled={loading} type="submit">
-          {loading ? "Создаем..." : "Создать пользователя"}
-        </button>
+      <form className="pw-admin-users-create" onSubmit={handleCreate}>
+        <fieldset className="pw-fieldset">
+          <legend className="sr-only">Создание пользователя платформы</legend>
+          <div className="pw-fieldset-cap">
+            <h3 className="pw-fieldset-title">Новый пользователь</h3>
+            <p className="pw-fieldset-desc">
+              Роль определяет область доступа; для ролей клиента обязателен выбор тенанта.
+            </p>
+          </div>
+          <div className="pw-fieldset-body">
+            <div className="pw-form-fields form-grid-2">
+              <label>
+                <span>Email</span>
+                <input
+                  value={createForm.email}
+                  onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))}
+                  required
+                  type="email"
+                  autoComplete="off"
+                />
+              </label>
+              <label>
+                <span>ФИО</span>
+                <input
+                  value={createForm.full_name}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({ ...current, full_name: event.target.value }))
+                  }
+                  required
+                  type="text"
+                />
+              </label>
+              <label>
+                <span>Роль</span>
+                <select
+                  value={createForm.role}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({
+                      ...current,
+                      role: event.target.value,
+                    }))
+                  }
+                >
+                  {roles.map((role) => (
+                    <option key={role.role} value={role.role}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Статус</span>
+                <select
+                  value={createForm.status}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({
+                      ...current,
+                      status: event.target.value as "invited" | "active" | "suspended",
+                    }))
+                  }
+                >
+                  {STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {roleScope(createForm.role) === "tenant" ? (
+                <label>
+                  <span>Клиент (tenant)</span>
+                  <select
+                    value={createForm.tenant_id ?? ""}
+                    onChange={(event) =>
+                      setCreateForm((current) => ({
+                        ...current,
+                        tenant_id: event.target.value || null,
+                      }))
+                    }
+                    required
+                  >
+                    <option value="">Выберите клиента</option>
+                    {tenants.map((tenant) => (
+                      <option key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <label>
+                <span>Пароль (опционально)</span>
+                <span className="pw-field-hint">Если пусто — будет сгенерирован временный пароль.</span>
+                <input
+                  value={createForm.password ?? ""}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  minLength={8}
+                  placeholder="минимум 8 символов"
+                  type="password"
+                  autoComplete="new-password"
+                />
+              </label>
+              <label className="pw-switch pw-field-toggle-row">
+                <span>Сгенерировать invite-token</span>
+                <input
+                  checked={createForm.create_invite}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({
+                      ...current,
+                      create_invite: event.target.checked,
+                    }))
+                  }
+                  type="checkbox"
+                />
+              </label>
+            </div>
+            <div className="pw-form-actions">
+              <button className="primary-button" disabled={loading} type="submit">
+                {loading ? "Создаем..." : "Создать пользователя"}
+              </button>
+            </div>
+          </div>
+        </fieldset>
       </form>
 
       <div className="tenant-list" style={{ marginTop: 16 }}>
@@ -227,11 +243,11 @@ export function AdminUsersPanel({
           const draftScope = roleScope(draft.role);
           return (
             <article className="tenant-card" key={user.id}>
-              <div style={{ width: "100%" }}>
+              <div className="pw-tenant-user-edit">
                 <strong>{user.email}</strong>
                 <p>ID: {user.id}</p>
                 <p>Последний вход: {user.last_login_at ?? "еще не входил"}</p>
-                <div className="form-grid form-grid-2">
+                <div className="pw-form-fields form-grid-2 pw-admin-user-grid">
                   <label>
                     <span>ФИО</span>
                     <input
@@ -309,7 +325,7 @@ export function AdminUsersPanel({
                       </select>
                     </label>
                   ) : null}
-                  <label className="switch-row">
+                  <label className="pw-switch pw-field-toggle-row">
                     <span>Сбросить 2FA при сохранении</span>
                     <input
                       checked={draft.reset_two_factor}
@@ -326,7 +342,7 @@ export function AdminUsersPanel({
                     />
                   </label>
                 </div>
-                <div className="action-row-inline">
+                <div className="pw-form-actions pw-form-actions--compact">
                   <button
                     className="primary-button"
                     disabled={loading}

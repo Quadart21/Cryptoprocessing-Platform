@@ -5,6 +5,7 @@ type AnalyticsSummaryProps = {
   turnover: string;
   net: string;
   fee: string;
+  pureProfit: string;
   successRate: string;
   averageCheck: string;
   transactionCount: number;
@@ -54,12 +55,16 @@ export function AnalyticsPeriodStrip({
 
       <div className="mc-analytics-kpis">
         <article className="mc-kpi">
-          <span>Оборот</span>
+          <span>Оборот (оплач.)</span>
           <strong>{summary.turnover}</strong>
         </article>
         <article className="mc-kpi">
-          <span>Чистый</span>
+          <span>К зачислению</span>
           <strong>{summary.net}</strong>
+        </article>
+        <article className="mc-kpi">
+          <span>Чистая прибыль</span>
+          <strong>{summary.pureProfit}</strong>
         </article>
         <article className="mc-kpi">
           <span>Комиссии</span>

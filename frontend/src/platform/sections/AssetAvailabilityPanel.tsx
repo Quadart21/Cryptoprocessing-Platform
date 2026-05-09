@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import type { AssetAvailabilityPayload, RateItem, RateNetworkItem } from "../../api";
+import { mapAvailabilityReason } from "./assetAvailabilityLabels";
 
 type AssetAvailabilityPanelProps = {
   rates: RateItem[];
@@ -67,7 +68,7 @@ export function AssetAvailabilityPanel({
         </div>
       </div>
 
-      <div className="asset-toolbar">
+      <div className="asset-toolbar pw-assets-toolbar-legacy">
         <label>
           <span>Валюта</span>
           <select value={selectedCurrency} onChange={(event) => setSelectedCurrency(event.target.value)}>
@@ -142,23 +143,4 @@ export function AssetAvailabilityPanel({
       )}
     </article>
   );
-}
-
-function mapAvailabilityReason(reason: string | null): string {
-  if (!reason) {
-    return "не указана";
-  }
-  if (reason === "available") {
-    return "доступно";
-  }
-  if (reason === "disabled_by_platform") {
-    return "отключено платформой";
-  }
-  if (reason === "disabled_by_provider") {
-    return "отключено провайдером";
-  }
-  if (reason === "acquiring_off") {
-    return "приём отключён у провайдера";
-  }
-  return reason;
 }

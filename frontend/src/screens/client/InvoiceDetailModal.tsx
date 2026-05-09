@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { InvoiceItem } from "../../api";
 import { formatDecimal } from "../../utils/format";
+import { getInvoiceDetailStatusMeta } from "../../utils/invoiceStatus";
 
 type InvoiceDetailModalProps = {
   invoice: InvoiceItem | null;
@@ -39,6 +40,10 @@ function formatCountdown(value: string | null | undefined, status: string): stri
     return "Платеж не завершен";
   }
 
+  if (status === "expired") {
+    return "Срок истёк";
+  }
+
   const expiresAt = new Date(value).getTime();
   if (Number.isNaN(expiresAt)) {
     return "Не удалось рассчитать";
@@ -59,21 +64,6 @@ function formatCountdown(value: string | null | undefined, status: string): stri
   }
 
   return `${minutes}м ${String(seconds).padStart(2, "0")}с`;
-}
-
-function getInvoiceStatusMeta(status: string): { label: string; className: string } {
-  switch (status) {
-    case "pending":
-      return { label: "Ожидает оплату", className: "invoice-status-badge-pending" };
-    case "paid":
-      return { label: "Оплачен", className: "invoice-status-badge-paid" };
-    case "confirmed":
-      return { label: "Подтвержден", className: "invoice-status-badge-confirmed" };
-    case "failed":
-      return { label: "Ошибка", className: "invoice-status-badge-failed" };
-    default:
-      return { label: status, className: "invoice-status-badge-neutral" };
-  }
 }
 
 export function InvoiceDetailModal({
@@ -117,7 +107,7 @@ export function InvoiceDetailModal({
     return null;
   }
 
-  const statusMeta = getInvoiceStatusMeta(invoice.status);
+  const statusMeta = getInvoiceDetailStatusMeta(invoice.status);
 
   return (
     <div className="nc-modal-overlay" onClick={onClose}>

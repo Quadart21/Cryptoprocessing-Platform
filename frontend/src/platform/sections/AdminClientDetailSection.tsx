@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
+import { invoiceCompactPillClass, invoiceStatusLabelRu } from "../../utils/invoiceStatus";
 import type {
   AccountingSummary,
   InvoiceAdminDetail,
@@ -176,12 +177,21 @@ export function AdminClientDetailSection({
                   {selectedTenantAccounting ? (
                     <div className="detail-summary pw-readonly-kv-grid">
                       <div className="detail-chip">
-                        <span>Сумма инвойсов</span>
-                        <strong>{formatDecimal(selectedTenantAccounting.invoices_total_amount)}</strong>
+                        <span>Оплачено</span>
+                        <strong>{formatDecimal(selectedTenantAccounting.invoices_paid_amount)}</strong>
                       </div>
                       <div className="detail-chip">
                         <span>Подтверждено</span>
                         <strong>{formatDecimal(selectedTenantAccounting.invoices_confirmed_amount)}</strong>
+                      </div>
+                      <div className="detail-chip">
+                        <span>Чистая прибыль</span>
+                        <strong>
+                          {formatDecimal(
+                            Number(selectedTenantAccounting.net_amount) +
+                              Number(selectedTenantAccounting.total_platform_revenue_amount),
+                          )}
+                        </strong>
                       </div>
                       <div className="detail-chip">
                         <span>Выручка платформы</span>
@@ -572,7 +582,9 @@ export function AdminClientDetailSection({
                             </div>
                             <div className="tenant-meta">
                               <span>{invoice.network}</span>
-                              <span>{invoice.status}</span>
+                              <span className={invoiceCompactPillClass(invoice.status)}>
+                                {invoiceStatusLabelRu(invoice.status)}
+                              </span>
                               <button
                                 className="ghost-button"
                                 onClick={() => onSelectInvoice(invoice.id)}
@@ -636,7 +648,7 @@ export function AdminClientDetailSection({
                       <div className="detail-summary">
                         <div className="detail-chip">
                           <span>Статус</span>
-                          <strong>{selectedInvoiceDetail.status}</strong>
+                          <strong>{invoiceStatusLabelRu(selectedInvoiceDetail.status)}</strong>
                         </div>
                         <div className="detail-chip">
                           <span>Сумма</span>
@@ -671,20 +683,23 @@ export function AdminClientDetailSection({
                           onClick={() => onUpdateInvoiceStatus("pending")}
                           type="button"
                         >
-                          pending
+                          Ожидает оплату
                         </button>
                         <button className="ghost-button" onClick={() => onUpdateInvoiceStatus("paid")} type="button">
-                          paid
+                          Оплачен
                         </button>
                         <button
                           className="primary-button"
                           onClick={() => onUpdateInvoiceStatus("confirmed")}
                           type="button"
                         >
-                          confirmed
+                          Подтверждён
                         </button>
                         <button className="ghost-button" onClick={() => onUpdateInvoiceStatus("failed")} type="button">
-                          failed
+                          Ошибка оплаты
+                        </button>
+                        <button className="ghost-button" onClick={() => onUpdateInvoiceStatus("expired")} type="button">
+                          Истёк срок
                         </button>
                       </div>
                       <div className="result-box">

@@ -17,6 +17,7 @@ import {
   fetchAdminRoles,
   fetchAdminTransactions,
   fetchAdminUsers,
+  fetchCsrfToken,
   fetchApiKeys,
   fetchBalance,
   fetchClientAccountingSummary,
@@ -139,6 +140,7 @@ import { useSession } from "./hooks/useSession";
 import { AppRouteFallback } from "./components/AppRouteFallback";
 import { SeoHead } from "./components/SeoHead";
 import { safeLoad } from "./utils/async";
+import { invoiceStatusLabelRu } from "./utils/invoiceStatus";
 
 const PLATFORM_ROLES = new Set([
   "superadmin",
@@ -355,6 +357,8 @@ export function AppController() {
       setClientNotificationSettings(null);
 
       if (isPlatformRole(currentUser.role)) {
+        const { csrf_token } = await fetchCsrfToken(accessToken);
+        applyCsrfToken(csrf_token);
         const tenantItems = await fetchTenants(accessToken);
         setTenants(tenantItems);
         if (tenantItems.length > 0) {
@@ -1242,7 +1246,7 @@ export function AppController() {
       setNewApiSecret(null);
       const updated = await updateAdminInvoiceStatus(token, selectedInvoiceId, status);
       setSelectedInvoiceDetail(updated);
-      setSuccess(`Статус инвойса обновлен на ${status}.`);
+      setSuccess(`Статус инвойса обновлён: ${invoiceStatusLabelRu(status)}.`);
       const tenantInvoices = await fetchTenantInvoices(token, selectedTenantId);
       setSelectedTenantInvoices(tenantInvoices);
       setSelectedInvoiceEvents(await safeLoad(() => fetchInvoiceEvents(token, selectedInvoiceId), []));
@@ -1277,7 +1281,7 @@ export function AppController() {
         const tenantInvoices = await fetchTenantInvoices(token, selectedTenantId);
         setSelectedTenantInvoices(tenantInvoices);
       }
-      setSuccess(`Статус инвойса синхронизирован: ${invoice.status}.`);
+      setSuccess(`Статус инвойса синхронизирован: ${invoiceStatusLabelRu(invoice.status)}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось синхронизировать инвойс.");
     } finally {
@@ -1320,7 +1324,7 @@ export function AppController() {
       setClientTransactions(transactionItems);
       setClientAccounting(accountingSummary);
       setBalance(balanceInfo);
-      setSuccess(`Статус инвойса синхронизирован: ${invoice.status}.`);
+      setSuccess(`Статус инвойса синхронизирован: ${invoiceStatusLabelRu(invoice.status)}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось синхронизировать инвойс.");
     } finally {

@@ -39,18 +39,13 @@ export function AssetManagementPage({
   }, [adminAssetRates, search]);
 
   return (
-    <div className="asset-management-page">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Управление</p>
-          <h1>Токены и сети</h1>
-          <p className="page-description">
-            Управляйте доступностью криптовалют и сетей для ваших клиентов
-          </p>
-        </div>
-      </header>
+    <div className="pw-assets-page">
+      <p className="muted-text pw-assets-intro">
+        Включение и отключение сетей на уровне платформы влияет на доступность в кабинетах клиентов.
+        Используйте поиск, чтобы быстро найти валюту или сеть в длинном списке.
+      </p>
 
-      <section className="stats-grid">
+      <section className="stats-grid pw-console-stats">
         <article className="stat-card">
           <span>Всего сетей</span>
           <strong>{stats.total}</strong>
@@ -65,16 +60,25 @@ export function AssetManagementPage({
         </article>
       </section>
 
-      <div className="asset-search-bar">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Поиск по валюте или сети..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="pw-assets-search-field">
+        <span>Поиск по валюте или сети</span>
+        <div className="pw-assets-search">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+            <path
+              d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+          <input
+            type="search"
+            placeholder="Например USDT или TRC20…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            autoComplete="off"
+          />
+        </div>
       </div>
 
       <AssetAvailabilityCompact

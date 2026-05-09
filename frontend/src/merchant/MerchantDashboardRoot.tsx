@@ -4,7 +4,6 @@ import { DashboardRail, type DashboardRailGroup } from "../components/layout/Das
 import { DashboardStatusMessages } from "../components/layout/DashboardStatusMessages";
 import { SectionContextChips } from "../components/layout/SectionContextChips";
 import { ClientSectionHeader } from "../components/client/ClientSectionHeader";
-import { MerchantBottomNav, type MerchantBottomNavKey } from "../components/client/MerchantBottomNav";
 import { useClientAnalytics } from "../hooks/useClientAnalytics";
 import { TwoFactorPanel } from "../components/security/TwoFactorPanel";
 import { formatDecimal } from "../utils/format";
@@ -85,8 +84,18 @@ export function MerchantDashboardRoot({
 
   const analytics = useClientAnalytics({
     transactions: clientTransactions,
+    invoices,
     currencyFallback: balance?.currency ?? "USDT",
   });
+
+  const accountingPureProfit = useMemo(() => {
+    if (!clientAccounting) {
+      return null;
+    }
+    const n =
+      Number(clientAccounting.net_amount) + Number(clientAccounting.total_platform_revenue_amount);
+    return Number.isFinite(n) ? formatDecimal(n) : null;
+  }, [clientAccounting]);
 
   const sectionMeta = MERCHANT_SECTION_COPY[section];
 
@@ -111,19 +120,6 @@ export function MerchantDashboardRoot({
     ],
     [onboarding, projects, user.role],
   );
-
-  const handleMerchantBottomNav = (key: MerchantBottomNavKey) => {
-    setSection(key);
-  };
-
-  const merchantQuickSections: MerchantBottomNavKey[] = [
-    "overview",
-    "transactions",
-    "balance",
-    "invoices",
-    "docs",
-  ];
-  const suggestMerchantFullMenu = !merchantQuickSections.includes(section as MerchantBottomNavKey);
 
   const menuGroups: DashboardRailGroup[] = MERCHANT_MENU_GROUPS;
 
@@ -171,7 +167,7 @@ export function MerchantDashboardRoot({
           )}
 
           {section === "overview" ? (
-            <div className="mc-page-stack">
+            <div className="console-section-stack mc-page-stack">
               <section className="mc-bento">
                 <article className="mc-stat">
                   <span className="mc-stat-label">Тенант</span>
@@ -190,12 +186,16 @@ export function MerchantDashboardRoot({
                   <strong className="mc-stat-value">{analytics.summary.transactionCount}</strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Оборот</span>
+                  <span className="mc-stat-label">Оборот (оплач.)</span>
                   <strong className="mc-stat-value">{analytics.summary.turnover}</strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Net</span>
+                  <span className="mc-stat-label">К зачислению</span>
                   <strong className="mc-stat-value">{analytics.summary.net}</strong>
+                </article>
+                <article className="mc-stat">
+                  <span className="mc-stat-label">Чистая прибыль</span>
+                  <strong className="mc-stat-value">{analytics.summary.pureProfit}</strong>
                 </article>
               </section>
 
@@ -276,8 +276,8 @@ export function MerchantDashboardRoot({
                     <strong className="mc-stat-value">{clientAccounting.invoices_total_count}</strong>
                   </article>
                   <article className="mc-stat">
-                    <span className="mc-stat-label">Сумма</span>
-                    <strong className="mc-stat-value">{formatDecimal(clientAccounting.invoices_total_amount)}</strong>
+                    <span className="mc-stat-label">Оплачено</span>
+                    <strong className="mc-stat-value">{formatDecimal(clientAccounting.invoices_paid_amount)}</strong>
                   </article>
                   <article className="mc-stat">
                     <span className="mc-stat-label">Подтверждено</span>
@@ -286,8 +286,12 @@ export function MerchantDashboardRoot({
                     </strong>
                   </article>
                   <article className="mc-stat">
-                    <span className="mc-stat-label">Net</span>
+                    <span className="mc-stat-label">К зачислению</span>
                     <strong className="mc-stat-value">{formatDecimal(clientAccounting.net_amount)}</strong>
+                  </article>
+                  <article className="mc-stat">
+                    <span className="mc-stat-label">Чистая прибыль</span>
+                    <strong className="mc-stat-value">{accountingPureProfit ?? "—"}</strong>
                   </article>
                 </section>
               ) : null}
@@ -295,7 +299,7 @@ export function MerchantDashboardRoot({
           ) : null}
 
           {section === "docs" ? (
-            <div className="mc-page-stack">
+            <div className="console-section-stack mc-page-stack">
               <MerchantApiReference
                 apiBaseUrl={apiBaseUrl}
                 activeApiKeyPublic={activeApiKeyPublic}
@@ -307,7 +311,8 @@ export function MerchantDashboardRoot({
           ) : null}
 
           {section === "projects" ? (
-            <div className="mc-split mc-split--balanced">
+            <div className="console-section-stack">
+              <div className="mc-split mc-split--balanced">
               <ProjectDirectory projects={projects} />
               <IntegrationCommandCenter
                 activeApiKeyPublic={activeApiKeyPublic}
@@ -322,11 +327,13 @@ export function MerchantDashboardRoot({
                 selectedRoute={selectedRoute}
                 webhookForm={webhookForm}
               />
+              </div>
             </div>
           ) : null}
 
           {section === "keys" ? (
-            <div className="mc-split mc-split--balanced">
+            <div className="console-section-stack">
+              <div className="mc-split mc-split--balanced">
               <KeysVault
                 apiKeys={apiKeys}
                 activeApiKeyPublic={activeApiKeyPublic}
@@ -346,11 +353,13 @@ export function MerchantDashboardRoot({
                 selectedRoute={selectedRoute}
                 webhookForm={webhookForm}
               />
+              </div>
             </div>
           ) : null}
 
           {section === "invoices" ? (
-            <div className="mc-split mc-split--balanced mw-invoices-split">
+            <div className="console-section-stack">
+              <div className="mc-split mc-split--balanced mw-invoices-split">
               <InvoiceIssuanceWizard
                 availableNetworks={availableNetworks}
                 invoiceForm={invoiceForm}
@@ -368,11 +377,12 @@ export function MerchantDashboardRoot({
                 selectedClientInvoiceId={selectedClientInvoiceId}
                 canSyncInvoices={canSyncInvoices}
               />
+              </div>
             </div>
           ) : null}
 
           {section === "transactions" ? (
-            <div className="mc-page-stack">
+            <div className="console-section-stack mc-page-stack">
               <OutboundLedger
                 currencyFilter={analytics.currencyFilter}
                 currencyOptions={analytics.currencyOptions}
@@ -394,7 +404,7 @@ export function MerchantDashboardRoot({
           ) : null}
 
           {section === "balance" ? (
-            <div className="mc-page-stack">
+            <div className="console-section-stack mc-page-stack">
               <section className="mc-bento">
                 <article className="mc-stat">
                   <span className="mc-stat-label">Доступно</span>
@@ -417,8 +427,12 @@ export function MerchantDashboardRoot({
                   </strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Net (период)</span>
+                  <span className="mc-stat-label">К зачислению (период)</span>
                   <strong className="mc-stat-value">{analytics.summary.net}</strong>
+                </article>
+                <article className="mc-stat">
+                  <span className="mc-stat-label">Чистая прибыль (период)</span>
+                  <strong className="mc-stat-value">{analytics.summary.pureProfit}</strong>
                 </article>
               </section>
 
@@ -434,7 +448,8 @@ export function MerchantDashboardRoot({
           ) : null}
 
           {section === "security" ? (
-            <div className="mc-split mc-split--balanced">
+            <div className="console-section-stack">
+              <div className="mc-split mc-split--balanced">
               <TwoFactorPanel
                 status={twoFactorStatus}
                 setupData={twoFactorSetup}
@@ -449,6 +464,7 @@ export function MerchantDashboardRoot({
                 onSaveNotificationSettings={onSaveNotificationSettings}
                 onChangePassword={onChangePassword}
               />
+              </div>
             </div>
           ) : null}
 
@@ -463,11 +479,6 @@ export function MerchantDashboardRoot({
         </div>
       </main>
 
-      <MerchantBottomNav
-        activeKey={section}
-        onSelect={handleMerchantBottomNav}
-        suggestFullMenu={suggestMerchantFullMenu}
-      />
     </div>
   );
 }
