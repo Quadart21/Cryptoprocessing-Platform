@@ -193,6 +193,18 @@
   color: var(--text-1, #94a3b8);
 }
 
+.mc-webhook-test-blocked-msg {
+  margin: 0.5rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: inherit;
+}
+
+/* Нативный dialog в потоке документа: подстраховка слоя (showModal обычно поднимает в top layer) */
+.mw-inspector-dialog[open] {
+  z-index: 1200;
+}
+
 .mc-inline-code {
   font-size: 0.82em;
   padding: 0.1em 0.35em;

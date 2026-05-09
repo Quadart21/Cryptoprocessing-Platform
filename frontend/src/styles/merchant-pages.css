@@ -67,6 +67,21 @@
   max-width: 65ch;
 }
 
+.mc-invoice-count-pill {
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(117, 158, 255, 0.16);
+  background: rgba(3, 10, 24, 0.45);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mc-surface--invoices-list .tx-toolbar {
+  margin-bottom: 14px;
+}
+
 /* Stats bento */
 .mc-bento {
   display: grid;
@@ -207,6 +222,26 @@
 .mc-row--active {
   border-color: rgba(51, 215, 255, 0.45);
   box-shadow: 0 0 0 1px rgba(51, 215, 255, 0.12);
+}
+
+.mc-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 6px;
+}
+
+.mc-row-head .mc-row-title {
+  margin: 0;
+  flex: 1;
+  min-width: min(100%, 12rem);
+}
+
+.mc-row-date {
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .mc-row-title {

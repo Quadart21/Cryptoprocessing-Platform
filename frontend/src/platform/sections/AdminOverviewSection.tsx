@@ -1,16 +1,11 @@
 import { formatDecimal } from "../../utils/format";
-import type { AccountingSummary, InvoiceItem, ProviderEventItem, TransactionItem } from "../../api";
-import {
-  PlatformEventsPanel,
-  PlatformInvoicesPanel,
-  PlatformTransactionsPanel,
-} from "./AdminPlatformPanels";
+import type { AccountingSummary, InvoiceItem, TransactionItem } from "../../api";
+import { PlatformInvoicesPanel, PlatformTransactionsPanel } from "./AdminPlatformPanels";
 
 type AdminOverviewSectionProps = {
   platformAccounting: AccountingSummary | null;
   platformInvoices: InvoiceItem[];
   platformTransactions: TransactionItem[];
-  platformEvents: ProviderEventItem[];
   onSyncInvoice?: (invoiceId: string) => void;
 };
 
@@ -18,7 +13,6 @@ export function AdminOverviewSection({
   platformAccounting,
   platformInvoices,
   platformTransactions,
-  platformEvents,
   onSyncInvoice,
 }: AdminOverviewSectionProps) {
   return (
@@ -47,7 +41,6 @@ export function AdminOverviewSection({
       <section className="dashboard-grid client-grid">
         <PlatformInvoicesPanel invoices={platformInvoices} onSyncInvoice={onSyncInvoice} />
         <PlatformTransactionsPanel transactions={platformTransactions} />
-        <PlatformEventsPanel className="panel panel-span-2" events={platformEvents} />
       </section>
     </>
   );

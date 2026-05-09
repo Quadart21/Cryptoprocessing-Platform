@@ -203,7 +203,6 @@ export function PlatformDashboardRoot({
 
               <AdminOverviewSection
                 platformAccounting={platformAccounting}
-                platformEvents={platformEvents}
                 platformInvoices={platformInvoices}
                 platformTransactions={platformTransactions}
                 onSyncInvoice={onSyncInvoice}

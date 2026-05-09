@@ -68,7 +68,7 @@ export const MERCHANT_SECTION_COPY: Record<
   invoices: {
     group: "Приём",
     title: "Выставление счетов",
-    description: "Мастер создания и живой список инвойсов.",
+    description: "Мастер создания счёта и список инвойсов с поиском и постраничным просмотром.",
   },
   security: {
     group: "Доверие",

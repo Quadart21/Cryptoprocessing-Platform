@@ -198,6 +198,21 @@ export function PlatformTransactionsPanel({
 }
 
 export function PlatformEventsPanel({ events, className = "panel" }: PlatformEventsPanelProps) {
+  const [page, setPage] = useState(1);
+  const totalCount = events.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PLATFORM_PANEL_PAGE_SIZE));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const pageEvents = useMemo(() => {
+    const start = (page - 1) * PLATFORM_PANEL_PAGE_SIZE;
+    return events.slice(start, start + PLATFORM_PANEL_PAGE_SIZE);
+  }, [events, page]);
+
   return (
     <article className={className}>
       <div className="panel-header">
@@ -207,10 +222,10 @@ export function PlatformEventsPanel({ events, className = "panel" }: PlatformEve
         </div>
       </div>
       <div className="tenant-list">
-        {events.length === 0 ? (
+        {totalCount === 0 ? (
           <p className="muted-text">Событий пока нет.</p>
         ) : (
-          events.map((event) => (
+          pageEvents.map((event) => (
             <article className="tenant-card" key={event.id}>
               <div>
                 <strong>{event.event_type}</strong>
@@ -225,6 +240,12 @@ export function PlatformEventsPanel({ events, className = "panel" }: PlatformEve
           ))
         )}
       </div>
+      <PanelPaginationFooter
+        onPageChange={setPage}
+        page={page}
+        pageSize={PLATFORM_PANEL_PAGE_SIZE}
+        totalCount={totalCount}
+      />
     </article>
   );
 }
