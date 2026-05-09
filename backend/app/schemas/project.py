@@ -71,3 +71,18 @@ class WebhookTestResponse(BaseModel):
     attempts: int
     status_code: int
     response_preview: str | None = None
+
+
+class InvoiceWebhookTestResponse(BaseModel):
+    """Ответ тестовой отправки webhook по инвойсу (статус инвойса в БД не меняется)."""
+
+    project_id: str
+    invoice_id: str
+    webhook_url: str
+    event_id: str
+    delivered_at: datetime
+    attempts: int
+    status_code: int
+    response_preview: str | None = None
+    ok: bool
+    error: str | None = None

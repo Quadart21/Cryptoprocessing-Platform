@@ -59,6 +59,7 @@ import {
   revokeClientApiKey,
   sendPlatformSmtpBzTest,
   sendPlatformTelegramTest,
+  sendInvoiceWebhookTest,
   sendWebhookTest,
   setPasswordByRecoveryToken,
   setupTwoFactor,
@@ -1131,6 +1132,13 @@ export function AppController() {
     }
   }
 
+  async function handleInvoiceWebhookTest(invoiceId: string) {
+    if (!token) {
+      throw new Error("Сессия недоступна.");
+    }
+    return sendInvoiceWebhookTest(token, invoiceId);
+  }
+
   function handleLogout() {
     clearSession();
     setCreatedTenant(null);
@@ -1791,6 +1799,7 @@ return (
           onCreatePayout={handleCreatePayout}
           onSaveWebhook={handleSaveWebhook}
           onSendWebhookTest={handleSendWebhookTest}
+          onInvoiceWebhookTest={handleInvoiceWebhookTest}
           onInvoiceFormChange={setInvoiceForm}
           onPayoutFormChange={setPayoutForm}
           onWebhookFormChange={setWebhookForm}

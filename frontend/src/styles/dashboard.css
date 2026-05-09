@@ -635,6 +635,12 @@
   line-height: 1.1;
 }
 
+.platform-panel-footer {
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--line-soft, rgba(255, 255, 255, 0.08));
+}
+
 .tenant-list,
 .detail-stack,
 .action-row {

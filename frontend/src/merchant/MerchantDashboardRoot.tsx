@@ -63,6 +63,7 @@ export function MerchantDashboardRoot({
   onCreatePayout,
   onSaveWebhook,
   onSendWebhookTest,
+  onInvoiceWebhookTest,
   onInvoiceFormChange,
   onPayoutFormChange,
   onWebhookFormChange,
@@ -80,6 +81,8 @@ export function MerchantDashboardRoot({
 }: ClientDashboardProps) {
   const canSyncInvoices =
     user.permissions.includes("*") || user.permissions.includes("client.invoices.write");
+  const canSendInvoiceWebhookTest =
+    user.permissions.includes("*") || user.permissions.includes("client.webhooks.write");
   const [section, setSection] = useState<MerchantSection>("overview");
 
   const analytics = useClientAnalytics({
@@ -376,6 +379,9 @@ export function MerchantDashboardRoot({
                 onSyncInvoice={onClientInvoiceSync}
                 selectedClientInvoiceId={selectedClientInvoiceId}
                 canSyncInvoices={canSyncInvoices}
+                webhookConfigured={Boolean(activeWebhookUrl)}
+                canSendInvoiceWebhookTest={canSendInvoiceWebhookTest}
+                onInvoiceWebhookTest={onInvoiceWebhookTest}
               />
               </div>
             </div>

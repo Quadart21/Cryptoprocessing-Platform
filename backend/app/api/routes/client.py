@@ -38,6 +38,7 @@ from app.schemas.notification import (
 from app.schemas.project import (
     ApiKeyRegenerateResponse,
     ApiKeySummary,
+    InvoiceWebhookTestResponse,
     ProjectSummary,
     WebhookConfigRequest,
     WebhookConfigResponse,
@@ -676,6 +677,49 @@ async def test_webhook_delivery(
         attempts=int(result["attempts"]),
         status_code=int(result["status_code"]),
         response_preview=result.get("response_preview"),
+    )
+
+
+@router.post("/invoices/{invoice_id}/webhook-test", response_model=InvoiceWebhookTestResponse)
+async def test_invoice_webhook_simulation(
+    invoice_id: str,
+    current_user: User = Depends(require_tenant_permission("client.webhooks.write")),
+    db: AsyncSession = Depends(get_db),
+) -> InvoiceWebhookTestResponse:
+    tenant_id = current_user.tenant_id or ""
+    invoice_service = InvoiceService(db)
+    invoice = await invoice_service.get_invoice(tenant_id, invoice_id)
+    if invoice is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+
+    project_service = ProjectService(db)
+    project = await project_service.get_project(invoice.project_id)
+    if project is None or project.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Проект не найден.")
+
+    tx_service = TransactionService(db)
+    transaction = await tx_service.get_latest_for_invoice(invoice_id)
+
+    try:
+        result = ClientWebhookService(EventService(db)).send_invoice_deposit_test(
+            project,
+            invoice,
+            transaction,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return InvoiceWebhookTestResponse(
+        project_id=project.id,
+        invoice_id=invoice.id,
+        webhook_url=project.webhook_url or "",
+        event_id=str(result["event_id"]),
+        delivered_at=result["delivered_at"],
+        attempts=int(result["attempts"]),
+        status_code=int(result["status_code"]),
+        response_preview=result.get("response_preview"),
+        ok=bool(result["ok"]),
+        error=result.get("error"),
     )
 
 

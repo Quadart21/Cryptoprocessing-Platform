@@ -169,3 +169,93 @@
     grid-column: 1 / -1;
   }
 }
+
+/* —— Тест webhook по инвойсу —— */
+.mc-webhook-test-dialog .mc-webhook-test-inner {
+  padding: 1.25rem 1.25rem 1.35rem;
+  max-width: min(96vw, 520px);
+}
+
+.mc-webhook-test-header {
+  margin-bottom: 1rem;
+}
+
+.mc-webhook-test-title {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+
+.mc-webhook-test-lede {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-1, #94a3b8);
+}
+
+.mc-inline-code {
+  font-size: 0.82em;
+  padding: 0.1em 0.35em;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--border-subtle, #2a2f3a) 55%, transparent);
+}
+
+.mc-webhook-test-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.mc-webhook-test-result {
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cu-amber, #00a3ff) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cu-amber, #00a3ff) 28%, transparent);
+  font-size: 0.85rem;
+}
+
+.mc-webhook-test-result--warn {
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 35%, transparent);
+}
+
+.mc-webhook-test-result--error {
+  background: color-mix(in srgb, #f87171 14%, transparent);
+  border-color: color-mix(in srgb, #f87171 35%, transparent);
+}
+
+.mc-webhook-test-result strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.mc-webhook-test-result pre {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.mc-webhook-test-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.45rem;
+}
+
+.mc-webhook-test-kv span {
+  color: var(--text-1, #94a3b8);
+}
+
+.mc-webhook-test-kv--full {
+  grid-template-columns: 1fr;
+}
+
+.mc-webhook-test-kv--full span {
+  margin-bottom: 0.15rem;
+}

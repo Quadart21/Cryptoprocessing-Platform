@@ -116,6 +116,20 @@ export type WebhookTestResponse = {
   response_preview: string | null;
 };
 
+/** Ответ POST /client/invoices/:id/webhook-test — тестовый webhook по инвойсу без смены статуса. */
+export type InvoiceWebhookTestResponse = {
+  project_id: string;
+  invoice_id: string;
+  webhook_url: string;
+  event_id: string;
+  delivered_at: string;
+  attempts: number;
+  status_code: number;
+  response_preview: string | null;
+  ok: boolean;
+  error: string | null;
+};
+
 export type InvoiceItem = {
   id: string;
   project_id: string;

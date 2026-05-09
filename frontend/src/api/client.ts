@@ -16,6 +16,7 @@ import type {
   RatesResponse,
   WebhookConfigItem,
   WebhookTestResponse,
+  InvoiceWebhookTestResponse,
   MerchantNotificationSettings,
   MerchantNotificationSettingsUpdatePayload,
 } from "./base";
@@ -143,6 +144,16 @@ export function sendWebhookTest(
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(payload),
+  });
+}
+
+export function sendInvoiceWebhookTest(
+  token: string,
+  invoiceId: string,
+): Promise<InvoiceWebhookTestResponse> {
+  return request<InvoiceWebhookTestResponse>(`/client/invoices/${encodeURIComponent(invoiceId)}/webhook-test`, {
+    method: "POST",
+    headers: authHeaders(token),
   });
 }
 

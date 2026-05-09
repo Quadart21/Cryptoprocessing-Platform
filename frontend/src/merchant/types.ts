@@ -8,6 +8,7 @@ import type {
   CreatePayoutPayload,
   CurrentUser,
   InvoiceItem,
+  InvoiceWebhookTestResponse,
   MerchantNotificationSettings,
   OnboardingStatus,
   PayoutRequestItem,
@@ -61,6 +62,7 @@ export type ClientDashboardProps = {
   onCreatePayout: (event: FormEvent<HTMLFormElement>) => void;
   onSaveWebhook: (event: FormEvent<HTMLFormElement>) => void;
   onSendWebhookTest: () => void;
+  onInvoiceWebhookTest: (invoiceId: string) => Promise<InvoiceWebhookTestResponse>;
   onInvoiceFormChange: (next: CreateInvoicePayload) => void;
   onPayoutFormChange: (next: CreatePayoutPayload) => void;
   onWebhookFormChange: (next: WebhookFormState) => void;

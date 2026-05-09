@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+
 import type { InvoiceItem, ProviderEventItem, TransactionItem } from "../../api";
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
 import {
@@ -5,6 +7,51 @@ import {
   invoiceStatusLabelRu,
   invoiceStatusTone,
 } from "../../utils/invoiceStatus";
+
+const PLATFORM_PANEL_PAGE_SIZE = 10;
+
+function PanelPaginationFooter({
+  page,
+  pageSize,
+  totalCount,
+  onPageChange,
+}: {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  onPageChange: (next: number) => void;
+}) {
+  if (totalCount === 0) {
+    return null;
+  }
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, totalCount);
+
+  return (
+    <div className="tx-footer platform-panel-footer">
+      <p className="muted-text">
+        Показано {start}–{end} из {totalCount}
+      </p>
+      <div className="tx-pagination">
+        <button className="ghost-button" disabled={page <= 1} onClick={() => onPageChange(page - 1)} type="button">
+          Назад
+        </button>
+        <span className="tx-page-indicator">
+          {page} / {totalPages}
+        </span>
+        <button
+          className="ghost-button"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+          type="button"
+        >
+          Вперёд
+        </button>
+      </div>
+    </div>
+  );
+}
 
 type PlatformInvoicesPanelProps = {
   invoices: InvoiceItem[];
@@ -27,6 +74,21 @@ export function PlatformInvoicesPanel({
   className = "panel",
   onSyncInvoice,
 }: PlatformInvoicesPanelProps) {
+  const [page, setPage] = useState(1);
+  const totalCount = invoices.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PLATFORM_PANEL_PAGE_SIZE));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const pageInvoices = useMemo(() => {
+    const start = (page - 1) * PLATFORM_PANEL_PAGE_SIZE;
+    return invoices.slice(start, start + PLATFORM_PANEL_PAGE_SIZE);
+  }, [invoices, page]);
+
   return (
     <article className={className}>
       <div className="panel-header">
@@ -36,10 +98,10 @@ export function PlatformInvoicesPanel({
         </div>
       </div>
       <div className="tenant-list tenant-list--invoice-compact">
-        {invoices.length === 0 ? (
+        {totalCount === 0 ? (
           <p className="muted-text">Инвойсов пока нет.</p>
         ) : (
-          invoices.map((invoice) => {
+          pageInvoices.map((invoice) => {
             const tone = invoiceStatusTone(invoice.status);
             return (
               <article
@@ -69,6 +131,12 @@ export function PlatformInvoicesPanel({
           })
         )}
       </div>
+      <PanelPaginationFooter
+        onPageChange={setPage}
+        page={page}
+        pageSize={PLATFORM_PANEL_PAGE_SIZE}
+        totalCount={totalCount}
+      />
     </article>
   );
 }
@@ -77,6 +145,21 @@ export function PlatformTransactionsPanel({
   transactions,
   className = "panel",
 }: PlatformTransactionsPanelProps) {
+  const [page, setPage] = useState(1);
+  const totalCount = transactions.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PLATFORM_PANEL_PAGE_SIZE));
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const pageTransactions = useMemo(() => {
+    const start = (page - 1) * PLATFORM_PANEL_PAGE_SIZE;
+    return transactions.slice(start, start + PLATFORM_PANEL_PAGE_SIZE);
+  }, [transactions, page]);
+
   return (
     <article className={className}>
       <div className="panel-header">
@@ -86,10 +169,10 @@ export function PlatformTransactionsPanel({
         </div>
       </div>
       <div className="tenant-list">
-        {transactions.length === 0 ? (
+        {totalCount === 0 ? (
           <p className="muted-text">Транзакций пока нет.</p>
         ) : (
-          transactions.map((transaction) => (
+          pageTransactions.map((transaction) => (
             <article className="tenant-card" key={transaction.id}>
               <div>
                 <strong>{formatMoneyAmount(transaction.gross_amount, transaction.currency)}</strong>
@@ -104,6 +187,12 @@ export function PlatformTransactionsPanel({
           ))
         )}
       </div>
+      <PanelPaginationFooter
+        onPageChange={setPage}
+        page={page}
+        pageSize={PLATFORM_PANEL_PAGE_SIZE}
+        totalCount={totalCount}
+      />
     </article>
   );
 }

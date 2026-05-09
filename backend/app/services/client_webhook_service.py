@@ -181,6 +181,74 @@ class ClientWebhookService:
             "response_preview": result.response_preview,
         }
 
+    def send_invoice_deposit_test(
+        self,
+        project: Project,
+        invoice: Invoice,
+        transaction: Transaction | None,
+    ) -> dict:
+        """Тестовый webhook «как при пополнении»: те же поля, что у боевого уведомления, без записи в БД."""
+        if not project.webhook_url:
+            raise ValueError("Для проекта не настроен webhook URL.")
+
+        delivery_id = f"wh_test_dep_{token_hex(10)}"
+        delivered_at = datetime.now(timezone.utc)
+        event_name = "invoice.test_deposit"
+        payload: dict = {
+            "event": event_name,
+            "event_id": delivery_id,
+            "sent_at": delivered_at.isoformat(),
+            "simulated": True,
+            "message": "Тестовый webhook по инвойсу: статус инвойса и транзакций в системе не изменяются.",
+            "invoice": {
+                "id": invoice.id,
+                "project_id": invoice.project_id,
+                "merchant_order_id": invoice.merchant_order_id,
+                "provider_order_id": invoice.provider_order_id,
+                "status": invoice.status,
+                "amount_fiat": str(invoice.amount_fiat),
+                "fiat_currency": invoice.fiat_currency,
+                "amount_crypto": str(invoice.amount_crypto),
+                "crypto_currency": invoice.crypto_currency,
+                "network": invoice.network,
+                "payment_address": invoice.payment_address,
+                "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
+                "confirmed_at": invoice.confirmed_at.isoformat() if invoice.confirmed_at else None,
+            },
+            "transaction": {
+                "id": transaction.id,
+                "status": transaction.status,
+                "gross_amount": str(transaction.gross_amount),
+                "provider_fee": str(transaction.provider_fee),
+                "platform_fee": str(transaction.platform_fee),
+                "turnover_fee": str(transaction.turnover_fee),
+                "net_amount": str(transaction.net_amount),
+                "currency": transaction.currency,
+                "paid_at": transaction.paid_at.isoformat() if transaction.paid_at else None,
+            }
+            if transaction
+            else None,
+        }
+
+        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        headers = self._build_headers(
+            project=project,
+            event_name=event_name,
+            delivery_id=delivery_id,
+            delivered_at=delivered_at,
+            body=body,
+        )
+        result = self._post_with_retry(project.webhook_url, body, headers)
+        return {
+            "event_id": delivery_id,
+            "delivered_at": delivered_at,
+            "attempts": result.attempts,
+            "status_code": result.status_code,
+            "response_preview": result.response_preview,
+            "ok": result.ok,
+            "error": result.error,
+        }
+
     def _build_headers(
         self,
         *,

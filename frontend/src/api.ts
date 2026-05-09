@@ -1113,6 +1113,34 @@ export function sendWebhookTest(
   });
 }
 
+export type InvoiceWebhookTestResponse = {
+  project_id: string;
+  invoice_id: string;
+  webhook_url: string;
+  event_id: string;
+  delivered_at: string;
+  attempts: number;
+  status_code: number;
+  response_preview: string | null;
+  ok: boolean;
+  error: string | null;
+};
+
+export function sendInvoiceWebhookTest(
+  token: string,
+  invoiceId: string,
+): Promise<InvoiceWebhookTestResponse> {
+  return request<InvoiceWebhookTestResponse>(
+    `/client/invoices/${encodeURIComponent(invoiceId)}/webhook-test`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+}
+
 export function syncClientInvoice(token: string, invoiceId: string): Promise<InvoiceItem> {
   return request<InvoiceItem>(`/client/invoices/${invoiceId}/sync`, {
     method: "POST",
