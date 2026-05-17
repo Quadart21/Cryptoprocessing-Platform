@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.transaction import Transaction
+from app.services.statistics_exclusion_service import StatisticsExclusionService
 
 
 class TransactionService:
@@ -29,4 +30,7 @@ class TransactionService:
 
     async def list_all(self, limit: int = 50, offset: int = 0) -> list[Transaction]:
         stmt = select(Transaction).order_by(Transaction.created_at.desc()).limit(limit).offset(offset)
+        excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
+        if excluded:
+            stmt = stmt.where(Transaction.tenant_id.not_in(excluded))
         return list((await self.db.scalars(stmt)).all())

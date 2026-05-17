@@ -192,6 +192,10 @@ class Settings(BaseSettings):
         default=5,
         alias="RATE_LIMIT_PAYOUT_CREATE_PER_MINUTE",
     )
+    rate_limit_sandbox_enroll_ip_per_minute: int = Field(
+        default=12,
+        alias="RATE_LIMIT_SANDBOX_ENROLL_IP_PER_MINUTE",
+    )
 
     @property
     def backend_cors_origins(self) -> list[str]:
@@ -334,6 +338,8 @@ class Settings(BaseSettings):
             errors.append("RATE_LIMIT_2FA_ENABLE_PER_MINUTE must be > 0.")
         if self.rate_limit_payout_create_per_minute <= 0:
             errors.append("RATE_LIMIT_PAYOUT_CREATE_PER_MINUTE must be > 0.")
+        if self.rate_limit_sandbox_enroll_ip_per_minute <= 0:
+            errors.append("RATE_LIMIT_SANDBOX_ENROLL_IP_PER_MINUTE must be > 0.")
         if self.max_concurrent_sessions_per_user < 1:
             errors.append("MAX_CONCURRENT_SESSIONS_PER_USER must be >= 1.")
 

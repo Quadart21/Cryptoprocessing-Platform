@@ -87,9 +87,14 @@ class TwoFactorService:
         if not code:
             raise TwoFactorError("Для входа требуется код 2FA.")
 
-        secret = self._decrypt_secret(user)
-        if not TotpService.verify_code(secret=secret, code=code):
-            raise TwoFactorError("Неверный код 2FA.")
+        try:
+            secret = self._decrypt_secret(user)
+            if not TotpService.verify_code(secret=secret, code=code):
+                raise TwoFactorError("Неверный код 2FA.")
+        except TwoFactorError:
+            raise
+        except Exception:
+            raise TwoFactorError("Ошибка проверки 2FA. Обратитесь к администратору.") from None
 
     @staticmethod
     def _decrypt_secret(user: User) -> str:

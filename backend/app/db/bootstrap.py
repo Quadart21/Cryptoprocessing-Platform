@@ -246,6 +246,10 @@ DDL_PATCHES = [
     ADD COLUMN IF NOT EXISTS platform_markup_min_band_usdt_high NUMERIC(18, 8) NOT NULL DEFAULT 250
     """,
     """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS sandbox_cloudflare_api_token_encrypted VARCHAR(2048)
+    """,
+    """
     ALTER TABLE tenant_fee_policies
     ADD COLUMN IF NOT EXISTS custom_turnover_fee_percent NUMERIC(10, 4)
     """,

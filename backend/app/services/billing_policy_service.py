@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import decrypt_value, encrypt_value
 from app.models.platform_setting import PlatformSetting
 from app.models.tenant_fee_policy import TenantFeePolicy
 
@@ -28,6 +29,48 @@ class BillingPolicyService:
             self.db.add(settings)
             await self.db.flush()
         return settings
+
+    async def sandbox_cloudflare_token_configured(self) -> bool:
+        ps = await self.get_platform_settings()
+        return bool(ps.sandbox_cloudflare_api_token_encrypted)
+
+    async def get_decrypted_sandbox_cloudflare_token(self) -> str | None:
+        ps = await self.get_platform_settings()
+        raw = ps.sandbox_cloudflare_api_token_encrypted
+        if not raw:
+            return None
+        try:
+            return decrypt_value(raw)
+        except ValueError:
+            logger.exception("Не удалось расшифровать sandbox Cloudflare token.")
+            return None
+
+    async def set_sandbox_cloudflare_api_token(self, token: str | None) -> PlatformSetting:
+        ps = await self.get_platform_settings()
+        stripped = (token or "").strip()
+        if stripped:
+            ps.sandbox_cloudflare_api_token_encrypted = encrypt_value(stripped)
+        else:
+            ps.sandbox_cloudflare_api_token_encrypted = None
+        self.db.add(ps)
+        await self.db.commit()
+        await self.db.refresh(ps)
+        return ps
+
+    async def describe_sandbox_cloudflare_token_for_admin(self) -> tuple[bool, str | None]:
+        """Возвращает (настроен ли токен, маску вида ****abcd для отображения в UI)."""
+        ps = await self.get_platform_settings()
+        raw = ps.sandbox_cloudflare_api_token_encrypted
+        if not raw:
+            return False, None
+        try:
+            plain = decrypt_value(raw)
+        except ValueError:
+            logger.exception("Не удалось расшифровать sandbox Cloudflare token для маски.")
+            return True, "****"
+        tail = plain[-4:] if len(plain) >= 4 else plain
+        mask = f"****{tail}" if tail else "****"
+        return True, mask
 
     async def get_tenant_policy(self, tenant_id: str) -> TenantFeePolicy | None:
         return await self.db.scalar(
@@ -63,6 +106,7 @@ class BillingPolicyService:
         try:
             return Decimal((await self.get_platform_settings()).exchange_rate_markup_percent)
         except SQLAlchemyError:
+            await self.db.rollback()
             logger.exception(
                 "Failed to load exchange_rate_markup_percent from platform settings; using 0 fallback."
             )

@@ -9,8 +9,12 @@ import type {
   CurrentUser,
   InvoiceAdminDetail,
   InvoiceItem,
+  MerchantSandboxCreatePayload,
+  MerchantSandboxCreateResponse,
+  MerchantSandboxSummary,
   PayoutRequestItem,
   PlatformBillingSettings,
+  SandboxPlatformSettings,
   ExchangeRateLookup,
   ExchangeRateRefresh,
   ProviderEventItem,
@@ -48,6 +52,7 @@ export type AdminSection =
   | "platform-settings"
   | "public-pages"
   | "assets"
+  | "sandbox"
   | "team"
   | "security";
 
@@ -67,6 +72,9 @@ export const ADMIN_MENU_ITEMS: DashboardRailItem[] = [
 ];
 
 export function isAdminSection(value: string): value is Exclude<AdminSection, "client-detail"> {
+  if (value === "sandbox") {
+    return true;
+  }
   return ADMIN_MENU_ITEMS.some((item) => item.key === value);
 }
 
@@ -105,6 +113,10 @@ export type AdminDashboardProps = {
   heroRows: Array<{ label: string; value: string }>;
   heroPrimaryValue: string;
   heroSecondaryValue: string;
+  sandboxConsoleEnabled: boolean;
+  merchantSandboxes: MerchantSandboxSummary[];
+  sandboxPlatformSettings: SandboxPlatformSettings | null;
+  lastMerchantSandboxCreate: MerchantSandboxCreateResponse | null;
   onLogout: () => void;
   onCreateTenant: (event: FormEvent<HTMLFormElement>) => void;
   onTenantFormChange: (next: TenantCreatePayload) => void;
@@ -149,4 +161,10 @@ export type AdminDashboardProps = {
   onApprovePayout: (payoutId: string) => void;
   onRejectPayout: (payoutId: string) => void;
   onCloseSecretModal: () => void;
+  onRefreshMerchantSandboxes: () => void;
+  onCreateMerchantSandbox: (payload: MerchantSandboxCreatePayload) => void;
+  onUpdateSandboxPlatformSettings: (cloudflareApiToken: string | null | undefined) => void;
+  onProvisionMerchantSandboxDns: (sandboxId: string, ipv4: string) => void;
+  onDestroyMerchantSandbox: (sandboxId: string) => void;
+  onDismissMerchantSandboxCreate: () => void;
 };

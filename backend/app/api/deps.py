@@ -14,10 +14,12 @@ from app.core.security import decode_token
 from app.db.session import AsyncSessionLocal
 from app.db.tenant import clear_db_security_context, set_db_security_context
 from app.models.api_key import ApiKey
+from app.models.merchant_sandbox import MerchantSandbox
 from app.models.project import Project
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.key_service import KeyService
+from app.services.sandbox_service import SandboxService
 from app.services.user_service import UserService
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -267,3 +269,25 @@ def require_tenant_permission(permission: str):
         return current_user
 
     return dependency
+
+
+async def require_sandbox_agent(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> MerchantSandbox:
+    """Authorization: Bearer <agent_public_id>.<secret> после enroll."""
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization is required.",
+        )
+    await set_db_security_context(db, tenant_id=None, is_superadmin=True)
+    try:
+        sandbox = await SandboxService(db).resolve_agent_from_bearer(credentials.credentials)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+    await set_db_security_context(db, tenant_id=sandbox.tenant_id, is_superadmin=False)
+    return sandbox

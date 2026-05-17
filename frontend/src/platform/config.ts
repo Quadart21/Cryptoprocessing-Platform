@@ -62,6 +62,11 @@ export const ADMIN_SECTION_META: Record<
     title: "Токены и сети",
     description: "Доступность активов для клиентов.",
   },
+  sandbox: {
+    group: "Управление",
+    title: "Песочницы мерчантов",
+    description: "Тестовые стенды: DNS Cloudflare, агент на VPS, без смешения с боевой статистикой.",
+  },
   team: {
     group: "Управление",
     title: "Команда платформы",
@@ -74,7 +79,15 @@ export const ADMIN_SECTION_META: Record<
   },
 };
 
-export function buildAdminMenuGroups(selectedTenantId: string | null): DashboardRailGroup[] {
+export function buildAdminMenuGroups(
+  selectedTenantId: string | null,
+  opts?: { sandboxConsole?: boolean },
+): DashboardRailGroup[] {
+  const sandboxItem =
+    opts?.sandboxConsole === true
+      ? [{ key: "sandbox" as const, label: "Песочницы" }]
+      : [];
+
   return [
     {
       key: "monitoring",
@@ -107,6 +120,7 @@ export function buildAdminMenuGroups(selectedTenantId: string | null): Dashboard
         { key: "platform-settings", label: "Настройки" },
         { key: "public-pages", label: "Страницы" },
         { key: "assets", label: "Токены и сети" },
+        ...sandboxItem,
         { key: "team", label: "Команда" },
         { key: "security", label: "Безопасность" },
       ],

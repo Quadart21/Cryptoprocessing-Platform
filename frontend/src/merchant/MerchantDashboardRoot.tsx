@@ -361,8 +361,7 @@ export function MerchantDashboardRoot({
           ) : null}
 
           {section === "invoices" ? (
-            <div className="console-section-stack">
-              <div className="mc-split mc-split--balanced mw-invoices-split">
+            <div className="console-section-stack mc-page-stack mw-invoices-page">
               <InvoiceIssuanceWizard
                 availableNetworks={availableNetworks}
                 invoiceForm={invoiceForm}
@@ -383,7 +382,6 @@ export function MerchantDashboardRoot({
                 canSendInvoiceWebhookTest={canSendInvoiceWebhookTest}
                 onInvoiceWebhookTest={onInvoiceWebhookTest}
               />
-              </div>
             </div>
           ) : null}
 

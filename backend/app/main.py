@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 
 from app.api.routes.internal import router as internal_router
+from app.api.routes.sandbox_internal import router as sandbox_internal_router
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.bootstrap import ensure_database_ready
@@ -77,6 +78,7 @@ def create_application() -> FastAPI:
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     app.include_router(internal_router, prefix="/internal", tags=["internal"])
+    app.include_router(sandbox_internal_router, prefix="/internal", tags=["sandbox-agent"])
     _register_merchant_docs_routes(app)
     _register_admin_docs_routes(app)
     _register_frontend_routes(app)

@@ -82,6 +82,75 @@
   margin-bottom: 14px;
 }
 
+.mw-invoices-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+#merchant-receivables {
+  scroll-margin-top: 24px;
+}
+
+#merchant-invoice-create {
+  scroll-margin-top: 24px;
+}
+
+.mc-invoices-list-header-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.mw-invoice-create-form {
+  gap: 22px;
+}
+
+.mw-invoice-create-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mw-invoice-create-section-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.mw-invoice-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin: 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(117, 158, 255, 0.12);
+}
+
+.mw-skip-to-receivables {
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--cyan, #33d7ff);
+  border: 1px solid rgba(117, 158, 255, 0.22);
+  background: rgba(3, 10, 24, 0.45);
+}
+
+.mw-skip-to-receivables:hover {
+  border-color: rgba(51, 215, 255, 0.35);
+  background: rgba(51, 215, 255, 0.08);
+}
+
 /* Stats bento */
 .mc-bento {
   display: grid;

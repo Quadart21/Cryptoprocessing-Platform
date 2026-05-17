@@ -9,6 +9,7 @@ from app.models.payout_request import PayoutRequest
 from app.models.project import Project
 from app.services.balance_service import BalanceService
 from app.services.billing_policy_service import BillingPolicyService
+from app.services.statistics_exclusion_service import StatisticsExclusionService
 
 
 class PayoutService:
@@ -96,6 +97,9 @@ class PayoutService:
 
     async def list_all(self, limit: int = 200, offset: int = 0) -> list[PayoutRequest]:
         stmt = select(PayoutRequest).order_by(PayoutRequest.created_at.desc()).limit(limit).offset(offset)
+        excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
+        if excluded:
+            stmt = stmt.where(PayoutRequest.tenant_id.not_in(excluded))
         return list((await self.db.scalars(stmt)).all())
 
     async def review_request(

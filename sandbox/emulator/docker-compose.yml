@@ -1,0 +1,13 @@
+# Минимальная статическая заглушка. Полный mock мерчанта (webhook + UI): см. ../merchant-mock/
+# После enroll скопируйте переменные из ответа POST /internal/sandbox/enroll и из создания песочницы в .env рядом с compose.
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./html:/usr/share/nginx/html:ro
+    restart: unless-stopped

@@ -49,6 +49,43 @@ const TOC_MAIN = [
   { href: "#docs-faq", label: "FAQ" },
 ];
 
+const API_FLOW_STEPS = [
+  {
+    key: "keys",
+    title: "Ключи",
+    text: "Получите public/secret и храните secret только на backend.",
+  },
+  {
+    key: "rates",
+    title: "Rates",
+    text: "Проверьте доступные валюты, сети и лимиты перед созданием платежа.",
+  },
+  {
+    key: "invoice",
+    title: "Инвойс",
+    text: "Создайте счет с merchant_order_id и сохраните id ответа.",
+  },
+  {
+    key: "webhook",
+    title: "Webhook",
+    text: "Принимайте события, проверяйте подпись и дедуплицируйте event_id.",
+  },
+];
+
+const ENDPOINT_GROUP_LABELS: Record<string, string> = {
+  smoke: "Проверка",
+  auth: "Доступ",
+  payments: "Оплаты",
+  accounting: "Финансы",
+};
+
+function endpointGroup(id: string) {
+  if (id === "health") return "smoke";
+  if (id === "login") return "auth";
+  if (["balance", "transactions", "transaction"].includes(id)) return "accounting";
+  return "payments";
+}
+
 export function MerchantApiReference({
   apiBaseUrl,
   activeApiKeyPublic,
@@ -393,6 +430,46 @@ export function MerchantApiReference({
     () => endpointReferences.map((e) => ({ href: `#endpoint-${e.id}`, label: e.title })),
     [endpointReferences],
   );
+  const endpointStats = useMemo(
+    () => ({
+      total: endpointReferences.length,
+      get: endpointReferences.filter((endpoint) => endpoint.method === "GET").length,
+      post: endpointReferences.filter((endpoint) => endpoint.method === "POST").length,
+      secure: endpointReferences.filter((endpoint) => endpoint.auth !== "Нет").length,
+    }),
+    [endpointReferences],
+  );
+  const endpointGroups = useMemo(
+    () =>
+      endpointReferences.reduce<Record<string, EndpointReference[]>>((acc, endpoint) => {
+        const group = endpointGroup(endpoint.id);
+        acc[group] = [...(acc[group] ?? []), endpoint];
+        return acc;
+      }, {}),
+    [endpointReferences],
+  );
+  const readinessCards = [
+    {
+      title: "Base URL",
+      value: apiBaseUrl,
+      tone: "info",
+    },
+    {
+      title: "API key",
+      value: activeApiKeyPublic ? "Активный ключ найден" : "Ключ не выбран",
+      tone: activeApiKeyPublic ? "ok" : "warn",
+    },
+    {
+      title: "Webhook",
+      value: activeWebhookUrl ?? "Ещё не настроен",
+      tone: activeWebhookUrl ? "ok" : "warn",
+    },
+    {
+      title: "Роут платежей",
+      value: selectedRoute,
+      tone: "info",
+    },
+  ];
 
   const cabinetMeExample = `curl -X GET "${apiBaseUrl}/me" \\
   -H "Authorization: Bearer <jwt_access>"`;
@@ -503,8 +580,8 @@ export function MerchantApiReference({
               <p className="eyebrow">Merchant API Reference</p>
               <h2>Интеграция приёма криптооплат</h2>
               <p className="muted-text">
-                Авторизация, cURL-примеры, форматы ответов и типовые ошибки. Ниже — сводная таблица и
-                подробные карточки по каждому методу.
+                Практический экран для backend-разработчика: статус окружения, путь подключения, быстрые копии
+                и подробный контракт без необходимости открывать внешнюю документацию.
               </p>
               <div className="api-docs-actions">
                 <a className="ghost-button" href={docsUrl} rel="noreferrer" target="_blank">
@@ -513,27 +590,72 @@ export function MerchantApiReference({
                 <a className="ghost-button" href={openApiUrl} rel="noreferrer" target="_blank">
                   OpenAPI JSON
                 </a>
+                <button
+                  className="ghost-button"
+                  onClick={() => void handleCopy(apiBaseUrl, "Base URL")}
+                  type="button"
+                >
+                  Копировать Base URL
+                </button>
               </div>
             </div>
 
-            <div className="api-docs-kpi-grid">
-              <article className="detail-chip">
-                <span>Base URL</span>
-                <code className="detail-tech-value">{apiBaseUrl}</code>
-              </article>
-              <article className="detail-chip">
-                <span>Рекомендуемый маршрут</span>
-                <code className="detail-tech-value">{selectedRoute}</code>
-              </article>
-              <article className="detail-chip">
-                <span>Webhook URL</span>
-                <code className="detail-tech-value">{activeWebhookUrl ?? "Ещё не настроен"}</code>
-              </article>
-              <article className="detail-chip">
-                <span>Основная auth-схема</span>
-                <code className="detail-tech-value">X-API-Key + X-API-Secret</code>
-              </article>
+            <div className="api-docs-status-board" aria-label="Статус интеграции">
+              {readinessCards.map((item) => (
+                <article className={`api-docs-status-card api-docs-status-card-${item.tone}`} key={item.title}>
+                  <span>{item.title}</span>
+                  <code>{item.value}</code>
+                </article>
+              ))}
             </div>
+          </section>
+
+          <section className="api-docs-flow" aria-label="Основной путь подключения">
+            {API_FLOW_STEPS.map((step, index) => (
+              <article className="api-docs-flow-step" key={step.key}>
+                <span className="api-docs-flow-index">{index + 1}</span>
+                <div>
+                  <strong>{step.title}</strong>
+                  <p>{step.text}</p>
+                </div>
+              </article>
+            ))}
+          </section>
+
+          <section className="api-docs-metrics" aria-label="Сводка контракта API">
+            <article>
+              <span>Методов</span>
+              <strong>{endpointStats.total}</strong>
+              <p>Полный набор для оплат, баланса, транзакций и статуса.</p>
+            </article>
+            <article>
+              <span>GET / POST</span>
+              <strong>
+                {endpointStats.get} / {endpointStats.post}
+              </strong>
+              <p>Чтение отделено от мутаций, удобно для прав и rate-limit.</p>
+            </article>
+            <article>
+              <span>Защищены ключами</span>
+              <strong>{endpointStats.secure}</strong>
+              <p>Основная схема: X-API-Key + X-API-Secret.</p>
+            </article>
+          </section>
+
+          <section className="api-docs-group-map" aria-label="Группы API-методов">
+            {Object.entries(ENDPOINT_GROUP_LABELS).map(([group, label]) => (
+              <article className="api-docs-group-card" key={group}>
+                <span>{label}</span>
+                <strong>{endpointGroups[group]?.length ?? 0}</strong>
+                <div>
+                  {(endpointGroups[group] ?? []).map((endpoint) => (
+                    <a href={`#endpoint-${endpoint.id}`} key={endpoint.id}>
+                      {endpoint.method} {endpoint.path.replace("/api/v1/client", "")}
+                    </a>
+                  ))}
+                </div>
+              </article>
+            ))}
           </section>
 
           <section className="api-docs-grid api-docs-grid-feature" id="docs-start">
@@ -596,6 +718,22 @@ export function MerchantApiReference({
               Полные пути соответствуют префиксу вашего Base URL (уже включает /api/v1/client). Ниже — канонический
               путь в OpenAPI.
             </p>
+            <div className="api-docs-mobile-endpoints" aria-label="Краткая сводка методов">
+              {endpointReferences.map((row) => (
+                <a className="api-docs-mobile-endpoint-card" href={`#endpoint-${row.id}`} key={row.id}>
+                  <span
+                    className={`api-docs-method-tag ${
+                      row.method === "GET" ? "api-docs-method-get" : "api-docs-method-post"
+                    }`}
+                  >
+                    {row.method}
+                  </span>
+                  <strong>{row.title}</strong>
+                  <code>{row.path}</code>
+                  <small>{row.auth}</small>
+                </a>
+              ))}
+            </div>
             <div className="api-docs-table-wrap">
               <table className="api-docs-table">
                 <thead>
@@ -678,11 +816,13 @@ export function MerchantApiReference({
 
                   <div className="api-docs-endpoint-grid">
                     {endpoint.requestExample ? (
-                      <article className="result-box api-docs-code-card">
-                        <div className="api-docs-section-head">
-                          <p className="eyebrow">Request</p>
-                          <h3>Пример запроса</h3>
-                        </div>
+                      <details className="result-box api-docs-code-card api-docs-code-disclosure" open>
+                        <summary>
+                          <span>
+                            <small>Request</small>
+                            <strong>Пример запроса</strong>
+                          </span>
+                        </summary>
                         <pre className="json-box">{endpoint.requestExample}</pre>
                         <button
                           className="ghost-button"
@@ -691,14 +831,16 @@ export function MerchantApiReference({
                         >
                           Копировать запрос
                         </button>
-                      </article>
+                      </details>
                     ) : null}
 
-                    <article className="result-box api-docs-code-card">
-                      <div className="api-docs-section-head">
-                        <p className="eyebrow">Success</p>
-                        <h3>Успешный ответ</h3>
-                      </div>
+                    <details className="result-box api-docs-code-card api-docs-code-disclosure">
+                      <summary>
+                        <span>
+                          <small>Success</small>
+                          <strong>Успешный ответ</strong>
+                        </span>
+                      </summary>
                       <pre className="json-box">{endpoint.successExample}</pre>
                       <button
                         className="ghost-button"
@@ -707,13 +849,15 @@ export function MerchantApiReference({
                       >
                         Копировать success
                       </button>
-                    </article>
+                    </details>
 
-                    <article className="result-box api-docs-code-card">
-                      <div className="api-docs-section-head">
-                        <p className="eyebrow">Error</p>
-                        <h3>Типовая ошибка</h3>
-                      </div>
+                    <details className="result-box api-docs-code-card api-docs-code-disclosure">
+                      <summary>
+                        <span>
+                          <small>Error</small>
+                          <strong>Типовая ошибка</strong>
+                        </span>
+                      </summary>
                       <pre className="json-box">{endpoint.errorExample}</pre>
                       <button
                         className="ghost-button"
@@ -722,7 +866,7 @@ export function MerchantApiReference({
                       >
                         Копировать ошибку
                       </button>
-                    </article>
+                    </details>
                   </div>
                 </article>
               ))}

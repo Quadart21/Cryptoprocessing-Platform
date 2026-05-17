@@ -562,6 +562,49 @@ export type PublicPageListResponse = {
   items: PublicPageNavigationItem[];
 };
 
+export type MerchantSandboxSummary = {
+  id: string;
+  tenant_id: string;
+  project_id: string | null;
+  label: string;
+  dns_parent_zone: string;
+  desired_subdomain: string;
+  status: string;
+  public_base_url: string | null;
+  tenant_name: string;
+  created_at: string;
+  origin_ipv4: string | null;
+  agent_public_id: string | null;
+};
+
+export type SandboxPlatformSettings = {
+  cloudflare_token_configured: boolean;
+  cloudflare_token_masked: string | null;
+};
+
+export type MerchantSandboxCreatePayload = {
+  label: string;
+  dns_parent_zone: string;
+  desired_subdomain: string;
+};
+
+export type MerchantSandboxCreateResponse = {
+  id: string;
+  tenant_id: string;
+  project_id: string;
+  label: string;
+  dns_parent_zone: string;
+  desired_subdomain: string;
+  status: string;
+  enrollment_token: string;
+  enrollment_expires_at: string;
+  api_public_key: string;
+  api_secret_key: string;
+  owner_email: string;
+  owner_password: string;
+  public_api_base_url: string;
+};
+
 export type AssetAvailabilityPayload = {
   currency: string;
   network: string;
@@ -1624,6 +1667,74 @@ export function syncAdminInvoice(
 ): Promise<InvoiceAdminDetail> {
   return request<InvoiceAdminDetail>(`/admin/invoices/${invoiceId}/sync`, {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function fetchSandboxPlatformSettings(token: string): Promise<SandboxPlatformSettings> {
+  return request<SandboxPlatformSettings>("/admin/sandbox/settings", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function updateSandboxPlatformSettings(
+  token: string,
+  payload: { cloudflare_api_token?: string | null },
+): Promise<SandboxPlatformSettings> {
+  return request<SandboxPlatformSettings>("/admin/sandbox/settings", {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchMerchantSandboxes(token: string): Promise<MerchantSandboxSummary[]> {
+  return request<MerchantSandboxSummary[]>("/admin/sandbox", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function createMerchantSandbox(
+  token: string,
+  payload: MerchantSandboxCreatePayload,
+): Promise<MerchantSandboxCreateResponse> {
+  return request<MerchantSandboxCreateResponse>("/admin/sandbox", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function provisionMerchantSandboxDns(
+  token: string,
+  sandboxId: string,
+  payload: { ipv4: string; proxied?: boolean },
+): Promise<MerchantSandboxSummary> {
+  return request<MerchantSandboxSummary>(
+    `/admin/sandbox/${encodeURIComponent(sandboxId)}/provision-dns`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ ipv4: payload.ipv4, proxied: payload.proxied ?? true }),
+    },
+  );
+}
+
+export function destroyMerchantSandbox(token: string, sandboxId: string): Promise<void> {
+  return request<void>(`/admin/sandbox/${encodeURIComponent(sandboxId)}`, {
+    method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
     },

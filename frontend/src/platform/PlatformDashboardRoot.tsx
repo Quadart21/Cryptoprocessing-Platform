@@ -22,6 +22,7 @@ import { AdminPlatformSettingsSection } from "./sections/AdminPlatformSettingsSe
 import { AdminPublicPagesSection } from "./sections/AdminPublicPagesSection";
 import { AdminUsersPanel } from "./sections/AdminUsersPanel";
 import { AssetManagementPage } from "./sections/AssetManagementPage";
+import { AdminSandboxSection } from "./sections/AdminSandboxSection";
 import { type AdminDashboardProps, type AdminSection, isAdminSection } from "./types";
 
 export function PlatformDashboardRoot({
@@ -93,6 +94,16 @@ export function PlatformDashboardRoot({
   onApprovePayout,
   onRejectPayout,
   onCloseSecretModal,
+  sandboxConsoleEnabled,
+  merchantSandboxes,
+  sandboxPlatformSettings,
+  lastMerchantSandboxCreate,
+  onRefreshMerchantSandboxes,
+  onCreateMerchantSandbox,
+  onUpdateSandboxPlatformSettings,
+  onProvisionMerchantSandboxDns,
+  onDestroyMerchantSandbox,
+  onDismissMerchantSandboxCreate,
 }: AdminDashboardProps) {
   const [section, setSection] = useState<AdminSection>("overview");
 
@@ -102,9 +113,18 @@ export function PlatformDashboardRoot({
     }
   }, [section, selectedTenantId]);
 
+  useEffect(() => {
+    if (section === "sandbox" && !sandboxConsoleEnabled) {
+      setSection("overview");
+    }
+  }, [sandboxConsoleEnabled, section]);
+
   const adminMenuGroups = useMemo<DashboardRailGroup[]>(
-    () => buildAdminMenuGroups(selectedTenantId),
-    [selectedTenantId],
+    () =>
+      buildAdminMenuGroups(selectedTenantId, {
+        sandboxConsole: sandboxConsoleEnabled,
+      }),
+    [sandboxConsoleEnabled, selectedTenantId],
   );
 
   const selectedTenantName =
@@ -376,6 +396,23 @@ export function PlatformDashboardRoot({
                 loading={loading}
                 adminAssetRates={adminAssetRates}
                 onUpdateAssetAvailability={onUpdateAssetAvailability}
+              />
+            </div>
+          ) : null}
+
+          {section === "sandbox" && sandboxConsoleEnabled ? (
+            <div className="console-section-stack">
+              <AdminSandboxSection
+                lastCreate={lastMerchantSandboxCreate}
+                loading={loading}
+                onCreate={onCreateMerchantSandbox}
+                onDestroy={onDestroyMerchantSandbox}
+                onDismissCreate={onDismissMerchantSandboxCreate}
+                onProvisionDns={onProvisionMerchantSandboxDns}
+                onRefresh={onRefreshMerchantSandboxes}
+                onUpdateCfToken={onUpdateSandboxPlatformSettings}
+                sandboxes={merchantSandboxes}
+                settings={sandboxPlatformSettings}
               />
             </div>
           ) : null}

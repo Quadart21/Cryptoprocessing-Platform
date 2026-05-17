@@ -22,18 +22,18 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
-    expire = datetime.now(timezone.utc) + (
+    expire_at = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
     )
-    payload = {"sub": subject, "exp": expire}
+    payload = {"sub": subject, "exp": int(expire_at.timestamp())}
     return jwt.encode(payload, settings.effective_jwt_secret, algorithm=ALGORITHM)
 
 
 def create_refresh_token(subject: str, expires_delta: timedelta | None = None) -> str:
-    expire = datetime.now(timezone.utc) + (
+    expire_at = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.refresh_token_expire_minutes)
     )
-    payload = {"sub": subject, "type": "refresh", "exp": expire}
+    payload = {"sub": subject, "type": "refresh", "exp": int(expire_at.timestamp())}
     return jwt.encode(payload, settings.effective_jwt_secret, algorithm=ALGORITHM)
 
 

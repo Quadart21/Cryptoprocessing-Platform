@@ -17,16 +17,20 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "platform_settings",
-        sa.Column(
-            "exchange_rate_markup_percent",
-            sa.Numeric(10, 4),
-            nullable=False,
-            server_default=sa.text("0.0000"),
-        ),
+    # Идемпотентно: колонка могла появиться до этой ревизии (ручной патч / другой процесс).
+    op.execute(
+        sa.text(
+            """
+            ALTER TABLE platform_settings
+            ADD COLUMN IF NOT EXISTS exchange_rate_markup_percent NUMERIC(10, 4) NOT NULL DEFAULT 0.0000
+            """
+        )
     )
 
 
 def downgrade() -> None:
-    op.drop_column("platform_settings", "exchange_rate_markup_percent")
+    op.execute(
+        sa.text(
+            'ALTER TABLE platform_settings DROP COLUMN IF EXISTS "exchange_rate_markup_percent"'
+        )
+    )

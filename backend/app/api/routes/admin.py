@@ -96,7 +96,10 @@ from app.services.user_service import UserService
 
 from fastapi import APIRouter
 
+from app.api.routes.admin_sandbox import router as admin_sandbox_router
+
 router = APIRouter()
+router.include_router(admin_sandbox_router, prefix="/sandbox", tags=["admin-sandbox"])
 
 
 def _generate_temporary_password(length: int = 14) -> str:

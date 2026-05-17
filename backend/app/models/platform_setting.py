@@ -99,3 +99,7 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     platform_markup_min_band_usdt_high: Mapped[Decimal] = mapped_column(
         Numeric(18, 8), nullable=False, default=Decimal("250")
     )
+    sandbox_cloudflare_api_token_encrypted: Mapped[str | None] = mapped_column(
+        String(2048),
+        nullable=True,
+    )

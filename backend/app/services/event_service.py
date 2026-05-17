@@ -4,7 +4,9 @@ from secrets import token_hex
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.invoice import Invoice
 from app.models.provider_event import ProviderEvent
+from app.services.statistics_exclusion_service import StatisticsExclusionService
 
 
 class EventService:
@@ -44,7 +46,15 @@ class EventService:
         return event
 
     async def list_events(self, limit: int = 100) -> list[ProviderEvent]:
-        stmt = select(ProviderEvent).order_by(ProviderEvent.created_at.desc()).limit(limit)
+        stmt = (
+            select(ProviderEvent)
+            .join(Invoice, Invoice.id == ProviderEvent.invoice_id)
+            .order_by(ProviderEvent.created_at.desc())
+            .limit(limit)
+        )
+        excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
+        if excluded:
+            stmt = stmt.where(Invoice.tenant_id.not_in(excluded))
         return list((await self.db.scalars(stmt)).all())
 
     async def list_events_by_invoice(self, invoice_id: str) -> list[ProviderEvent]:

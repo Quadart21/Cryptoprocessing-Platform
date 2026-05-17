@@ -33,6 +33,10 @@ import type {
   SmtpBzTestResponse,
   ExchangeRateLookup,
   ExchangeRateRefresh,
+  MerchantSandboxSummary,
+  SandboxPlatformSettings,
+  MerchantSandboxCreatePayload,
+  MerchantSandboxCreateResponse,
 } from "./base";
 
 export function fetchTenants(token: string): Promise<TenantItem[]> {
@@ -439,6 +443,62 @@ export function regenerateAdminApiKey(
 
 export function fetchCsrfToken(token: string): Promise<{ csrf_token: string }> {
   return request<{ csrf_token: string }>("/admin/security/csrf", {
+    headers: authHeaders(token),
+  });
+}
+
+export function fetchSandboxPlatformSettings(token: string): Promise<SandboxPlatformSettings> {
+  return request<SandboxPlatformSettings>("/admin/sandbox/settings", {
+    headers: authHeaders(token),
+  });
+}
+
+export function updateSandboxPlatformSettings(
+  token: string,
+  payload: { cloudflare_api_token?: string | null },
+): Promise<SandboxPlatformSettings> {
+  return request<SandboxPlatformSettings>("/admin/sandbox/settings", {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchMerchantSandboxes(token: string): Promise<MerchantSandboxSummary[]> {
+  return request<MerchantSandboxSummary[]>("/admin/sandbox", {
+    headers: authHeaders(token),
+  });
+}
+
+export function createMerchantSandbox(
+  token: string,
+  payload: MerchantSandboxCreatePayload,
+): Promise<MerchantSandboxCreateResponse> {
+  return request<MerchantSandboxCreateResponse>("/admin/sandbox", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function provisionMerchantSandboxDns(
+  token: string,
+  sandboxId: string,
+  payload: { ipv4: string; proxied?: boolean },
+): Promise<MerchantSandboxSummary> {
+  return request<MerchantSandboxSummary>(
+    `/admin/sandbox/${encodeURIComponent(sandboxId)}/provision-dns`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+      body: JSON.stringify({ ipv4: payload.ipv4, proxied: payload.proxied ?? true }),
+    },
+  );
+}
+
+export function destroyMerchantSandbox(token: string, sandboxId: string): Promise<void> {
+  return request<void>(`/admin/sandbox/${encodeURIComponent(sandboxId)}`, {
+    method: "DELETE",
     headers: authHeaders(token),
   });
 }

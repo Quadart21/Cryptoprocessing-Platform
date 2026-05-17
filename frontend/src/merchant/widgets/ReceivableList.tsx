@@ -120,7 +120,7 @@ export function ReceivableList({
 
   return (
     <>
-      <article className="mc-surface mc-surface--invoices-list">
+      <article className="mc-surface mc-surface--invoices-list" id="merchant-receivables">
         <header className="mc-surface-header mc-surface-header--row">
           <div>
             <p className="mc-surface-eyebrow">Платежи</p>
@@ -130,9 +130,14 @@ export function ReceivableList({
               статус с провайдером.
             </p>
           </div>
-          {invoices.length > 0 ? (
-            <span className="mc-invoice-count-pill muted-text">{invoices.length} всего</span>
-          ) : null}
+          <div className="mc-invoices-list-header-aside">
+            <a className="mw-skip-to-receivables" href="#merchant-invoice-create">
+              Новый счёт ↑
+            </a>
+            {invoices.length > 0 ? (
+              <span className="mc-invoice-count-pill muted-text">{invoices.length} всего</span>
+            ) : null}
+          </div>
         </header>
 
         {invoices.length > 0 ? (

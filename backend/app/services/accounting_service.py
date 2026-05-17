@@ -11,6 +11,7 @@ from app.schemas.accounting import AccountingSummaryResponse, CryptoAmount
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.cache_service import get_cache_service
 from app.services.exchange_rate_service import get_exchange_rate_service
+from app.services.statistics_exclusion_service import StatisticsExclusionService
 
 
 class AccountingService:
@@ -37,6 +38,11 @@ class AccountingService:
         if tenant_id is not None:
             invoice_stmt = invoice_stmt.where(Invoice.tenant_id == tenant_id)
             transaction_stmt = transaction_stmt.where(Transaction.tenant_id == tenant_id)
+        else:
+            excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
+            if excluded:
+                invoice_stmt = invoice_stmt.where(Invoice.tenant_id.not_in(excluded))
+                transaction_stmt = transaction_stmt.where(Transaction.tenant_id.not_in(excluded))
 
         invoices = list((await self.db.scalars(invoice_stmt)).all())
         transactions = list((await self.db.scalars(transaction_stmt)).all())

@@ -4,6 +4,26 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.11.0] — 2026-05-17
+
+### Добавлено
+
+- **Платформа, песочницы мерчантов**: модели, Alembic-миграции, админские API, UI-раздел управления sandbox, Cloudflare DNS provisioning, agent enrollment и heartbeat endpoints.
+- **Sandbox-инфраструктура**: шаблоны emulator/merchant mock, приём webhook мерчанта, smoke-инструменты для создания тестового инвойса и документация запуска.
+- **Фильтрация статистики**: исключение sandbox-тенантов из платформенных агрегатов, учёта, транзакций, payout и invoice summary.
+
+### Изменено
+
+- **Мерчант, раздел API**: глубокая переработка reference-страницы — статус интеграции, визуальный flow подключения, группировка endpoint'ов, мобильные карточки методов и раскрываемые блоки request/success/error.
+- **Deploy**: `restart_app.sh` выполняет Alembic migrations перед рестартом backend; миграции сделаны устойчивее к уже существующим production-объектам.
+
+### Исправлено
+
+- Идемпотентность миграций для существующих колонок/таблиц sandbox и exchange-rate markup.
+- Rollback DB-сессии при ошибке чтения billing settings, чтобы не оставлять транзакцию в `InFailedSqlTransaction`.
+
+---
+
 ## [0.10.0] — 2026-05-09
 
 ### Добавлено

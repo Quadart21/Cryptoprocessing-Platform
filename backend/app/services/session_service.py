@@ -21,6 +21,14 @@ class SessionService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> UserSession:
+        # VARCHAR лимиты в БД; длинный User-Agent (боты/прокси) иначе даёт 500 при INSERT.
+        if device_fingerprint is not None:
+            device_fingerprint = device_fingerprint[:128]
+        if ip_address is not None:
+            ip_address = ip_address[:45]
+        if user_agent is not None:
+            user_agent = user_agent[:512]
+
         await self._cleanup_old_sessions(user.id)
         await self._enforce_max_sessions(user.id)
 

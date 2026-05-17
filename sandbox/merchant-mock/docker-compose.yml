@@ -1,0 +1,20 @@
+# Полный mock мерчанта: приём webhook платформы + опционально создание инвойсов через Client API.
+#
+# После создания песочницы и «DNS + webhook» в админке:
+# 1) В кабинете мерчанта песочницы скопируйте секрет webhook (или задайте свой и сохраните).
+# 2) WEBHOOK_SECRET ниже должен совпадать с секретом проекта.
+# 3) CP_* — для POST /tools/create-invoice (включите ENABLE_TOOLS=1).
+
+services:
+  merchant-mock:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      WEBHOOK_SECRET: ""
+      CP_API_BASE: ""
+      CP_API_PUBLIC_KEY: ""
+      CP_API_SECRET_KEY: ""
+      CP_PROJECT_ID: ""
+      ENABLE_TOOLS: "0"
+    restart: unless-stopped

@@ -19,6 +19,7 @@ from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
 from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.rates_service import RatesService
+from app.services.statistics_exclusion_service import StatisticsExclusionService
 
 logger = logging.getLogger(__name__)
 
@@ -237,6 +238,9 @@ class InvoiceService:
 
     async def list_all_invoices(self, limit: int = 50, offset: int = 0) -> list[Invoice]:
         stmt = select(Invoice).order_by(Invoice.created_at.desc()).limit(limit).offset(offset)
+        excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
+        if excluded:
+            stmt = stmt.where(Invoice.tenant_id.not_in(excluded))
         return list((await self.db.scalars(stmt)).all())
 
     async def get_invoice(

@@ -162,6 +162,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 key_mode="ip",
             ),
             RateLimitRule(
+                name="sandbox_enroll_ip",
+                method="POST",
+                path="/internal/sandbox/enroll",
+                limit=settings.rate_limit_sandbox_enroll_ip_per_minute,
+                window_seconds=60,
+                key_mode="ip",
+            ),
+            RateLimitRule(
                 name="set_password_ip",
                 method="POST",
                 path=f"{prefix}/client/auth/set-password",

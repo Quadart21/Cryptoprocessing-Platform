@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo } from "react";
 
 import type { CreateInvoicePayload, ProjectItem, RateNetworkItem } from "../../api";
 
@@ -23,49 +23,41 @@ export function InvoiceIssuanceWizard({
   onInvoiceFormChange,
   onCreateInvoice,
 }: InvoiceIssuanceWizardProps) {
-  const [step, setStep] = useState(0);
+  const fiatValue = (invoiceForm.fiat_currency ?? "USD").trim().toUpperCase() || "USD";
 
-  const step0Ok =
-    invoiceForm.project_id.trim() !== "" && invoiceForm.merchant_order_id.trim() !== "";
-  const canSubmit =
-    !loading &&
-    step0Ok &&
-    Number.isFinite(invoiceForm.amount_fiat) &&
-    invoiceForm.amount_fiat > 0;
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    if (step !== 1) {
-      event.preventDefault();
-      return;
+  const fiatOptions = useMemo(() => {
+    const presets = ["USD", "EUR", "GBP", "RUB", "UAH"];
+    if (presets.includes(fiatValue)) {
+      return presets;
     }
-    onCreateInvoice(event);
-  }
+    return [fiatValue, ...presets];
+  }, [fiatValue]);
+
+  const hasProject = invoiceForm.project_id.trim() !== "";
+  const hasOrderId = invoiceForm.merchant_order_id.trim() !== "";
+  const canSubmit =
+    !loading && hasProject && hasOrderId && Number.isFinite(invoiceForm.amount_fiat) && invoiceForm.amount_fiat > 0;
 
   return (
-    <section className="mw-wizard" aria-label="Мастер создания инвойса">
-      <header className="mw-wizard-track">
-        <button
-          className={`mw-wizard-dot ${step === 0 ? "mw-wizard-dot-active" : ""}`}
-          onClick={() => setStep(0)}
-          type="button"
-        >
-          1. Заказ
-        </button>
-        <span className="mw-wizard-line" aria-hidden />
-        <button
-          className={`mw-wizard-dot ${step === 1 ? "mw-wizard-dot-active" : ""}`}
-          disabled={!step0Ok}
-          onClick={() => setStep(1)}
-          type="button"
-        >
-          2. Сеть и сумма
-        </button>
+    <article className="mc-surface mw-invoice-create" aria-label="Создание инвойса" id="merchant-invoice-create">
+      <header className="mc-surface-header mc-surface-header--row">
+        <div>
+          <p className="mc-surface-eyebrow">Новый счёт</p>
+          <h2 className="mc-surface-title">Создать инвойс</h2>
+          <p className="mc-surface-desc" style={{ marginBottom: 0 }}>
+            Один экран: проект, номер заказа, токен, сеть и сумма в валюте учёта. После создания счёт появится в списке
+            ниже.
+          </p>
+        </div>
+        <a className="mw-skip-to-receivables" href="#merchant-receivables">
+          К списку инвойсов ↓
+        </a>
       </header>
 
-      <form className="mw-wizard-form mc-form" onSubmit={handleSubmit}>
-        {step === 0 ? (
-          <div className="mw-wizard-step">
-            <p className="mw-wizard-lead">Сначала привяжите платёж к проекту и своему номеру заказа.</p>
+      <form className="mc-form mw-invoice-create-form" onSubmit={onCreateInvoice}>
+        <div className="mw-invoice-create-section">
+          <p className="mw-invoice-create-section-label">Заказ</p>
+          <div className="mc-form-grid mc-form-grid--2">
             <label className="mc-field">
               <span>Проект</span>
               <select
@@ -88,84 +80,96 @@ export function InvoiceIssuanceWizard({
                   onInvoiceFormChange({ ...invoiceForm, merchant_order_id: event.target.value })
                 }
                 placeholder="order-2048"
+                autoComplete="off"
               />
             </label>
-            <div className="mw-wizard-nav">
-              <button className="primary-button" disabled={!step0Ok} onClick={() => setStep(1)} type="button">
-                Далее
-              </button>
-            </div>
           </div>
-        ) : (
-          <div className="mw-wizard-step">
-            <p className="mw-wizard-lead">Укажите токен, сеть и сумму — затем создайте инвойс.</p>
-            <div className="mc-form-grid mc-form-grid--2">
-              <label className="mc-field">
-                <span>Токен</span>
-                <select
-                  value={invoiceForm.crypto_currency}
-                  onChange={(event) =>
-                    onInvoiceFormChange({ ...invoiceForm, crypto_currency: event.target.value })
-                  }
-                >
-                  {rates.length === 0 ? <option value="USDT">USDT</option> : null}
-                  {rates.map((rate) => (
-                    <option key={rate.currency} value={rate.currency}>
-                      {rate.currency}
+        </div>
+
+        <div className="mw-invoice-create-section">
+          <p className="mw-invoice-create-section-label">Оплата</p>
+          <div className="mc-form-grid mc-form-grid--2">
+            <label className="mc-field">
+              <span>Токен</span>
+              <select
+                value={invoiceForm.crypto_currency}
+                onChange={(event) =>
+                  onInvoiceFormChange({ ...invoiceForm, crypto_currency: event.target.value })
+                }
+              >
+                {rates.length === 0 ? <option value="USDT">USDT</option> : null}
+                {rates.map((rate) => (
+                  <option key={rate.currency} value={rate.currency}>
+                    {rate.currency}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mc-field">
+              <span>Сеть</span>
+              <select
+                value={invoiceForm.network}
+                onChange={(event) => onInvoiceFormChange({ ...invoiceForm, network: event.target.value })}
+              >
+                {availableNetworks.length === 0 ? (
+                  <option value={invoiceForm.network}>{invoiceForm.network}</option>
+                ) : (
+                  availableNetworks.map((network) => (
+                    <option key={network.network} value={network.network}>
+                      {network.network}
                     </option>
-                  ))}
-                </select>
-              </label>
-              <label className="mc-field">
-                <span>Сеть</span>
-                <select
-                  value={invoiceForm.network}
-                  onChange={(event) => onInvoiceFormChange({ ...invoiceForm, network: event.target.value })}
-                >
-                  {availableNetworks.length === 0 ? (
-                    <option value={invoiceForm.network}>{invoiceForm.network}</option>
-                  ) : (
-                    availableNetworks.map((network) => (
-                      <option key={network.network} value={network.network}>
-                        {network.network}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
-              <label className="mc-field mc-field-span-2">
-                <span>Сумма</span>
-                <input
-                  value={invoiceForm.amount_fiat}
-                  onChange={(event) =>
-                    onInvoiceFormChange({ ...invoiceForm, amount_fiat: Number(event.target.value) })
-                  }
-                  min="0.00000001"
-                  step="0.00000001"
-                  type="number"
-                />
-              </label>
-            </div>
-            {selectedNetwork ? (
-              <div className="mc-hint-box">
-                <strong>
-                  {invoiceForm.crypto_currency} · {selectedNetwork.network}
-                </strong>
-                <p>Мин. депозит: {selectedNetwork.min_deposit ?? "—"}</p>
-                <p>Макс. депозит: {selectedNetwork.max_deposit ?? "—"}</p>
-              </div>
-            ) : null}
-            <div className="mw-wizard-nav">
-              <button className="ghost-button" onClick={() => setStep(0)} type="button">
-                Назад
-              </button>
-              <button className="primary-button" disabled={!canSubmit} type="submit">
-                {loading ? "Создаём…" : "Создать инвойс"}
-              </button>
-            </div>
+                  ))
+                )}
+              </select>
+            </label>
+            <label className="mc-field">
+              <span>Сумма к оплате</span>
+              <input
+                value={invoiceForm.amount_fiat}
+                min="0.00000001"
+                step="0.00000001"
+                type="number"
+                onChange={(event) =>
+                  onInvoiceFormChange({ ...invoiceForm, amount_fiat: Number(event.target.value) })
+                }
+              />
+            </label>
+            <label className="mc-field">
+              <span>Валюта учёта</span>
+              <select
+                value={fiatValue}
+                onChange={(event) =>
+                  onInvoiceFormChange({
+                    ...invoiceForm,
+                    fiat_currency: event.target.value.trim().toUpperCase(),
+                  })
+                }
+              >
+                {fiatOptions.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        )}
+          {selectedNetwork ? (
+            <div className="mc-hint-box">
+              <strong>
+                {invoiceForm.crypto_currency} · {selectedNetwork.network}
+              </strong>
+              <p>Мин. депозит: {selectedNetwork.min_deposit ?? "—"}</p>
+              <p>Макс. депозит: {selectedNetwork.max_deposit ?? "—"}</p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mw-invoice-create-actions">
+          <button className="primary-button" disabled={!canSubmit} type="submit">
+            {loading ? "Создаём…" : "Создать инвойс"}
+          </button>
+        </div>
       </form>
-    </section>
+    </article>
   );
 }

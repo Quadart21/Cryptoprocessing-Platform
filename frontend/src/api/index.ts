@@ -58,6 +58,10 @@ export type {
   PublicPageItem,
   PublicPageNavigationItem,
   PublicPageListResponse,
+  MerchantSandboxSummary,
+  SandboxPlatformSettings,
+  MerchantSandboxCreatePayload,
+  MerchantSandboxCreateResponse,
 } from "./base";
 
 export { login, fetchCurrentUser, fetchTwoFactorStatus, setupTwoFactor, enableTwoFactor, disableTwoFactor, changeClientPassword } from "./auth";
@@ -130,6 +134,12 @@ export {
   revokeAdminApiKey,
   regenerateAdminApiKey,
   fetchCsrfToken,
+  fetchSandboxPlatformSettings,
+  updateSandboxPlatformSettings,
+  fetchMerchantSandboxes,
+  createMerchantSandbox,
+  provisionMerchantSandboxDns,
+  destroyMerchantSandbox,
 } from "./admin";
 export { fetchPublicPages, fetchPublicPageBySlug, fetchSeoSettings } from "./public";
 export type { SeoSettings } from "./base";
