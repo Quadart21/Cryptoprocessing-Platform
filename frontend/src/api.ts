@@ -459,8 +459,45 @@ export type NotificationTemplateItem = {
   title: string;
   mode: "notify" | "confirm" | string;
   email_subject: string | null;
+  message_lines: string | null;
   email_body: string | null;
   telegram_body: string | null;
+  default_email_subject: string;
+  default_message_lines: string;
+  default_email_body: string;
+  default_telegram_body: string;
+  configured: boolean;
+};
+
+export type NotificationTemplatePreviewPayload = {
+  code: string;
+  email_subject?: string | null;
+  message_lines?: string | null;
+  email_body?: string | null;
+  telegram_body?: string | null;
+  sample_context?: Record<string, string>;
+};
+
+export type NotificationTemplatePreview = {
+  code: string;
+  title: string;
+  email_subject: string;
+  email_text: string;
+  email_html: string;
+  telegram_text: string;
+  variables: Record<string, string>;
+};
+
+export type NotificationTemplateTestPayload = NotificationTemplatePreviewPayload & {
+  test_recipient_email?: string | null;
+  telegram_chat_id?: string | null;
+  smtp_bz_api_key?: string | null;
+  telegram_bot_token?: string | null;
+};
+
+export type NotificationTemplateTestResponse = NotificationTemplatePreview & {
+  email_sent: boolean;
+  telegram_sent: boolean;
 };
 
 export type MerchantNotificationSettings = {
@@ -1475,6 +1512,32 @@ export function updatePlatformBillingSettings(
 ): Promise<PlatformBillingSettings> {
   return request<PlatformBillingSettings>("/admin/billing/settings", {
     method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function previewNotificationTemplate(
+  token: string,
+  payload: NotificationTemplatePreviewPayload,
+): Promise<NotificationTemplatePreview> {
+  return request<NotificationTemplatePreview>("/admin/billing/notifications/preview", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function sendNotificationTemplateTest(
+  token: string,
+  payload: NotificationTemplateTestPayload,
+): Promise<NotificationTemplateTestResponse> {
+  return request<NotificationTemplateTestResponse>("/admin/billing/notifications/test", {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
     },

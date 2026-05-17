@@ -81,6 +81,8 @@ export function PlatformDashboardRoot({
   onInspectPlatformTelegramBot,
   onSendPlatformTelegramTest,
   onSendPlatformSmtpBzTest,
+  onPreviewNotificationTemplate,
+  onSendNotificationTemplateTest,
   onUpdateTenantPolicy,
   onUpdateAssetAvailability,
   onCreatePublicPage,
@@ -372,6 +374,8 @@ export function PlatformDashboardRoot({
                 onInspectPlatformTelegramBot={onInspectPlatformTelegramBot}
                 onSendPlatformTelegramTest={onSendPlatformTelegramTest}
                 onSendPlatformSmtpBzTest={onSendPlatformSmtpBzTest}
+                onPreviewNotificationTemplate={onPreviewNotificationTemplate}
+                onSendNotificationTemplateTest={onSendNotificationTemplateTest}
                 onUpdatePlatformSettings={onUpdatePlatformSettings}
                 onUpdateTenantPolicy={onUpdateTenantPolicy}
               />

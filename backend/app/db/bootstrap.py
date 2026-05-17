@@ -143,6 +143,10 @@ DDL_PATCHES = [
     """,
     """
     ALTER TABLE platform_settings
+    ALTER COLUMN notification_templates_json TYPE TEXT
+    """,
+    """
+    ALTER TABLE platform_settings
     ADD COLUMN IF NOT EXISTS notification_brand_name VARCHAR(255) NOT NULL DEFAULT 'NorenCash'
     """,
     """

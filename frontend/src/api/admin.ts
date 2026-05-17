@@ -18,6 +18,10 @@ import type {
   ReviewPayoutPayload,
   AccountingSummary,
   PlatformBillingSettings,
+  NotificationTemplatePreview,
+  NotificationTemplatePreviewPayload,
+  NotificationTemplateTestPayload,
+  NotificationTemplateTestResponse,
   TenantBillingPolicy,
   RatesResponse,
   AssetAvailabilityPayload,
@@ -273,6 +277,28 @@ export function updatePlatformBillingSettings(
 ): Promise<PlatformBillingSettings> {
   return request<PlatformBillingSettings>("/admin/billing/settings", {
     method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function previewNotificationTemplate(
+  token: string,
+  payload: NotificationTemplatePreviewPayload,
+): Promise<NotificationTemplatePreview> {
+  return request<NotificationTemplatePreview>("/admin/billing/notifications/preview", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function sendNotificationTemplateTest(
+  token: string,
+  payload: NotificationTemplateTestPayload,
+): Promise<NotificationTemplateTestResponse> {
+  return request<NotificationTemplateTestResponse>("/admin/billing/notifications/test", {
+    method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(payload),
   });

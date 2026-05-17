@@ -34,6 +34,10 @@ from app.schemas.assets import (
 from app.schemas.billing import (
     ExchangeRateLookupResponse,
     ExchangeRateRefreshResponse,
+    NotificationTemplatePreviewRequest,
+    NotificationTemplatePreviewResponse,
+    NotificationTemplateTestRequest,
+    NotificationTemplateTestResponse,
     PlatformBillingSettingsResponse,
     PlatformBillingSettingsUpdateRequest,
     SmtpBzTestRequest,
@@ -923,6 +927,62 @@ async def update_platform_billing_settings(
         platform_settings=platform_settings,
         notification_service=NotificationService(db),
     )
+
+
+@router.post(
+    "/billing/notifications/preview",
+    response_model=NotificationTemplatePreviewResponse,
+)
+async def preview_platform_notification_template(
+    payload: NotificationTemplatePreviewRequest,
+    _: User = Depends(require_platform_permission("admin.billing.read")),
+    db: AsyncSession = Depends(get_db),
+) -> NotificationTemplatePreviewResponse:
+    platform_settings = await BillingPolicyService(db).get_platform_settings()
+    notification_service = NotificationService(db)
+    try:
+        rendered = notification_service.preview_notification_template(
+            platform_settings=platform_settings,
+            event_code=payload.code,
+            email_subject=payload.email_subject,
+            message_lines=payload.message_lines,
+            email_body=payload.email_body,
+            telegram_body=payload.telegram_body,
+            sample_context=payload.sample_context,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return NotificationTemplatePreviewResponse(**rendered)
+
+
+@router.post(
+    "/billing/notifications/test",
+    response_model=NotificationTemplateTestResponse,
+)
+async def send_platform_notification_template_test(
+    payload: NotificationTemplateTestRequest,
+    _: User = Depends(require_platform_permission("admin.billing.write")),
+    db: AsyncSession = Depends(get_db),
+) -> NotificationTemplateTestResponse:
+    platform_settings = await BillingPolicyService(db).get_platform_settings()
+    notification_service = NotificationService(db)
+    try:
+        rendered = notification_service.send_notification_template_test(
+            platform_settings=platform_settings,
+            event_code=payload.code,
+            email_subject=payload.email_subject,
+            message_lines=payload.message_lines,
+            email_body=payload.email_body,
+            telegram_body=payload.telegram_body,
+            sample_context=payload.sample_context,
+            test_recipient_email=payload.test_recipient_email,
+            telegram_chat_id=payload.telegram_chat_id,
+            smtp_bz_api_key=payload.smtp_bz_api_key,
+            telegram_bot_token=payload.telegram_bot_token,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return NotificationTemplateTestResponse(**rendered)
 
 
 @router.get("/billing/exchange-rate/{currency}", response_model=ExchangeRateLookupResponse)

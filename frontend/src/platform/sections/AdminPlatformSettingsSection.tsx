@@ -3,7 +3,11 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import type {
   ExchangeRateLookup,
   ExchangeRateRefresh,
+  NotificationTemplatePreview,
+  NotificationTemplatePreviewPayload,
   NotificationTemplateItem,
+  NotificationTemplateTestPayload,
+  NotificationTemplateTestResponse,
   PlatformBillingSettings,
   RateItem,
   SmtpBzTestPayload,
@@ -36,6 +40,12 @@ type AdminPlatformSettingsSectionProps = {
   onSendPlatformSmtpBzTest: (
     payload: SmtpBzTestPayload,
   ) => Promise<SmtpBzTestResponse>;
+  onPreviewNotificationTemplate: (
+    payload: NotificationTemplatePreviewPayload,
+  ) => Promise<NotificationTemplatePreview>;
+  onSendNotificationTemplateTest: (
+    payload: NotificationTemplateTestPayload,
+  ) => Promise<NotificationTemplateTestResponse>;
   onUpdateTenantPolicy: (payload: Omit<TenantBillingPolicy, "tenant_id">) => void;
 };
 
@@ -73,8 +83,15 @@ const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
 ];
 
 function hasConfiguredTemplateContent(template: NotificationTemplateItem) {
-  return [template.email_subject, template.email_body, template.telegram_body].some(
-    (value) => Boolean(value && value.trim() !== ""),
+  if (template.configured) return true;
+  const messageLinesChanged =
+    (template.message_lines ?? "").trim() !== "" &&
+    (template.message_lines ?? "").trim() !== (template.default_message_lines ?? "").trim();
+  return (
+    messageLinesChanged ||
+    [template.email_subject, template.email_body, template.telegram_body].some(
+      (value) => Boolean(value && value.trim() !== ""),
+    )
   );
 }
 
@@ -138,6 +155,8 @@ export function AdminPlatformSettingsSection({
   onInspectPlatformTelegramBot,
   onSendPlatformTelegramTest,
   onSendPlatformSmtpBzTest,
+  onPreviewNotificationTemplate,
+  onSendNotificationTemplateTest,
   onUpdateTenantPolicy,
 }: AdminPlatformSettingsSectionProps) {
   const [platformSettingsForm, setPlatformSettingsForm] =
@@ -163,6 +182,11 @@ export function AdminPlatformSettingsSection({
     "tenant_id"
   > | null>(null);
   const [templateEventCode, setTemplateEventCode] = useState("");
+  const [templatePreview, setTemplatePreview] = useState<NotificationTemplatePreview | null>(null);
+  const [templateTestEmail, setTemplateTestEmail] = useState("");
+  const [templateTestTelegramChatId, setTemplateTestTelegramChatId] = useState("");
+  const [sendingTemplateTest, setSendingTemplateTest] = useState(false);
+  const [previewingTemplate, setPreviewingTemplate] = useState(false);
   const [activeSection, setActiveSection] = useState<SettingsSectionKey>("fees");
   const [expandedSections, setExpandedSections] = useState<Set<SettingsSectionKey>>(
     new Set(["fees"]),
@@ -187,6 +211,9 @@ export function AdminPlatformSettingsSection({
     setTelegramTestResult(null);
     setSmtpTestRecipient("");
     setSmtpTestResult(null);
+    setTemplatePreview(null);
+    setTemplateTestEmail("");
+    setTemplateTestTelegramChatId("");
     if (platformBillingSettings) {
       const firstConfiguredTemplate = platformBillingSettings.notification_templates.find(
         hasConfiguredTemplateContent,
@@ -364,7 +391,10 @@ export function AdminPlatformSettingsSection({
 
   function handleTemplateFieldChange(
     code: string,
-    field: keyof Pick<NotificationTemplateItem, "email_subject" | "email_body" | "telegram_body">,
+    field: keyof Pick<
+      NotificationTemplateItem,
+      "email_subject" | "message_lines" | "email_body" | "telegram_body"
+    >,
     value: string,
   ) {
     if (!platformSettingsForm) return;
@@ -374,6 +404,70 @@ export function AdminPlatformSettingsSection({
         template.code === code ? { ...template, [field]: value.trim() === "" ? null : value } : template,
       ),
     });
+  }
+
+  function handleResetTemplate(code: string) {
+    if (!platformSettingsForm) return;
+    setTemplatePreview(null);
+    setPlatformSettingsForm({
+      ...platformSettingsForm,
+      notification_templates: platformSettingsForm.notification_templates.map((template) =>
+        template.code === code
+          ? {
+              ...template,
+              email_subject: null,
+              message_lines: template.default_message_lines,
+              email_body: null,
+              telegram_body: null,
+            }
+          : template,
+      ),
+    });
+  }
+
+  function copyVariable(variable: string) {
+    const token = `{{ ${variable} }}`;
+    if (navigator.clipboard) {
+      void navigator.clipboard.writeText(token);
+    }
+  }
+
+  async function handlePreviewTemplate() {
+    if (!selectedTemplate) return;
+    setPreviewingTemplate(true);
+    try {
+      const result = await onPreviewNotificationTemplate({
+        code: selectedTemplate.code,
+        email_subject: selectedTemplate.email_subject,
+        message_lines: selectedTemplate.message_lines,
+        email_body: selectedTemplate.email_body,
+        telegram_body: selectedTemplate.telegram_body,
+      });
+      setTemplatePreview(result);
+    } finally {
+      setPreviewingTemplate(false);
+    }
+  }
+
+  async function handleSendTemplateTest() {
+    if (!selectedTemplate) return;
+    setSendingTemplateTest(true);
+    try {
+      const result = await onSendNotificationTemplateTest({
+        code: selectedTemplate.code,
+        email_subject: selectedTemplate.email_subject,
+        message_lines: selectedTemplate.message_lines,
+        email_body: selectedTemplate.email_body,
+        telegram_body: selectedTemplate.telegram_body,
+        test_recipient_email: templateTestEmail.trim() || null,
+        telegram_chat_id: templateTestTelegramChatId.trim() || null,
+        smtp_bz_api_key: smtpBzApiKey.trim() || null,
+        telegram_bot_token: telegramBotToken.trim() || null,
+      });
+      setTemplatePreview(result);
+    } finally {
+      setSendingTemplateTest(false);
+    }
   }
 
   async function handleCheckTelegramBot() {
@@ -1050,7 +1144,10 @@ export function AdminPlatformSettingsSection({
           <span>Шаблон</span>
           <select
             value={templateEventCode}
-            onChange={(event) => setTemplateEventCode(event.target.value)}
+            onChange={(event) => {
+              setTemplateEventCode(event.target.value);
+              setTemplatePreview(null);
+            }}
           >
             {platformSettingsForm.notification_templates.map((template) => (
               <option key={template.code} value={template.code}>
@@ -1062,40 +1159,126 @@ export function AdminPlatformSettingsSection({
           </select>
         </label>
         {selectedTemplate ? (
-          <FieldGrid>
-            <label className="aps-field-span-2">
-              <span>Email subject</span>
-              <input
-                value={selectedTemplate.email_subject ?? ""}
-                placeholder="Если в БД сохранён subject, он подставится сюда автоматически"
-                onChange={(event) =>
-                  handleTemplateFieldChange(selectedTemplate.code, "email_subject", event.target.value)
-                }
-              />
-            </label>
-            <label className="aps-field-span-2">
-              <span>Email body</span>
-              <textarea
-                rows={8}
-                value={selectedTemplate.email_body ?? ""}
-                placeholder="Если в БД сохранён email body, он подставится сюда автоматически"
-                onChange={(event) =>
-                  handleTemplateFieldChange(selectedTemplate.code, "email_body", event.target.value)
-                }
-              />
-            </label>
-            <label className="aps-field-span-2">
-              <span>Telegram body</span>
-              <textarea
-                rows={6}
-                value={selectedTemplate.telegram_body ?? ""}
-                placeholder="Если в БД сохранён telegram body, он подставится сюда автоматически"
-                onChange={(event) =>
-                  handleTemplateFieldChange(selectedTemplate.code, "telegram_body", event.target.value)
-                }
-              />
-            </label>
-          </FieldGrid>
+          <div className="aps-template-editor">
+            <aside className="aps-template-sidebar">
+              <strong>Переменные</strong>
+              <p className="muted-text">Клик копирует плейсхолдер для вставки в subject, HTML или Telegram.</p>
+              <div className="aps-template-variable-list">
+                {platformSettingsForm.notification_template_variables.map((variable) => (
+                  <button key={variable} type="button" onClick={() => copyVariable(variable)}>
+                    {"{{ "}
+                    {variable}
+                    {" }}"}
+                  </button>
+                ))}
+              </div>
+            </aside>
+            <div className="aps-template-main">
+              <FieldGrid>
+                <label className="aps-field-span-2">
+                  <span>Email subject</span>
+                  <input
+                    value={selectedTemplate.email_subject ?? ""}
+                    placeholder={selectedTemplate.default_email_subject}
+                    onChange={(event) =>
+                      handleTemplateFieldChange(selectedTemplate.code, "email_subject", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="aps-field-span-2">
+                  <span>Основное тело сообщения (message_lines)</span>
+                  <textarea
+                    className="aps-template-codearea"
+                    rows={9}
+                    value={selectedTemplate.message_lines ?? ""}
+                    placeholder={selectedTemplate.default_message_lines}
+                    onChange={(event) =>
+                      handleTemplateFieldChange(selectedTemplate.code, "message_lines", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="aps-field-span-2">
+                  <span>Email HTML body</span>
+                  <textarea
+                    className="aps-template-codearea"
+                    rows={14}
+                    value={selectedTemplate.email_body ?? ""}
+                    placeholder={selectedTemplate.default_email_body}
+                    onChange={(event) =>
+                      handleTemplateFieldChange(selectedTemplate.code, "email_body", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="aps-field-span-2">
+                  <span>Telegram text</span>
+                  <textarea
+                    className="aps-template-codearea"
+                    rows={9}
+                    value={selectedTemplate.telegram_body ?? ""}
+                    placeholder={selectedTemplate.default_telegram_body}
+                    onChange={(event) =>
+                      handleTemplateFieldChange(selectedTemplate.code, "telegram_body", event.target.value)
+                    }
+                  />
+                </label>
+              </FieldGrid>
+              <div className="aps-action-row">
+                <button type="button" className="secondary-button" onClick={() => handleResetTemplate(selectedTemplate.code)}>
+                  Сбросить к дефолту
+                </button>
+                <button type="button" className="secondary-button" disabled={previewingTemplate} onClick={() => void handlePreviewTemplate()}>
+                  {previewingTemplate ? "Preview..." : "Preview"}
+                </button>
+              </div>
+              <FieldGrid>
+                <label>
+                  <span>Тестовый email</span>
+                  <input
+                    value={templateTestEmail}
+                    placeholder="admin@example.com"
+                    onChange={(event) => setTemplateTestEmail(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Telegram chat ID</span>
+                  <input
+                    value={templateTestTelegramChatId}
+                    placeholder="123456789"
+                    onChange={(event) => setTemplateTestTelegramChatId(event.target.value)}
+                  />
+                </label>
+              </FieldGrid>
+              <div className="aps-action-row">
+                <button
+                  type="button"
+                  disabled={sendingTemplateTest || (!templateTestEmail.trim() && !templateTestTelegramChatId.trim())}
+                  onClick={() => void handleSendTemplateTest()}
+                >
+                  {sendingTemplateTest ? "Отправляем..." : "Отправить тест"}
+                </button>
+              </div>
+              {templatePreview ? (
+                <div className="aps-template-preview">
+                  <div>
+                    <span className="muted-text">Email subject</span>
+                    <strong>{templatePreview.email_subject}</strong>
+                  </div>
+                  <div>
+                    <span className="muted-text">Email text</span>
+                    <pre>{templatePreview.email_text}</pre>
+                  </div>
+                  <div>
+                    <span className="muted-text">Telegram</span>
+                    <pre>{templatePreview.telegram_text}</pre>
+                  </div>
+                  <details>
+                    <summary>HTML preview source</summary>
+                    <pre>{templatePreview.email_html}</pre>
+                  </details>
+                </div>
+              ) : null}
+            </div>
+          </div>
         ) : (
           renderUnavailable()
         )}

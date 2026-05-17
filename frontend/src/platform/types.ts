@@ -14,6 +14,10 @@ import type {
   MerchantSandboxSummary,
   PayoutRequestItem,
   PlatformBillingSettings,
+  NotificationTemplatePreview,
+  NotificationTemplatePreviewPayload,
+  NotificationTemplateTestPayload,
+  NotificationTemplateTestResponse,
   SandboxPlatformSettings,
   ExchangeRateLookup,
   ExchangeRateRefresh,
@@ -143,6 +147,12 @@ export type AdminDashboardProps = {
     payload: TelegramAdminTestPayload,
   ) => Promise<TelegramAdminTestResponse>;
   onSendPlatformSmtpBzTest: (payload: SmtpBzTestPayload) => Promise<SmtpBzTestResponse>;
+  onPreviewNotificationTemplate: (
+    payload: NotificationTemplatePreviewPayload,
+  ) => Promise<NotificationTemplatePreview>;
+  onSendNotificationTemplateTest: (
+    payload: NotificationTemplateTestPayload,
+  ) => Promise<NotificationTemplateTestResponse>;
   onUpdateTenantPolicy: (payload: Omit<TenantBillingPolicy, "tenant_id">) => void;
   onUpdateAssetAvailability: (payload: AssetAvailabilityPayload) => void;
   onCreatePublicPage: (

@@ -58,10 +58,12 @@ import {
   register,
   rejectTenant,
   reviewAdminPayout,
+  previewNotificationTemplate,
   resetAdminTenantOwnerPassword,
   resetAdminTenantOwnerTwoFactor,
   revokeAdminApiKey,
   revokeClientApiKey,
+  sendNotificationTemplateTest,
   sendPlatformSmtpBzTest,
   sendPlatformTelegramTest,
   sendInvoiceWebhookTest,
@@ -85,6 +87,10 @@ import {
   type MerchantSandboxCreateResponse,
   type MerchantSandboxSummary,
   type MerchantNotificationSettings,
+  type NotificationTemplatePreview,
+  type NotificationTemplatePreviewPayload,
+  type NotificationTemplateTestPayload,
+  type NotificationTemplateTestResponse,
   type OnboardingStatus,
   type PayoutRequestItem,
   type PlatformBillingSettings,
@@ -1634,6 +1640,53 @@ export function AppController() {
     }
   }
 
+  async function handlePreviewNotificationTemplate(
+    payload: NotificationTemplatePreviewPayload,
+  ): Promise<NotificationTemplatePreview> {
+    if (!token) {
+      throw new Error("Нет токена администратора.");
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      return await previewNotificationTemplate(token, payload);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось собрать preview шаблона.");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSendNotificationTemplateTest(
+    payload: NotificationTemplateTestPayload,
+  ): Promise<NotificationTemplateTestResponse> {
+    if (!token) {
+      throw new Error("Нет токена администратора.");
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const result = await sendNotificationTemplateTest(token, payload);
+      const channels = [
+        result.email_sent ? "email" : null,
+        result.telegram_sent ? "telegram" : null,
+      ].filter(Boolean);
+      setSuccess(
+        channels.length
+          ? `Тест шаблона отправлен: ${channels.join(", ")}.`
+          : "Preview шаблона собран, но канал доставки не выбран.",
+      );
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отправить тест шаблона.");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleUpdateTenantPolicy(
     payload: Omit<TenantBillingPolicy, "tenant_id">,
   ) {
@@ -1871,6 +1924,8 @@ return (
           onInspectPlatformTelegramBot={(payload) => handleInspectPlatformTelegramBot(payload)}
           onSendPlatformTelegramTest={(payload) => handleSendPlatformTelegramTest(payload)}
           onSendPlatformSmtpBzTest={(payload) => handleSendPlatformSmtpBzTest(payload)}
+          onPreviewNotificationTemplate={(payload) => handlePreviewNotificationTemplate(payload)}
+          onSendNotificationTemplateTest={(payload) => handleSendNotificationTemplateTest(payload)}
           onUpdateTenantPolicy={(payload) => void handleUpdateTenantPolicy(payload)}
           onUpdateAssetAvailability={(payload) => void handleUpdateAssetAvailability(payload)}
           onCreatePublicPage={(payload) => void handleCreatePublicPage(payload)}

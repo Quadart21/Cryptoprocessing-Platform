@@ -31,6 +31,7 @@ class NotificationEventDefinition:
 @dataclass(frozen=True)
 class NotificationTemplatePayload:
     email_subject: str | None
+    message_lines: str | None
     email_body: str | None
     telegram_body: str | None
 
@@ -141,7 +142,97 @@ class NotificationService:
         "brand_name",
         "brand_url",
         "utc_now",
+        "initiated_by_email",
+        "tenant_name",
+        "project_id",
+        "project_name",
+        "owner_email",
+        "temporary_password",
+        "recovery_token",
+        "api_secret_key",
+        "api_public_key",
+        "invite_token",
+        "payout_id",
+        "payout_amount",
+        "payout_currency",
+        "payout_status",
+        "destination_address",
+        "review_comment",
     )
+    DEFAULT_TEMPLATE: dict[str, str] = {
+        "email_subject": "{{ event_subject }}",
+        "message_lines": "{{ message_lines }}",
+        "email_body": "{{ message_lines_html }}",
+        "telegram_body": "{{ event_subject }}\n\n{{ message_lines }}",
+    }
+    DEFAULT_MESSAGE_LINES_BY_EVENT: dict[str, str] = {
+        EVENT_APPLICATION_SUBMITTED: (
+            "Проект: {{ tenant_name }}\n"
+            "Заявка отправлена на модерацию."
+        ),
+        EVENT_APPLICATION_APPROVED: (
+            "Проект: {{ tenant_name }}\n"
+            "Статус: одобрено администратором."
+        ),
+        EVENT_APPLICATION_REJECTED: (
+            "Проект: {{ tenant_name }}\n"
+            "Комментарий: {{ review_comment }}"
+        ),
+        EVENT_PASSWORD_GENERATED: (
+            "Email: {{ user_email }}\n"
+            "Временный пароль/токен: {{ temporary_password }}{{ recovery_token }}\n"
+            "Рекомендуем изменить пароль после первого входа."
+        ),
+        EVENT_PASSWORD_CHANGED: (
+            "Пользователь: {{ user_email }}\n"
+            "Пароль от кабинета мерчанта успешно обновлен.\n"
+            "Если это были не вы, срочно обратитесь в поддержку."
+        ),
+        EVENT_API_KEY_GENERATED: (
+            "Project ID: {{ project_id }}\n"
+            "Public key: {{ api_public_key }}\n"
+            "Secret key: {{ api_secret_key }}\n"
+            "Invite token: {{ invite_token }}\n"
+            "Сохраните secret key в защищенном месте."
+        ),
+        EVENT_API_KEY_REGENERATED: (
+            "Public key: {{ api_public_key }}\n"
+            "Secret key: {{ api_secret_key }}\n"
+            "Инициатор: {{ initiated_by_email }}\n"
+            "Сохраните новый secret key в защищенном месте."
+        ),
+        EVENT_API_KEY_REVOKED: (
+            "Public key: {{ api_public_key }}\n"
+            "Инициатор: {{ initiated_by_email }}\n"
+            "Если отзыв был несанкционированным, срочно свяжитесь с поддержкой."
+        ),
+        EVENT_TWO_FACTOR_ENABLED: (
+            "Пользователь: {{ user_email }}\n"
+            "Дополнительная защита входа успешно активирована."
+        ),
+        EVENT_TWO_FACTOR_DISABLED: (
+            "Пользователь: {{ user_email }}\n"
+            "Если отключение было выполнено не по вашему запросу, срочно смените пароль."
+        ),
+        EVENT_PAYOUT_REQUESTED: (
+            "Payout ID: {{ payout_id }}\n"
+            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
+            "Адрес: {{ destination_address }}\n"
+            "Инициатор: {{ initiated_by_email }}"
+        ),
+        EVENT_PAYOUT_APPROVED: (
+            "Payout ID: {{ payout_id }}\n"
+            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
+            "Статус: {{ payout_status }}\n"
+            "Комментарий: {{ review_comment }}"
+        ),
+        EVENT_PAYOUT_REJECTED: (
+            "Payout ID: {{ payout_id }}\n"
+            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
+            "Статус: {{ payout_status }}\n"
+            "Комментарий: {{ review_comment }}"
+        ),
+    }
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -170,17 +261,28 @@ class NotificationService:
         template_map = self._parse_template_map(
             platform_settings.notification_templates_json
         )
-        return [
-            {
+        views: list[dict[str, Any]] = []
+        for definition in self.EVENT_DEFINITIONS:
+            default_template = self._default_template_for(definition)
+            editor_default_message_lines = self._default_message_lines_for(definition)
+            stored_template = template_map.get(definition.code, {})
+            views.append(
+                {
                 "code": definition.code,
                 "title": definition.title,
                 "mode": definition.mode,
-                "email_subject": template_map.get(definition.code, {}).get("email_subject"),
-                "email_body": template_map.get(definition.code, {}).get("email_body"),
-                "telegram_body": template_map.get(definition.code, {}).get("telegram_body"),
-            }
-            for definition in self.EVENT_DEFINITIONS
-        ]
+                    "email_subject": stored_template.get("email_subject"),
+                    "message_lines": stored_template.get("message_lines") or editor_default_message_lines,
+                    "email_body": stored_template.get("email_body"),
+                    "telegram_body": stored_template.get("telegram_body"),
+                    "default_email_subject": default_template["email_subject"],
+                    "default_message_lines": editor_default_message_lines,
+                    "default_email_body": default_template["email_body"],
+                    "default_telegram_body": default_template["telegram_body"],
+                    "configured": bool(stored_template),
+                }
+            )
+        return views
 
     def get_template_variables(self) -> list[str]:
         return list(self.TEMPLATE_VARIABLES)
@@ -358,6 +460,7 @@ class NotificationService:
         event_code: str,
         subject: str,
         lines: Iterable[str],
+        context: dict[str, Any] | None = None,
         force_email: bool = False,
         force_telegram: bool = False,
     ) -> None:
@@ -382,6 +485,7 @@ class NotificationService:
             event_code=event_code,
             fallback_subject=subject,
             fallback_lines=normalized_lines,
+            extra_context=context,
         )
 
         if (
@@ -417,6 +521,7 @@ class NotificationService:
         event_code: str,
         subject: str,
         lines: Iterable[str],
+        context: dict[str, Any] | None = None,
         owner_only: bool = False,
         exclude_user_id: str | None = None,
         force_email: bool = False,
@@ -431,6 +536,7 @@ class NotificationService:
                 event_code=event_code,
                 subject=subject,
                 lines=lines,
+                context=context,
                 force_email=force_email,
                 force_telegram=force_telegram,
             )
@@ -479,16 +585,34 @@ class NotificationService:
             if code not in cls.EVENT_DEFINITION_BY_CODE or not isinstance(raw_template, dict):
                 continue
             email_subject = str(raw_template.get("email_subject") or "").strip()
+            message_lines = str(raw_template.get("message_lines") or "").strip()
             email_body = str(raw_template.get("email_body") or "").strip()
             telegram_body = str(raw_template.get("telegram_body") or "").strip()
-            if not any([email_subject, email_body, telegram_body]):
+            if not any([email_subject, message_lines, email_body, telegram_body]):
                 continue
             normalized[code] = {
                 "email_subject": email_subject,
+                "message_lines": message_lines,
                 "email_body": email_body,
                 "telegram_body": telegram_body,
             }
         return normalized
+
+    @classmethod
+    def _default_template_for(cls, definition: NotificationEventDefinition) -> dict[str, str]:
+        return {
+            "email_subject": cls.DEFAULT_TEMPLATE["email_subject"],
+            "message_lines": cls.DEFAULT_TEMPLATE["message_lines"],
+            "email_body": cls.DEFAULT_TEMPLATE["email_body"],
+            "telegram_body": cls.DEFAULT_TEMPLATE["telegram_body"],
+        }
+
+    @classmethod
+    def _default_message_lines_for(cls, definition: NotificationEventDefinition) -> str:
+        return cls.DEFAULT_MESSAGE_LINES_BY_EVENT.get(
+            definition.code,
+            cls.DEFAULT_TEMPLATE["message_lines"],
+        )
 
     @classmethod
     def _normalize_templates(cls, templates: Iterable[Any]) -> dict[str, dict[str, str]]:
@@ -499,12 +623,14 @@ class NotificationService:
             if code not in cls.EVENT_DEFINITION_BY_CODE:
                 continue
             email_subject = str(getattr(item, "email_subject", "") or "").strip()
+            message_lines = str(getattr(item, "message_lines", "") or "").strip()
             email_body = str(getattr(item, "email_body", "") or "").strip()
             telegram_body = str(getattr(item, "telegram_body", "") or "").strip()
-            if not any([email_subject, email_body, telegram_body]):
+            if not any([email_subject, message_lines, email_body, telegram_body]):
                 continue
             normalized[code] = {
                 "email_subject": email_subject,
+                "message_lines": message_lines,
                 "email_body": email_body,
                 "telegram_body": telegram_body,
             }
@@ -518,10 +644,18 @@ class NotificationService:
         event_code: str,
         fallback_subject: str,
         fallback_lines: list[str],
+        template_override: dict[str, str | None] | None = None,
+        extra_context: dict[str, Any] | None = None,
     ) -> RenderedNotificationPayload:
         definition = self.EVENT_DEFINITION_BY_CODE[event_code]
         template_map = self._parse_template_map(platform_settings.notification_templates_json)
-        template = template_map.get(event_code, {})
+        default_template = self._default_template_for(definition)
+        template = {**default_template, **template_map.get(event_code, {})}
+        if template_override is not None:
+            for key in ("email_subject", "message_lines", "email_body", "telegram_body"):
+                if key in template_override:
+                    value = template_override.get(key)
+                    template[key] = str(value or "").strip() or default_template[key]
         normalized_subject = fallback_subject.strip() or definition.title
         message_lines = [line.strip() for line in fallback_lines if line.strip()]
         if not message_lines:
@@ -529,23 +663,33 @@ class NotificationService:
         message_lines_text = "\n".join(message_lines)
         message_lines_html = "".join(f"<p>{escape(line)}</p>" for line in message_lines)
 
-        context = {
-            "event_code": event_code,
-            "event_title": definition.title,
-            "event_subject": normalized_subject,
-            "message_lines": message_lines_text,
-            "message_lines_html": message_lines_html,
-            "user_email": (user.email or "").strip(),
-            "user_full_name": (user.full_name or "").strip(),
-            "brand_name": (platform_settings.notification_brand_name or "").strip() or "NorenCash",
-            "brand_url": (platform_settings.notification_primary_url or "").strip(),
-            "utc_now": datetime.now(timezone.utc).isoformat(),
-        }
+        context = self._build_template_context(
+            platform_settings=platform_settings,
+            user=user,
+            event_code=event_code,
+            fallback_subject=normalized_subject,
+            fallback_lines=message_lines,
+            extra_context=extra_context,
+        )
 
         rendered_subject = self._render_template(
             str(template.get("email_subject") or "").strip() or normalized_subject,
             context,
         )
+        rendered_message_lines = self._render_template(
+            str(template.get("message_lines") or "").strip(),
+            context,
+        )
+        if rendered_message_lines:
+            message_lines_text = rendered_message_lines
+            message_lines = [
+                line.strip()
+                for line in rendered_message_lines.replace("\r", "").split("\n")
+                if line.strip()
+            ]
+            message_lines_html = "".join(f"<p>{escape(line)}</p>" for line in message_lines)
+            context["message_lines"] = message_lines_text
+            context["message_lines_html"] = message_lines_html
         rendered_email_body = self._render_template(
             str(template.get("email_body") or "").strip(),
             context,
@@ -577,6 +721,265 @@ class NotificationService:
             email_html=branded_email_html,
             telegram_text=telegram_text,
         )
+
+    def preview_notification_template(
+        self,
+        *,
+        platform_settings: PlatformSetting,
+        event_code: str,
+        email_subject: str | None = None,
+        message_lines: str | None = None,
+        email_body: str | None = None,
+        telegram_body: str | None = None,
+        sample_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if event_code not in self.EVENT_DEFINITION_BY_CODE:
+            raise ValueError("Неизвестный код события уведомления.")
+        definition = self.EVENT_DEFINITION_BY_CODE[event_code]
+        user = User(
+            email=str((sample_context or {}).get("user_email") or "merchant@example.com"),
+            full_name=str((sample_context or {}).get("user_full_name") or "Merchant Owner"),
+        )
+        sample_lines = [
+            "Это пример строки уведомления.",
+            "Замените шаблон и переменные под свой сценарий.",
+        ]
+        context = {
+            "initiated_by_email": "admin@example.com",
+            "tenant_name": "Demo Merchant",
+            "project_id": "project_demo",
+            "project_name": "Demo Checkout",
+            "owner_email": user.email,
+            "temporary_password": "DemoPass-123",
+            "recovery_token": "recover_demo_token",
+            "api_public_key": "pk_demo_public",
+            "api_secret_key": "sk_demo_secret",
+            "invite_token": "invite_demo_token",
+            "payout_id": "payout_demo",
+            "payout_amount": "100.00",
+            "payout_currency": "USDT",
+            "payout_status": "approved",
+            "destination_address": "TQdemoAddress123",
+            "review_comment": "Тестовый комментарий",
+            **(sample_context or {}),
+        }
+        rendered = self._render_notification_payload(
+            platform_settings=platform_settings,
+            user=user,
+            event_code=event_code,
+            fallback_subject=definition.title,
+            fallback_lines=sample_lines,
+            template_override={
+                "email_subject": email_subject,
+                "message_lines": message_lines,
+                "email_body": email_body,
+                "telegram_body": telegram_body,
+            },
+            extra_context=context,
+        )
+        variables = self._build_template_context(
+            platform_settings=platform_settings,
+            user=user,
+            event_code=event_code,
+            fallback_subject=definition.title,
+            fallback_lines=sample_lines,
+            extra_context=context,
+        )
+        rendered_message_lines = self._render_template(
+            str(message_lines or "").strip(),
+            variables,
+        )
+        if rendered_message_lines:
+            variables["message_lines"] = rendered_message_lines
+            variables["message_lines_html"] = "".join(
+                f"<p>{escape(line.strip())}</p>"
+                for line in rendered_message_lines.replace("\r", "").split("\n")
+                if line.strip()
+            )
+        return {
+            "code": event_code,
+            "title": definition.title,
+            "email_subject": rendered.email_subject,
+            "email_text": rendered.email_text,
+            "email_html": rendered.email_html,
+            "telegram_text": rendered.telegram_text,
+            "variables": variables,
+        }
+
+    def _build_template_context(
+        self,
+        *,
+        platform_settings: PlatformSetting,
+        user: User,
+        event_code: str,
+        fallback_subject: str,
+        fallback_lines: list[str],
+        extra_context: dict[str, Any] | None = None,
+    ) -> dict[str, str]:
+        definition = self.EVENT_DEFINITION_BY_CODE[event_code]
+        message_lines = [line.strip() for line in fallback_lines if line.strip()]
+        if not message_lines:
+            message_lines = [fallback_subject.strip() or definition.title]
+        message_lines_text = "\n".join(message_lines)
+        message_lines_html = "".join(f"<p>{escape(line)}</p>" for line in message_lines)
+        context: dict[str, str] = {
+            "event_code": event_code,
+            "event_title": definition.title,
+            "event_subject": fallback_subject.strip() or definition.title,
+            "message_lines": message_lines_text,
+            "message_lines_html": message_lines_html,
+            "user_email": (user.email or "").strip(),
+            "user_full_name": (user.full_name or "").strip(),
+            "brand_name": (platform_settings.notification_brand_name or "").strip() or "NorenCash",
+            "brand_url": (platform_settings.notification_primary_url or "").strip(),
+            "utc_now": datetime.now(timezone.utc).isoformat(),
+        }
+        context.update(self._infer_template_context_from_lines(message_lines))
+        for key, value in (extra_context or {}).items():
+            safe_key = str(key or "").strip()
+            if not safe_key:
+                continue
+            context[safe_key] = "" if value is None else str(value)
+        return context
+
+    @staticmethod
+    def _infer_template_context_from_lines(lines: list[str]) -> dict[str, str]:
+        inferred: dict[str, str] = {}
+        for line in lines:
+            if ":" not in line:
+                continue
+            raw_label, raw_value = line.split(":", 1)
+            label = raw_label.strip().lower()
+            value = raw_value.strip()
+            if not value:
+                continue
+            if label in {"проект"}:
+                inferred.setdefault("tenant_name", value)
+                inferred.setdefault("project_name", value)
+            elif label == "project id":
+                inferred.setdefault("project_id", value)
+            elif label == "public key":
+                inferred.setdefault("api_public_key", value)
+            elif label == "secret key":
+                inferred.setdefault("api_secret_key", value)
+            elif label == "invite token":
+                inferred.setdefault("invite_token", value)
+            elif label in {"email", "пользователь"}:
+                inferred.setdefault("user_email", value)
+                inferred.setdefault("owner_email", value)
+            elif label == "временный пароль":
+                inferred.setdefault("temporary_password", value)
+            elif label == "токен восстановления":
+                inferred.setdefault("recovery_token", value)
+            elif label == "payout id":
+                inferred.setdefault("payout_id", value)
+            elif label == "сумма":
+                amount_parts = value.split()
+                inferred.setdefault("payout_amount", amount_parts[0] if amount_parts else value)
+                if len(amount_parts) > 1:
+                    inferred.setdefault("payout_currency", amount_parts[1])
+            elif label == "адрес":
+                inferred.setdefault("destination_address", value)
+            elif label == "инициатор":
+                inferred.setdefault("initiated_by_email", value)
+            elif label == "статус":
+                inferred.setdefault("payout_status", value)
+            elif label == "комментарий":
+                inferred.setdefault("review_comment", value)
+        return inferred
+
+    def send_notification_template_test(
+        self,
+        *,
+        platform_settings: PlatformSetting,
+        event_code: str,
+        test_recipient_email: str | None = None,
+        telegram_chat_id: str | None = None,
+        email_subject: str | None = None,
+        message_lines: str | None = None,
+        email_body: str | None = None,
+        telegram_body: str | None = None,
+        sample_context: dict[str, Any] | None = None,
+        smtp_bz_api_key: str | None = None,
+        telegram_bot_token: str | None = None,
+    ) -> dict[str, Any]:
+        rendered = self.preview_notification_template(
+            platform_settings=platform_settings,
+            event_code=event_code,
+            email_subject=email_subject,
+            message_lines=message_lines,
+            email_body=email_body,
+            telegram_body=telegram_body,
+            sample_context=sample_context,
+        )
+        email_sent = False
+        telegram_sent = False
+        recipient = (test_recipient_email or "").strip()
+        if recipient:
+            if "@" not in recipient:
+                raise ValueError("Укажите корректный email для тестового шаблона.")
+            sender_email = (platform_settings.smtp_bz_sender_email or "").strip()
+            if not sender_email or "@" not in sender_email:
+                raise ValueError("Укажите корректный email отправителя SMTP.bz.")
+            api_key_override = (smtp_bz_api_key or "").strip()
+            api_key = api_key_override if api_key_override else self._get_smtp_bz_api_key(platform_settings)
+            if not api_key:
+                raise ValueError("Укажите API-ключ SMTP.bz для тестовой отправки шаблона.")
+            request_parts: list[tuple[str, tuple[None, str]]] = [
+                ("from", (None, sender_email)),
+                ("name", (None, (platform_settings.smtp_bz_sender_name or "").strip() or "NorenCash")),
+                ("subject", (None, str(rendered["email_subject"]))),
+                ("to", (None, recipient)),
+                ("html", (None, str(rendered["email_html"]))),
+                ("text", (None, str(rendered["email_text"]))),
+            ]
+            reply_to = (platform_settings.smtp_bz_reply_to or "").strip()
+            if reply_to:
+                request_parts.append(("reply", (None, reply_to)))
+            tag = (platform_settings.smtp_bz_tag or "").strip()
+            if tag:
+                request_parts.append(("tag", (None, tag)))
+            try:
+                response = requests.post(
+                    f"{self._normalize_smtp_bz_api_base_url(platform_settings.smtp_bz_api_base_url)}/smtp/send",
+                    headers={"Authorization": api_key, "accept": "application/json"},
+                    files=request_parts,
+                    timeout=12,
+                )
+            except Exception as exc:
+                raise ValueError(f"Не удалось выполнить запрос к SMTP.bz: {exc}") from exc
+            if response.status_code >= 400:
+                raise ValueError(f"SMTP.bz API вернул HTTP {response.status_code}: {(response.text or '')[:240]}")
+            email_sent = True
+        chat_id = (telegram_chat_id or "").strip()
+        if chat_id:
+            bot_token, api_base_url, _ = self._resolve_telegram_transport(
+                platform_settings=platform_settings,
+                telegram_api_base_url=None,
+                telegram_bot_token=telegram_bot_token,
+            )
+            if not bot_token:
+                raise ValueError("Укажите Telegram Bot Token для тестовой отправки шаблона.")
+            try:
+                response = requests.post(
+                    f"{api_base_url}/bot{bot_token}/sendMessage",
+                    json={
+                        "chat_id": chat_id,
+                        "text": str(rendered["telegram_text"]),
+                        "disable_web_page_preview": True,
+                    },
+                    timeout=8,
+                )
+            except Exception as exc:
+                raise ValueError(f"Не удалось отправить тестовое сообщение: {exc}") from exc
+            if response.status_code >= 400:
+                raise ValueError(f"Telegram API вернул HTTP {response.status_code}: {response.text[:240]}")
+            telegram_sent = True
+        return {
+            **rendered,
+            "email_sent": email_sent,
+            "telegram_sent": telegram_sent,
+        }
 
     def is_smtp_bz_api_key_configured(self, platform_settings: PlatformSetting) -> bool:
         return bool((platform_settings.smtp_bz_api_key_encrypted or "").strip())

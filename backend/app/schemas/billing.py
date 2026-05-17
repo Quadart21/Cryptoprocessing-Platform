@@ -17,6 +17,7 @@ class NotificationEventView(NotificationEventToggle):
 class NotificationTemplateUpdate(BaseModel):
     code: str
     email_subject: str | None = None
+    message_lines: str | None = None
     email_body: str | None = None
     telegram_body: str | None = None
 
@@ -24,6 +25,42 @@ class NotificationTemplateUpdate(BaseModel):
 class NotificationTemplateView(NotificationTemplateUpdate):
     title: str
     mode: str
+    default_email_subject: str
+    default_message_lines: str
+    default_email_body: str
+    default_telegram_body: str
+    configured: bool = False
+
+
+class NotificationTemplatePreviewRequest(BaseModel):
+    code: str
+    email_subject: str | None = None
+    message_lines: str | None = None
+    email_body: str | None = None
+    telegram_body: str | None = None
+    sample_context: dict[str, str] = Field(default_factory=dict)
+
+
+class NotificationTemplatePreviewResponse(BaseModel):
+    code: str
+    title: str
+    email_subject: str
+    email_text: str
+    email_html: str
+    telegram_text: str
+    variables: dict[str, str]
+
+
+class NotificationTemplateTestRequest(NotificationTemplatePreviewRequest):
+    test_recipient_email: str | None = Field(default=None, max_length=254)
+    telegram_chat_id: str | None = Field(default=None, max_length=64)
+    smtp_bz_api_key: str | None = None
+    telegram_bot_token: str | None = None
+
+
+class NotificationTemplateTestResponse(NotificationTemplatePreviewResponse):
+    email_sent: bool = False
+    telegram_sent: bool = False
 
 
 class PlatformBillingSettingsResponse(BaseModel):

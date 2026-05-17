@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Numeric, String
+from sqlalchemy import Boolean, DateTime, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -40,11 +40,8 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     telegram_notification_events_json: Mapped[str] = mapped_column(
         String(4000), nullable=False, default='["application_approved", "application_rejected", "application_submitted", "password_generated", "password_changed", "api_key_generated", "api_key_regenerated", "api_key_revoked", "two_factor_enabled", "two_factor_disabled", "payout_requested", "payout_approved", "payout_rejected"]'
     )
-    telegram_notification_events_json: Mapped[str] = mapped_column(
-        String(4000), nullable=False, default='["application_approved", "application_rejected", "application_submitted", "password_generated", "password_changed", "api_key_generated", "api_key_regenerated", "api_key_revoked", "two_factor_enabled", "two_factor_disabled", "payout_requested", "payout_approved", "payout_rejected"]'
-    )
     notification_templates_json: Mapped[str] = mapped_column(
-        String(16000), nullable=False, default="{}"
+        Text, nullable=False, default="{}"
     )
     notification_brand_name: Mapped[str] = mapped_column(
         String(255), nullable=False, default="NorenCash"
