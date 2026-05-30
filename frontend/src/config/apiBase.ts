@@ -1,3 +1,5 @@
+import { resolveApiBaseUrlForSite } from "./siteHost";
+
 function sanitizeBaseUrl(value: string): string {
   return value.replace(/\/+$/, "");
 }
@@ -19,9 +21,8 @@ export function resolveApiBaseUrl(): string {
     return sanitizeBaseUrl(envApiBase);
   }
 
-  const origin = resolveBrowserOrigin();
-  if (origin) {
-    return `${origin}/api/v1`;
+  if (typeof window !== "undefined") {
+    return resolveApiBaseUrlForSite();
   }
 
   return "http://127.0.0.1:8000/api/v1";

@@ -5,6 +5,7 @@ export LC_ALL=C.UTF-8
 
 DOMAIN="${DOMAIN:-noren.digital}"
 DOMAIN_ALIASES="${DOMAIN_ALIASES:-www.${DOMAIN}}"
+DOCS_DOMAIN="${DOCS_DOMAIN:-docs.${DOMAIN}}"
 APP_DIR="${APP_DIR:-/opt/cryptoprocessing}"
 APP_USER="${APP_USER:-cryptoprocessing}"
 ENABLE_SSL="${ENABLE_SSL:-1}"
@@ -15,7 +16,7 @@ CLOUDFLARE_ORIGIN_CERT_PATH="${CLOUDFLARE_ORIGIN_CERT_PATH:-/etc/ssl/cloudflare/
 CLOUDFLARE_ORIGIN_KEY_PATH="${CLOUDFLARE_ORIGIN_KEY_PATH:-/etc/ssl/cloudflare/${DOMAIN}.key}"
 
 build_server_names() {
-  local names="${DOMAIN}"
+  local names="${DOMAIN} ${DOCS_DOMAIN}"
   if [[ -n "${DOMAIN_ALIASES}" ]]; then
     IFS=',' read -ra aliases <<< "${DOMAIN_ALIASES}"
     for raw_alias in "${aliases[@]}"; do

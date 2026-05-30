@@ -40,6 +40,9 @@ export default defineConfig({
           if (s.includes("/src/merchant/")) {
             return "merchant-console";
           }
+          if (s.includes("/src/docs/")) {
+            return "docs-site";
+          }
           if (s.includes("/src/platform/")) {
             return "platform-console";
           }

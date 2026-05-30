@@ -130,6 +130,7 @@ import {
   updateTenantBillingPolicy,
   updateWebhookConfig,
 } from "./api";
+import { resolveDocsSiteUrl } from "./config/siteHost";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 
 import {
@@ -1865,7 +1866,9 @@ return (
             onRequestPasswordRecovery={(email) => void handleRequestPasswordRecovery(email)}
             onRegister={handleRegister}
             onSetRecoveredPassword={handleSetRecoveredPassword}
-            onOpenPublicDocs={() => openPublicPage("docs")}
+            onOpenPublicDocs={() => {
+              window.location.href = resolveDocsSiteUrl();
+            }}
             publicPages={publicNavigationItems}
             onOpenPublicPage={(slug) => openPublicPage("cms", slug)}
           />
