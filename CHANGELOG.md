@@ -4,6 +4,21 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.13.0] — 2026-05-24
+
+### Добавлено
+
+- **Docs subdomain** (`docs.{domain}`): премиальный developer portal в стиле NorenCash — тёмная тема, hero, pipeline, stats, sidebar и полный Merchant API reference.
+- **Forum-style WYSIWYG** для шаблонов уведомлений (TipTap): выравнивание, списки, ссылки, изображения, подсказки по полям и переменным.
+- **Telegram**: отправка фото из HTML-шаблона; переменная `notification_logo_url`.
+
+### Изменено
+
+- Кнопка «Документация» на лендинге ведёт на `docs.{domain}`.
+- Nginx/deploy: поддержка `DOCS_DOMAIN`; оптимизация Vite chunks без circular dependencies.
+
+---
+
 ## [0.12.2] — 2026-05-24
 
 ### Добавлено
