@@ -4,6 +4,27 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.12.1] — 2026-05-24
+
+### Добавлено
+
+- **Deploy (Ubuntu)**: скрипты `setup-server.sh` и `update-server.sh`, расширенная документация в `ops/ubuntu/README.md`.
+- **БД**: Alembic-миграции `platform_settings` и `user_sessions`; модель `UserSession` в реестре ORM.
+- **БД**: `sync_missing_tables()` и `app.scripts.sync_schema` — проверка всех ORM-таблиц и создание недостающих (с file-lock и сбросом осиротевших индексов).
+
+### Изменено
+
+- **`restart_app.sh`**: после Alembic вызывается синхронизация ORM-таблиц (`SKIP_SCHEMA_SYNC=1` для отключения).
+- **`bootstrap`**: при готовой схеме Alembic — только недостающие таблицы, без полного `create_all` (защита от гонки workers).
+- **`cryptoprocessing.service`**: один worker, загрузка переменных из `.env`.
+
+### Исправлено
+
+- Идемпотентность миграции exchange-rate markup для уже существующих production-объектов.
+- Логин 500 при отсутствии таблицы `user_sessions` на серверах с частично применённой схемой.
+
+---
+
 ## [0.12.0] — 2026-05-18
 
 ### Добавлено

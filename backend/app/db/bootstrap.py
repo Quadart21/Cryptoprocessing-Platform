@@ -1,5 +1,8 @@
 import logging
-from sqlalchemy import text
+from contextlib import contextmanager
+from pathlib import Path
+
+from sqlalchemy import inspect, text
 
 from app.core.security import encrypt_value
 from app.db.session import engine
@@ -345,9 +348,84 @@ RLS_TENANT_TABLES = [
 ]
 
 
+try:
+    import fcntl
+except ImportError:  # Windows dev
+    fcntl = None  # type: ignore[misc, assignment]
+
+
+@contextmanager
+def _schema_sync_lock():
+    lock_path = Path("/tmp/cryptoprocessing-schema-sync.lock")
+    lock_file = open(lock_path, "a+")
+    if fcntl is not None:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+    try:
+        yield
+    finally:
+        if fcntl is not None:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        lock_file.close()
+
+
+def sync_missing_tables() -> list[str]:
+    """Create ORM tables missing from the database (idempotent, file-locked)."""
+    import app.models  # noqa: F401 — register metadata on Base
+
+    with _schema_sync_lock():
+        inspector = inspect(engine)
+        missing = [
+            table
+            for table in Base.metadata.sorted_tables
+            if not inspector.has_table(table.name)
+        ]
+        if not missing:
+            logger.info(
+                "All ORM tables present (%d checked).",
+                len(Base.metadata.sorted_tables),
+            )
+            return []
+
+        names = [table.name for table in missing]
+        logger.info("Creating missing tables: %s", ", ".join(names))
+
+        with engine.begin() as connection:
+            for table in missing:
+                for index in table.indexes:
+                    connection.execute(
+                        text(f'DROP INDEX IF EXISTS "{index.name}"')
+                    )
+
+        Base.metadata.create_all(bind=engine, tables=missing)
+        logger.info("Created missing tables: %s", ", ".join(names))
+        return names
+
+
+def _alembic_schema_ready() -> bool:
+    with engine.connect() as connection:
+        return bool(
+            connection.scalar(
+                text(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.tables
+                        WHERE table_schema = 'public'
+                          AND table_name = 'alembic_version'
+                    )
+                    AND EXISTS (SELECT 1 FROM alembic_version LIMIT 1)
+                    """
+                )
+            )
+        )
+
+
 def ensure_database_ready() -> None:
     logger.info("Running database readiness check and lightweight schema sync.")
-    Base.metadata.create_all(bind=engine)
+    if not _alembic_schema_ready():
+        Base.metadata.create_all(bind=engine)
+    else:
+        sync_missing_tables()
     with engine.begin() as connection:
         connection.execute(
             text("SELECT set_config('app.is_superadmin', 'on', true)")

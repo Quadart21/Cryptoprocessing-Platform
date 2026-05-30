@@ -9,6 +9,8 @@ CELERY_BEAT_SERVICE="${CELERY_BEAT_SERVICE:-cryptoprocessing-celery-beat.service
 RELOAD_NGINX="${RELOAD_NGINX:-1}"
 # 0 — пропустить миграции (например, временно недоступна БД)
 SKIP_MIGRATIONS="${SKIP_MIGRATIONS:-0}"
+# 0 — пропустить проверку/создание недостающих ORM-таблиц
+SKIP_SCHEMA_SYNC="${SKIP_SCHEMA_SYNC:-0}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1"
@@ -93,6 +95,11 @@ print_done() {
   else
     echo "Database migrations skipped."
   fi
+  if [[ "${SKIP_SCHEMA_SYNC}" != "1" ]]; then
+    echo "ORM tables verified (missing tables created if needed)."
+  else
+    echo "ORM table sync skipped."
+  fi
   echo "Backend restarted."
   echo "Celery worker restarted."
   echo "Celery beat restarted."
@@ -106,6 +113,7 @@ require_paths
 build_frontend
 check_backend_syntax
 run_migrations
+sync_missing_tables
 restart_backend
 restart_celery_worker
 restart_celery_beat

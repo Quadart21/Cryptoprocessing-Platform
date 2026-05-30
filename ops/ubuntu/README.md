@@ -1,78 +1,226 @@
-# Deploy (Ubuntu 24 + Cloudflare)
+# Deploy на Ubuntu (production)
 
-## 1. DNS (Cloudflare)
-- Add `A` record for your apex domain (for example, `noren.digital`) to your server public IP.
-- Optional: add `CNAME www -> apex`.
-- Proxy status can stay ON (orange cloud) for Cloudflare Origin Certificate flow.
+Автоматическая установка: один скрипт ставит PostgreSQL, Redis, Nginx, systemd, backend, frontend, миграции и супер-админа.
 
-## 2. Cloudflare SSL mode
-- In Cloudflare dashboard set `SSL/TLS -> Overview -> Full (strict)`.
+## Быстрый старт (рекомендуется)
 
-## 3. Copy project to server
+### 1. Подготовка сервера
+
+- Ubuntu 22.04 или 24.04
+- Открыты порты **80** и **443**
+- DNS: `A`-запись домена → IP сервера
+- Доступ по SSH с правами `sudo`
+
+### 2. Клонировать репозиторий на сервер
+
 ```bash
 sudo mkdir -p /opt/cryptoprocessing
 sudo chown -R $USER:$USER /opt/cryptoprocessing
-# then copy repository files into /opt/cryptoprocessing
-```
-
-## 4. First deploy run (creates .env)
-```bash
+git clone https://github.com/Quadart21/Cryptoprocessing-Platform.git /opt/cryptoprocessing
 cd /opt/cryptoprocessing
-chmod +x ops/ubuntu/deploy.sh
-sudo DOMAIN=noren.digital APP_DIR=/opt/cryptoprocessing SSL_MODE=none bash ops/ubuntu/deploy.sh
+chmod +x ops/ubuntu/*.sh
 ```
 
-First run creates `/opt/cryptoprocessing/.env` and stops.
+### 3. Первый запуск
 
-## 5. Fill production env
-Edit `/opt/cryptoprocessing/.env`:
-- set `POSTGRES_PASSWORD`
-- set `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD`
-- set `CRYPTO_CASH_PUBLIC_KEY` / `CRYPTO_CASH_SECRET_KEY`
-- verify `BACKEND_CORS_ORIGINS=https://noren.digital,https://www.noren.digital`
+```bash
+sudo DOMAIN=your-domain.com \
+     SSL_MODE=none \
+     bash ops/ubuntu/setup-server.sh
+```
 
-## 6. Install Cloudflare Origin Certificate on server
-Create Origin Certificate in Cloudflare (`SSL/TLS -> Origin Server`) and place files:
+Пароли **PostgreSQL** и **админки** генерируются автоматически и выводятся в терминал в конце установки.  
+Также сохраняются в `/root/cryptoprocessing-credentials.txt`.
+
+Опционально можно задать email админа вручную:
+
+```bash
+sudo DOMAIN=your-domain.com SUPERADMIN_EMAIL=admin@your-domain.com bash ops/ubuntu/setup-server.sh
+```
+
+Скрипт сам:
+- установит пакеты (Python, Node 22, PostgreSQL, Redis, Nginx)
+- создаст пользователя `cryptoprocessing`
+- сгенерирует секреты, пароль БД и пароль админки
+- соберёт frontend
+- применит Alembic-миграции
+- создаст супер-админа
+- поднимет systemd-сервисы: `cryptoprocessing`, celery worker, celery beat
+
+После установки проверка:
+
+```bash
+curl -fsS http://127.0.0.1:8000/api/v1/health
+systemctl status cryptoprocessing --no-pager
+```
+
+Сайт: `http://your-domain.com`
+
+---
+
+## Production с Cloudflare SSL
+
+### 1. Cloudflare
+
+1. Домен → **DNS** → `A` на IP сервера (можно с оранжевым облаком)
+2. **SSL/TLS → Overview → Full (strict)**
+3. **SSL/TLS → Origin Server → Create Certificate**
+4. Сохранить на сервере:
+
 ```bash
 sudo mkdir -p /etc/ssl/cloudflare
-sudo nano /etc/ssl/cloudflare/noren.digital.pem
-sudo nano /etc/ssl/cloudflare/noren.digital.key
-sudo chmod 600 /etc/ssl/cloudflare/noren.digital.key
+sudo nano /etc/ssl/cloudflare/your-domain.com.pem
+sudo nano /etc/ssl/cloudflare/your-domain.com.key
+sudo chmod 600 /etc/ssl/cloudflare/your-domain.com.key
 ```
 
-## 7. Deploy with Cloudflare SSL
+### 2. Deploy с SSL
+
 ```bash
-sudo DOMAIN=noren.digital \
-APP_DIR=/opt/cryptoprocessing \
-DOMAIN_ALIASES=www.noren.digital \
-SSL_MODE=cloudflare_origin \
-CLOUDFLARE_ORIGIN_CERT_PATH=/etc/ssl/cloudflare/noren.digital.pem \
-CLOUDFLARE_ORIGIN_KEY_PATH=/etc/ssl/cloudflare/noren.digital.key \
-bash ops/ubuntu/deploy.sh
+sudo DOMAIN=your-domain.com \
+     DOMAIN_ALIASES=www.your-domain.com \
+     SSL_MODE=cloudflare_origin \
+     CLOUDFLARE_ORIGIN_CERT_PATH=/etc/ssl/cloudflare/your-domain.com.pem \
+     CLOUDFLARE_ORIGIN_KEY_PATH=/etc/ssl/cloudflare/your-domain.com.key \
+     bash ops/ubuntu/setup-server.sh
 ```
 
-## 8. Health checks
+---
+
+## Установка без ручного git clone
+
+Скрипт сам клонирует репозиторий:
+
 ```bash
-systemctl status cryptoprocessing --no-pager
+curl -fsSL https://raw.githubusercontent.com/Quadart21/Cryptoprocessing-Platform/main/ops/ubuntu/setup-server.sh -o /tmp/setup-server.sh
+sudo GIT_REPO=https://github.com/Quadart21/Cryptoprocessing-Platform.git \
+     DOMAIN=your-domain.com \
+     SSL_MODE=none \
+     bash /tmp/setup-server.sh
+```
+
+---
+
+## Обновление после релиза
+
+```bash
+cd /opt/cryptoprocessing
+git pull
+sudo bash ops/ubuntu/update-server.sh
+```
+
+Или только пересборка без git pull (если файлы уже скопированы):
+
+```bash
+sudo SKIP_GIT_PULL=1 bash /opt/cryptoprocessing/ops/ubuntu/update-server.sh
+```
+
+Быстрый рестарт без обновления кода:
+
+```bash
+sudo bash /opt/cryptoprocessing/ops/ubuntu/restart_app.sh
+```
+
+---
+
+## Что настраивать в `.env`
+
+Файл: `/opt/cryptoprocessing/.env`
+
+Обязательно для production:
+
+| Переменная | Описание |
+|---|---|
+| `POSTGRES_PASSWORD` | Пароль PostgreSQL |
+| `SUPERADMIN_EMAIL` | Email супер-админа |
+| `SUPERADMIN_PASSWORD` | Пароль супер-админа |
+| `BACKEND_CORS_ORIGINS` | `https://domain,https://www.domain` |
+| `PUBLIC_API_BASE_URL` | `https://domain` |
+| `CRYPTO_CASH_PUBLIC_KEY` | Ключ провайдера (если не mock) |
+| `CRYPTO_CASH_SECRET_KEY` | Секрет провайдера |
+
+Секреты (`SECRET_KEY`, `JWT_SECRET_KEY`, `FERNET_SECRET_KEY`, `WEBHOOK_SECRET_KEY`) генерируются автоматически при первом deploy.
+
+Шаблон: `ops/ubuntu/.env.production.example`
+
+---
+
+## Systemd-сервисы
+
+| Сервис | Назначение |
+|---|---|
+| `cryptoprocessing` | FastAPI (uvicorn, порт 8000) |
+| `cryptoprocessing-celery-worker` | Фоновые задачи |
+| `cryptoprocessing-celery-beat` | Планировщик задач |
+| `nginx` | Reverse proxy + статика `/assets` |
+| `postgresql` | База данных |
+| `redis-server` | Кэш / очереди |
+
+Логи:
+
+```bash
 journalctl -u cryptoprocessing -n 100 --no-pager
-curl -fsS http://127.0.0.1:8000/api/v1/client/health
-curl -I https://noren.digital
+journalctl -u cryptoprocessing-celery-worker -n 50 --no-pager
 ```
 
-## Optional: Let's Encrypt mode
-Use only when Cloudflare proxy for domain is temporarily set to `DNS only` (gray cloud):
+---
+
+## Переменные deploy-скриптов
+
+| Переменная | По умолчанию | Описание |
+|---|---|---|
+| `DOMAIN` | — | Основной домен |
+| `DOMAIN_ALIASES` | `www.$DOMAIN` | Алиасы через запятую |
+| `APP_DIR` | `/opt/cryptoprocessing` | Каталог приложения |
+| `SSL_MODE` | `cloudflare_origin` | `cloudflare_origin`, `letsencrypt`, `none` |
+| `GIT_REPO` | — | URL для автоклонирования |
+| `SUPERADMIN_EMAIL` | `admin@$DOMAIN` | Email админа (если не задан — генерируется) |
+| `SUPERADMIN_PASSWORD` | auto | Пароль админа (генерируется, если не задан) |
+
+---
+
+## Let's Encrypt (без Cloudflare Origin)
+
+Cloudflare proxy должен быть **DNS only** (серое облако) на время выпуска сертификата:
+
 ```bash
-sudo DOMAIN=noren.digital APP_DIR=/opt/cryptoprocessing SSL_MODE=letsencrypt LETSENCRYPT_EMAIL=you@example.com bash ops/ubuntu/deploy.sh
+sudo DOMAIN=your-domain.com \
+     APP_DIR=/opt/cryptoprocessing \
+     SSL_MODE=letsencrypt \
+     LETSENCRYPT_EMAIL=you@example.com \
+     bash ops/ubuntu/deploy.sh
 ```
 
-## Deploy variables
-- `DOMAIN` primary domain.
-- `DOMAIN_ALIASES` comma-separated aliases (`www.noren.digital,api.noren.digital`).
-- `SSL_MODE` one of: `cloudflare_origin`, `letsencrypt`, `none`.
-- `CLOUDFLARE_ORIGIN_CERT_PATH` path to origin cert PEM.
-- `CLOUDFLARE_ORIGIN_KEY_PATH` path to origin key.
+---
 
-## Notes
-- FastAPI runs as systemd service: `cryptoprocessing`.
-- Nginx config is generated by `deploy.sh` to `/etc/nginx/sites-available/$DOMAIN`.
-- Frontend is built to `frontend/dist` and served by FastAPI + static `/assets`.
+## Troubleshooting
+
+**Deploy остановился на «Fill replace-with-*»**  
+Отредактируй `/opt/cryptoprocessing/.env` и запусти setup/deploy снова.
+
+**502 Bad Gateway**  
+```bash
+systemctl status cryptoprocessing
+journalctl -u cryptoprocessing -n 80 --no-pager
+```
+
+**Ошибка миграций**  
+```bash
+sudo -u cryptoprocessing bash -lc 'cd /opt/cryptoprocessing/backend && ./.venv/bin/alembic upgrade head'
+```
+
+**Пропустить миграции при рестарте**  
+```bash
+sudo SKIP_MIGRATIONS=1 bash ops/ubuntu/restart_app.sh
+```
+
+---
+
+## Файлы
+
+| Скрипт | Назначение |
+|---|---|
+| `ops/ubuntu/setup-server.sh` | Полная первичная установка |
+| `ops/ubuntu/deploy.sh` | Низкоуровневый deploy (вызывается из setup) |
+| `ops/ubuntu/update-server.sh` | Обновление после `git pull` |
+| `ops/ubuntu/restart_app.sh` | Пересборка frontend + миграции + рестарт |

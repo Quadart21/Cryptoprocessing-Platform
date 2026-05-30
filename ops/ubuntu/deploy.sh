@@ -187,15 +187,30 @@ chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 
 ENV_FILE="${APP_DIR}/.env"
 ENV_EXAMPLE="${APP_DIR}/ops/ubuntu/.env.production.example"
+ENV_FALLBACK="${APP_DIR}/.env.example"
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "[6/10] Creating .env from production template..."
-  cp "${ENV_EXAMPLE}" "${ENV_FILE}"
+  if [[ -f "${ENV_EXAMPLE}" ]]; then
+    cp "${ENV_EXAMPLE}" "${ENV_FILE}"
+  elif [[ -f "${ENV_FALLBACK}" ]]; then
+    cp "${ENV_FALLBACK}" "${ENV_FILE}"
+    sed -i 's/^APP_ENV=.*/APP_ENV=production/' "${ENV_FILE}"
+    sed -i 's/^ALLOW_INSECURE_DEFAULTS_IN_LOCAL=.*/ALLOW_INSECURE_DEFAULTS_IN_LOCAL=false/' "${ENV_FILE}"
+    sed -i 's/^POSTGRES_HOST=.*/POSTGRES_HOST=localhost/' "${ENV_FILE}"
+    sed -i 's#^REDIS_URL=.*#REDIS_URL=redis://127.0.0.1:6379/0#' "${ENV_FILE}"
+  else
+    echo "Missing ${ENV_EXAMPLE} and ${ENV_FALLBACK}."
+    exit 1
+  fi
   random_secret="$(openssl rand -hex 32)"
   sed -i "s#^SECRET_KEY=.*#SECRET_KEY=${random_secret}#g" "${ENV_FILE}"
+  sed -i "s#^JWT_SECRET_KEY=.*#JWT_SECRET_KEY=${random_secret}#g" "${ENV_FILE}"
+  sed -i "s#^FERNET_SECRET_KEY=.*#FERNET_SECRET_KEY=${random_secret}#g" "${ENV_FILE}"
+  sed -i "s#^WEBHOOK_SECRET_KEY=.*#WEBHOOK_SECRET_KEY=${random_secret}#g" "${ENV_FILE}"
   chown "${APP_USER}:${APP_USER}" "${ENV_FILE}"
   chmod 600 "${ENV_FILE}"
   echo
-  echo "Created ${ENV_FILE} with random SECRET_KEY."
+  echo "Created ${ENV_FILE} with random security keys."
   echo "Fill all replace-with-* values in ${ENV_FILE}, then run deploy again."
   exit 0
 fi
@@ -256,6 +271,8 @@ sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}/backend' && ./.venv/bin/python -m
 
 echo "[9/10] Installing systemd + nginx config..."
 install -m 644 "${APP_DIR}/ops/ubuntu/cryptoprocessing.service" /etc/systemd/system/cryptoprocessing.service
+install -m 644 "${APP_DIR}/ops/ubuntu/cryptoprocessing-celery-worker.service" /etc/systemd/system/cryptoprocessing-celery-worker.service
+install -m 644 "${APP_DIR}/ops/ubuntu/cryptoprocessing-celery-beat.service" /etc/systemd/system/cryptoprocessing-celery-beat.service
 SERVER_NAMES="$(build_server_names)"
 WWW_ALIAS=""
 if echo " ${SERVER_NAMES} " | grep -q " www.${DOMAIN} "; then
@@ -283,6 +300,8 @@ fi
 nginx -t
 systemctl daemon-reload
 systemctl enable --now cryptoprocessing.service
+systemctl enable --now cryptoprocessing-celery-worker.service
+systemctl enable --now cryptoprocessing-celery-beat.service
 systemctl reload nginx
 
 echo "[10/10] SSL setup..."

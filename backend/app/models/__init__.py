@@ -18,6 +18,7 @@ from app.models.tenant_balance import TenantBalance
 from app.models.tenant_fee_policy import TenantFeePolicy
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.models.user_session import UserSession
 
 __all__ = [
     "AssetAvailability",
@@ -41,4 +42,5 @@ __all__ = [
     "TenantBoundMixin",
     "Transaction",
     "User",
+    "UserSession",
 ]
