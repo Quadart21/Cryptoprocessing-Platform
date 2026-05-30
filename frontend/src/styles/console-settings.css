@@ -255,6 +255,144 @@
 .app-frame .pw-platform-settings .aps-template-sidebar {
   position: sticky;
   top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+
+.app-frame .pw-platform-settings .aps-template-sidebar-title {
+  display: block;
+  margin-top: 1rem;
+}
+
+.app-frame .pw-platform-settings .aps-template-field-guide {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.app-frame .pw-platform-settings .aps-template-field-card {
+  border-radius: 12px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.7rem 0.75rem;
+}
+
+.app-frame .pw-platform-settings .aps-template-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.app-frame .pw-platform-settings .aps-template-field-head span {
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+.app-frame .pw-platform-settings .aps-template-field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.app-frame .pw-platform-settings .aps-template-field-block > small {
+  line-height: 1.45;
+}
+
+.app-frame .pw-platform-settings .aps-template-variable-list-detailed {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.app-frame .pw-platform-settings .aps-template-variable-item {
+  width: 100%;
+  min-height: 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  text-align: left;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.app-frame .pw-platform-settings .aps-template-variable-item code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.76rem;
+}
+
+.app-frame .pw-platform-settings .aps-template-variable-item span {
+  font-size: 0.76rem;
+  line-height: 1.35;
+  opacity: 0.82;
+}
+
+.app-frame .pw-platform-settings .nte-toolbar-wide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.app-frame .pw-platform-settings .nte-toolbar-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding-right: 0.45rem;
+  border-right: 1px solid var(--cu-line, rgba(255, 255, 255, 0.08));
+}
+
+.app-frame .pw-platform-settings .nte-toolbar-group:last-child {
+  border-right: 0;
+}
+
+.app-frame .pw-platform-settings .nte-tool-btn {
+  min-height: 0;
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.app-frame .pw-platform-settings .nte-tool-btn.is-active {
+  background: rgba(120, 190, 255, 0.18);
+}
+
+.app-frame .pw-platform-settings .nte-editor-wrap .ProseMirror {
+  min-height: 240px;
+  padding: 0.85rem 0.9rem;
+  outline: none;
+  line-height: 1.55;
+}
+
+.app-frame .pw-platform-settings .nte-editor-wrap .ProseMirror p {
+  margin: 0 0 0.65rem;
+}
+
+.app-frame .pw-platform-settings .nte-editor-wrap .ProseMirror ul,
+.app-frame .pw-platform-settings .nte-editor-wrap .ProseMirror ol {
+  margin: 0 0 0.65rem 1.2rem;
+}
+
+.app-frame .pw-platform-settings .nte-editor-wrap .ProseMirror img,
+.app-frame .pw-platform-settings .nte-editor-wrap .ProseMirror .nte-image {
+  max-width: 100%;
+  border-radius: 10px;
+  margin: 0.35rem 0;
+}
+
+.app-frame .pw-platform-settings .nte-editor-wrap .ProseMirror code {
+  padding: 0.08rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(120, 190, 255, 0.16);
+  border: 1px solid rgba(120, 190, 255, 0.35);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.78rem;
+}
+
+.app-frame .pw-platform-settings .nte-editor-wrap .ProseMirror blockquote {
+  margin: 0 0 0.65rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid rgba(120, 190, 255, 0.35);
+  opacity: 0.92;
 }
 
 .app-frame .pw-platform-settings .aps-template-variable-list {

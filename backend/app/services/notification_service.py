@@ -141,6 +141,7 @@ class NotificationService:
         "user_full_name",
         "brand_name",
         "brand_url",
+        "notification_logo_url",
         "utc_now",
         "initiated_by_email",
         "tenant_name",
@@ -859,6 +860,7 @@ class NotificationService:
             "user_full_name": (user.full_name or "").strip(),
             "brand_name": (platform_settings.notification_brand_name or "").strip() or "NorenCash",
             "brand_url": (platform_settings.notification_primary_url or "").strip(),
+            "notification_logo_url": (platform_settings.notification_logo_url or "").strip(),
             "utc_now": datetime.now(timezone.utc).isoformat(),
         }
         context.update(self._infer_template_context_from_lines(message_lines))
@@ -987,14 +989,18 @@ class NotificationService:
             )
             if not bot_token:
                 raise ValueError("Укажите Telegram Bot Token для тестовой отправки шаблона.")
+            delivery = self._prepare_telegram_delivery(str(rendered["telegram_text"]))
+            endpoint = str(delivery.get("endpoint") or "sendMessage")
+            payload_body = {
+                key: value
+                for key, value in dict(delivery.get("payload") or {}).items()
+                if value is not None
+            }
+            payload_body["chat_id"] = chat_id
             try:
                 response = requests.post(
-                    f"{api_base_url}/bot{bot_token}/sendMessage",
-                    json={
-                        "chat_id": chat_id,
-                        "text": str(rendered["telegram_text"]),
-                        "disable_web_page_preview": True,
-                    },
+                    f"{api_base_url}/bot{bot_token}/{endpoint}",
+                    json=payload_body,
                     timeout=8,
                 )
             except Exception as exc:
@@ -1514,6 +1520,85 @@ class NotificationService:
             return f"{normalized[:2]}***"
         return f"{normalized[:4]}...{normalized[-4:]}"
 
+    @staticmethod
+    def _looks_like_html_message(raw_value: str) -> bool:
+        return "<" in raw_value and ">" in raw_value
+
+    @classmethod
+    def _extract_first_image_url(cls, raw_html: str) -> tuple[str | None, str]:
+        pattern = re.compile(r"""<img[^>]+src=["']([^"']+)["']""", re.IGNORECASE)
+        match = pattern.search(raw_html)
+        if not match:
+            return None, raw_html
+        photo_url = match.group(1).strip()
+        cleaned = pattern.sub("", raw_html, count=1)
+        return photo_url or None, cleaned
+
+    @classmethod
+    def _html_to_telegram_html(cls, raw_html: str) -> str:
+        text = raw_html
+        replacements = [
+            (r"<(strong|b)>(.*?)</\1>", r"<b>\2</b>"),
+            (r"<(em|i)>(.*?)</\1>", r"<i>\2</i>"),
+            (r"<u>(.*?)</u>", r"<u>\1</u>"),
+            (r"<(strike|s)>(.*?)</\1>", r"<s>\2</s>"),
+            (r"<br\s*/?>", "\n"),
+            (r"</p>", "\n"),
+            (r"<p[^>]*>", ""),
+            (r"<li[^>]*>", "• "),
+            (r"</li>", "\n"),
+            (r"</?(ul|ol|blockquote|h[1-4]|div)[^>]*>", "\n"),
+            (r"<hr\s*/?>", "\n———\n"),
+            (r"<code>(.*?)</code>", r"\1"),
+        ]
+        for pattern, repl in replacements:
+            text = re.sub(pattern, repl, text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r"<a[^>]+href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", r'<a href="\1">\2</a>', text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r"<[^>]+>", "", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
+
+    @classmethod
+    def _prepare_telegram_delivery(cls, message_text: str) -> dict[str, Any]:
+        text = (message_text or "").strip()
+        if not text:
+            return {"endpoint": "sendMessage", "payload": {}}
+        if not cls._looks_like_html_message(text):
+            return {
+                "endpoint": "sendMessage",
+                "payload": {
+                    "text": text,
+                    "disable_web_page_preview": True,
+                },
+            }
+        photo_url, html_without_photo = cls._extract_first_image_url(text)
+        caption = cls._html_to_telegram_html(html_without_photo)
+        if photo_url:
+            return {
+                "endpoint": "sendPhoto",
+                "payload": {
+                    "photo": photo_url,
+                    "caption": caption[:1024],
+                    "parse_mode": "HTML" if caption else None,
+                },
+            }
+        if caption:
+            return {
+                "endpoint": "sendMessage",
+                "payload": {
+                    "text": caption[:4096],
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                },
+            }
+        return {
+            "endpoint": "sendMessage",
+            "payload": {
+                "text": cls._strip_html(text)[:4096],
+                "disable_web_page_preview": True,
+            },
+        }
+
     def _send_telegram(
         self,
         *,
@@ -1534,17 +1619,18 @@ class NotificationService:
             logger.warning("Telegram API base URL is invalid. Skip telegram notification.")
             return
         url = f"{base_url}/bot{bot_token}/sendMessage"
-        text = (message_text or "").strip()
-        if not text:
+        delivery = self._prepare_telegram_delivery(message_text)
+        endpoint = delivery.get("endpoint") or "sendMessage"
+        payload_body = dict(delivery.get("payload") or {})
+        payload_body = {key: value for key, value in payload_body.items() if value is not None}
+        if not payload_body.get("text") and not payload_body.get("caption") and not payload_body.get("photo"):
             return
+        payload_body["chat_id"] = chat_id
+        url = f"{base_url}/bot{bot_token}/{endpoint}"
         try:
             response = requests.post(
                 url,
-                json={
-                    "chat_id": chat_id,
-                    "text": text,
-                    "disable_web_page_preview": True,
-                },
+                json=payload_body,
                 timeout=8,
             )
             if response.status_code >= 400:

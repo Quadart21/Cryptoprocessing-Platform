@@ -20,13 +20,21 @@ import type {
   TenantItem,
 } from "../../api";
 import {
-  NotificationTemplateRichEditor,
-  type NotificationTemplateRichEditorHandle,
-} from "../components/NotificationTemplateRichEditor";
+  NotificationTemplateWysiwygEditor,
+  type NotificationTemplateWysiwygHandle,
+} from "../components/NotificationTemplateWysiwygEditor";
 import {
-  useNotificationTemplateSubjectInput,
-  useNotificationTemplateTextareaInput,
-} from "../components/NotificationTemplateSubjectInput";
+  TEMPLATE_FIELD_GUIDES,
+  TEMPLATE_VARIABLE_HINTS,
+} from "../components/notificationTemplateGuide";
+import {
+  isTelegramAutoBody,
+  resolveEmailEditorHtml,
+  resolveTelegramEditorHtml,
+  emailEditorHtmlToStorage,
+  telegramEditorHtmlToStorage,
+} from "../components/notificationTemplateEditorUtils";
+import { useNotificationTemplateSubjectInput } from "../components/NotificationTemplateSubjectInput";
 
 type AdminPlatformSettingsSectionProps = {
   adminAssetRates: RateItem[];
@@ -199,7 +207,8 @@ export function AdminPlatformSettingsSection({
   const [expandedSections, setExpandedSections] = useState<Set<SettingsSectionKey>>(
     new Set(["fees"]),
   );
-  const richEditorRef = useRef<NotificationTemplateRichEditorHandle | null>(null);
+  const richEditorRef = useRef<NotificationTemplateWysiwygHandle | null>(null);
+  const telegramEditorRef = useRef<NotificationTemplateWysiwygHandle | null>(null);
 
   useEffect(() => {
     setPlatformSettingsForm(
@@ -276,8 +285,8 @@ export function AdminPlatformSettingsSection({
   }, [platformSettingsForm]);
 
   const selectedTemplateSubjectValue = selectedTemplate?.email_subject ?? "";
-  const selectedTemplateTelegramValue = selectedTemplate?.telegram_body ?? "";
-  const telegramUsesAutoTemplate = selectedTemplate?.telegram_body == null;
+  const telegramUsesAutoTemplate =
+    selectedTemplate == null || isTelegramAutoBody(selectedTemplate.telegram_body);
 
   const subjectInput = useNotificationTemplateSubjectInput({
     value: selectedTemplateSubjectValue,
@@ -287,13 +296,22 @@ export function AdminPlatformSettingsSection({
     },
   });
 
-  const telegramInput = useNotificationTemplateTextareaInput({
-    value: selectedTemplateTelegramValue,
-    onChange: (value) => {
-      if (!selectedTemplate) return;
-      handleTemplateFieldChange(selectedTemplate.code, "telegram_body", value);
-    },
-  });
+  const selectedEmailEditorHtml = useMemo(() => {
+    if (!selectedTemplate) return "<p></p>";
+    return resolveEmailEditorHtml(
+      selectedTemplate.message_lines,
+      selectedTemplate.email_body,
+      selectedTemplate.default_message_lines,
+    );
+  }, [selectedTemplate]);
+
+  const selectedTelegramEditorHtml = useMemo(() => {
+    if (!selectedTemplate) return "<p></p>";
+    return resolveTelegramEditorHtml(
+      selectedTemplate.telegram_body,
+      selectedTemplate.default_telegram_body,
+    );
+  }, [selectedTemplate]);
 
   const manualRateCurrencies = useMemo(() => {
     const all = new Set<string>();
@@ -479,8 +497,9 @@ export function AdminPlatformSettingsSection({
       subjectInput.insertVariable(variable);
       return;
     }
-    if (active === telegramInput.textareaRef.current) {
-      telegramInput.insertVariable(variable);
+    const activeShell = active?.closest(".nte-shell");
+    if (activeShell?.classList.contains("nte-shell-telegram")) {
+      telegramEditorRef.current?.insertVariable(variable);
       return;
     }
     richEditorRef.current?.insertVariable(variable);
@@ -1215,22 +1234,43 @@ export function AdminPlatformSettingsSection({
         {selectedTemplate ? (
           <div className="aps-template-editor">
             <aside className="aps-template-sidebar">
-              <strong>Переменные</strong>
+              <strong>Справка по полям</strong>
+              <div className="aps-template-field-guide">
+                {TEMPLATE_FIELD_GUIDES.map((field) => (
+                  <article key={field.key} className="aps-template-field-card">
+                    <div className="aps-template-field-head">
+                      <strong>{field.title}</strong>
+                      <span>{field.channel}</span>
+                    </div>
+                    <p className="muted-text">{field.description}</p>
+                  </article>
+                ))}
+              </div>
+              <strong className="aps-template-sidebar-title">Переменные</strong>
               <p className="muted-text">
-                Клик вставляет переменную в активное поле: тему, текст письма или Telegram.
+                Клик вставляет переменную в активное поле (тема, email или Telegram).
               </p>
-              <div className="aps-template-variable-list">
+              <div className="aps-template-variable-list aps-template-variable-list-detailed">
                 {platformSettingsForm.notification_template_variables.map((variable) => (
-                  <button key={variable} type="button" onClick={() => insertTemplateVariable(variable)}>
-                    {variable}
+                  <button
+                    key={variable}
+                    type="button"
+                    className="aps-template-variable-item"
+                    onClick={() => insertTemplateVariable(variable)}
+                  >
+                    <code>{variable}</code>
+                    <span>{TEMPLATE_VARIABLE_HINTS[variable] ?? "Значение из контекста события."}</span>
                   </button>
                 ))}
               </div>
             </aside>
             <div className="aps-template-main">
               <FieldGrid>
-                <label className="aps-field-span-2">
+                <label className="aps-field-span-2 aps-template-field-block">
                   <span>Тема письма</span>
+                  <small className="muted-text">
+                    {TEMPLATE_FIELD_GUIDES.find((field) => field.key === "email_subject")?.description}
+                  </small>
                   <input
                     ref={subjectInput.inputRef}
                     value={selectedTemplateSubjectValue}
@@ -1240,19 +1280,26 @@ export function AdminPlatformSettingsSection({
                     }
                   />
                 </label>
-                <div className="aps-field-span-2">
-                  <span>Текст уведомления</span>
-                  <NotificationTemplateRichEditor
+                <div className="aps-field-span-2 aps-template-field-block">
+                  <span>Тело email</span>
+                  <small className="muted-text">
+                    {TEMPLATE_FIELD_GUIDES.find((field) => field.key === "email_body")?.description}
+                  </small>
+                  <NotificationTemplateWysiwygEditor
                     ref={richEditorRef}
-                    messageLines={selectedTemplate.message_lines}
-                    emailBody={selectedTemplate.email_body}
-                    fallbackMessageLines={selectedTemplate.default_message_lines}
+                    variant="email"
+                    html={selectedEmailEditorHtml}
                     placeholder={selectedTemplate.default_message_lines}
-                    onChange={(payload) => handleTemplateBodyChange(selectedTemplate.code, payload)}
+                    onChange={(html) =>
+                      handleTemplateBodyChange(
+                        selectedTemplate.code,
+                        emailEditorHtmlToStorage(html),
+                      )
+                    }
                   />
                 </div>
                 <label className="aps-field-span-2 aps-switch-inline">
-                  <span>Telegram: тема + основной текст (авто)</span>
+                  <span>Telegram: тема + текст email (авто)</span>
                   <input
                     type="checkbox"
                     checked={telegramUsesAutoTemplate}
@@ -1263,29 +1310,38 @@ export function AdminPlatformSettingsSection({
                         handleTemplateFieldChange(
                           selectedTemplate.code,
                           "telegram_body",
-                          selectedTemplate.default_telegram_body,
+                          resolveTelegramEditorHtml(
+                            selectedTemplate.default_telegram_body,
+                            selectedTemplate.default_telegram_body,
+                          ),
                         );
                       }
                     }}
                   />
                 </label>
                 {!telegramUsesAutoTemplate ? (
-                  <label className="aps-field-span-2">
-                    <span>Telegram text</span>
-                    <textarea
-                      ref={telegramInput.textareaRef}
-                      className="aps-template-codearea"
-                      rows={6}
-                      value={selectedTemplateTelegramValue}
+                  <div className="aps-field-span-2 aps-template-field-block">
+                    <span>Тело Telegram</span>
+                    <small className="muted-text">
+                      {TEMPLATE_FIELD_GUIDES.find((field) => field.key === "telegram_body")?.description}
+                    </small>
+                    <NotificationTemplateWysiwygEditor
+                      ref={telegramEditorRef}
+                      variant="telegram"
+                      html={selectedTelegramEditorHtml}
                       placeholder={selectedTemplate.default_telegram_body}
-                      onChange={(event) =>
-                        handleTemplateFieldChange(selectedTemplate.code, "telegram_body", event.target.value)
+                      onChange={(html) =>
+                        handleTemplateFieldChange(
+                          selectedTemplate.code,
+                          "telegram_body",
+                          telegramEditorHtmlToStorage(html) ?? "",
+                        )
                       }
                     />
-                  </label>
+                  </div>
                 ) : (
                   <p className="aps-field-span-2 muted-text">
-                    Telegram получит тему и текст из шаблона автоматически.
+                    Telegram получит тему письма и текстовую версию email автоматически.
                   </p>
                 )}
               </FieldGrid>
