@@ -33,20 +33,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes("node_modules")) {
-            const n = posixPath(id);
-            if (n.includes("@tanstack/react-query")) {
-              return "vendor-react-query";
-            }
-            if (n.includes("/react-dom/") || n.includes("react-dom")) {
-              return "vendor-react-dom";
-            }
-            if (n.includes("/react/") && !n.includes("react-dom")) {
-              return "vendor-react";
-            }
-            return "vendor";
-          }
-
           const s = posixPath(id);
           if (s.includes("/src/merchant/reference/")) {
             return "merchant-api-docs";
@@ -60,10 +46,12 @@ export default defineConfig({
           if (s.includes("/src/landing/")) {
             return "landing";
           }
-          if (s.includes("PublicDocsPage.tsx") || s.includes("PublicDocsPage.tsx/")) {
+          if (s.includes("PublicDocsPage.tsx")) {
             return "public-docs";
           }
-
+          if (s.includes("node_modules") && s.includes("@tanstack/react-query")) {
+            return "vendor-react-query";
+          }
           return undefined;
         },
       },
