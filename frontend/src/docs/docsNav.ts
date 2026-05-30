@@ -71,3 +71,26 @@ export const DOCS_STATS = [
   { value: "2", label: "Auth modes", hint: "API keys + JWT cabinet" },
   { value: "<200ms", label: "Health ping", hint: "Smoke endpoint без auth" },
 ];
+
+export const DOCS_API_SECTIONS = [
+  { href: "#docs-start", label: "Быстрый старт" },
+  { href: "#docs-auth", label: "Авторизация" },
+  { href: "#docs-endpoints-table", label: "Сводка методов" },
+  { href: "#docs-reference", label: "Endpoint reference" },
+  { href: "#docs-cabinet", label: "Кабинет (JWT)" },
+  { href: "#docs-webhooks", label: "Webhooks" },
+  { href: "#docs-faq", label: "FAQ" },
+];
+
+export const DOCS_API_ENDPOINTS = [
+  { href: "#endpoint-health", label: "Health", method: "GET" },
+  { href: "#endpoint-login", label: "Auth login", method: "POST" },
+  { href: "#endpoint-create-invoice", label: "Create invoice", method: "POST" },
+  { href: "#endpoint-list-invoices", label: "List invoices", method: "GET" },
+  { href: "#endpoint-get-invoice", label: "Get invoice", method: "GET" },
+  { href: "#endpoint-sync-invoice", label: "Sync invoice", method: "POST" },
+  { href: "#endpoint-rates", label: "Rates", method: "GET" },
+  { href: "#endpoint-balance", label: "Balance", method: "GET" },
+  { href: "#endpoint-transactions", label: "Transactions", method: "GET" },
+  { href: "#endpoint-transaction", label: "Transaction", method: "GET" },
+] as const;

@@ -24,6 +24,7 @@ export function DocsMerchantApiPage() {
         selectedRoute="USDT / TRC20"
         activeWebhookUrl="https://merchant.example.com/webhooks/norencash"
         integrationCurl={integrationCurl}
+        presentation="docs"
       />
     </div>
   );

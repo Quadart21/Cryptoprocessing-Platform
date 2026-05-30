@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { ApiCodePanel } from "./ApiCodePanel";
+
 export type MerchantApiReferenceProps = {
   apiBaseUrl: string;
   activeApiKeyPublic: string | null;
   selectedRoute: string;
   activeWebhookUrl: string | null;
   integrationCurl: string;
+  presentation?: "cabinet" | "docs";
 };
 
 type EndpointReference = {
@@ -92,7 +95,9 @@ export function MerchantApiReference({
   selectedRoute,
   activeWebhookUrl,
   integrationCurl,
+  presentation = "cabinet",
 }: MerchantApiReferenceProps) {
+  const isDocsPresentation = presentation === "docs";
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   const backendOrigin = useMemo(() => {
@@ -555,27 +560,64 @@ export function MerchantApiReference({
   }
 
   return (
-    <article className="mc-surface mc-surface--docs api-docs-panel api-docs-landing">
-      <div className="api-docs-layout">
-        <aside className="api-docs-toc" aria-label="Оглавление документации">
-          <p className="api-docs-toc-title">На странице</p>
-          <nav className="api-docs-toc-nav">
-            {TOC_MAIN.map((item) => (
-              <a href={item.href} key={item.href}>
-                {item.label}
-              </a>
-            ))}
-            <p className="api-docs-toc-title api-docs-toc-title-sub">Эндпоинты</p>
-            {endpointToc.map((item) => (
-              <a href={item.href} key={item.href}>
-                {item.label}
-              </a>
-            ))}
-          </nav>
-        </aside>
+    <article
+      className={`mc-surface mc-surface--docs api-docs-panel api-docs-landing${
+        isDocsPresentation ? " api-docs-panel--docs" : ""
+      }`}
+    >
+      <div className={isDocsPresentation ? "api-docs-layout-main" : "api-docs-layout"}>
+        {!isDocsPresentation ? (
+          <aside className="api-docs-toc" aria-label="Оглавление документации">
+            <p className="api-docs-toc-title">На странице</p>
+            <nav className="api-docs-toc-nav">
+              {TOC_MAIN.map((item) => (
+                <a href={item.href} key={item.href}>
+                  {item.label}
+                </a>
+              ))}
+              <p className="api-docs-toc-title api-docs-toc-title-sub">Эндпоинты</p>
+              {endpointToc.map((item) => (
+                <a href={item.href} key={item.href}>
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          </aside>
+        ) : null}
 
         <div className="api-docs-layout-main">
-          <section className="api-docs-hero">
+          {isDocsPresentation ? (
+            <section className="api-docs-docs-toolbar" id="docs-toolbar">
+              <div className="api-docs-docs-toolbar-copy">
+                <p className="eyebrow">Environment</p>
+                <h3>Base URL и OpenAPI</h3>
+                <p className="muted-text">
+                  Все примеры ниже используют ваш production Base URL. Копируйте curl и JSON напрямую в
+                  backend.
+                </p>
+              </div>
+              <div className="api-docs-docs-toolbar-actions">
+                <code className="api-docs-base-url">{apiBaseUrl}</code>
+                <div className="api-docs-actions">
+                  <button
+                    className="ghost-button"
+                    onClick={() => void handleCopy(apiBaseUrl, "Base URL")}
+                    type="button"
+                  >
+                    Copy Base URL
+                  </button>
+                  <a className="ghost-button" href={docsUrl} rel="noreferrer" target="_blank">
+                    Swagger
+                  </a>
+                  <a className="ghost-button" href={openApiUrl} rel="noreferrer" target="_blank">
+                    openapi.json
+                  </a>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <>
+              <section className="api-docs-hero">
             <div className="api-docs-hero-copy">
               <p className="eyebrow">Merchant API Reference</p>
               <h2>Интеграция приёма криптооплат</h2>
@@ -657,6 +699,8 @@ export function MerchantApiReference({
               </article>
             ))}
           </section>
+            </>
+          )}
 
           <section className="api-docs-grid api-docs-grid-feature" id="docs-start">
             <article className="api-docs-section api-docs-feature-card">
@@ -780,94 +824,55 @@ export function MerchantApiReference({
 
             <div className="api-docs-endpoint-list">
               {endpointReferences.map((endpoint) => (
-                <article className="api-docs-endpoint-card" id={`endpoint-${endpoint.id}`} key={endpoint.id}>
-                  <div className="api-docs-endpoint-head">
-                    <div>
-                      <p className="eyebrow">{endpoint.title}</p>
-                      <h3>{endpoint.path}</h3>
+                <article
+                  className={`api-docs-endpoint-card${
+                    isDocsPresentation ? " api-docs-endpoint-card--split" : ""
+                  }`}
+                  id={`endpoint-${endpoint.id}`}
+                  key={endpoint.id}
+                >
+                  <div className="api-docs-endpoint-copy">
+                    <div className="api-docs-endpoint-head">
+                      <div>
+                        <p className="eyebrow">{endpoint.title}</p>
+                        <h3>{endpoint.path}</h3>
+                      </div>
+                      <span
+                        className={`status-pill ${
+                          endpoint.method === "GET" ? "status-pill-neutral" : "status-pill-ok"
+                        }`}
+                      >
+                        {endpoint.method}
+                      </span>
                     </div>
-                    <span
-                      className={`status-pill ${
-                        endpoint.method === "GET" ? "status-pill-neutral" : "status-pill-ok"
-                      }`}
-                    >
-                      {endpoint.method}
-                    </span>
-                  </div>
 
-                  <div className="api-docs-endpoint-meta">
-                    <div>
-                      <span>Назначение</span>
-                      <strong>{endpoint.purpose}</strong>
+                    <div className="api-docs-endpoint-meta">
+                      <div>
+                        <span>Назначение</span>
+                        <strong>{endpoint.purpose}</strong>
+                      </div>
+                      <div>
+                        <span>Авторизация</span>
+                        <strong>{endpoint.auth}</strong>
+                      </div>
                     </div>
-                    <div>
-                      <span>Авторизация</span>
-                      <strong>{endpoint.auth}</strong>
-                    </div>
-                  </div>
 
-                  {endpoint.notes?.length ? (
-                    <ul className="integration-list">
-                      {endpoint.notes.map((note) => (
-                        <li key={note}>{note}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-
-                  <div className="api-docs-endpoint-grid">
-                    {endpoint.requestExample ? (
-                      <details className="result-box api-docs-code-card api-docs-code-disclosure" open>
-                        <summary>
-                          <span>
-                            <small>Request</small>
-                            <strong>Пример запроса</strong>
-                          </span>
-                        </summary>
-                        <pre className="json-box">{endpoint.requestExample}</pre>
-                        <button
-                          className="ghost-button"
-                          onClick={() => void handleCopy(endpoint.requestExample ?? "", `${endpoint.id} request`)}
-                          type="button"
-                        >
-                          Копировать запрос
-                        </button>
-                      </details>
+                    {endpoint.notes?.length ? (
+                      <ul className="integration-list">
+                        {endpoint.notes.map((note) => (
+                          <li key={note}>{note}</li>
+                        ))}
+                      </ul>
                     ) : null}
-
-                    <details className="result-box api-docs-code-card api-docs-code-disclosure">
-                      <summary>
-                        <span>
-                          <small>Success</small>
-                          <strong>Успешный ответ</strong>
-                        </span>
-                      </summary>
-                      <pre className="json-box">{endpoint.successExample}</pre>
-                      <button
-                        className="ghost-button"
-                        onClick={() => void handleCopy(endpoint.successExample, `${endpoint.id} success`)}
-                        type="button"
-                      >
-                        Копировать success
-                      </button>
-                    </details>
-
-                    <details className="result-box api-docs-code-card api-docs-code-disclosure">
-                      <summary>
-                        <span>
-                          <small>Error</small>
-                          <strong>Типовая ошибка</strong>
-                        </span>
-                      </summary>
-                      <pre className="json-box">{endpoint.errorExample}</pre>
-                      <button
-                        className="ghost-button"
-                        onClick={() => void handleCopy(endpoint.errorExample, `${endpoint.id} error`)}
-                        type="button"
-                      >
-                        Копировать ошибку
-                      </button>
-                    </details>
                   </div>
+
+                  <ApiCodePanel
+                    endpointId={endpoint.id}
+                    errorExample={endpoint.errorExample}
+                    onCopy={handleCopy}
+                    requestExample={endpoint.requestExample}
+                    successExample={endpoint.successExample}
+                  />
                 </article>
               ))}
             </div>
