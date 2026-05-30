@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   ExchangeRateLookup,
@@ -19,6 +19,14 @@ import type {
   TenantBillingPolicy,
   TenantItem,
 } from "../../api";
+import {
+  NotificationTemplateRichEditor,
+  type NotificationTemplateRichEditorHandle,
+} from "../components/NotificationTemplateRichEditor";
+import {
+  useNotificationTemplateSubjectInput,
+  useNotificationTemplateTextareaInput,
+} from "../components/NotificationTemplateSubjectInput";
 
 type AdminPlatformSettingsSectionProps = {
   adminAssetRates: RateItem[];
@@ -191,6 +199,7 @@ export function AdminPlatformSettingsSection({
   const [expandedSections, setExpandedSections] = useState<Set<SettingsSectionKey>>(
     new Set(["fees"]),
   );
+  const richEditorRef = useRef<NotificationTemplateRichEditorHandle | null>(null);
 
   useEffect(() => {
     setPlatformSettingsForm(
@@ -265,6 +274,26 @@ export function AdminPlatformSettingsSection({
     if (!platformSettingsForm) return 0;
     return platformSettingsForm.notification_templates.filter(hasConfiguredTemplateContent).length;
   }, [platformSettingsForm]);
+
+  const selectedTemplateSubjectValue = selectedTemplate?.email_subject ?? "";
+  const selectedTemplateTelegramValue = selectedTemplate?.telegram_body ?? "";
+  const telegramUsesAutoTemplate = selectedTemplate?.telegram_body == null;
+
+  const subjectInput = useNotificationTemplateSubjectInput({
+    value: selectedTemplateSubjectValue,
+    onChange: (value) => {
+      if (!selectedTemplate) return;
+      handleTemplateFieldChange(selectedTemplate.code, "email_subject", value);
+    },
+  });
+
+  const telegramInput = useNotificationTemplateTextareaInput({
+    value: selectedTemplateTelegramValue,
+    onChange: (value) => {
+      if (!selectedTemplate) return;
+      handleTemplateFieldChange(selectedTemplate.code, "telegram_body", value);
+    },
+  });
 
   const manualRateCurrencies = useMemo(() => {
     const all = new Set<string>();
@@ -406,6 +435,25 @@ export function AdminPlatformSettingsSection({
     });
   }
 
+  function handleTemplateBodyChange(
+    code: string,
+    payload: { message_lines: string | null; email_body: string | null },
+  ) {
+    if (!platformSettingsForm) return;
+    setPlatformSettingsForm({
+      ...platformSettingsForm,
+      notification_templates: platformSettingsForm.notification_templates.map((template) =>
+        template.code === code
+          ? {
+              ...template,
+              message_lines: payload.message_lines,
+              email_body: payload.email_body,
+            }
+          : template,
+      ),
+    });
+  }
+
   function handleResetTemplate(code: string) {
     if (!platformSettingsForm) return;
     setTemplatePreview(null);
@@ -425,11 +473,17 @@ export function AdminPlatformSettingsSection({
     });
   }
 
-  function copyVariable(variable: string) {
-    const token = `{{ ${variable} }}`;
-    if (navigator.clipboard) {
-      void navigator.clipboard.writeText(token);
+  function insertTemplateVariable(variable: string) {
+    const active = document.activeElement;
+    if (active === subjectInput.inputRef.current) {
+      subjectInput.insertVariable(variable);
+      return;
     }
+    if (active === telegramInput.textareaRef.current) {
+      telegramInput.insertVariable(variable);
+      return;
+    }
+    richEditorRef.current?.insertVariable(variable);
   }
 
   async function handlePreviewTemplate() {
@@ -1162,13 +1216,13 @@ export function AdminPlatformSettingsSection({
           <div className="aps-template-editor">
             <aside className="aps-template-sidebar">
               <strong>Переменные</strong>
-              <p className="muted-text">Клик копирует плейсхолдер для вставки в subject, HTML или Telegram.</p>
+              <p className="muted-text">
+                Клик вставляет переменную в активное поле: тему, текст письма или Telegram.
+              </p>
               <div className="aps-template-variable-list">
                 {platformSettingsForm.notification_template_variables.map((variable) => (
-                  <button key={variable} type="button" onClick={() => copyVariable(variable)}>
-                    {"{{ "}
+                  <button key={variable} type="button" onClick={() => insertTemplateVariable(variable)}>
                     {variable}
-                    {" }}"}
                   </button>
                 ))}
               </div>
@@ -1176,51 +1230,64 @@ export function AdminPlatformSettingsSection({
             <div className="aps-template-main">
               <FieldGrid>
                 <label className="aps-field-span-2">
-                  <span>Email subject</span>
+                  <span>Тема письма</span>
                   <input
-                    value={selectedTemplate.email_subject ?? ""}
+                    ref={subjectInput.inputRef}
+                    value={selectedTemplateSubjectValue}
                     placeholder={selectedTemplate.default_email_subject}
                     onChange={(event) =>
                       handleTemplateFieldChange(selectedTemplate.code, "email_subject", event.target.value)
                     }
                   />
                 </label>
-                <label className="aps-field-span-2">
-                  <span>Основное тело сообщения (message_lines)</span>
-                  <textarea
-                    className="aps-template-codearea"
-                    rows={9}
-                    value={selectedTemplate.message_lines ?? ""}
+                <div className="aps-field-span-2">
+                  <span>Текст уведомления</span>
+                  <NotificationTemplateRichEditor
+                    ref={richEditorRef}
+                    messageLines={selectedTemplate.message_lines}
+                    emailBody={selectedTemplate.email_body}
+                    fallbackMessageLines={selectedTemplate.default_message_lines}
                     placeholder={selectedTemplate.default_message_lines}
-                    onChange={(event) =>
-                      handleTemplateFieldChange(selectedTemplate.code, "message_lines", event.target.value)
-                    }
+                    onChange={(payload) => handleTemplateBodyChange(selectedTemplate.code, payload)}
+                  />
+                </div>
+                <label className="aps-field-span-2 aps-switch-inline">
+                  <span>Telegram: тема + основной текст (авто)</span>
+                  <input
+                    type="checkbox"
+                    checked={telegramUsesAutoTemplate}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        handleTemplateFieldChange(selectedTemplate.code, "telegram_body", "");
+                      } else {
+                        handleTemplateFieldChange(
+                          selectedTemplate.code,
+                          "telegram_body",
+                          selectedTemplate.default_telegram_body,
+                        );
+                      }
+                    }}
                   />
                 </label>
-                <label className="aps-field-span-2">
-                  <span>Email HTML body</span>
-                  <textarea
-                    className="aps-template-codearea"
-                    rows={14}
-                    value={selectedTemplate.email_body ?? ""}
-                    placeholder={selectedTemplate.default_email_body}
-                    onChange={(event) =>
-                      handleTemplateFieldChange(selectedTemplate.code, "email_body", event.target.value)
-                    }
-                  />
-                </label>
-                <label className="aps-field-span-2">
-                  <span>Telegram text</span>
-                  <textarea
-                    className="aps-template-codearea"
-                    rows={9}
-                    value={selectedTemplate.telegram_body ?? ""}
-                    placeholder={selectedTemplate.default_telegram_body}
-                    onChange={(event) =>
-                      handleTemplateFieldChange(selectedTemplate.code, "telegram_body", event.target.value)
-                    }
-                  />
-                </label>
+                {!telegramUsesAutoTemplate ? (
+                  <label className="aps-field-span-2">
+                    <span>Telegram text</span>
+                    <textarea
+                      ref={telegramInput.textareaRef}
+                      className="aps-template-codearea"
+                      rows={6}
+                      value={selectedTemplateTelegramValue}
+                      placeholder={selectedTemplate.default_telegram_body}
+                      onChange={(event) =>
+                        handleTemplateFieldChange(selectedTemplate.code, "telegram_body", event.target.value)
+                      }
+                    />
+                  </label>
+                ) : (
+                  <p className="aps-field-span-2 muted-text">
+                    Telegram получит тему и текст из шаблона автоматически.
+                  </p>
+                )}
               </FieldGrid>
               <div className="aps-action-row">
                 <button type="button" className="secondary-button" onClick={() => handleResetTemplate(selectedTemplate.code)}>
@@ -1271,8 +1338,17 @@ export function AdminPlatformSettingsSection({
                     <span className="muted-text">Telegram</span>
                     <pre>{templatePreview.telegram_text}</pre>
                   </div>
+                  <div>
+                    <span className="muted-text">Email preview</span>
+                    <iframe
+                      className="aps-template-preview-frame"
+                      title="Email preview"
+                      sandbox=""
+                      srcDoc={templatePreview.email_html}
+                    />
+                  </div>
                   <details>
-                    <summary>HTML preview source</summary>
+                    <summary>HTML source</summary>
                     <pre>{templatePreview.email_html}</pre>
                   </details>
                 </div>

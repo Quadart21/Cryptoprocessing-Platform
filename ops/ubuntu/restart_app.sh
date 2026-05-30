@@ -51,6 +51,15 @@ run_migrations() {
   sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}/backend' && ./.venv/bin/python -m alembic upgrade head"
 }
 
+sync_missing_tables() {
+  if [[ "${SKIP_SCHEMA_SYNC}" == "1" ]]; then
+    log "Skipping ORM table sync (SKIP_SCHEMA_SYNC=1)"
+    return
+  fi
+  log "Checking ORM tables and creating missing ones"
+  sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}/backend' && ./.venv/bin/python -m app.scripts.sync_schema"
+}
+
 restart_backend() {
   log "Restarting backend service ${BACKEND_SERVICE}"
   systemctl restart "${BACKEND_SERVICE}"

@@ -165,27 +165,46 @@ class NotificationService:
         "email_body": "{{ message_lines_html }}",
         "telegram_body": "{{ event_subject }}\n\n{{ message_lines }}",
     }
+    DEFAULT_EMAIL_SUBJECT_BY_EVENT: dict[str, str] = {
+        EVENT_APPLICATION_SUBMITTED: "{{ brand_name }}: заявка на подключение получена",
+        EVENT_APPLICATION_APPROVED: "{{ brand_name }}: проект одобрен",
+        EVENT_APPLICATION_REJECTED: "{{ brand_name }}: заявка отклонена",
+        EVENT_PASSWORD_GENERATED: "{{ brand_name }}: данные для входа",
+        EVENT_PASSWORD_CHANGED: "{{ brand_name }}: пароль изменён",
+        EVENT_API_KEY_GENERATED: "{{ brand_name }}: новый API-ключ",
+        EVENT_API_KEY_REGENERATED: "{{ brand_name }}: API-ключ перевыпущен",
+        EVENT_API_KEY_REVOKED: "{{ brand_name }}: API-ключ отозван",
+        EVENT_TWO_FACTOR_ENABLED: "{{ brand_name }}: двухфакторная защита включена",
+        EVENT_TWO_FACTOR_DISABLED: "{{ brand_name }}: двухфакторная защита отключена",
+        EVENT_PAYOUT_REQUESTED: "{{ brand_name }}: запрос на выплату создан",
+        EVENT_PAYOUT_APPROVED: "{{ brand_name }}: выплата одобрена",
+        EVENT_PAYOUT_REJECTED: "{{ brand_name }}: выплата отклонена",
+    }
     DEFAULT_MESSAGE_LINES_BY_EVENT: dict[str, str] = {
         EVENT_APPLICATION_SUBMITTED: (
-            "Проект: {{ tenant_name }}\n"
-            "Заявка отправлена на модерацию."
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "Мы получили заявку на подключение проекта «{{ tenant_name }}».\n"
+            "Сейчас она на модерации — сообщим результат отдельным письмом."
         ),
         EVENT_APPLICATION_APPROVED: (
-            "Проект: {{ tenant_name }}\n"
-            "Статус: одобрено администратором."
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "Проект «{{ tenant_name }}» одобрен.\n"
+            "Можно входить в кабинет и продолжать настройку интеграции."
         ),
         EVENT_APPLICATION_REJECTED: (
-            "Проект: {{ tenant_name }}\n"
-            "Комментарий: {{ review_comment }}"
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "Заявка проекта «{{ tenant_name }}» отклонена.\n"
+            "Комментарий модератора: {{ review_comment }}"
         ),
         EVENT_PASSWORD_GENERATED: (
-            "Email: {{ user_email }}\n"
-            "Временный пароль/токен: {{ temporary_password }}{{ recovery_token }}\n"
-            "Рекомендуем изменить пароль после первого входа."
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "Email для входа: {{ user_email }}\n"
+            "Временный пароль: {{ temporary_password }}{{ recovery_token }}\n"
+            "После первого входа рекомендуем сразу сменить пароль."
         ),
         EVENT_PASSWORD_CHANGED: (
-            "Пользователь: {{ user_email }}\n"
-            "Пароль от кабинета мерчанта успешно обновлен.\n"
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "Пароль для {{ user_email }} успешно обновлён.\n"
             "Если это были не вы, срочно обратитесь в поддержку."
         ),
         EVENT_API_KEY_GENERATED: (
@@ -193,13 +212,13 @@ class NotificationService:
             "Public key: {{ api_public_key }}\n"
             "Secret key: {{ api_secret_key }}\n"
             "Invite token: {{ invite_token }}\n"
-            "Сохраните secret key в защищенном месте."
+            "Сохраните secret key в защищённом месте."
         ),
         EVENT_API_KEY_REGENERATED: (
             "Public key: {{ api_public_key }}\n"
             "Secret key: {{ api_secret_key }}\n"
             "Инициатор: {{ initiated_by_email }}\n"
-            "Сохраните новый secret key в защищенном месте."
+            "Сохраните новый secret key в защищённом месте."
         ),
         EVENT_API_KEY_REVOKED: (
             "Public key: {{ api_public_key }}\n"
@@ -207,27 +226,28 @@ class NotificationService:
             "Если отзыв был несанкционированным, срочно свяжитесь с поддержкой."
         ),
         EVENT_TWO_FACTOR_ENABLED: (
-            "Пользователь: {{ user_email }}\n"
-            "Дополнительная защита входа успешно активирована."
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "Для {{ user_email }} включена двухфакторная защита входа."
         ),
         EVENT_TWO_FACTOR_DISABLED: (
-            "Пользователь: {{ user_email }}\n"
-            "Если отключение было выполнено не по вашему запросу, срочно смените пароль."
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "Для {{ user_email }} двухфакторная защита отключена.\n"
+            "Если это были не вы, срочно смените пароль."
         ),
         EVENT_PAYOUT_REQUESTED: (
-            "Payout ID: {{ payout_id }}\n"
+            "Создан запрос на выплату {{ payout_id }}.\n"
             "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
             "Адрес: {{ destination_address }}\n"
             "Инициатор: {{ initiated_by_email }}"
         ),
         EVENT_PAYOUT_APPROVED: (
-            "Payout ID: {{ payout_id }}\n"
+            "Выплата {{ payout_id }} одобрена.\n"
             "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
             "Статус: {{ payout_status }}\n"
             "Комментарий: {{ review_comment }}"
         ),
         EVENT_PAYOUT_REJECTED: (
-            "Payout ID: {{ payout_id }}\n"
+            "Выплата {{ payout_id }} отклонена.\n"
             "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
             "Статус: {{ payout_status }}\n"
             "Комментарий: {{ review_comment }}"
@@ -599,9 +619,16 @@ class NotificationService:
         return normalized
 
     @classmethod
+    def _default_email_subject_for(cls, definition: NotificationEventDefinition) -> str:
+        return cls.DEFAULT_EMAIL_SUBJECT_BY_EVENT.get(
+            definition.code,
+            cls.DEFAULT_TEMPLATE["email_subject"],
+        )
+
+    @classmethod
     def _default_template_for(cls, definition: NotificationEventDefinition) -> dict[str, str]:
         return {
-            "email_subject": cls.DEFAULT_TEMPLATE["email_subject"],
+            "email_subject": cls._default_email_subject_for(definition),
             "message_lines": cls.DEFAULT_TEMPLATE["message_lines"],
             "email_body": cls.DEFAULT_TEMPLATE["email_body"],
             "telegram_body": cls.DEFAULT_TEMPLATE["telegram_body"],

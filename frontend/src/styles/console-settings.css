@@ -302,6 +302,83 @@
   background: rgba(0, 0, 0, 0.24);
 }
 
+.app-frame .pw-platform-settings .aps-template-preview-frame {
+  width: 100%;
+  min-height: 280px;
+  margin-top: 0.45rem;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  border-radius: 12px;
+  background: #fff;
+}
+
+.app-frame .pw-platform-settings .nte-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.app-frame .pw-platform-settings .nte-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.app-frame .pw-platform-settings .nte-toolbar .ghost-button {
+  min-height: 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+}
+
+.app-frame .pw-platform-settings .nte-editor-wrap {
+  position: relative;
+  min-height: 220px;
+  border-radius: 12px;
+  border: 1px solid var(--cu-line, rgba(255, 255, 255, 0.075));
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.app-frame .pw-platform-settings .nte-placeholder {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.9rem;
+  right: 0.9rem;
+  color: rgba(255, 255, 255, 0.42);
+  pointer-events: none;
+  white-space: pre-wrap;
+}
+
+.app-frame .pw-platform-settings .nte-editor {
+  min-height: 220px;
+  padding: 0.85rem 0.9rem;
+  outline: none;
+  line-height: 1.55;
+}
+
+.app-frame .pw-platform-settings .nte-editor p {
+  margin: 0 0 0.65rem;
+}
+
+.app-frame .pw-platform-settings .nte-editor ul,
+.app-frame .pw-platform-settings .nte-editor ol {
+  margin: 0 0 0.65rem 1.2rem;
+}
+
+.app-frame .pw-platform-settings .nte-var {
+  display: inline-block;
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(120, 190, 255, 0.16);
+  border: 1px solid rgba(120, 190, 255, 0.35);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.78rem;
+  vertical-align: baseline;
+}
+
+.app-frame .pw-platform-settings .nte-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
 @media (max-width: 920px) {
   .app-frame .pw-platform-settings .aps-template-editor {
     grid-template-columns: 1fr;
