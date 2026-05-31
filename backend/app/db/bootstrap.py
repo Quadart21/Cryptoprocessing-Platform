@@ -72,6 +72,10 @@ DDL_PATCHES = [
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'pending_review'
     """,
+    """
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS checkout_delivery VARCHAR(32) NOT NULL DEFAULT 'both'
+    """,
     # api_keys
     """
     ALTER TABLE api_keys

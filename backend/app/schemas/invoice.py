@@ -24,9 +24,10 @@ class InvoiceResponse(BaseModel):
     amount_crypto: Decimal
     crypto_currency: str
     network: str
-    payment_address: str
-    qr_url: str | None
+    payment_address: str | None = None
+    qr_url: str | None = None
     payment_page_url: str | None = None
+    checkout_delivery: str = "both"
     status: str
     expires_at: datetime
     created_at: datetime

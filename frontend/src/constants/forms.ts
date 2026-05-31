@@ -1,6 +1,7 @@
 import type {
   CreateInvoicePayload,
   CreatePayoutPayload,
+  CheckoutDeliveryMode,
   RegistrationPayload,
   TenantCreatePayload,
 } from "../api";
@@ -41,10 +42,16 @@ export const initialInvoiceForm: CreateInvoicePayload = {
   metadata: { source: "frontend" },
 };
 
-export const initialWebhookForm = {
+export const initialWebhookForm: {
+  project_id: string;
+  webhook_url: string;
+  webhook_secret: string;
+  checkout_delivery: CheckoutDeliveryMode;
+} = {
   project_id: "",
   webhook_url: "",
   webhook_secret: "",
+  checkout_delivery: "payment_page",
 };
 
 export const initialPayoutForm: CreatePayoutPayload = {

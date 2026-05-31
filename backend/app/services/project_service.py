@@ -89,19 +89,32 @@ class ProjectService:
         self,
         tenant_id: str,
         project_id: str,
-        webhook_url: str,
+        webhook_url: str | None = None,
         webhook_secret: str | None = None,
+        checkout_delivery: str | None = None,
     ) -> Project:
         project = await self.get_project(project_id)
         if project is None or project.tenant_id != tenant_id:
             raise ValueError("Project not found.")
 
-        project.webhook_url = self._normalize_webhook_url(webhook_url)
+        if webhook_url is not None:
+            trimmed = webhook_url.strip()
+            if not trimmed:
+                raise ValueError("Webhook URL не может быть пустым.")
+            project.webhook_url = self._normalize_webhook_url(trimmed)
+
+        if checkout_delivery is not None:
+            from app.services.checkout_delivery_service import CheckoutDeliveryService
+
+            project.checkout_delivery = CheckoutDeliveryService.normalize(checkout_delivery)
 
         secret = (webhook_secret or "").strip()
         if secret:
             project.webhook_secret_hash = KeyService.hash_secret(secret)
             project.webhook_secret_encrypted = encrypt_value(secret)
+
+        if webhook_url is None and checkout_delivery is None and not secret:
+            raise ValueError("Укажите webhook URL, checkout_delivery или secret.")
 
         self.db.add(project)
         await self.db.commit()

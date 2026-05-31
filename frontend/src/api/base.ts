@@ -86,6 +86,7 @@ export type ProjectItem = {
   description: string | null;
   webhook_url: string | null;
   has_webhook_secret: boolean;
+  checkout_delivery: CheckoutDeliveryMode;
   status: string;
 };
 
@@ -100,10 +101,13 @@ export type ApiKeyRegenerateResponse = ApiKeyItem & {
   secret_key: string;
 };
 
+export type CheckoutDeliveryMode = "payment_page" | "h2h" | "both";
+
 export type WebhookConfigItem = {
   project_id: string;
   webhook_url: string | null;
   has_secret: boolean;
+  checkout_delivery: CheckoutDeliveryMode;
 };
 
 export type WebhookTestResponse = {
@@ -140,9 +144,10 @@ export type InvoiceItem = {
   amount_crypto: string;
   crypto_currency: string;
   network: string;
-  payment_address: string;
+  payment_address: string | null;
   qr_url: string | null;
   payment_page_url: string | null;
+  checkout_delivery: CheckoutDeliveryMode;
   status: string;
   expires_at: string;
   created_at: string;

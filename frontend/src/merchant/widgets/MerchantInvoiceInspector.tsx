@@ -140,7 +140,14 @@ export function MerchantInvoiceInspector({
       </div>
 
       <p className="invoice-modal-subtitle">
-        Отправьте клиенту ссылку на страницу оплаты — реквизиты H2H доступны ниже для интеграций.
+        {invoice.payment_page_url
+          ? "Отправьте клиенту ссылку на страницу оплаты."
+          : invoice.payment_address
+            ? "Передайте клиенту адрес или QR для оплаты."
+            : "Реквизиты появятся после создания инвойса."}
+        {invoice.payment_page_url && invoice.payment_address
+          ? " H2H-реквизиты доступны ниже для прямых интеграций."
+          : null}
       </p>
 
       {invoice.payment_page_url ? (
@@ -207,15 +214,21 @@ export function MerchantInvoiceInspector({
                 <p className="eyebrow">H2H / API</p>
                 <h3>Технические реквизиты</h3>
               </div>
-              <button
-                className="ghost-button"
-                onClick={() => setShowTechnical((current) => !current)}
-                type="button"
-              >
-                {showTechnical ? "Скрыть" : "Показать"}
-              </button>
+              {invoice.payment_address ? (
+                <button
+                  className="ghost-button"
+                  onClick={() => setShowTechnical((current) => !current)}
+                  type="button"
+                >
+                  {showTechnical ? "Скрыть" : "Показать"}
+                </button>
+              ) : null}
             </div>
-            {showTechnical ? (
+            {!invoice.payment_address ? (
+              <p className="muted-text">
+                Адрес не включён в ответ — для проекта выбран режим payment page. Откройте checkout-ссылку выше.
+              </p>
+            ) : showTechnical ? (
               <>
                 <button
                   className="ghost-button"

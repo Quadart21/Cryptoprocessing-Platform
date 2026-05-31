@@ -22,8 +22,9 @@ export function DocsIntroductionPage() {
             <span> premium crypto checkout</span>
           </h1>
           <p className="docs-hero-lead">
-            Интегрируйте приём USDT и других активов через REST API: инвойсы, адреса пополнения,
-            баланс, транзакции и события webhook — с прозрачным контрактом и примерами под copy-paste.
+            Интегрируйте приём USDT и других активов через REST API: инвойсы, hosted checkout на{" "}
+            <code>/pay/&#123;token&#125;</code>, H2H-реквизиты, баланс, транзакции и webhook — с выбором формата
+            ответа на уровне проекта.
           </p>
           <div className="docs-hero-actions">
             <Link className="docs-site-button docs-site-button-primary" to="/merchant-api">

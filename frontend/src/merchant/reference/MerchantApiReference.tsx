@@ -36,6 +36,11 @@ const FAQ_ITEMS = [
       "Храните public и secret только на backend стороне. Не вставляйте secret в frontend, браузерный код, мобильное приложение или публичные репозитории. Оптимально использовать env-переменные или менеджер секретов.",
   },
   {
+    title: "Payment page или H2H?",
+    body:
+      "В кабинете (Интеграция → Webhook) выберите checkout_delivery для проекта: payment_page — только ссылка на hosted checkout (/pay/{token}); h2h — payment_address и qr_url; both — оба варианта. То же правило применяется к POST /invoices, GET /invoices и webhook payload.",
+  },
+  {
     title: "Что делать при 4xx и 5xx?",
     body:
       "Ошибки 4xx обычно означают проблему в payload, ключах доступа или параметрах маршрута. Ошибки 5xx и 502/504 нужно обрабатывать через retry с backoff и логирование correlation/event identifiers.",
@@ -45,6 +50,7 @@ const FAQ_ITEMS = [
 const TOC_MAIN = [
   { href: "#docs-start", label: "Быстрый старт" },
   { href: "#docs-auth", label: "Авторизация" },
+  { href: "#docs-checkout-delivery", label: "Checkout: page / H2H" },
   { href: "#docs-endpoints-table", label: "Сводка методов" },
   { href: "#docs-reference", label: "Примеры запросов" },
   { href: "#docs-cabinet", label: "Кабинет (JWT)" },
@@ -66,7 +72,7 @@ const API_FLOW_STEPS = [
   {
     key: "invoice",
     title: "Инвойс",
-    text: "Создайте счет с merchant_order_id и сохраните id ответа.",
+    text: "Создайте счёт и отдайте клиенту payment_page_url или H2H-реквизиты — формат задаётся checkout_delivery проекта.",
   },
   {
     key: "webhook",
@@ -164,12 +170,13 @@ export function MerchantApiReference({
         method: "POST",
         path: "/api/v1/client/invoices",
         title: "Создать инвойс",
-        purpose: "Создать счёт на оплату с crypto route, payment address и ссылкой на checkout-страницу.",
+        purpose: "Создать счёт на оплату. Формат реквизитов в ответе определяется checkout_delivery проекта.",
         auth: "X-API-Key + X-API-Secret",
         notes: [
           "project_id должен принадлежать API-ключу.",
           "Перед созданием инвойса вызывайте GET /rates: min_deposit — в криптовалюте (как у CryptoCash list-in), min_deposit_fiat — ориентир в USD.",
-          "payment_page_url — готовая страница для клиента (QR, таймер, статус). H2H-реквизиты остаются в payment_address.",
+          "checkout_delivery проекта: payment_page → только payment_page_url; h2h → payment_address и qr_url; both → все поля.",
+          "payment_page_url ведёт на hosted checkout (QR, таймер, статус). Для кастомного UI можно опрашивать GET /api/v1/public/pay/{token}.",
         ],
         requestExample: integrationCurl,
         successExample: `{
@@ -182,9 +189,8 @@ export function MerchantApiReference({
   "amount_crypto": "100.25",
   "crypto_currency": "USDT",
   "network": "TRC20",
-  "payment_address": "TG9...example",
   "payment_page_url": "https://noren.digital/pay/abc123example",
-  "qr_url": "https://example.com/qr/inv_01J_DOCS_EXAMPLE",
+  "checkout_delivery": "payment_page",
   "status": "pending",
   "expires_at": "2026-04-06T11:45:00Z",
   "created_at": "2026-04-06T11:30:00Z"
@@ -226,9 +232,8 @@ export function MerchantApiReference({
     "amount_crypto": "100.25",
     "crypto_currency": "USDT",
     "network": "TRC20",
-    "payment_address": "TG9...example",
     "payment_page_url": "https://noren.digital/pay/abc123example",
-    "qr_url": "https://example.com/qr/inv_01J_DOCS_EXAMPLE",
+    "checkout_delivery": "payment_page",
     "status": "confirmed",
     "expires_at": "2026-04-06T11:45:00Z",
     "created_at": "2026-04-06T11:30:00Z"
@@ -260,9 +265,8 @@ export function MerchantApiReference({
   "amount_crypto": "100.25",
   "crypto_currency": "USDT",
   "network": "TRC20",
-  "payment_address": "TG9...example",
   "payment_page_url": "https://noren.digital/pay/abc123example",
-  "qr_url": "https://example.com/qr/inv_01J_DOCS_EXAMPLE",
+  "checkout_delivery": "payment_page",
   "status": "paid",
   "expires_at": "2026-04-06T11:45:00Z",
   "created_at": "2026-04-06T11:30:00Z"
@@ -294,9 +298,8 @@ export function MerchantApiReference({
   "amount_crypto": "100.25",
   "crypto_currency": "USDT",
   "network": "TRC20",
-  "payment_address": "TG9...example",
   "payment_page_url": "https://noren.digital/pay/abc123example",
-  "qr_url": "https://example.com/qr/inv_01J_DOCS_EXAMPLE",
+  "checkout_delivery": "payment_page",
   "status": "confirmed",
   "expires_at": "2026-04-06T11:45:00Z",
   "created_at": "2026-04-06T11:30:00Z"
@@ -514,7 +517,8 @@ export function MerchantApiReference({
   -d '{
     "project_id": "<project_id>",
     "webhook_url": "https://merchant.example.com/webhooks/noren",
-    "webhook_secret": "merchant-webhook-secret"
+    "webhook_secret": "merchant-webhook-secret",
+    "checkout_delivery": "payment_page"
   }'`;
 
   const webhookTestExample = `curl -X POST "${apiBaseUrl}/webhooks/test" \\
@@ -538,8 +542,8 @@ export function MerchantApiReference({
     "amount_crypto": "100.25",
     "crypto_currency": "USDT",
     "network": "TRC20",
-    "payment_address": "TG9...example",
-    "payment_page_url": "https://noren.digital/pay/abc123example"
+    "payment_page_url": "https://noren.digital/pay/abc123example",
+    "checkout_delivery": "payment_page"
   },
   "transaction": {
     "id": "tx_01J_DOCS_EXAMPLE",
@@ -724,6 +728,8 @@ export function MerchantApiReference({
                 <li>Сохраните оба значения только на backend стороне вашего проекта.</li>
                 <li>Вызовите GET /rates, чтобы выбрать доступный токен и сеть.</li>
                 <li>Создайте тестовый инвойс через POST /invoices.</li>
+                <li>Выберите checkout_delivery в webhook-настройках проекта: payment page или H2H.</li>
+                <li>Отправьте клиенту payment_page_url или покажите адрес/QR — в зависимости от режима.</li>
                 <li>Проверьте статус через GET /invoices/&lt;invoice_id&gt; и при необходимости POST /sync.</li>
                 <li>Настройте webhook (JWT) и проверьте доставку через POST /webhooks/test.</li>
               </ol>
@@ -762,6 +768,58 @@ export function MerchantApiReference({
                 Копировать заголовки
               </button>
             </div>
+          </section>
+
+          <section className="api-docs-section" id="docs-checkout-delivery">
+            <div className="api-docs-section-head">
+              <p className="eyebrow">Checkout</p>
+              <h3>Платёжная страница или H2H-реквизиты</h3>
+            </div>
+            <p className="muted-text">
+              Для каждого проекта задаётся <code>checkout_delivery</code> — через POST /webhooks (JWT) или в кабинете
+              «Интеграция → Webhook». Поле влияет на ответ POST /invoices, GET /invoices и payload входящих webhook.
+            </p>
+            <div className="api-docs-grid">
+              <article className="result-box api-docs-code-card">
+                <div className="api-docs-section-head">
+                  <p className="eyebrow">payment_page</p>
+                  <h3>Hosted checkout (рекомендуется)</h3>
+                </div>
+                <ul className="integration-list">
+                  <li>В ответе API — только <code>payment_page_url</code> (поля payment_address и qr_url отсутствуют).</li>
+                  <li>Клиент переходит на страницу вида <code>/pay/&#123;token&#125;</code> — QR, адрес, таймер и статус.</li>
+                  <li>Webhook дублирует тот же набор полей в объекте invoice.</li>
+                </ul>
+                <pre className="json-box">{`{
+  "payment_page_url": "https://noren.digital/pay/abc123example",
+  "checkout_delivery": "payment_page"
+}`}</pre>
+              </article>
+              <article className="result-box api-docs-code-card">
+                <div className="api-docs-section-head">
+                  <p className="eyebrow">h2h</p>
+                  <h3>Head-to-head интеграция</h3>
+                </div>
+                <ul className="integration-list">
+                  <li>В ответе — <code>payment_address</code> и <code>qr_url</code>; payment_page_url отсутствует.</li>
+                  <li>Подходит, если вы сами рисуете экран оплаты в своём приложении.</li>
+                </ul>
+                <pre className="json-box">{`{
+  "payment_address": "TG9...example",
+  "qr_url": "https://example.com/qr/inv_01J",
+  "checkout_delivery": "h2h"
+}`}</pre>
+              </article>
+            </div>
+            <p className="muted-text" style={{ marginTop: "1rem" }}>
+              Режим <code>both</code> возвращает все поля (обратная совместимость). Для кастомной checkout-страницы
+              можно опрашивать публичный API без ключей:{" "}
+              <code>
+                GET {backendOrigin ? `${backendOrigin}/api/v1/public/pay/{token}` : "/api/v1/public/pay/{token}"}
+              </code>{" "}
+              и{" "}
+              <code>POST .../refresh</code> для синхронизации статуса.
+            </p>
           </section>
 
           <section className="api-docs-section" id="docs-endpoints-table">
@@ -982,6 +1040,7 @@ export function MerchantApiReference({
               <ul className="integration-list">
                 <li>Проверяйте подпись в заголовке X-Merset-Signature.</li>
                 <li>Сохраняйте event_id, чтобы исключить повторную обработку.</li>
+                <li>Поля invoice.payment_page_url / payment_address / qr_url зависят от checkout_delivery проекта.</li>
                 <li>Отвечайте 2xx только после успешной записи события во внутреннюю систему.</li>
               </ul>
               <div className="action-row-inline">

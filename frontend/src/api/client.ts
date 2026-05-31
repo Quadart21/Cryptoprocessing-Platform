@@ -19,6 +19,7 @@ import type {
   InvoiceWebhookTestResponse,
   MerchantNotificationSettings,
   MerchantNotificationSettingsUpdatePayload,
+  CheckoutDeliveryMode,
 } from "./base";
 
 export function register(payload: RegistrationPayload): Promise<RegistrationResponse> {
@@ -123,8 +124,9 @@ export function updateWebhookConfig(
   token: string,
   payload: {
     project_id: string;
-    webhook_url: string;
-    webhook_secret: string;
+    webhook_url?: string;
+    webhook_secret?: string;
+    checkout_delivery?: CheckoutDeliveryMode;
   },
 ): Promise<WebhookConfigItem> {
   return request<WebhookConfigItem>("/client/webhooks", {

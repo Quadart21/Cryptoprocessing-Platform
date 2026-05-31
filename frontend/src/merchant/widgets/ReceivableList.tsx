@@ -54,7 +54,8 @@ export function ReceivableList({
       const statusRu = invoiceStatusLabelRu(invoice.status).toLowerCase();
       const haystack = [
         invoice.merchant_order_id,
-        invoice.payment_address,
+        invoice.payment_address ?? "",
+        invoice.payment_page_url ?? "",
         invoice.network,
         invoice.crypto_currency,
         invoice.fiat_currency,

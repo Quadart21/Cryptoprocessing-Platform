@@ -14,6 +14,7 @@ from app.core.security import decrypt_value
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.transaction import Transaction
+from app.services.checkout_delivery_service import CheckoutDeliveryService
 from app.services.event_service import EventService
 from app.services.payment_page_service import PaymentPageService
 
@@ -53,22 +54,7 @@ class ClientWebhookService:
             "event": event_name,
             "event_id": delivery_id,
             "sent_at": delivered_at.isoformat(),
-            "invoice": {
-                "id": invoice.id,
-                "project_id": invoice.project_id,
-                "merchant_order_id": invoice.merchant_order_id,
-                "provider_order_id": invoice.provider_order_id,
-                "status": invoice.status,
-                "amount_fiat": str(invoice.amount_fiat),
-                "fiat_currency": invoice.fiat_currency,
-                "amount_crypto": str(invoice.amount_crypto),
-                "crypto_currency": invoice.crypto_currency,
-                "network": invoice.network,
-                "payment_address": invoice.payment_address,
-                "payment_page_url": PaymentPageService.payment_page_url_for(invoice),
-                "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
-                "confirmed_at": invoice.confirmed_at.isoformat() if invoice.confirmed_at else None,
-            },
+            "invoice": self._build_invoice_payload(invoice, project),
             "transaction": {
                 "id": transaction.id,
                 "status": transaction.status,
@@ -202,22 +188,7 @@ class ClientWebhookService:
             "sent_at": delivered_at.isoformat(),
             "simulated": True,
             "message": "Тестовый webhook по инвойсу: статус инвойса и транзакций в системе не изменяются.",
-            "invoice": {
-                "id": invoice.id,
-                "project_id": invoice.project_id,
-                "merchant_order_id": invoice.merchant_order_id,
-                "provider_order_id": invoice.provider_order_id,
-                "status": invoice.status,
-                "amount_fiat": str(invoice.amount_fiat),
-                "fiat_currency": invoice.fiat_currency,
-                "amount_crypto": str(invoice.amount_crypto),
-                "crypto_currency": invoice.crypto_currency,
-                "network": invoice.network,
-                "payment_address": invoice.payment_address,
-                "payment_page_url": PaymentPageService.payment_page_url_for(invoice),
-                "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
-                "confirmed_at": invoice.confirmed_at.isoformat() if invoice.confirmed_at else None,
-            },
+            "invoice": self._build_invoice_payload(invoice, project),
             "transaction": {
                 "id": transaction.id,
                 "status": transaction.status,
@@ -250,6 +221,33 @@ class ClientWebhookService:
             "response_preview": result.response_preview,
             "ok": result.ok,
             "error": result.error,
+        }
+
+    @staticmethod
+    def _build_invoice_payload(invoice: Invoice, project: Project | None) -> dict:
+        payment_fields = CheckoutDeliveryService.apply(
+            project.checkout_delivery if project is not None else None,
+            payment_page_url=PaymentPageService.payment_page_url_for(invoice),
+            payment_address=invoice.payment_address,
+            qr_url=invoice.qr_url,
+        )
+        return {
+            "id": invoice.id,
+            "project_id": invoice.project_id,
+            "merchant_order_id": invoice.merchant_order_id,
+            "provider_order_id": invoice.provider_order_id,
+            "status": invoice.status,
+            "amount_fiat": str(invoice.amount_fiat),
+            "fiat_currency": invoice.fiat_currency,
+            "amount_crypto": str(invoice.amount_crypto),
+            "crypto_currency": invoice.crypto_currency,
+            "network": invoice.network,
+            "payment_address": payment_fields.payment_address,
+            "payment_page_url": payment_fields.payment_page_url,
+            "qr_url": payment_fields.qr_url,
+            "checkout_delivery": payment_fields.checkout_delivery,
+            "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
+            "confirmed_at": invoice.confirmed_at.isoformat() if invoice.confirmed_at else None,
         }
 
     def _build_headers(

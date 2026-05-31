@@ -4,6 +4,21 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.13.5] — 2026-05-31
+
+### Добавлено
+
+- **checkout_delivery** на уровне проекта: мерчант выбирает формат ответа — `payment_page` (только ссылка на checkout), `h2h` (адрес + QR) или `both`.
+- **Кабинет**: селект «Формат ответа API и webhook» в разделе Интеграция → Webhook; пример payload зависит от режима.
+- **Документация docs.noren.digital**: раздел Checkout (payment page / H2H), обновлённые примеры API и webhook, pipeline и quick cards.
+
+### Изменено
+
+- **Merchant API и webhook**: поля `payment_page_url`, `payment_address`, `qr_url` фильтруются по `checkout_delivery`; в ответ добавлено поле `checkout_delivery`.
+- **Миграция** `projects.checkout_delivery` (default `both`).
+
+---
+
 ## [0.13.4] — 2026-05-31
 
 ### Исправлено

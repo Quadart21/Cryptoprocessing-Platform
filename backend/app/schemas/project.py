@@ -1,6 +1,10 @@
+from typing import Literal
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field
+
+CheckoutDeliveryMode = Literal["payment_page", "h2h", "both"]
 
 
 class ProjectSummary(BaseModel):
@@ -11,6 +15,7 @@ class ProjectSummary(BaseModel):
     description: str | None = None
     webhook_url: str | None = None
     has_webhook_secret: bool = False
+    checkout_delivery: CheckoutDeliveryMode = "both"
     status: str
 
 
@@ -49,14 +54,16 @@ class ProjectAdminUpdateRequest(BaseModel):
 
 class WebhookConfigRequest(BaseModel):
     project_id: str
-    webhook_url: str = Field(min_length=8, max_length=500)
+    webhook_url: str | None = Field(default=None, min_length=8, max_length=500)
     webhook_secret: str | None = Field(default=None, max_length=255)
+    checkout_delivery: CheckoutDeliveryMode | None = None
 
 
 class WebhookConfigResponse(BaseModel):
     project_id: str
     webhook_url: str | None
     has_secret: bool
+    checkout_delivery: CheckoutDeliveryMode = "both"
 
 
 class WebhookTestRequest(BaseModel):

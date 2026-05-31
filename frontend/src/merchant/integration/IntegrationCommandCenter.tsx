@@ -142,24 +142,37 @@ export function IntegrationCommandCenter({
     },
   ];
 
-  const webhookPayloadExample = useMemo(
-    () =>
-      JSON.stringify(
-        {
-          event: "invoice.status_changed",
-          event_id: "evt_test_001",
-          invoice_id: "inv_test_001",
-          status: "confirmed",
-          amount: "100.00",
-          currency: "USDT",
-          network: "TRC20",
-          paid_at: "2026-03-30T10:15:00Z",
-        },
-        null,
-        2
-      ),
-    []
-  );
+  const webhookPayloadExample = useMemo(() => {
+    const invoiceFields: Record<string, string> = {
+      id: "inv_test_001",
+      merchant_order_id: "order_102394",
+      status: "confirmed",
+      amount_crypto: "100.25",
+      crypto_currency: "USDT",
+      network: "TRC20",
+      checkout_delivery: webhookForm.checkout_delivery,
+    };
+    if (webhookForm.checkout_delivery === "h2h") {
+      invoiceFields.payment_address = "TG9...example";
+      invoiceFields.qr_url = "https://example.com/qr/inv_test_001";
+    } else if (webhookForm.checkout_delivery === "both") {
+      invoiceFields.payment_page_url = "https://noren.digital/pay/abc123example";
+      invoiceFields.payment_address = "TG9...example";
+      invoiceFields.qr_url = "https://example.com/qr/inv_test_001";
+    } else {
+      invoiceFields.payment_page_url = "https://noren.digital/pay/abc123example";
+    }
+    return JSON.stringify(
+      {
+        event: "invoice.confirmed",
+        event_id: "evt_test_001",
+        sent_at: "2026-03-30T12:45:00Z",
+        invoice: invoiceFields,
+      },
+      null,
+      2,
+    );
+  }, [webhookForm.checkout_delivery]);
 
   async function handleCopy(value: string | null, title: string) {
     if (!value) {
@@ -411,6 +424,26 @@ export function IntegrationCommandCenter({
                   placeholder="merchant-webhook-secret"
                 />
               </label>
+              <label className="mc-field">
+                <span>Формат ответа API и webhook</span>
+                <select
+                  value={webhookForm.checkout_delivery}
+                  onChange={(event) =>
+                    onWebhookFormChange({
+                      ...webhookForm,
+                      checkout_delivery: event.target.value as WebhookFormState["checkout_delivery"],
+                    })
+                  }
+                >
+                  <option value="payment_page">Ссылка на платёжную страницу</option>
+                  <option value="h2h">H2H-реквизиты (адрес + QR)</option>
+                  <option value="both">Оба варианта</option>
+                </select>
+              </label>
+              <p className="integration-inline-note">
+                Настройка проекта: в ответе POST /invoices и в webhook приходит только выбранный формат.
+                Платёжная страница — `payment_page_url` (`/pay/&#123;token&#125;`). H2H — `payment_address` и `qr_url`.
+              </p>
               <div className="action-row-inline">
                 <button className="primary-button" disabled={loading} type="submit">
                   {loading ? "Сохраняем..." : "Сохранить webhook"}

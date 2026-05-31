@@ -4,6 +4,7 @@ import type {
   AccountingSummary,
   ApiKeyItem,
   BalanceResponse,
+  CheckoutDeliveryMode,
   CreateInvoicePayload,
   CreatePayoutPayload,
   CurrentUser,
@@ -23,6 +24,7 @@ export type WebhookFormState = {
   project_id: string;
   webhook_url: string;
   webhook_secret: string;
+  checkout_delivery: CheckoutDeliveryMode;
 };
 
 /** Публичный контракт экрана кабинета (AppController → ClientDashboard). */

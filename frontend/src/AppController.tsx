@@ -366,7 +366,11 @@ export function AppController() {
       return;
     }
     const currentConfig = webhookConfigs.find((item) => item.project_id === webhookForm.project_id);
-    setWebhookForm((current) => ({ ...current, webhook_url: currentConfig?.webhook_url ?? "" }));
+    setWebhookForm((current) => ({
+      ...current,
+      webhook_url: currentConfig?.webhook_url ?? "",
+      checkout_delivery: currentConfig?.checkout_delivery ?? "payment_page",
+    }));
   }, [webhookConfigs, webhookForm.project_id]);
 
   useEffect(() => {
@@ -1130,7 +1134,9 @@ export function AppController() {
       setSuccess(
         invoice.payment_page_url
           ? `Инвойс создан. Ссылка для клиента: ${invoice.payment_page_url}`
-          : `Инвойс создан: ${invoice.provider_order_id}`,
+          : invoice.payment_address
+            ? `Инвойс создан. Адрес: ${invoice.payment_address}`
+            : `Инвойс создан: ${invoice.provider_order_id}`,
       );
       setSelectedClientInvoiceId(invoice.id);
       setSelectedClientInvoiceDetail(invoice);

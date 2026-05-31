@@ -71,6 +71,7 @@ from app.services.payout_service import PayoutService
 from app.services.tenant_service import TenantService
 from app.services.two_factor_service import TwoFactorError, TwoFactorService
 from app.services.transaction_service import TransactionService
+from app.services.checkout_delivery_service import CheckoutDeliveryService
 from app.services.payment_page_service import PaymentPageService
 from app.services.public_page_service import PublicPageService
 
@@ -530,6 +531,9 @@ async def client_projects(
             name=project.name,
             domain=project.domain,
             description=project.description,
+            webhook_url=project.webhook_url,
+            has_webhook_secret=ProjectService.has_webhook_secret(project),
+            checkout_delivery=CheckoutDeliveryService.normalize(project.checkout_delivery),
             status=project.status,
         )
         for project in await project_service.list_projects_by_tenant(current_user.tenant_id or "")
@@ -628,6 +632,7 @@ async def configure_webhook(
             project_id=payload.project_id,
             webhook_url=payload.webhook_url,
             webhook_secret=payload.webhook_secret,
+            checkout_delivery=payload.checkout_delivery,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -635,6 +640,7 @@ async def configure_webhook(
         project_id=project.id,
         webhook_url=project.webhook_url,
         has_secret=ProjectService.has_webhook_secret(project),
+        checkout_delivery=CheckoutDeliveryService.normalize(project.checkout_delivery),
     )
 
 
@@ -649,6 +655,7 @@ async def list_webhooks(
             project_id=project.id,
             webhook_url=project.webhook_url,
             has_secret=ProjectService.has_webhook_secret(project),
+            checkout_delivery=CheckoutDeliveryService.normalize(project.checkout_delivery),
         )
         for project in await project_service.list_projects_by_tenant(current_user.tenant_id or "")
     ]
@@ -763,7 +770,13 @@ async def create_invoice(
         )
         raise
     try:
-        return _map_invoice_response(invoice)
+        project = await ProjectService(db).get_project(invoice.project_id)
+        checkout_delivery = (
+            CheckoutDeliveryService.normalize(project.checkout_delivery)
+            if project is not None
+            else CheckoutDeliveryService.normalize(None)
+        )
+        return _map_invoice_response(invoice, checkout_delivery=checkout_delivery)
     except Exception:
         logger.exception("Unexpected invoice create response mapping error")
         raise
@@ -779,8 +792,12 @@ async def list_invoices(
     _ensure_client_api_permission(auth, "client.invoices.read")
     invoice_service = InvoiceService(db)
     try:
+        projects_by_id = await _project_checkout_map(db, auth.tenant_id)
         return [
-            _map_invoice_response(invoice)
+            _map_invoice_response(
+                invoice,
+                checkout_delivery=_checkout_delivery_for_invoice(invoice, projects_by_id),
+            )
             for invoice in await invoice_service.list_invoices(
                 auth.tenant_id,
                 project_id=auth.project_id,
@@ -805,7 +822,13 @@ async def get_invoice(
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
     try:
-        return _map_invoice_response(invoice)
+        project = await ProjectService(db).get_project(invoice.project_id)
+        checkout_delivery = (
+            CheckoutDeliveryService.normalize(project.checkout_delivery)
+            if project is not None
+            else CheckoutDeliveryService.normalize(None)
+        )
+        return _map_invoice_response(invoice, checkout_delivery=checkout_delivery)
     except Exception:
         logger.exception("Unexpected invoice detail error for invoice_id=%s", invoice_id)
         raise
@@ -838,7 +861,13 @@ async def sync_invoice(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     try:
-        return _map_invoice_response(invoice)
+        project = await ProjectService(db).get_project(invoice.project_id)
+        checkout_delivery = (
+            CheckoutDeliveryService.normalize(project.checkout_delivery)
+            if project is not None
+            else CheckoutDeliveryService.normalize(None)
+        )
+        return _map_invoice_response(invoice, checkout_delivery=checkout_delivery)
     except Exception:
         logger.exception("Unexpected invoice sync response mapping error for invoice_id=%s", invoice_id)
         raise
@@ -999,7 +1028,17 @@ def _ensure_client_api_permission(auth: ClientAuthContext, permission: str) -> N
             detail=f"Недостаточно прав: {permission}.",
         )
 
-def _map_invoice_response(invoice: Invoice) -> InvoiceResponse:
+def _map_invoice_response(
+    invoice: Invoice,
+    *,
+    checkout_delivery: str | None = None,
+) -> InvoiceResponse:
+    payment_fields = CheckoutDeliveryService.apply(
+        checkout_delivery,
+        payment_page_url=PaymentPageService.payment_page_url_for(invoice),
+        payment_address=invoice.payment_address,
+        qr_url=invoice.qr_url,
+    )
     return InvoiceResponse(
         id=invoice.id,
         project_id=invoice.project_id,
@@ -1010,13 +1049,30 @@ def _map_invoice_response(invoice: Invoice) -> InvoiceResponse:
         amount_crypto=invoice.amount_crypto,
         crypto_currency=invoice.crypto_currency,
         network=invoice.network,
-        payment_address=invoice.payment_address,
-        qr_url=invoice.qr_url,
-        payment_page_url=PaymentPageService.payment_page_url_for(invoice),
+        payment_address=payment_fields.payment_address,
+        qr_url=payment_fields.qr_url,
+        payment_page_url=payment_fields.payment_page_url,
+        checkout_delivery=payment_fields.checkout_delivery,
         status=invoice.status,
         expires_at=invoice.expires_at,
         created_at=invoice.created_at,
     )
+
+
+async def _project_checkout_map(db: AsyncSession, tenant_id: str) -> dict[str, str]:
+    project_service = ProjectService(db)
+    projects = await project_service.list_projects_by_tenant(tenant_id)
+    return {
+        project.id: CheckoutDeliveryService.normalize(project.checkout_delivery)
+        for project in projects
+    }
+
+
+def _checkout_delivery_for_invoice(
+    invoice: Invoice,
+    projects_by_id: dict[str, str],
+) -> str:
+    return projects_by_id.get(invoice.project_id, CheckoutDeliveryService.normalize(None))
 
 
 def _map_transaction_response(transaction) -> TransactionResponse:

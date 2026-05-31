@@ -14,4 +14,7 @@ class Project(UUIDPrimaryKeyMixin, TenantBoundMixin, TimestampMixin, Base):
     webhook_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     webhook_secret_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     webhook_secret_encrypted: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    checkout_delivery: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="both"
+    )
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending_review")
