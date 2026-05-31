@@ -1,5 +1,7 @@
+import asyncio
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,26 +60,33 @@ class RatesService:
                 cache.delete(self.RATES_CACHE_KEY)
 
         provider = get_payment_provider()
-        response = provider.list_currencies()
-        items = response.get("data", {}).get("items", [])
+        response = await asyncio.to_thread(provider.list_currencies)
+        items = self._extract_provider_items(response)
         overrides = await self._load_platform_overrides()
         mapped_items: list[RateItemResponse] = []
 
         for item in items:
-            currency = str(item.get("currency") or "").upper()
+            if not isinstance(item, dict):
+                continue
+            currency = str(item.get("currency") or item.get("ticker") or "").upper()
             if not currency:
                 continue
             limits_by_network = {
-                str(limit.get("network") or "").upper(): limit
-                for limit in item.get("limits", [])
-                if limit
+                network_name: limit
+                for limit in item.get("limits", []) or []
+                if isinstance(limit, dict)
+                for network_name in [self._normalize_network_name(limit.get("network"))]
+                if network_name
             }
             networks: list[RateNetworkResponse] = []
             for network in item.get("networks", []) or []:
-                network_name = str(network.get("name") or "").upper()
+                network_name = self._normalize_network_name(network)
                 if not network_name:
                     continue
                 limit = limits_by_network.get(network_name, {})
+                if not isinstance(limit, dict):
+                    limit = {}
+                network_meta = network if isinstance(network, dict) else {}
                 provider_availability = bool(limit.get("availability", True))
                 acquiring = bool(limit.get("acquiring", True))
                 platform_enabled = overrides.get((currency, network_name), True)
@@ -103,10 +112,13 @@ class RatesService:
                         availability_reason=availability_reason,
                         acquiring=acquiring,
                         withdrawal=bool(limit.get("withdrawal", True)),
-                        memo_required=bool(network.get("isMemoRequired", False)),
+                        memo_required=bool(
+                            network_meta.get("isMemoRequired", network_meta.get("memoRequired", False))
+                        ),
                     )
                 )
-            mapped_items.append(RateItemResponse(currency=currency, networks=networks))
+            if networks:
+                mapped_items.append(RateItemResponse(currency=currency, networks=networks))
 
         payload = RatesResponse(items=mapped_items)
         cache.set_json(
@@ -242,6 +254,31 @@ class RatesService:
                 if network_name == network:
                     return True
         return False
+
+    @staticmethod
+    def _extract_provider_items(response: dict[str, Any]) -> list[Any]:
+        data = response.get("data")
+        if isinstance(data, dict):
+            items = data.get("items", [])
+            return items if isinstance(items, list) else []
+        if isinstance(data, list):
+            return data
+        return []
+
+    @staticmethod
+    def _normalize_network_name(network: Any) -> str | None:
+        if isinstance(network, str):
+            text = network.strip()
+            return text.upper() if text else None
+        if isinstance(network, dict):
+            for key in ("name", "network", "code"):
+                value = network.get(key)
+                if value is None:
+                    continue
+                text = str(value).strip()
+                if text:
+                    return text.upper()
+        return None
 
     @staticmethod
     def _normalize_pair(currency: str, network: str) -> tuple[str, str]:

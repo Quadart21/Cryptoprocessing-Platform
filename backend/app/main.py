@@ -17,6 +17,7 @@ from app.api.routes.internal import router as internal_router
 from app.api.routes.sandbox_internal import router as sandbox_internal_router
 from app.api.router import api_router
 from app.core.config import settings
+from app.providers.crypto_cash import CryptoCashProviderError, provider_error_http_status
 from app.db.bootstrap import ensure_database_ready
 from app.middleware.csrf import CsrfProtectionMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -125,6 +126,19 @@ def _register_error_handlers(app: FastAPI) -> None:
                 "detail": "Data conflict. Check unique fields and try again.",
                 "code": "integrity_conflict",
             },
+        )
+
+    @app.exception_handler(CryptoCashProviderError)
+    async def handle_provider_error(_: Request, exc: CryptoCashProviderError) -> JSONResponse:
+        logger.warning(
+            "Crypto-Cash provider error: %s (path=%s, http_status=%s)",
+            exc.message,
+            exc.path,
+            exc.http_status,
+        )
+        return JSONResponse(
+            status_code=provider_error_http_status(exc),
+            content=exc.to_public_detail(),
         )
 
     @app.exception_handler(Exception)

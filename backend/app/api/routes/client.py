@@ -21,7 +21,7 @@ from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.tenant import Tenant
 from app.models.user import User
-from app.providers.crypto_cash import CryptoCashProviderError
+from app.providers.crypto_cash import CryptoCashProviderError, provider_error_http_status
 from app.schemas.accounting import AccountingSummaryResponse
 from app.schemas.auth import (
     PasswordRecoveryRequest,
@@ -1070,12 +1070,4 @@ def _normalize_input(value: Any) -> str:
 
 
 def _map_provider_error_status_code(error: CryptoCashProviderError) -> int:
-    if error.http_status and 400 <= error.http_status < 500:
-        return status.HTTP_400_BAD_REQUEST
-
-    normalized_text = " ".join([error.message, *error.errors]).lower()
-    amount_keywords = ("min", "max", "limit", "amount", "sum", "сумм", "лимит", "миним", "максим")
-    if any(keyword in normalized_text for keyword in amount_keywords):
-        return status.HTTP_400_BAD_REQUEST
-
-    return status.HTTP_502_BAD_GATEWAY
+    return provider_error_http_status(error)

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from decimal import Decimal, InvalidOperation
 from typing import Optional
@@ -13,6 +14,7 @@ class ExchangeRateService:
     BASE_URL = "https://api.coinlore.net/api"
     PAGE_LIMIT = 100
     MAX_PAGES = 200
+    STABLECOIN_EQUIVALENTS = frozenset({"USD", "USDT", "USDC"})
 
     async def get_rate(self, currency: str, quote: str = "USD") -> Optional[Decimal]:
         currency = currency.upper()
@@ -21,14 +23,25 @@ class ExchangeRateService:
         if currency == quote:
             return Decimal("1")
 
-        if quote not in {"USD", "USDT"}:
+        if quote not in self.STABLECOIN_EQUIVALENTS:
             return None
+
+        if currency in self.STABLECOIN_EQUIVALENTS:
+            return Decimal("1")
 
         manual_rate = await self._get_manual_rate(currency, quote)
         if manual_rate is not None:
             return manual_rate
 
-        return await self._get_cached_rate(currency, quote)
+        cached_rate = await self._get_cached_rate(currency, quote)
+        if cached_rate is not None:
+            return cached_rate
+
+        try:
+            return await asyncio.to_thread(self._fetch_rate, currency)
+        except Exception:
+            logger.exception("Failed to fetch live exchange rate for %s/%s", currency, quote)
+            return None
 
     async def _get_manual_rate(self, currency: str, quote: str) -> Optional[Decimal]:
         if quote not in {"USD", "USDT"}:

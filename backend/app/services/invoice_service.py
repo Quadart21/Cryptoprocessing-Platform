@@ -136,13 +136,12 @@ class InvoiceService:
         )
         exchange_rate_markup = await BillingPolicyService(self.db).get_exchange_rate_markup_percent()
         resolved_amount_crypto = provider_response.amount_crypto or Decimal(payload.amount_fiat)
-        accounting_amount_fiat = await get_exchange_rate_service().convert_to_fiat(
-            amount=resolved_amount_crypto,
-            from_currency=provider_response.crypto_currency,
-            to_fiat=payload.fiat_currency.upper(),
-            markup_percent=exchange_rate_markup,
+        resolved_amount_fiat = await self.resolve_accounting_gross_amount(
+            amount_crypto=resolved_amount_crypto,
+            crypto_currency=provider_response.crypto_currency,
+            fiat_currency=payload.fiat_currency,
+            exchange_rate_markup=exchange_rate_markup,
         )
-        resolved_amount_fiat = accounting_amount_fiat or Decimal(payload.amount_fiat)
 
         invoice = Invoice(
             tenant_id=tenant_id,
@@ -497,6 +496,44 @@ class InvoiceService:
         elif previous_status not in paid_like_statuses and new_status == "confirmed":
             await self._release_pending_to_available(invoice, transaction, balance_service, balance)
 
+    async def resolve_accounting_gross_amount(
+        self,
+        *,
+        amount_crypto: Decimal,
+        crypto_currency: str,
+        fiat_currency: str,
+        exchange_rate_markup: Decimal | None = None,
+    ) -> Decimal:
+        crypto_currency = crypto_currency.strip().upper()
+        fiat_currency = fiat_currency.strip().upper()
+        amount_crypto = Decimal(amount_crypto).quantize(self.AMOUNT_PRECISION)
+
+        if crypto_currency == fiat_currency:
+            return amount_crypto
+
+        rate_service = get_exchange_rate_service()
+        if (
+            crypto_currency in rate_service.STABLECOIN_EQUIVALENTS
+            and fiat_currency in rate_service.STABLECOIN_EQUIVALENTS
+        ):
+            return amount_crypto
+
+        if exchange_rate_markup is None:
+            exchange_rate_markup = await BillingPolicyService(self.db).get_exchange_rate_markup_percent()
+
+        converted = await rate_service.convert_to_fiat(
+            amount=amount_crypto,
+            from_currency=crypto_currency,
+            to_fiat=fiat_currency,
+            markup_percent=exchange_rate_markup,
+        )
+        if converted is None:
+            raise ValueError(
+                f"Курс {crypto_currency}/{fiat_currency} недоступен. "
+                "Обновите курсы в админке или задайте ручной курс."
+            )
+        return converted.quantize(self.AMOUNT_PRECISION)
+
     async def _apply_initial_settlement(
         self,
         invoice: Invoice,
@@ -504,7 +541,15 @@ class InvoiceService:
         balance_service: BalanceService,
         balance,
     ) -> None:
-        gross_amount = Decimal(invoice.amount_fiat).quantize(self.AMOUNT_PRECISION)
+        gross_amount = await self.resolve_accounting_gross_amount(
+            amount_crypto=Decimal(invoice.amount_crypto),
+            crypto_currency=invoice.crypto_currency,
+            fiat_currency=invoice.fiat_currency,
+        )
+        if gross_amount != Decimal(invoice.amount_fiat):
+            invoice.amount_fiat = gross_amount
+            self.db.add(invoice)
+
         provider_fee, platform_fee, turnover_fee, net_amount = await self._calculate_financials(
             tenant_id=invoice.tenant_id,
             gross_amount=gross_amount,
@@ -626,15 +671,24 @@ class InvoiceService:
         # Sequential fee overlay:
         # provider fee -> platform markup -> turnover fee.
         provider_fee = self._calculate_percent_amount(gross_amount, provider_fee_percent)
+        provider_fee = await self._apply_usdt_fee_floor(
+            fee_amount=provider_fee,
+            gross_amount=gross_amount,
+            fiat_currency=fiat_currency,
+            max_fee=gross_amount,
+            platform_settings=platform_settings,
+            log_context="provider fee",
+        )
         after_provider = (gross_amount - provider_fee).quantize(self.AMOUNT_PRECISION)
 
         platform_fee = self._calculate_percent_amount(after_provider, markup_percent)
-        platform_fee = await self._apply_platform_markup_minimum_usdt(
+        platform_fee = await self._apply_usdt_fee_floor(
+            fee_amount=platform_fee,
             gross_amount=gross_amount,
             fiat_currency=fiat_currency,
-            after_provider=after_provider,
-            platform_fee=platform_fee,
+            max_fee=after_provider,
             platform_settings=platform_settings,
+            log_context="platform markup",
         )
         after_platform = (after_provider - platform_fee).quantize(self.AMOUNT_PRECISION)
         if after_platform < Decimal("0"):
@@ -648,60 +702,65 @@ class InvoiceService:
             raise ValueError("Чистая сумма клиента не может быть отрицательной.")
         return provider_fee, platform_fee, turnover_fee, net_amount
 
-    async def _apply_platform_markup_minimum_usdt(
+    async def _apply_usdt_fee_floor(
         self,
         *,
+        fee_amount: Decimal,
         gross_amount: Decimal,
         fiat_currency: str,
-        after_provider: Decimal,
-        platform_fee: Decimal,
+        max_fee: Decimal,
         platform_settings,
+        log_context: str,
     ) -> Decimal:
-        """Для депозитов в диапазоне [low, high] USDT-эквивалента: наценка платформы ≥ min_usdt (в пересчёте в валюту инвойса)."""
+        """Для депозитов в диапазоне [low, high] USDT-эквив.: комиссия ≥ min_usdt (как у Crypto-Cash)."""
         fc = (fiat_currency or "USD").strip().upper()
         min_usdt = Decimal(platform_settings.platform_markup_min_usdt)
         band_low = Decimal(platform_settings.platform_markup_min_band_usdt_low)
         band_high = Decimal(platform_settings.platform_markup_min_band_usdt_high)
         if min_usdt <= Decimal("0") or band_high < band_low:
-            return platform_fee
+            return fee_amount
 
         rate_svc = get_exchange_rate_service()
         zero_markup = Decimal("0")
         gross_usdt = await rate_svc.convert_to_fiat(gross_amount, fc, "USDT", zero_markup)
         if gross_usdt is None:
             logger.warning(
-                "Skipping platform markup USDT floor: no USDT rate for invoice fiat %s",
+                "Skipping %s USDT floor: no USDT rate for invoice fiat %s",
+                log_context,
                 fc,
             )
-            return platform_fee
+            return fee_amount
 
         if gross_usdt < band_low or gross_usdt > band_high:
-            return platform_fee
+            return fee_amount
 
-        fee_usdt = await rate_svc.convert_to_fiat(platform_fee, fc, "USDT", zero_markup)
+        fee_usdt = await rate_svc.convert_to_fiat(fee_amount, fc, "USDT", zero_markup)
         if fee_usdt is None:
             logger.warning(
-                "Skipping platform markup USDT floor: could not convert platform fee to USDT (fiat=%s)",
+                "Skipping %s USDT floor: could not convert fee to USDT (fiat=%s)",
+                log_context,
                 fc,
             )
-            return platform_fee
+            return fee_amount
 
         target_usdt = max(fee_usdt, min_usdt)
         if target_usdt <= fee_usdt:
-            return platform_fee
+            return fee_amount
 
         bumped = await rate_svc.convert_from_fiat(target_usdt, fc, "USDT", zero_markup)
         if bumped is None:
             logger.warning(
-                "Skipping platform markup USDT floor: could not convert %s USDT to fiat %s",
+                "Skipping %s USDT floor: could not convert %s USDT to fiat %s",
+                log_context,
                 target_usdt,
                 fc,
             )
-            return platform_fee
+            return fee_amount
 
         bumped = bumped.quantize(self.AMOUNT_PRECISION)
-        if bumped > after_provider:
-            bumped = after_provider.quantize(self.AMOUNT_PRECISION)
+        fee_cap = max_fee.quantize(self.AMOUNT_PRECISION)
+        if bumped > fee_cap:
+            bumped = fee_cap
         return bumped
 
     def _calculate_percent_amount(self, base_amount: Decimal, percent: Decimal) -> Decimal:

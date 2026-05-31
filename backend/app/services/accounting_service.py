@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.invoice import Invoice
-from app.models.transaction import Transaction
 from app.schemas.accounting import AccountingSummaryResponse, CryptoAmount
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.cache_service import get_cache_service
@@ -34,18 +33,14 @@ class AccountingService:
                 cache.delete(cache_key)
 
         invoice_stmt = select(Invoice)
-        transaction_stmt = select(Transaction)
         if tenant_id is not None:
             invoice_stmt = invoice_stmt.where(Invoice.tenant_id == tenant_id)
-            transaction_stmt = transaction_stmt.where(Transaction.tenant_id == tenant_id)
         else:
             excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
             if excluded:
                 invoice_stmt = invoice_stmt.where(Invoice.tenant_id.not_in(excluded))
-                transaction_stmt = transaction_stmt.where(Transaction.tenant_id.not_in(excluded))
 
         invoices = list((await self.db.scalars(invoice_stmt)).all())
-        transactions = list((await self.db.scalars(transaction_stmt)).all())
 
         invoices_total_count = len(invoices)
         invoices_paid = [invoice for invoice in invoices if invoice.status in {"paid", "confirmed"}]
@@ -53,26 +48,78 @@ class AccountingService:
         invoices_failed = [invoice for invoice in invoices if invoice.status == "failed"]
         invoices_expired = [invoice for invoice in invoices if invoice.status == "expired"]
 
-        invoices_total_amount = sum((invoice.amount_fiat for invoice in invoices), Decimal("0"))
-        invoices_paid_amount = sum((invoice.amount_fiat for invoice in invoices_paid), Decimal("0"))
-        invoices_confirmed_amount = sum(
-            (invoice.amount_fiat for invoice in invoices_confirmed), Decimal("0")
-        )
+        invoices_total_amount = Decimal("0")
+        invoices_paid_amount = Decimal("0")
+        invoices_confirmed_amount = Decimal("0")
+        gross_amount = Decimal("0")
+        provider_fee_amount = Decimal("0")
+        platform_fee_amount = Decimal("0")
+        turnover_fee_amount = Decimal("0")
+        net_amount = Decimal("0")
 
-        paid_transactions = [tx for tx in transactions if tx.status in {"paid", "confirmed"}]
-        gross_amount = sum((tx.gross_amount for tx in paid_transactions), Decimal("0"))
-        provider_fee_amount = sum((tx.provider_fee for tx in paid_transactions), Decimal("0"))
-        platform_fee_amount = sum((tx.platform_fee for tx in paid_transactions), Decimal("0"))
-        turnover_fee_amount = sum((tx.turnover_fee for tx in paid_transactions), Decimal("0"))
+        from app.services.invoice_service import InvoiceService
+
+        invoice_service = InvoiceService(self.db)
+
+        for invoice in invoices:
+            try:
+                fiat_value = await invoice_service.resolve_accounting_gross_amount(
+                    amount_crypto=Decimal(invoice.amount_crypto),
+                    crypto_currency=invoice.crypto_currency,
+                    fiat_currency=invoice.fiat_currency,
+                    exchange_rate_markup=exchange_rate_markup,
+                )
+            except ValueError:
+                fiat_value = Decimal(invoice.amount_fiat)
+            invoices_total_amount += fiat_value
+
+        for invoice in invoices_paid:
+            try:
+                fiat_value = await invoice_service.resolve_accounting_gross_amount(
+                    amount_crypto=Decimal(invoice.amount_crypto),
+                    crypto_currency=invoice.crypto_currency,
+                    fiat_currency=invoice.fiat_currency,
+                    exchange_rate_markup=exchange_rate_markup,
+                )
+            except ValueError:
+                fiat_value = Decimal(invoice.amount_fiat)
+            invoices_paid_amount += fiat_value
+            (
+                provider_fee,
+                platform_fee,
+                turnover_fee,
+                invoice_net,
+            ) = await invoice_service._calculate_financials(
+                tenant_id=invoice.tenant_id,
+                gross_amount=fiat_value,
+                fiat_currency=invoice.fiat_currency,
+            )
+            gross_amount += fiat_value
+            provider_fee_amount += provider_fee
+            platform_fee_amount += platform_fee
+            turnover_fee_amount += turnover_fee
+            net_amount += invoice_net
+
+        for invoice in invoices_confirmed:
+            try:
+                fiat_value = await invoice_service.resolve_accounting_gross_amount(
+                    amount_crypto=Decimal(invoice.amount_crypto),
+                    crypto_currency=invoice.crypto_currency,
+                    fiat_currency=invoice.fiat_currency,
+                    exchange_rate_markup=exchange_rate_markup,
+                )
+            except ValueError:
+                fiat_value = Decimal(invoice.amount_fiat)
+            invoices_confirmed_amount += fiat_value
+
         total_platform_revenue_amount = platform_fee_amount + turnover_fee_amount
-        net_amount = sum((tx.net_amount for tx in paid_transactions), Decimal("0"))
         average_invoice_amount = (
             (invoices_paid_amount / len(invoices_paid))
             if len(invoices_paid) > 0
             else Decimal("0")
         )
 
-        crypto_amounts = await self._calculate_crypto_amounts(invoices)
+        crypto_amounts = await self._calculate_crypto_amounts(invoices, exchange_rate_markup)
         total_usd_value = self._calculate_total_usd_value(crypto_amounts)
 
         payload = AccountingSummaryResponse(
@@ -103,7 +150,11 @@ class AccountingService:
         )
         return payload
 
-    async def _calculate_crypto_amounts(self, invoices: list[Invoice]) -> list[CryptoAmount]:
+    async def _calculate_crypto_amounts(
+        self,
+        invoices: list[Invoice],
+        exchange_rate_markup: Decimal,
+    ) -> list[CryptoAmount]:
         crypto_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
         for invoice in invoices:
@@ -112,8 +163,7 @@ class AccountingService:
                 crypto_totals[currency] += invoice.amount_crypto
 
         rate_service = get_exchange_rate_service()
-        billing_service = BillingPolicyService(self.db)
-        markup_percent = await billing_service.get_exchange_rate_markup_percent()
+        markup_percent = exchange_rate_markup
 
         result = []
         for currency, amount in sorted(crypto_totals.items()):

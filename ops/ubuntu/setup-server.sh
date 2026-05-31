@@ -197,6 +197,9 @@ configure_env() {
   if [[ -n "${CRYPTO_CASH_SECRET_KEY}" ]]; then
     set_env_value "${env_file}" "CRYPTO_CASH_SECRET_KEY" "${CRYPTO_CASH_SECRET_KEY}"
   fi
+  if [[ -n "${CRYPTO_CASH_PUBLIC_KEY}" && -n "${CRYPTO_CASH_SECRET_KEY}" ]]; then
+    set_env_value "${env_file}" "PAYMENT_PROVIDER" "crypto_cash"
+  fi
 
   chown "${APP_USER}:${APP_USER}" "${env_file}" 2>/dev/null || true
   chmod 600 "${env_file}"

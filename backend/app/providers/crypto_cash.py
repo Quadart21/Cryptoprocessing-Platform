@@ -38,6 +38,7 @@ class CryptoCashProviderError(Exception):
 
     def to_public_detail(self) -> dict:
         return {
+            "detail": self.message,
             "code": "provider_error",
             "message": self.message,
             "provider": "crypto-cash",
@@ -46,6 +47,20 @@ class CryptoCashProviderError(Exception):
             "path": self.path,
             "http_status": self.http_status,
         }
+
+
+def provider_error_http_status(error: CryptoCashProviderError) -> int:
+    from fastapi import status
+
+    if error.http_status and 400 <= error.http_status < 500:
+        return status.HTTP_400_BAD_REQUEST
+
+    normalized_text = " ".join([error.message, *error.errors]).lower()
+    amount_keywords = ("min", "max", "limit", "amount", "sum", "сумм", "лимит", "миним", "максим")
+    if any(keyword in normalized_text for keyword in amount_keywords):
+        return status.HTTP_400_BAD_REQUEST
+
+    return status.HTTP_502_BAD_GATEWAY
 
 
 class CryptoCashProvider(PaymentProviderInterface):
