@@ -702,7 +702,7 @@ class InvoiceService:
         # Sequential fee overlay:
         # provider fee -> platform markup -> turnover fee.
         provider_fee = self._calculate_percent_amount(gross_amount, provider_fee_percent)
-        provider_fee = await self._apply_usdt_fee_floor(
+        provider_fee = await self._apply_provider_fee_usdt_floor(
             fee_amount=provider_fee,
             gross_amount=gross_amount,
             fiat_currency=fiat_currency,
@@ -713,18 +713,10 @@ class InvoiceService:
         after_provider = (gross_amount - provider_fee).quantize(self.AMOUNT_PRECISION)
 
         platform_fee = self._calculate_percent_amount(after_provider, markup_percent)
-        platform_fee = await self._apply_usdt_fee_floor(
-            fee_amount=platform_fee,
-            gross_amount=gross_amount,
-            fiat_currency=fiat_currency,
-            max_fee=after_provider,
-            platform_settings=platform_settings,
-            log_context="platform markup",
-        )
         after_platform = (after_provider - platform_fee).quantize(self.AMOUNT_PRECISION)
         if after_platform < Decimal("0"):
             raise ValueError(
-                "Минимальная наценка платформы превышает остаток после комиссии провайдера.",
+                "Наценка платформы превышает остаток после комиссии провайдера.",
             )
 
         turnover_fee = self._calculate_percent_amount(after_platform, turnover_fee_percent)
@@ -733,7 +725,7 @@ class InvoiceService:
             raise ValueError("Чистая сумма клиента не может быть отрицательной.")
         return provider_fee, platform_fee, turnover_fee, net_amount
 
-    async def _apply_usdt_fee_floor(
+    async def _apply_provider_fee_usdt_floor(
         self,
         *,
         fee_amount: Decimal,
@@ -743,7 +735,7 @@ class InvoiceService:
         platform_settings,
         log_context: str,
     ) -> Decimal:
-        """Для депозитов в диапазоне [low, high] USDT-эквив.: комиссия ≥ min_usdt (как у Crypto-Cash)."""
+        """Минимум USDT для комиссии провайдера (Crypto-Cash) в диапазоне [low, high] по gross."""
         fc = (fiat_currency or "USD").strip().upper()
         min_usdt = Decimal(platform_settings.platform_markup_min_usdt)
         band_low = Decimal(platform_settings.platform_markup_min_band_usdt_low)

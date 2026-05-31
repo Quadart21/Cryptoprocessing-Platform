@@ -678,14 +678,14 @@ export function AdminPlatformSettingsSection({
           </label>
         </FieldGrid>
         <p className="muted-text aps-field-span-2" style={{ gridColumn: "1 / -1", marginTop: "0.5rem" }}>
-          Для депозитов с USDT-эквивалентом от нижней до верхней границы (включительно): комиссия
-          провайдера (Crypto-Cash) и наценка платформы не ниже минимума в USDT. Пример: 0,15 USDT по
-          проценту → 0,5 USDT; 0,55 USDT → без изменений. Диапазон считается по сумме в USDT после
-          пересчёта из crypto (DOGE, BTC и т.д.).
+          Для депозитов с USDT-эквивалентом в указанном диапазоне: комиссия провайдера (Crypto-Cash)
+          не ниже минимума в USDT. Наценка платформы считается только по проценту, без этого пола.
+          Пример: 0,15 USDT по проценту провайдера → 0,5 USDT; 0,55 USDT → без изменений. Диапазон —
+          по сумме в USDT после пересчёта из crypto (DOGE, BTC и т.д.).
         </p>
         <FieldGrid>
           <label>
-            <span>Мин. наценка (USDT)</span>
+            <span>Мин. комиссия провайдера (USDT)</span>
             <input
               type="number"
               step="0.01"

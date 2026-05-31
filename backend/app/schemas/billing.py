@@ -69,7 +69,7 @@ class PlatformBillingSettingsResponse(BaseModel):
     default_turnover_fee_percent: Decimal
     platform_markup_min_usdt: Decimal = Field(
         default=Decimal("0.5"),
-        description="Минимальная наценка платформы в USDT при депозите в целевом диапазоне.",
+        description="Минимальная комиссия провайдера (Crypto-Cash) в USDT при депозите в целевом диапазоне.",
     )
     platform_markup_min_band_usdt_low: Decimal = Field(
         default=Decimal("10"),
