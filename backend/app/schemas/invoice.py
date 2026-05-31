@@ -33,6 +33,23 @@ class InvoiceResponse(BaseModel):
     created_at: datetime
 
 
+class InvoiceSettlementResponse(BaseModel):
+    """Merchant-facing fee breakdown (neutral labels, no provider branding)."""
+
+    gross_amount: Decimal
+    processing_fee: Decimal
+    platform_fee: Decimal
+    total_fee: Decimal
+    net_amount: Decimal
+    currency: str
+    is_final: bool
+    paid_at: datetime | None = None
+
+
+class InvoiceDetailResponse(InvoiceResponse):
+    settlement: InvoiceSettlementResponse | None = None
+
+
 class PublicPaymentResponse(BaseModel):
     status: str
     amount_crypto: Decimal

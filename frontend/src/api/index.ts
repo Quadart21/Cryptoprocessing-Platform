@@ -19,6 +19,8 @@ export type {
   WebhookTestResponse,
   InvoiceWebhookTestResponse,
   InvoiceItem,
+  InvoiceDetail,
+  InvoiceSettlement,
   InvoiceAdminDetail,
   CreateInvoicePayload,
   BalanceResponse,

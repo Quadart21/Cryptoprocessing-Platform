@@ -153,6 +153,21 @@ export type InvoiceItem = {
   created_at: string;
 };
 
+export type InvoiceSettlement = {
+  gross_amount: string;
+  processing_fee: string;
+  platform_fee: string;
+  total_fee: string;
+  net_amount: string;
+  currency: string;
+  is_final: boolean;
+  paid_at: string | null;
+};
+
+export type InvoiceDetail = InvoiceItem & {
+  settlement: InvoiceSettlement | null;
+};
+
 export type InvoiceAdminDetail = InvoiceItem & {
   tenant_id: string;
   paid_at: string | null;

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { InvoiceItem } from "../../api";
+import type { InvoiceDetail } from "../../api";
 import { formatDecimal } from "../../utils/format";
 import { getInvoiceDetailStatusMeta } from "../../utils/invoiceStatus";
 
+import { InvoiceSettlementBreakdown } from "./InvoiceSettlementBreakdown";
+
 export type MerchantInvoiceInspectorProps = {
-  invoice: InvoiceItem | null;
+  invoice: InvoiceDetail | null;
   isOpen: boolean;
   loading: boolean;
   onClose: () => void;
@@ -207,6 +209,12 @@ export function MerchantInvoiceInspector({
               <strong>{countdown}</strong>
             </div>
           </div>
+
+          <InvoiceSettlementBreakdown
+            fallbackCurrency={invoice.fiat_currency}
+            invoiceStatus={invoice.status}
+            settlement={invoice.settlement}
+          />
 
           <div className="invoice-modal-card">
             <div className="invoice-modal-card-header">

@@ -9,6 +9,8 @@ import type {
   CreatePayoutPayload,
   CurrentUser,
   InvoiceItem,
+  InvoiceDetail,
+  InvoiceSettlement,
   InvoiceWebhookTestResponse,
   MerchantNotificationSettings,
   OnboardingStatus,
@@ -39,7 +41,7 @@ export type ClientDashboardProps = {
   apiKeys: ApiKeyItem[];
   invoices: InvoiceItem[];
   selectedClientInvoiceId: string | null;
-  selectedClientInvoiceDetail: InvoiceItem | null;
+  selectedClientInvoiceDetail: InvoiceDetail | null;
   isClientInvoiceModalOpen: boolean;
   clientTransactions: TransactionItem[];
   payouts: PayoutRequestItem[];

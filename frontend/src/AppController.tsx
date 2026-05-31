@@ -82,6 +82,7 @@ import {
   type CreateInvoicePayload,
   type CreatePayoutPayload,
   type InvoiceAdminDetail,
+  type InvoiceDetail,
   type InvoiceItem,
   type MerchantSandboxCreatePayload,
   type MerchantSandboxCreateResponse,
@@ -181,7 +182,7 @@ export function AppController() {
   const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [selectedClientInvoiceId, setSelectedClientInvoiceId] = useState<string | null>(null);
-  const [selectedClientInvoiceDetail, setSelectedClientInvoiceDetail] = useState<InvoiceItem | null>(
+  const [selectedClientInvoiceDetail, setSelectedClientInvoiceDetail] = useState<InvoiceDetail | null>(
     null,
   );
   const [isClientInvoiceModalOpen, setIsClientInvoiceModalOpen] = useState(false);
@@ -1139,7 +1140,7 @@ export function AppController() {
             : `Инвойс создан: ${invoice.provider_order_id}`,
       );
       setSelectedClientInvoiceId(invoice.id);
-      setSelectedClientInvoiceDetail(invoice);
+      setSelectedClientInvoiceDetail({ ...invoice, settlement: null });
       setIsClientInvoiceModalOpen(true);
       setInvoices((current) => {
         const next = current.filter((item) => item.id !== invoice.id);
@@ -1147,7 +1148,7 @@ export function AppController() {
       });
       const [createdDetail, invoiceItems, balanceInfo, transactionItems, accountingSummary, webhookItems] =
         await Promise.all([
-          fetchClientInvoiceDetail(token, invoice.id).catch(() => invoice),
+          fetchClientInvoiceDetail(token, invoice.id).catch(() => ({ ...invoice, settlement: null })),
           fetchInvoices(token).catch(() => null),
           fetchBalance(token),
           fetchClientTransactions(token),

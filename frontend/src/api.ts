@@ -144,6 +144,21 @@ export type InvoiceItem = {
   created_at: string;
 };
 
+export type InvoiceSettlement = {
+  gross_amount: string;
+  processing_fee: string;
+  platform_fee: string;
+  total_fee: string;
+  net_amount: string;
+  currency: string;
+  is_final: boolean;
+  paid_at: string | null;
+};
+
+export type InvoiceDetail = InvoiceItem & {
+  settlement: InvoiceSettlement | null;
+};
+
 export type InvoiceAdminDetail = InvoiceItem & {
   tenant_id: string;
   paid_at: string | null;
@@ -1001,8 +1016,8 @@ export function fetchInvoices(token: string): Promise<InvoiceItem[]> {
 export function fetchClientInvoiceDetail(
   token: string,
   invoiceId: string,
-): Promise<InvoiceItem> {
-  return request<InvoiceItem>(`/client/invoices/${invoiceId}`, {
+): Promise<InvoiceDetail> {
+  return request<InvoiceDetail>(`/client/invoices/${invoiceId}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -1230,8 +1245,8 @@ export function sendInvoiceWebhookTest(
   );
 }
 
-export function syncClientInvoice(token: string, invoiceId: string): Promise<InvoiceItem> {
-  return request<InvoiceItem>(`/client/invoices/${invoiceId}/sync`, {
+export function syncClientInvoice(token: string, invoiceId: string): Promise<InvoiceDetail> {
+  return request<InvoiceDetail>(`/client/invoices/${invoiceId}/sync`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

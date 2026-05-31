@@ -7,6 +7,8 @@ import type {
   ApiKeyItem,
   ApiKeyRegenerateResponse,
   InvoiceItem,
+  InvoiceDetail,
+  InvoiceSettlement,
   CreateInvoicePayload,
   BalanceResponse,
   TransactionItem,
@@ -56,8 +58,8 @@ export function fetchInvoices(token: string): Promise<InvoiceItem[]> {
 export function fetchClientInvoiceDetail(
   token: string,
   invoiceId: string,
-): Promise<InvoiceItem> {
-  return request<InvoiceItem>(`/client/invoices/${invoiceId}`, {
+): Promise<InvoiceDetail> {
+  return request<InvoiceDetail>(`/client/invoices/${invoiceId}`, {
     headers: authHeaders(token),
   });
 }
@@ -159,8 +161,8 @@ export function sendInvoiceWebhookTest(
   });
 }
 
-export function syncClientInvoice(token: string, invoiceId: string): Promise<InvoiceItem> {
-  return request<InvoiceItem>(`/client/invoices/${invoiceId}/sync`, {
+export function syncClientInvoice(token: string, invoiceId: string): Promise<InvoiceDetail> {
+  return request<InvoiceDetail>(`/client/invoices/${invoiceId}/sync`, {
     method: "POST",
     headers: authHeaders(token),
   });

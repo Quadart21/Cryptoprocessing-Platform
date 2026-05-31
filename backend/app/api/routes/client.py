@@ -29,7 +29,13 @@ from app.schemas.auth import (
     SetPasswordRequest,
     TokenPairResponse,
 )
-from app.schemas.invoice import BalanceResponse, InvoiceCreateRequest, InvoiceResponse
+from app.schemas.invoice import (
+    BalanceResponse,
+    InvoiceCreateRequest,
+    InvoiceDetailResponse,
+    InvoiceResponse,
+    InvoiceSettlementResponse,
+)
 from app.schemas.onboarding import OnboardingStatusResponse
 from app.schemas.notification import (
     MerchantNotificationSettingsResponse,
@@ -810,12 +816,12 @@ async def list_invoices(
         raise
 
 
-@router.get("/invoices/{invoice_id}", response_model=InvoiceResponse)
+@router.get("/invoices/{invoice_id}", response_model=InvoiceDetailResponse)
 async def get_invoice(
     invoice_id: str,
     auth: ClientAuthContext = Depends(get_client_auth_context),
     db: AsyncSession = Depends(get_db),
-) -> InvoiceResponse:
+) -> InvoiceDetailResponse:
     _ensure_client_api_permission(auth, "client.invoices.read")
     invoice_service = InvoiceService(db)
     invoice = await invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
@@ -828,18 +834,23 @@ async def get_invoice(
             if project is not None
             else CheckoutDeliveryService.normalize(None)
         )
-        return _map_invoice_response(invoice, checkout_delivery=checkout_delivery)
+        transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
+        return _map_invoice_detail_response(
+            invoice,
+            checkout_delivery=checkout_delivery,
+            transaction=transaction,
+        )
     except Exception:
         logger.exception("Unexpected invoice detail error for invoice_id=%s", invoice_id)
         raise
 
 
-@router.post("/invoices/{invoice_id}/sync", response_model=InvoiceResponse)
+@router.post("/invoices/{invoice_id}/sync", response_model=InvoiceDetailResponse)
 async def sync_invoice(
     invoice_id: str,
     auth: ClientAuthContext = Depends(get_client_auth_context),
     db: AsyncSession = Depends(get_db),
-) -> InvoiceResponse:
+) -> InvoiceDetailResponse:
     _ensure_client_api_permission(auth, "client.invoices.write")
     invoice_service = InvoiceService(db)
     invoice = await invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
@@ -867,7 +878,12 @@ async def sync_invoice(
             if project is not None
             else CheckoutDeliveryService.normalize(None)
         )
-        return _map_invoice_response(invoice, checkout_delivery=checkout_delivery)
+        transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
+        return _map_invoice_detail_response(
+            invoice,
+            checkout_delivery=checkout_delivery,
+            transaction=transaction,
+        )
     except Exception:
         logger.exception("Unexpected invoice sync response mapping error for invoice_id=%s", invoice_id)
         raise
@@ -1056,6 +1072,41 @@ def _map_invoice_response(
         status=invoice.status,
         expires_at=invoice.expires_at,
         created_at=invoice.created_at,
+    )
+
+
+def _map_invoice_settlement(
+    invoice: Invoice,
+    transaction,
+) -> InvoiceSettlementResponse | None:
+    if transaction is None:
+        return None
+    processing_fee = transaction.provider_fee
+    platform_fee = transaction.platform_fee + transaction.turnover_fee
+    total_fee = processing_fee + platform_fee
+    paid_like = invoice.status in {"paid", "confirmed"} or transaction.status in {"paid", "confirmed"}
+    return InvoiceSettlementResponse(
+        gross_amount=transaction.gross_amount,
+        processing_fee=processing_fee,
+        platform_fee=platform_fee,
+        total_fee=total_fee,
+        net_amount=transaction.net_amount,
+        currency=transaction.currency,
+        is_final=paid_like,
+        paid_at=transaction.paid_at,
+    )
+
+
+def _map_invoice_detail_response(
+    invoice: Invoice,
+    *,
+    checkout_delivery: str | None = None,
+    transaction=None,
+) -> InvoiceDetailResponse:
+    base = _map_invoice_response(invoice, checkout_delivery=checkout_delivery)
+    return InvoiceDetailResponse(
+        **base.model_dump(),
+        settlement=_map_invoice_settlement(invoice, transaction),
     )
 
 

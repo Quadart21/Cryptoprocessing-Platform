@@ -864,6 +864,64 @@
   background: rgba(8, 15, 31, 0.72);
 }
 
+.invoice-settlement-rows {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.invoice-settlement-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(117, 158, 255, 0.1);
+}
+
+.invoice-settlement-row:last-child {
+  border-bottom: none;
+}
+
+.invoice-settlement-row dt {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.invoice-settlement-row dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.invoice-settlement-row--highlight dd {
+  font-size: 16px;
+}
+
+.invoice-settlement-row--fee-total dt,
+.invoice-settlement-row--fee-total dd {
+  color: #ffb4b4;
+}
+
+.invoice-settlement-row--net {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(117, 158, 255, 0.2);
+  border-bottom: none;
+}
+
+.invoice-settlement-row--net dd {
+  color: #8dffb5;
+  font-size: 17px;
+}
+
+.invoice-settlement-note {
+  margin: 0;
+  font-size: 12px;
+}
+
 .invoice-modal-card-header,
 .invoice-modal-meta {
   display: flex;
