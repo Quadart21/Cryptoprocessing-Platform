@@ -164,11 +164,12 @@ export function MerchantApiReference({
         method: "POST",
         path: "/api/v1/client/invoices",
         title: "Создать инвойс",
-        purpose: "Создать счёт на оплату с crypto route и payment address.",
+        purpose: "Создать счёт на оплату с crypto route, payment address и ссылкой на checkout-страницу.",
         auth: "X-API-Key + X-API-Secret",
         notes: [
           "project_id должен принадлежать API-ключу.",
-          "Перед созданием инвойса лучше вызывать GET /rates для проверки доступной сети и лимитов min_deposit / max_deposit.",
+          "Перед созданием инвойса вызывайте GET /rates: min_deposit — в криптовалюте (как у CryptoCash list-in), min_deposit_fiat — ориентир в USD.",
+          "payment_page_url — готовая страница для клиента (QR, таймер, статус). H2H-реквизиты остаются в payment_address.",
         ],
         requestExample: integrationCurl,
         successExample: `{
@@ -182,6 +183,7 @@ export function MerchantApiReference({
   "crypto_currency": "USDT",
   "network": "TRC20",
   "payment_address": "TG9...example",
+  "payment_page_url": "https://noren.digital/pay/abc123example",
   "qr_url": "https://example.com/qr/inv_01J_DOCS_EXAMPLE",
   "status": "pending",
   "expires_at": "2026-04-06T11:45:00Z",
@@ -191,10 +193,13 @@ export function MerchantApiReference({
 {
   "detail": {
     "code": "amount_out_of_range",
-    "message": "Сумма 1.00 для USDT/TRC20 вне допустимого диапазона (min 5, max 5000).",
+    "message": "Сумма 1 USDT для USDT/TRC20 вне допустимого диапазона (min 5 USDT, max 5000 USDT). Запрошено ≈ 1 USD.",
     "currency": "USDT",
     "network": "TRC20",
     "amount": "1",
+    "amount_unit": "USDT",
+    "amount_fiat": "1",
+    "fiat_currency": "USD",
     "min_amount": "5",
     "max_amount": "5000"
   }
@@ -222,6 +227,7 @@ export function MerchantApiReference({
     "crypto_currency": "USDT",
     "network": "TRC20",
     "payment_address": "TG9...example",
+    "payment_page_url": "https://noren.digital/pay/abc123example",
     "qr_url": "https://example.com/qr/inv_01J_DOCS_EXAMPLE",
     "status": "confirmed",
     "expires_at": "2026-04-06T11:45:00Z",
@@ -255,6 +261,7 @@ export function MerchantApiReference({
   "crypto_currency": "USDT",
   "network": "TRC20",
   "payment_address": "TG9...example",
+  "payment_page_url": "https://noren.digital/pay/abc123example",
   "qr_url": "https://example.com/qr/inv_01J_DOCS_EXAMPLE",
   "status": "paid",
   "expires_at": "2026-04-06T11:45:00Z",
@@ -288,6 +295,7 @@ export function MerchantApiReference({
   "crypto_currency": "USDT",
   "network": "TRC20",
   "payment_address": "TG9...example",
+  "payment_page_url": "https://noren.digital/pay/abc123example",
   "qr_url": "https://example.com/qr/inv_01J_DOCS_EXAMPLE",
   "status": "confirmed",
   "expires_at": "2026-04-06T11:45:00Z",
@@ -318,6 +326,8 @@ export function MerchantApiReference({
           "ticker": "USDTTRC",
           "min_deposit": "5",
           "max_deposit": "5000",
+          "min_deposit_fiat": "5",
+          "max_deposit_fiat": "5000",
           "min_withdraw": "10",
           "max_withdraw": "100000",
           "network_fee": "1",
@@ -528,7 +538,8 @@ export function MerchantApiReference({
     "amount_crypto": "100.25",
     "crypto_currency": "USDT",
     "network": "TRC20",
-    "payment_address": "TG9...example"
+    "payment_address": "TG9...example",
+    "payment_page_url": "https://noren.digital/pay/abc123example"
   },
   "transaction": {
     "id": "tx_01J_DOCS_EXAMPLE",

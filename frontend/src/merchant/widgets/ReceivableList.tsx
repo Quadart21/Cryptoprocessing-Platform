@@ -179,7 +179,11 @@ export function ReceivableList({
                     {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency} · учёт{" "}
                     {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency}
                   </p>
-                  <p className="mc-row-sub mc-row-mono">{invoice.payment_address}</p>
+                  {invoice.payment_page_url ? (
+                    <p className="mc-row-sub mc-row-mono">{invoice.payment_page_url}</p>
+                  ) : (
+                    <p className="mc-row-sub mc-row-mono">{invoice.payment_address}</p>
+                  )}
                   <div className="mc-row-badges" style={{ marginTop: 8 }}>
                     <span className="mc-badge mc-badge-neutral">{invoice.network}</span>
                     <span className={invoiceMerchantBadgeClass(invoice.status)}>
@@ -188,6 +192,16 @@ export function ReceivableList({
                   </div>
                 </div>
                 <div className="mc-row-actions">
+                  {invoice.payment_page_url ? (
+                    <a
+                      className="ghost-button"
+                      href={invoice.payment_page_url}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Страница оплаты
+                    </a>
+                  ) : null}
                   <button className="ghost-button" onClick={() => onSelectInvoice(invoice.id)} type="button">
                     Подробнее
                   </button>

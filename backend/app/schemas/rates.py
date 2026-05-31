@@ -6,6 +6,8 @@ class RateNetworkResponse(BaseModel):
     ticker: str | None = None
     min_deposit: str | None = None
     max_deposit: str | None = None
+    min_deposit_fiat: str | None = None
+    max_deposit_fiat: str | None = None
     min_withdraw: str | None = None
     max_withdraw: str | None = None
     network_fee: str | None = None

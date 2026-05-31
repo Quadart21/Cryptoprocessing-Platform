@@ -21,6 +21,7 @@ class Invoice(UUIDPrimaryKeyMixin, TenantBoundMixin, TimestampMixin, Base):
     network: Mapped[str] = mapped_column(String(50), nullable=False)
     payment_address: Mapped[str] = mapped_column(String(255), nullable=False)
     qr_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    payment_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

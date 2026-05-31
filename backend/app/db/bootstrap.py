@@ -98,6 +98,15 @@ DDL_PATCHES = [
     ALTER TABLE invoices
     ADD COLUMN IF NOT EXISTS raw_provider_payload_json JSON
     """,
+    """
+    ALTER TABLE invoices
+    ADD COLUMN IF NOT EXISTS payment_token VARCHAR(64)
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_invoices_payment_token
+    ON invoices (payment_token)
+    WHERE payment_token IS NOT NULL
+    """,
     # transactions
     """
     ALTER TABLE transactions

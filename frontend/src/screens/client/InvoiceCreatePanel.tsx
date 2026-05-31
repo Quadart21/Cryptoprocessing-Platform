@@ -1,6 +1,11 @@
 import { FormEvent } from "react";
 
 import type { CreateInvoicePayload, ProjectItem, RateNetworkItem } from "../../api";
+import {
+  formatPayinLimitHint,
+  isPayinAmountWithinLimits,
+  resolvePayinMinFiatAmount,
+} from "../../utils/payinLimits";
 
 type InvoiceCreatePanelProps = {
   invoiceForm: CreateInvoicePayload;
@@ -23,12 +28,17 @@ export function InvoiceCreatePanel({
   onInvoiceFormChange,
   onCreateInvoice,
 }: InvoiceCreatePanelProps) {
+  const minFiatAmount = resolvePayinMinFiatAmount(selectedNetwork, invoiceForm.fiat_currency);
   const canSubmit =
     !loading &&
     invoiceForm.project_id.trim() !== "" &&
     invoiceForm.merchant_order_id.trim() !== "" &&
-    Number.isFinite(invoiceForm.amount_fiat) &&
-    invoiceForm.amount_fiat > 0;
+    isPayinAmountWithinLimits(invoiceForm.amount_fiat, selectedNetwork, invoiceForm.fiat_currency);
+  const minLimitHint = formatPayinLimitHint(
+    selectedNetwork,
+    invoiceForm.crypto_currency,
+    invoiceForm.fiat_currency,
+  );
 
   return (
     <article className="mc-surface">
@@ -36,7 +46,7 @@ export function InvoiceCreatePanel({
         <p className="mc-surface-eyebrow">Новый платёж</p>
         <h2 className="mc-surface-title">Создать инвойс</h2>
         <p className="mc-surface-desc">
-          Выберите проект, токен и сеть. После создания вы получите адрес и сможете отследить статус в списке справа.
+          После создания вы получите ссылку на страницу оплаты для клиента. H2H-реквизиты доступны в карточке инвойса.
         </p>
       </header>
 
@@ -109,13 +119,13 @@ export function InvoiceCreatePanel({
 
           <label className="mc-field">
             <span>Сумма</span>
-            <small>В токене; лимиты см. ниже</small>
+            <small>В {invoiceForm.fiat_currency}; лимиты провайдера — в криптовалюте ниже</small>
             <input
               value={invoiceForm.amount_fiat}
               onChange={(event) =>
                 onInvoiceFormChange({ ...invoiceForm, amount_fiat: Number(event.target.value) })
               }
-              min="0.00000001"
+              min={minFiatAmount ?? "0.00000001"}
               step="0.00000001"
               type="number"
             />
@@ -127,8 +137,13 @@ export function InvoiceCreatePanel({
             <strong>
               {invoiceForm.crypto_currency} · {selectedNetwork.network}
             </strong>
-            <p>Мин. депозит: {selectedNetwork.min_deposit ?? "—"}</p>
-            <p>Макс. депозит: {selectedNetwork.max_deposit ?? "—"}</p>
+            <p>Мин. оплата: {minLimitHint ?? "—"}</p>
+            <p>
+              Макс. оплата:{" "}
+              {selectedNetwork.max_deposit
+                ? `${selectedNetwork.max_deposit} ${invoiceForm.crypto_currency}`
+                : "—"}
+            </p>
             <p>Комиссия сети: {selectedNetwork.network_fee ?? "—"}</p>
             <p>Memo: {selectedNetwork.memo_required ? "нужен" : "не нужен"}</p>
           </div>

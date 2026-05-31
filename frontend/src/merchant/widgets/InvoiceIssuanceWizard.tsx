@@ -1,6 +1,11 @@
 import { FormEvent, useMemo } from "react";
 
 import type { CreateInvoicePayload, ProjectItem, RateNetworkItem } from "../../api";
+import {
+  formatPayinLimitHint,
+  isPayinAmountWithinLimits,
+  resolvePayinMinFiatAmount,
+} from "../../utils/payinLimits";
 
 type InvoiceIssuanceWizardProps = {
   invoiceForm: CreateInvoicePayload;
@@ -35,8 +40,13 @@ export function InvoiceIssuanceWizard({
 
   const hasProject = invoiceForm.project_id.trim() !== "";
   const hasOrderId = invoiceForm.merchant_order_id.trim() !== "";
+  const minFiatAmount = resolvePayinMinFiatAmount(selectedNetwork, fiatValue);
   const canSubmit =
-    !loading && hasProject && hasOrderId && Number.isFinite(invoiceForm.amount_fiat) && invoiceForm.amount_fiat > 0;
+    !loading &&
+    hasProject &&
+    hasOrderId &&
+    isPayinAmountWithinLimits(invoiceForm.amount_fiat, selectedNetwork, fiatValue);
+  const minLimitHint = formatPayinLimitHint(selectedNetwork, invoiceForm.crypto_currency, fiatValue);
 
   return (
     <article className="mc-surface mw-invoice-create" aria-label="Создание инвойса" id="merchant-invoice-create">
@@ -126,7 +136,7 @@ export function InvoiceIssuanceWizard({
               <span>Сумма к оплате</span>
               <input
                 value={invoiceForm.amount_fiat}
-                min="0.00000001"
+                min={minFiatAmount ?? "0.00000001"}
                 step="0.00000001"
                 type="number"
                 onChange={(event) =>
@@ -158,8 +168,13 @@ export function InvoiceIssuanceWizard({
               <strong>
                 {invoiceForm.crypto_currency} · {selectedNetwork.network}
               </strong>
-              <p>Мин. депозит: {selectedNetwork.min_deposit ?? "—"}</p>
-              <p>Макс. депозит: {selectedNetwork.max_deposit ?? "—"}</p>
+              <p>Мин. оплата: {minLimitHint ?? "—"}</p>
+              <p>
+                Макс. оплата:{" "}
+                {selectedNetwork.max_deposit
+                  ? `${selectedNetwork.max_deposit} ${invoiceForm.crypto_currency}`
+                  : "—"}
+              </p>
             </div>
           ) : null}
         </div>

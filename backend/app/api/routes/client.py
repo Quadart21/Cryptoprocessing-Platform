@@ -71,6 +71,7 @@ from app.services.payout_service import PayoutService
 from app.services.tenant_service import TenantService
 from app.services.two_factor_service import TwoFactorError, TwoFactorService
 from app.services.transaction_service import TransactionService
+from app.services.payment_page_service import PaymentPageService
 from app.services.public_page_service import PublicPageService
 
 router = APIRouter()
@@ -1011,6 +1012,7 @@ def _map_invoice_response(invoice: Invoice) -> InvoiceResponse:
         network=invoice.network,
         payment_address=invoice.payment_address,
         qr_url=invoice.qr_url,
+        payment_page_url=PaymentPageService.payment_page_url_for(invoice),
         status=invoice.status,
         expires_at=invoice.expires_at,
         created_at=invoice.created_at,

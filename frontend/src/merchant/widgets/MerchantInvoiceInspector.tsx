@@ -69,6 +69,7 @@ export function MerchantInvoiceInspector({
 }: MerchantInvoiceInspectorProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const [countdown, setCountdown] = useState("");
+  const [showTechnical, setShowTechnical] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -138,7 +139,38 @@ export function MerchantInvoiceInspector({
         </form>
       </div>
 
-      <p className="invoice-modal-subtitle">Реквизиты, таймер и синхронизация — в одном окне браузера.</p>
+      <p className="invoice-modal-subtitle">
+        Отправьте клиенту ссылку на страницу оплаты — реквизиты H2H доступны ниже для интеграций.
+      </p>
+
+      {invoice.payment_page_url ? (
+        <div className="invoice-modal-card" style={{ marginBottom: "1rem" }}>
+          <div className="invoice-modal-card-header">
+            <div>
+              <p className="eyebrow">Для клиента</p>
+              <h3>Страница оплаты</h3>
+            </div>
+            <div className="action-row-inline">
+              <a
+                className="primary-button"
+                href={invoice.payment_page_url}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Открыть
+              </a>
+              <button
+                className="ghost-button"
+                onClick={() => void copyValue(invoice.payment_page_url)}
+                type="button"
+              >
+                Копировать ссылку
+              </button>
+            </div>
+          </div>
+          <code className="detail-tech-value">{invoice.payment_page_url}</code>
+        </div>
+      ) : null}
 
       <div className="invoice-modal-grid">
         <section className="invoice-modal-main">
@@ -172,16 +204,35 @@ export function MerchantInvoiceInspector({
           <div className="invoice-modal-card">
             <div className="invoice-modal-card-header">
               <div>
-                <p className="eyebrow">Адрес</p>
-                <h3>Оплата</h3>
+                <p className="eyebrow">H2H / API</p>
+                <h3>Технические реквизиты</h3>
               </div>
-              <button className="ghost-button" onClick={() => void copyValue(invoice.payment_address)} type="button">
-                Копировать
+              <button
+                className="ghost-button"
+                onClick={() => setShowTechnical((current) => !current)}
+                type="button"
+              >
+                {showTechnical ? "Скрыть" : "Показать"}
               </button>
             </div>
-            <code className="detail-tech-value">{invoice.payment_address}</code>
+            {showTechnical ? (
+              <>
+                <button
+                  className="ghost-button"
+                  onClick={() => void copyValue(invoice.payment_address)}
+                  style={{ marginBottom: "0.5rem" }}
+                  type="button"
+                >
+                  Копировать адрес
+                </button>
+                <code className="detail-tech-value">{invoice.payment_address}</code>
+              </>
+            ) : (
+              <p className="muted-text">Адрес и provider ID — для прямых интеграций без checkout-страницы.</p>
+            )}
           </div>
 
+          {showTechnical ? (
           <div className="invoice-modal-card">
             <div className="invoice-modal-meta">
               <div>
@@ -199,6 +250,7 @@ export function MerchantInvoiceInspector({
               </div>
             </div>
           </div>
+          ) : null}
         </section>
 
         <aside className="invoice-modal-side">

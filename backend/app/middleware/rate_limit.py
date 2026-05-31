@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -162,6 +163,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 key_mode="ip",
             ),
             RateLimitRule(
+                name="public_pay_read_ip",
+                method="GET",
+                path=f"{prefix}/public/pay/{{payment_token}}",
+                limit=settings.rate_limit_read_ip_per_minute,
+                window_seconds=60,
+                key_mode="ip",
+            ),
+            RateLimitRule(
+                name="public_pay_refresh_ip",
+                method="POST",
+                path=f"{prefix}/public/pay/{{payment_token}}/refresh",
+                limit=12,
+                window_seconds=60,
+                key_mode="ip",
+            ),
+            RateLimitRule(
                 name="sandbox_enroll_ip",
                 method="POST",
                 path="/internal/sandbox/enroll",
@@ -202,7 +219,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         method = request.method.upper()
         for rule in self.rules:
-            if method != rule.method or path != rule.path:
+            if method != rule.method or not self._path_matches(path, rule.path):
                 continue
             key = self._build_key(request, rule.key_mode)
             try:
@@ -223,6 +240,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     headers={"Retry-After": str(exc.retry_after)},
                 )
         return await call_next(request)
+
+    @staticmethod
+    def _path_matches(path: str, rule_path: str) -> bool:
+        if "{" not in rule_path:
+            return path == rule_path
+        parts = re.split(r"(\{[^}]+\})", rule_path)
+        pattern_parts: list[str] = []
+        for part in parts:
+            if part.startswith("{") and part.endswith("}"):
+                pattern_parts.append("[^/]+")
+            elif part:
+                pattern_parts.append(re.escape(part))
+        pattern = "^" + "".join(pattern_parts) + "$"
+        return re.match(pattern, path) is not None
 
     def _build_key(self, request: Request, mode: KeyMode) -> str:
         ip_key = self._extract_client_ip(request)

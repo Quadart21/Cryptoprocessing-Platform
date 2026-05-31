@@ -11,6 +11,7 @@ from app.models.asset_availability import AssetAvailability
 from app.providers.factory import get_payment_provider
 from app.schemas.rates import RateItemResponse, RateNetworkResponse, RatesResponse
 from app.services.cache_service import get_cache_service
+from app.services.exchange_rate_service import get_exchange_rate_service
 
 
 @dataclass(frozen=True)
@@ -25,7 +26,7 @@ class PayInLimits:
 
 
 class RatesService:
-    RATES_CACHE_KEY = "rates:all:v1"
+    RATES_CACHE_KEY = "rates:all:v2"
     RATES_CACHE_PREFIX = "rates:"
     MIN_DEPOSIT_KEYS = (
         "min_deposit",
@@ -63,6 +64,7 @@ class RatesService:
         response = await asyncio.to_thread(provider.list_currencies)
         items = self._extract_provider_items(response)
         overrides = await self._load_platform_overrides()
+        rate_service = get_exchange_rate_service()
         mapped_items: list[RateItemResponse] = []
 
         for item in items:
@@ -96,12 +98,26 @@ class RatesService:
                     provider_availability=provider_availability,
                     acquiring=acquiring,
                 )
+                min_deposit = self._pick_first(limit, *self.MIN_DEPOSIT_KEYS)
+                max_deposit = self._pick_first(limit, *self.MAX_DEPOSIT_KEYS)
+                min_deposit_fiat = await self._deposit_limit_to_fiat(
+                    rate_service,
+                    amount=min_deposit,
+                    currency=currency,
+                )
+                max_deposit_fiat = await self._deposit_limit_to_fiat(
+                    rate_service,
+                    amount=max_deposit,
+                    currency=currency,
+                )
                 networks.append(
                     RateNetworkResponse(
                         network=network_name,
                         ticker=self._pick_first(limit, "ticker"),
-                        min_deposit=self._pick_first(limit, *self.MIN_DEPOSIT_KEYS),
-                        max_deposit=self._pick_first(limit, *self.MAX_DEPOSIT_KEYS),
+                        min_deposit=min_deposit,
+                        max_deposit=max_deposit,
+                        min_deposit_fiat=min_deposit_fiat,
+                        max_deposit_fiat=max_deposit_fiat,
                         min_withdraw=self._pick_first(limit, *self.MIN_WITHDRAW_KEYS),
                         max_withdraw=self._pick_first(limit, *self.MAX_WITHDRAW_KEYS),
                         network_fee=self._pick_first(limit, *self.NETWORK_FEE_KEYS),
@@ -287,6 +303,23 @@ class RatesService:
         if not normalized_currency or not normalized_network:
             raise ValueError("Валюту и сеть нужно заполнить.")
         return normalized_currency, normalized_network
+
+    @staticmethod
+    async def _deposit_limit_to_fiat(
+        rate_service,
+        *,
+        amount: str | None,
+        currency: str,
+    ) -> str | None:
+        if not amount:
+            return None
+        parsed = RatesService._pick_decimal({"value": amount}, "value")
+        if parsed is None or parsed <= Decimal("0"):
+            return None
+        converted = await rate_service.convert_to_fiat(parsed, currency, "USD")
+        if converted is None:
+            return None
+        return format(converted.normalize(), "f")
 
     @staticmethod
     def _pick_first(source: dict, *keys: str) -> str | None:

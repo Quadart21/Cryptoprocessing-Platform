@@ -1,6 +1,7 @@
 ﻿from decimal import Decimal
 
 import logging
+from secrets import token_urlsafe
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +19,7 @@ from app.services.billing_policy_service import BillingPolicyService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
 from app.services.exchange_rate_service import get_exchange_rate_service
+from app.services.payment_page_service import PaymentPageService
 from app.services.rates_service import RatesService
 from app.services.statistics_exclusion_service import StatisticsExclusionService
 
@@ -33,22 +35,29 @@ class InvoiceAmountOutOfRangeError(ValueError):
         network: str,
         min_amount: Decimal | None,
         max_amount: Decimal | None,
+        amount_fiat: Decimal | None = None,
+        fiat_currency: str | None = None,
     ) -> None:
         self.amount = amount
         self.currency = currency
         self.network = network
         self.min_amount = min_amount
         self.max_amount = max_amount
+        self.amount_fiat = amount_fiat
+        self.fiat_currency = fiat_currency
 
         bounds: list[str] = []
         if min_amount is not None:
-            bounds.append(f"min {self._fmt(min_amount)}")
+            bounds.append(f"min {self._fmt(min_amount)} {currency}")
         if max_amount is not None:
-            bounds.append(f"max {self._fmt(max_amount)}")
+            bounds.append(f"max {self._fmt(max_amount)} {currency}")
         bounds_text = ", ".join(bounds) if bounds else "лимиты не заданы"
         message = (
-            f"Сумма {self._fmt(amount)} для {currency}/{network} вне допустимого диапазона ({bounds_text})."
+            f"Сумма {self._fmt(amount)} {currency} для {currency}/{network} "
+            f"вне допустимого диапазона ({bounds_text})."
         )
+        if amount_fiat is not None and fiat_currency:
+            message += f" Запрошено ≈ {self._fmt(amount_fiat)} {fiat_currency}."
         super().__init__(message)
 
     def to_response_detail(self) -> dict[str, str | None]:
@@ -58,6 +67,9 @@ class InvoiceAmountOutOfRangeError(ValueError):
             "currency": self.currency,
             "network": self.network,
             "amount": self._fmt(self.amount),
+            "amount_unit": self.currency,
+            "amount_fiat": self._fmt(self.amount_fiat),
+            "fiat_currency": self.fiat_currency,
             "min_amount": self._fmt(self.min_amount),
             "max_amount": self._fmt(self.max_amount),
         }
@@ -116,12 +128,22 @@ class InvoiceService:
             currency=payload.crypto_currency,
             network=payload.network,
         )
+        exchange_rate_markup = await BillingPolicyService(self.db).get_exchange_rate_markup_percent()
+        amount_fiat = Decimal(payload.amount_fiat)
+        estimated_crypto = await self._estimate_payin_crypto_amount(
+            amount_fiat=amount_fiat,
+            fiat_currency=payload.fiat_currency,
+            crypto_currency=payload.crypto_currency,
+            exchange_rate_markup=exchange_rate_markup,
+        )
         self._assert_amount_within_payin_limits(
-            amount=Decimal(payload.amount_fiat),
+            amount=estimated_crypto,
             currency=limits.currency,
             network=limits.network,
             min_amount=limits.min_amount,
             max_amount=limits.max_amount,
+            amount_fiat=amount_fiat,
+            fiat_currency=payload.fiat_currency.upper(),
         )
 
         provider = get_payment_provider()
@@ -134,8 +156,16 @@ class InvoiceService:
                 network=payload.network.upper(),
             )
         )
-        exchange_rate_markup = await BillingPolicyService(self.db).get_exchange_rate_markup_percent()
-        resolved_amount_crypto = provider_response.amount_crypto or Decimal(payload.amount_fiat)
+        resolved_amount_crypto = provider_response.amount_crypto or estimated_crypto
+        self._assert_amount_within_payin_limits(
+            amount=resolved_amount_crypto,
+            currency=limits.currency,
+            network=limits.network,
+            min_amount=limits.min_amount,
+            max_amount=limits.max_amount,
+            amount_fiat=amount_fiat,
+            fiat_currency=payload.fiat_currency.upper(),
+        )
         resolved_amount_fiat = await self.resolve_accounting_gross_amount(
             amount_crypto=resolved_amount_crypto,
             crypto_currency=provider_response.crypto_currency,
@@ -155,6 +185,7 @@ class InvoiceService:
             network=provider_response.network,
             payment_address=provider_response.payment_address,
             qr_url=provider_response.qr_url,
+            payment_token=token_urlsafe(PaymentPageService.TOKEN_BYTES),
             status="pending",
             expires_at=provider_response.expires_at,
             metadata_json=payload.metadata,
@@ -766,6 +797,44 @@ class InvoiceService:
     def _calculate_percent_amount(self, base_amount: Decimal, percent: Decimal) -> Decimal:
         return ((base_amount * percent) / Decimal("100")).quantize(self.AMOUNT_PRECISION)
 
+    async def _estimate_payin_crypto_amount(
+        self,
+        *,
+        amount_fiat: Decimal,
+        fiat_currency: str,
+        crypto_currency: str,
+        exchange_rate_markup: Decimal | None = None,
+    ) -> Decimal:
+        crypto_currency = crypto_currency.strip().upper()
+        fiat_currency = fiat_currency.strip().upper()
+        amount_fiat = Decimal(amount_fiat).quantize(self.AMOUNT_PRECISION)
+
+        if crypto_currency == fiat_currency:
+            return amount_fiat
+
+        rate_service = get_exchange_rate_service()
+        if (
+            crypto_currency in rate_service.STABLECOIN_EQUIVALENTS
+            and fiat_currency in rate_service.STABLECOIN_EQUIVALENTS
+        ):
+            return amount_fiat
+
+        if exchange_rate_markup is None:
+            exchange_rate_markup = await BillingPolicyService(self.db).get_exchange_rate_markup_percent()
+
+        estimated = await rate_service.convert_from_fiat(
+            amount_fiat=amount_fiat,
+            to_currency=crypto_currency,
+            from_fiat=fiat_currency,
+            markup_percent=exchange_rate_markup,
+        )
+        if estimated is None:
+            raise ValueError(
+                f"Курс {crypto_currency}/{fiat_currency} недоступен. "
+                "Обновите курсы в админке или задайте ручной курс."
+            )
+        return estimated.quantize(self.AMOUNT_PRECISION)
+
     def _assert_amount_within_payin_limits(
         self,
         *,
@@ -774,6 +843,8 @@ class InvoiceService:
         network: str,
         min_amount: Decimal | None,
         max_amount: Decimal | None,
+        amount_fiat: Decimal | None = None,
+        fiat_currency: str | None = None,
     ) -> None:
         if min_amount is not None and amount < min_amount:
             raise InvoiceAmountOutOfRangeError(
@@ -782,6 +853,8 @@ class InvoiceService:
                 network=network,
                 min_amount=min_amount,
                 max_amount=max_amount,
+                amount_fiat=amount_fiat,
+                fiat_currency=fiat_currency,
             )
         if max_amount is not None and amount > max_amount:
             raise InvoiceAmountOutOfRangeError(
@@ -790,6 +863,8 @@ class InvoiceService:
                 network=network,
                 min_amount=min_amount,
                 max_amount=max_amount,
+                amount_fiat=amount_fiat,
+                fiat_currency=fiat_currency,
             )
 
     @staticmethod

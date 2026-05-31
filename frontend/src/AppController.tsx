@@ -369,6 +369,69 @@ export function AppController() {
     setWebhookForm((current) => ({ ...current, webhook_url: currentConfig?.webhook_url ?? "" }));
   }, [webhookConfigs, webhookForm.project_id]);
 
+  useEffect(() => {
+    if (!token || !user || !isPlatformRole(user.role)) {
+      return;
+    }
+
+    let cancelled = false;
+    const activeToken = token;
+
+    async function refreshPlatformDashboard(sessionToken: string) {
+      try {
+        const [invoiceItems, transactionItems, eventItems, accountingSummary] = await Promise.all([
+          fetchAdminInvoices(sessionToken),
+          fetchAdminTransactions(sessionToken),
+          safeLoad(() => fetchAdminEvents(sessionToken), []),
+          fetchPlatformAccountingSummary(sessionToken),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        setPlatformInvoices(invoiceItems);
+        setPlatformTransactions(transactionItems);
+        setPlatformEvents(eventItems);
+        setPlatformAccounting(accountingSummary);
+
+        if (selectedTenantId) {
+          const tenantInvoices = await safeLoad(
+            () => fetchTenantInvoices(sessionToken, selectedTenantId),
+            [],
+          );
+          if (!cancelled) {
+            setSelectedTenantInvoices(tenantInvoices);
+          }
+        }
+
+        if (selectedInvoiceId) {
+          const [detail, events] = await Promise.all([
+            safeLoad(() => fetchAdminInvoiceDetail(sessionToken, selectedInvoiceId), null),
+            safeLoad(() => fetchInvoiceEvents(sessionToken, selectedInvoiceId), []),
+          ]);
+          if (!cancelled) {
+            if (detail) {
+              setSelectedInvoiceDetail(detail);
+            }
+            setSelectedInvoiceEvents(events);
+          }
+        }
+      } catch {
+        // Background poll — не перекрываем UI ошибками автообновления.
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void refreshPlatformDashboard(activeToken);
+    }, 10_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [token, user, selectedTenantId, selectedInvoiceId]);
+
   async function loadSession(accessToken: string) {
     try {
       setLoading(true);
@@ -1064,7 +1127,11 @@ export function AppController() {
         ...invoiceForm,
         merchant_order_id: merchantOrderId,
       });
-      setSuccess(`Инвойс создан: ${invoice.provider_order_id}`);
+      setSuccess(
+        invoice.payment_page_url
+          ? `Инвойс создан. Ссылка для клиента: ${invoice.payment_page_url}`
+          : `Инвойс создан: ${invoice.provider_order_id}`,
+      );
       setSelectedClientInvoiceId(invoice.id);
       setSelectedClientInvoiceDetail(invoice);
       setIsClientInvoiceModalOpen(true);

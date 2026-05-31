@@ -15,6 +15,7 @@ from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.transaction import Transaction
 from app.services.event_service import EventService
+from app.services.payment_page_service import PaymentPageService
 
 
 @dataclass
@@ -64,6 +65,7 @@ class ClientWebhookService:
                 "crypto_currency": invoice.crypto_currency,
                 "network": invoice.network,
                 "payment_address": invoice.payment_address,
+                "payment_page_url": PaymentPageService.payment_page_url_for(invoice),
                 "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
                 "confirmed_at": invoice.confirmed_at.isoformat() if invoice.confirmed_at else None,
             },
@@ -212,6 +214,7 @@ class ClientWebhookService:
                 "crypto_currency": invoice.crypto_currency,
                 "network": invoice.network,
                 "payment_address": invoice.payment_address,
+                "payment_page_url": PaymentPageService.payment_page_url_for(invoice),
                 "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
                 "confirmed_at": invoice.confirmed_at.isoformat() if invoice.confirmed_at else None,
             },

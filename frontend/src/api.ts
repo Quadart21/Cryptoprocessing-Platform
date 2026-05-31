@@ -133,6 +133,7 @@ export type InvoiceItem = {
   network: string;
   payment_address: string;
   qr_url: string | null;
+  payment_page_url: string | null;
   status: string;
   expires_at: string;
   created_at: string;
@@ -550,6 +551,8 @@ export type RateNetworkItem = {
   ticker: string | null;
   min_deposit: string | null;
   max_deposit: string | null;
+  min_deposit_fiat: string | null;
+  max_deposit_fiat: string | null;
   min_withdraw: string | null;
   max_withdraw: string | null;
   network_fee: string | null;

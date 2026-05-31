@@ -26,9 +26,23 @@ class InvoiceResponse(BaseModel):
     network: str
     payment_address: str
     qr_url: str | None
+    payment_page_url: str | None = None
     status: str
     expires_at: datetime
     created_at: datetime
+
+
+class PublicPaymentResponse(BaseModel):
+    status: str
+    amount_crypto: Decimal
+    crypto_currency: str
+    network: str
+    amount_fiat: Decimal
+    fiat_currency: str
+    payment_address: str
+    qr_url: str | None
+    expires_at: datetime
+    merchant_order_id: str
 
 
 class InvoiceAdminDetailResponse(InvoiceResponse):
