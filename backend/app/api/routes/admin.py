@@ -1159,7 +1159,15 @@ async def list_platform_assets(
     _: User = Depends(require_platform_permission("admin.assets.read")),
     db: AsyncSession = Depends(get_db),
 ) -> RatesResponse:
-    return await RatesService(db).list_rates()
+    from app.providers.crypto_cash import CryptoCashProviderError
+
+    try:
+        return await RatesService(db).list_rates()
+    except CryptoCashProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=exc.to_public_detail(),
+        ) from exc
 
 
 @router.put("/assets", response_model=AssetAvailabilityUpdateResponse)

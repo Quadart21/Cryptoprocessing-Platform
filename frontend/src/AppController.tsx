@@ -479,12 +479,12 @@ export function AppController() {
               fetchAdminTransactions(accessToken),
               fetchAdminPayouts(accessToken),
               safeLoad(() => fetchAdminEvents(accessToken), []),
-              fetchPlatformBillingSettings(accessToken),
-              fetchAdminAssets(accessToken),
-              fetchAdminPublicPages(accessToken),
-              fetchTenantBillingPolicy(accessToken, tenantId),
-              fetchAdminRoles(accessToken),
-              fetchAdminUsers(accessToken),
+              safeLoad(() => fetchPlatformBillingSettings(accessToken), null),
+              safeLoad(() => fetchAdminAssets(accessToken), { items: [] }),
+              safeLoad(() => fetchAdminPublicPages(accessToken), []),
+              safeLoad(() => fetchTenantBillingPolicy(accessToken, tenantId), null),
+              safeLoad(() => fetchAdminRoles(accessToken), []),
+              safeLoad(() => fetchAdminUsers(accessToken), []),
             ]);
           setSelectedTenantDetail(detail);
           setSelectedTenantInvoices(tenantInvoices);
@@ -525,11 +525,11 @@ export function AppController() {
               fetchAdminTransactions(accessToken),
               fetchAdminPayouts(accessToken),
               safeLoad(() => fetchAdminEvents(accessToken), []),
-              fetchPlatformBillingSettings(accessToken),
-              fetchAdminAssets(accessToken),
-              fetchAdminPublicPages(accessToken),
-              fetchAdminRoles(accessToken),
-              fetchAdminUsers(accessToken),
+              safeLoad(() => fetchPlatformBillingSettings(accessToken), null),
+              safeLoad(() => fetchAdminAssets(accessToken), { items: [] }),
+              safeLoad(() => fetchAdminPublicPages(accessToken), []),
+              safeLoad(() => fetchAdminRoles(accessToken), []),
+              safeLoad(() => fetchAdminUsers(accessToken), []),
             ]);
           setPlatformAccounting(platformSummary);
           setPlatformInvoices(allInvoices);
@@ -1535,6 +1535,20 @@ export function AppController() {
     }
   }
 
+  async function handleReloadPlatformSettings() {
+    if (!token || !user || !isPlatformRole(user.role)) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const billingSettings = await fetchPlatformBillingSettings(token);
+      setPlatformBillingSettings(billingSettings);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось загрузить настройки платформы.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleRefreshMerchantSandboxes() {
     if (!token || user?.role !== "superadmin") return;
     try {
@@ -1989,6 +2003,7 @@ return (
           onUpdateInvoiceStatus={(status) => void handleUpdateInvoiceStatus(status)}
           onSyncInvoice={(invoiceId) => void handleSyncInvoice(invoiceId)}
           onUpdatePlatformSettings={handleUpdatePlatformSettings}
+          onReloadPlatformSettings={handleReloadPlatformSettings}
           onFetchPlatformExchangeRate={handleFetchPlatformExchangeRate}
           onRefreshPlatformExchangeRate={handleRefreshPlatformExchangeRate}
           onInspectPlatformTelegramBot={(payload) => handleInspectPlatformTelegramBot(payload)}

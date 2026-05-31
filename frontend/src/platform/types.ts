@@ -138,6 +138,7 @@ export type AdminDashboardProps = {
   onUpdateInvoiceStatus: (status: string) => void;
   onSyncInvoice: (invoiceId: string) => void;
   onUpdatePlatformSettings: (payload: PlatformBillingSettings) => Promise<void>;
+  onReloadPlatformSettings: () => Promise<void>;
   onFetchPlatformExchangeRate: (currency: string) => Promise<ExchangeRateLookup>;
   onRefreshPlatformExchangeRate: () => Promise<ExchangeRateRefresh>;
   onInspectPlatformTelegramBot: (

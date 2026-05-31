@@ -26,7 +26,7 @@ class PayInLimits:
 
 
 class RatesService:
-    RATES_CACHE_KEY = "rates:all:v2"
+    RATES_CACHE_KEY = "rates:all:v3"
     RATES_CACHE_PREFIX = "rates:"
     MIN_DEPOSIT_KEYS = (
         "min_deposit",
@@ -65,6 +65,14 @@ class RatesService:
         items = self._extract_provider_items(response)
         overrides = await self._load_platform_overrides()
         rate_service = get_exchange_rate_service()
+        currencies: set[str] = set()
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            currency_name = str(item.get("currency") or item.get("ticker") or "").upper()
+            if currency_name:
+                currencies.add(currency_name)
+        fiat_rates = await rate_service.get_rates_for_symbols(sorted(currencies), "USD")
         mapped_items: list[RateItemResponse] = []
 
         for item in items:
@@ -100,15 +108,17 @@ class RatesService:
                 )
                 min_deposit = self._pick_first(limit, *self.MIN_DEPOSIT_KEYS)
                 max_deposit = self._pick_first(limit, *self.MAX_DEPOSIT_KEYS)
-                min_deposit_fiat = await self._deposit_limit_to_fiat(
-                    rate_service,
+                min_deposit_fiat = self._deposit_limit_to_fiat_sync(
                     amount=min_deposit,
                     currency=currency,
+                    fiat_rates=fiat_rates,
+                    stablecoins=rate_service.STABLECOIN_EQUIVALENTS,
                 )
-                max_deposit_fiat = await self._deposit_limit_to_fiat(
-                    rate_service,
+                max_deposit_fiat = self._deposit_limit_to_fiat_sync(
                     amount=max_deposit,
                     currency=currency,
+                    fiat_rates=fiat_rates,
+                    stablecoins=rate_service.STABLECOIN_EQUIVALENTS,
                 )
                 networks.append(
                     RateNetworkResponse(
@@ -305,20 +315,25 @@ class RatesService:
         return normalized_currency, normalized_network
 
     @staticmethod
-    async def _deposit_limit_to_fiat(
-        rate_service,
+    def _deposit_limit_to_fiat_sync(
         *,
         amount: str | None,
         currency: str,
+        fiat_rates: dict[str, Decimal],
+        stablecoins: frozenset[str],
     ) -> str | None:
         if not amount:
             return None
         parsed = RatesService._pick_decimal({"value": amount}, "value")
         if parsed is None or parsed <= Decimal("0"):
             return None
-        converted = await rate_service.convert_to_fiat(parsed, currency, "USD")
-        if converted is None:
+        normalized_currency = currency.strip().upper()
+        if normalized_currency in stablecoins:
+            return format(parsed.normalize(), "f")
+        rate = fiat_rates.get(normalized_currency)
+        if rate is None:
             return None
+        converted = (parsed * rate).quantize(Decimal("0.01"))
         return format(converted.normalize(), "f")
 
     @staticmethod

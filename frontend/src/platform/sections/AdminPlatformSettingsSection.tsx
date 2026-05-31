@@ -45,6 +45,7 @@ type AdminPlatformSettingsSectionProps = {
   tenants: TenantItem[];
   onSelectTenant: (tenantId: string) => void;
   onUpdatePlatformSettings: (payload: PlatformBillingSettings) => Promise<void>;
+  onReloadPlatformSettings: () => Promise<void>;
   onFetchPlatformExchangeRate: (currency: string) => Promise<ExchangeRateLookup>;
   onRefreshPlatformExchangeRate: () => Promise<ExchangeRateRefresh>;
   onInspectPlatformTelegramBot: (
@@ -166,6 +167,7 @@ export function AdminPlatformSettingsSection({
   tenants,
   onSelectTenant,
   onUpdatePlatformSettings,
+  onReloadPlatformSettings,
   onFetchPlatformExchangeRate,
   onRefreshPlatformExchangeRate,
   onInspectPlatformTelegramBot,
@@ -610,9 +612,19 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderUnavailable() {
+    if (loading) {
+      return (
+        <div className="aps-empty-state">
+          <p className="muted-text">Загружаем настройки платформы…</p>
+        </div>
+      );
+    }
     return (
       <div className="aps-empty-state">
         <p className="muted-text">Настройки пока не загружены.</p>
+        <button className="ghost-button" onClick={() => void onReloadPlatformSettings()} type="button">
+          Повторить загрузку
+        </button>
       </div>
     );
   }

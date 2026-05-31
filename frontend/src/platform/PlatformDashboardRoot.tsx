@@ -76,6 +76,7 @@ export function PlatformDashboardRoot({
   onUpdateInvoiceStatus,
   onSyncInvoice,
   onUpdatePlatformSettings,
+  onReloadPlatformSettings,
   onFetchPlatformExchangeRate,
   onRefreshPlatformExchangeRate,
   onInspectPlatformTelegramBot,
@@ -120,6 +121,13 @@ export function PlatformDashboardRoot({
       setSection("overview");
     }
   }, [sandboxConsoleEnabled, section]);
+
+  useEffect(() => {
+    if (section !== "platform-settings" || platformBillingSettings || !onReloadPlatformSettings) {
+      return;
+    }
+    void onReloadPlatformSettings();
+  }, [section, platformBillingSettings, onReloadPlatformSettings]);
 
   const adminMenuGroups = useMemo<DashboardRailGroup[]>(
     () =>
@@ -377,6 +385,7 @@ export function PlatformDashboardRoot({
                 onPreviewNotificationTemplate={onPreviewNotificationTemplate}
                 onSendNotificationTemplateTest={onSendNotificationTemplateTest}
                 onUpdatePlatformSettings={onUpdatePlatformSettings}
+                onReloadPlatformSettings={onReloadPlatformSettings}
                 onUpdateTenantPolicy={onUpdateTenantPolicy}
               />
             </div>
