@@ -926,14 +926,29 @@ async def list_transactions(
 ) -> list[TransactionResponse]:
     _ensure_client_api_permission(auth, "client.transactions.read")
     transaction_service = TransactionService(db)
-    return [
-        _map_transaction_response(transaction)
-        for transaction in await transaction_service.list_by_tenant(
-            auth.tenant_id,
-            project_id=auth.project_id,
-            limit=limit,
-            offset=offset,
+    transactions = await transaction_service.list_by_tenant(
+        auth.tenant_id,
+        project_id=auth.project_id,
+        limit=limit,
+        offset=offset,
+    )
+    invoice_ids = list({transaction.invoice_id for transaction in transactions})
+    invoices_by_id: dict[str, Invoice] = {}
+    if invoice_ids:
+        invoices = list(
+            (
+                await db.scalars(
+                    select(Invoice).where(
+                        Invoice.tenant_id == auth.tenant_id,
+                        Invoice.id.in_(invoice_ids),
+                    )
+                )
+            ).all()
         )
+        invoices_by_id = {str(invoice.id): invoice for invoice in invoices}
+    return [
+        _map_transaction_response(transaction, invoices_by_id.get(transaction.invoice_id))
+        for transaction in transactions
     ]
 
 
@@ -956,7 +971,8 @@ async def get_transaction(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Транзакция не найдена.",
         )
-    return _map_transaction_response(transaction)
+    invoice = await db.get(Invoice, transaction.invoice_id)
+    return _map_transaction_response(transaction, invoice)
 
 
 @router.get("/accounting/summary", response_model=AccountingSummaryResponse)
@@ -1086,6 +1102,8 @@ def _map_invoice_settlement(
     total_fee = processing_fee + platform_fee
     paid_like = invoice.status in {"paid", "confirmed"} or transaction.status in {"paid", "confirmed"}
     return InvoiceSettlementResponse(
+        amount_crypto=invoice.amount_crypto,
+        crypto_currency=invoice.crypto_currency,
         gross_amount=transaction.gross_amount,
         processing_fee=processing_fee,
         platform_fee=platform_fee,
@@ -1126,12 +1144,14 @@ def _checkout_delivery_for_invoice(
     return projects_by_id.get(invoice.project_id, CheckoutDeliveryService.normalize(None))
 
 
-def _map_transaction_response(transaction) -> TransactionResponse:
+def _map_transaction_response(transaction, invoice: Invoice | None = None) -> TransactionResponse:
     return TransactionResponse(
         id=transaction.id,
         tenant_id=transaction.tenant_id,
         project_id=transaction.project_id,
         invoice_id=transaction.invoice_id,
+        amount_crypto=invoice.amount_crypto if invoice is not None else None,
+        crypto_currency=invoice.crypto_currency if invoice is not None else None,
         gross_amount=transaction.gross_amount,
         provider_fee=transaction.provider_fee,
         platform_fee=transaction.platform_fee,

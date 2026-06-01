@@ -896,6 +896,10 @@
   text-align: right;
 }
 
+.invoice-settlement-row--crypto dd {
+  font-weight: 600;
+}
+
 .invoice-settlement-row--highlight dd {
   font-size: 16px;
 }

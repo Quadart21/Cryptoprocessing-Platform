@@ -132,7 +132,12 @@ export function TransactionsPanel({
             <article className="mc-tx-card" key={transaction.id}>
               <div className="mc-tx-card-top">
                 <div className="mc-tx-card-amount">
-                  {formatMoneyAmount(transaction.gross_amount, transaction.currency)}
+                  {transaction.amount_crypto && transaction.crypto_currency ? (
+                    <span className="tx-crypto-line">
+                      {formatMoneyAmount(transaction.amount_crypto, transaction.crypto_currency)}
+                    </span>
+                  ) : null}
+                  <span>{formatMoneyAmount(transaction.gross_amount, transaction.currency)}</span>
                 </div>
                 <span className={`status-pill status-pill-${normalizeStatus(transaction.status)}`}>
                   {transaction.status}
@@ -183,7 +188,16 @@ export function TransactionsPanel({
                       {transaction.status}
                     </span>
                   </td>
-                  <td>{formatMoneyAmount(transaction.gross_amount, transaction.currency)}</td>
+                  <td>
+                    <div className="tx-amount-cell">
+                      {transaction.amount_crypto && transaction.crypto_currency ? (
+                        <span className="tx-crypto-line">
+                          {formatMoneyAmount(transaction.amount_crypto, transaction.crypto_currency)}
+                        </span>
+                      ) : null}
+                      <span>{formatMoneyAmount(transaction.gross_amount, transaction.currency)}</span>
+                    </div>
+                  </td>
                   <td>{formatMoneyAmount(transaction.net_amount, transaction.currency)}</td>
                   <td>
                     {formatMoneyAmount(

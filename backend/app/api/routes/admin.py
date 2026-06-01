@@ -1259,7 +1259,8 @@ async def get_admin_transaction(
     transaction = await transaction_service.get_by_id(transaction_id)
     if transaction is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Транзакция не найдена.")
-    return _map_transaction_response(transaction)
+    invoice = await db.get(Invoice, transaction.invoice_id)
+    return _map_transaction_response(transaction, invoice)
 
 
 @router.get("/invoices/{invoice_id}", response_model=InvoiceAdminDetailResponse)
@@ -1289,6 +1290,23 @@ async def update_invoice_status(
             provider_status=payload.status,
             tx_hash=payload.tx_hash,
         )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return _map_invoice_admin_detail_response(invoice)
+
+
+@router.post("/invoices/{invoice_id}/repair-settlement", response_model=InvoiceAdminDetailResponse)
+async def repair_invoice_settlement(
+    invoice_id: str,
+    _: User = Depends(require_platform_permission("admin.invoices.write")),
+    db: AsyncSession = Depends(get_db),
+) -> InvoiceAdminDetailResponse:
+    invoice_service = InvoiceService(db)
+    try:
+        invoice = await invoice_service.repair_misconverted_settlement(invoice_id)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1541,12 +1559,14 @@ def _map_invoice_admin_detail_response(invoice: Invoice) -> InvoiceAdminDetailRe
     )
 
 
-def _map_transaction_response(transaction) -> TransactionResponse:
+def _map_transaction_response(transaction, invoice: Invoice | None = None) -> TransactionResponse:
     return TransactionResponse(
         id=transaction.id,
         tenant_id=transaction.tenant_id,
         project_id=transaction.project_id,
         invoice_id=transaction.invoice_id,
+        amount_crypto=invoice.amount_crypto if invoice is not None else None,
+        crypto_currency=invoice.crypto_currency if invoice is not None else None,
         gross_amount=transaction.gross_amount,
         provider_fee=transaction.provider_fee,
         platform_fee=transaction.platform_fee,

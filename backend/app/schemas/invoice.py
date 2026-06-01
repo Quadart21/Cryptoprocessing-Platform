@@ -36,6 +36,8 @@ class InvoiceResponse(BaseModel):
 class InvoiceSettlementResponse(BaseModel):
     """Merchant-facing fee breakdown (neutral labels, no provider branding)."""
 
+    amount_crypto: Decimal
+    crypto_currency: str
     gross_amount: Decimal
     processing_fee: Decimal
     platform_fee: Decimal

@@ -53,8 +53,14 @@ export function InvoiceSettlementBreakdown({
       </div>
 
       <dl className="invoice-settlement-rows">
+        <div className="invoice-settlement-row invoice-settlement-row--crypto">
+          <dt>Клиент отправил</dt>
+          <dd>
+            {formatMoney(settlement.amount_crypto, settlement.crypto_currency)}
+          </dd>
+        </div>
         <div className="invoice-settlement-row invoice-settlement-row--highlight">
-          <dt>Клиент заплатил</dt>
+          <dt>Зачёт в {currency}</dt>
           <dd>{formatMoney(settlement.gross_amount, currency)}</dd>
         </div>
         <div className="invoice-settlement-row">

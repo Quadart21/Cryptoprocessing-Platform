@@ -154,6 +154,8 @@ export type InvoiceItem = {
 };
 
 export type InvoiceSettlement = {
+  amount_crypto: string;
+  crypto_currency: string;
   gross_amount: string;
   processing_fee: string;
   platform_fee: string;
@@ -199,6 +201,8 @@ export type TransactionItem = {
   tenant_id: string;
   project_id: string;
   invoice_id: string;
+  amount_crypto: string | null;
+  crypto_currency: string | null;
   gross_amount: string;
   provider_fee: string;
   platform_fee: string;

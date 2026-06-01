@@ -9,6 +9,8 @@ class TransactionResponse(BaseModel):
     tenant_id: str
     project_id: str
     invoice_id: str
+    amount_crypto: Decimal | None = None
+    crypto_currency: str | None = None
     gross_amount: Decimal
     provider_fee: Decimal
     platform_fee: Decimal

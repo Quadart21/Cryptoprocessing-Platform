@@ -172,6 +172,12 @@ class InvoiceService:
             fiat_currency=payload.fiat_currency,
             exchange_rate_markup=exchange_rate_markup,
         )
+        resolved_balance_gross = await self.resolve_accounting_gross_amount(
+            amount_crypto=resolved_amount_crypto,
+            crypto_currency=provider_response.crypto_currency,
+            fiat_currency=self.BALANCE_CURRENCY,
+            exchange_rate_markup=exchange_rate_markup,
+        )
 
         invoice = Invoice(
             tenant_id=tenant_id,
@@ -199,11 +205,11 @@ class InvoiceService:
             tenant_id=tenant_id,
             project_id=project.id,
             invoice_id=invoice.id,
-            gross_amount=resolved_amount_fiat,
+            gross_amount=resolved_balance_gross,
             provider_fee=Decimal("0"),
             platform_fee=Decimal("0"),
             turnover_fee=Decimal("0"),
-            net_amount=resolved_amount_fiat,
+            net_amount=resolved_balance_gross,
             currency=self.BALANCE_CURRENCY,
             status="pending",
         )
@@ -306,6 +312,26 @@ class InvoiceService:
         )
         return list((await self.db.scalars(stmt)).all())
 
+    @staticmethod
+    def _sync_invoice_crypto_from_provider_payload(
+        invoice: Invoice,
+        raw_payload: dict | None,
+    ) -> None:
+        if not raw_payload:
+            return
+        item = raw_payload.get("data", {}).get("item", {}) or {}
+        for key in ("receivedAmount", "expectedAmount", "requestedAmount", "amount"):
+            raw = item.get(key)
+            if raw in (None, ""):
+                continue
+            try:
+                invoice.amount_crypto = Decimal(str(raw).replace(",", ".")).quantize(
+                    InvoiceService.AMOUNT_PRECISION,
+                )
+                return
+            except Exception:
+                continue
+
     async def apply_provider_status(
         self,
         provider_order_id: str | None,
@@ -368,6 +394,8 @@ class InvoiceService:
             return refreshed if refreshed is not None else invoice
 
         invoice.status = normalized_status
+
+        self._sync_invoice_crypto_from_provider_payload(invoice, raw_payload)
 
         stored_payload = dict(invoice.raw_provider_payload_json or {})
         stored_payload["last_webhook_status"] = provider_status
@@ -539,9 +567,6 @@ class InvoiceService:
         fiat_currency = fiat_currency.strip().upper()
         amount_crypto = Decimal(amount_crypto).quantize(self.AMOUNT_PRECISION)
 
-        if crypto_currency == fiat_currency:
-            return amount_crypto
-
         rate_service = get_exchange_rate_service()
         if (
             crypto_currency in rate_service.STABLECOIN_EQUIVALENTS
@@ -575,16 +600,21 @@ class InvoiceService:
         gross_amount = await self.resolve_accounting_gross_amount(
             amount_crypto=Decimal(invoice.amount_crypto),
             crypto_currency=invoice.crypto_currency,
-            fiat_currency=invoice.fiat_currency,
+            fiat_currency=self.BALANCE_CURRENCY,
         )
-        if gross_amount != Decimal(invoice.amount_fiat):
+        if gross_amount != Decimal(invoice.amount_fiat) and invoice.fiat_currency.upper() in {
+            "USD",
+            "USDT",
+            "USDC",
+        }:
             invoice.amount_fiat = gross_amount
+            invoice.fiat_currency = self.BALANCE_CURRENCY
             self.db.add(invoice)
 
         provider_fee, platform_fee, turnover_fee, net_amount = await self._calculate_financials(
             tenant_id=invoice.tenant_id,
             gross_amount=gross_amount,
-            fiat_currency=invoice.fiat_currency,
+            fiat_currency=self.BALANCE_CURRENCY,
         )
 
         transaction.gross_amount = gross_amount
@@ -887,4 +917,99 @@ class InvoiceService:
         if normalized not in status_map:
             raise ValueError("Неизвестный статус провайдера.")
         return status_map[normalized]
+
+    def _has_misconverted_altcoin_settlement(
+        self,
+        invoice: Invoice,
+        transaction: Transaction,
+    ) -> bool:
+        """Gross in USDT equals crypto units — classic DOGE-as-USDT bug."""
+        rate_service = get_exchange_rate_service()
+        crypto = invoice.crypto_currency.strip().upper()
+        if crypto in rate_service.STABLECOIN_EQUIVALENTS:
+            return False
+        if transaction.currency.strip().upper() != self.BALANCE_CURRENCY:
+            return False
+        gross = Decimal(transaction.gross_amount).quantize(self.AMOUNT_PRECISION)
+        amount_crypto = Decimal(invoice.amount_crypto).quantize(self.AMOUNT_PRECISION)
+        if gross != amount_crypto:
+            return False
+        return transaction.status in {"paid", "confirmed"}
+
+    async def repair_misconverted_settlement(self, invoice_id: str) -> Invoice:
+        invoice = await self.get_invoice_by_id(invoice_id)
+        if invoice is None:
+            raise ValueError("Инвойс не найден.")
+        transaction = await self.db.scalar(
+            select(Transaction).where(Transaction.invoice_id == invoice.id)
+        )
+        if transaction is None:
+            raise ValueError("Транзакция для инвойса не найдена.")
+        if not self._has_misconverted_altcoin_settlement(invoice, transaction):
+            raise ValueError("Перерасчёт для этого инвойса не требуется.")
+
+        old_gross = Decimal(transaction.gross_amount)
+        old_net = Decimal(transaction.net_amount)
+
+        new_gross = await self.resolve_accounting_gross_amount(
+            amount_crypto=Decimal(invoice.amount_crypto),
+            crypto_currency=invoice.crypto_currency,
+            fiat_currency=self.BALANCE_CURRENCY,
+        )
+        provider_fee, platform_fee, turnover_fee, new_net = await self._calculate_financials(
+            tenant_id=invoice.tenant_id,
+            gross_amount=new_gross,
+            fiat_currency=self.BALANCE_CURRENCY,
+        )
+
+        gross_delta = new_gross - old_gross
+        net_delta = new_net - old_net
+        balance_service = BalanceService(self.db)
+        balance = await balance_service.get_or_create_balance(invoice.tenant_id, self.BALANCE_CURRENCY)
+        net_bucket = "available_amount" if transaction.status == "confirmed" else "pending_amount"
+
+        if gross_delta != 0:
+            await balance_service.apply_bucket_delta(balance, "provider_gross_amount", gross_delta)
+            await balance_service.add_ledger_entry(
+                tenant_id=invoice.tenant_id,
+                currency=self.BALANCE_CURRENCY,
+                amount=abs(gross_delta),
+                direction="credit" if gross_delta > 0 else "debit",
+                balance_bucket="provider_gross_amount",
+                entry_type="invoice.settlement_repair.gross",
+                invoice_id=invoice.id,
+                transaction_id=transaction.id,
+                description="Корректировка валовой суммы после исправления конвертации altcoin→USDT.",
+                metadata_json={"old_gross": str(old_gross), "new_gross": str(new_gross)},
+            )
+        if net_delta != 0:
+            await balance_service.apply_bucket_delta(balance, net_bucket, net_delta)
+            await balance_service.add_ledger_entry(
+                tenant_id=invoice.tenant_id,
+                currency=self.BALANCE_CURRENCY,
+                amount=abs(net_delta),
+                direction="credit" if net_delta > 0 else "debit",
+                balance_bucket=net_bucket,
+                entry_type="invoice.settlement_repair.net",
+                invoice_id=invoice.id,
+                transaction_id=transaction.id,
+                description="Корректировка зачисления после исправления конвертации altcoin→USDT.",
+                metadata_json={"old_net": str(old_net), "new_net": str(new_net)},
+            )
+
+        transaction.gross_amount = new_gross
+        transaction.provider_fee = provider_fee
+        transaction.platform_fee = platform_fee
+        transaction.turnover_fee = turnover_fee
+        transaction.net_amount = new_net
+        self.db.add(transaction)
+
+        if Decimal(invoice.amount_fiat) == old_gross:
+            invoice.amount_fiat = new_gross
+            invoice.fiat_currency = self.BALANCE_CURRENCY
+            self.db.add(invoice)
+
+        await self.db.commit()
+        refreshed = await self.get_invoice_by_id(invoice_id)
+        return refreshed if refreshed is not None else invoice
 
