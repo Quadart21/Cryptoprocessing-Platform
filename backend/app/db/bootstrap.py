@@ -76,6 +76,14 @@ DDL_PATCHES = [
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS checkout_delivery VARCHAR(32) NOT NULL DEFAULT 'both'
     """,
+    """
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS return_url_success VARCHAR(500)
+    """,
+    """
+    ALTER TABLE projects
+    ADD COLUMN IF NOT EXISTS return_url_failed VARCHAR(500)
+    """,
     # api_keys
     """
     ALTER TABLE api_keys

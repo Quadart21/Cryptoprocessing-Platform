@@ -639,6 +639,8 @@ async def configure_webhook(
             webhook_url=payload.webhook_url,
             webhook_secret=payload.webhook_secret,
             checkout_delivery=payload.checkout_delivery,
+            return_url_success=payload.return_url_success,
+            return_url_failed=payload.return_url_failed,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -647,6 +649,8 @@ async def configure_webhook(
         webhook_url=project.webhook_url,
         has_secret=ProjectService.has_webhook_secret(project),
         checkout_delivery=CheckoutDeliveryService.normalize(project.checkout_delivery),
+        return_url_success=project.return_url_success,
+        return_url_failed=project.return_url_failed,
     )
 
 
@@ -662,6 +666,8 @@ async def list_webhooks(
             webhook_url=project.webhook_url,
             has_secret=ProjectService.has_webhook_secret(project),
             checkout_delivery=CheckoutDeliveryService.normalize(project.checkout_delivery),
+            return_url_success=project.return_url_success,
+            return_url_failed=project.return_url_failed,
         )
         for project in await project_service.list_projects_by_tenant(current_user.tenant_id or "")
     ]

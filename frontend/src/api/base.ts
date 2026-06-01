@@ -108,6 +108,8 @@ export type WebhookConfigItem = {
   webhook_url: string | null;
   has_secret: boolean;
   checkout_delivery: CheckoutDeliveryMode;
+  return_url_success: string | null;
+  return_url_failed: string | null;
 };
 
 export type WebhookTestResponse = {

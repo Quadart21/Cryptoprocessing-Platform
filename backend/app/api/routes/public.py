@@ -26,7 +26,7 @@ async def get_public_payment(
     invoice = await payment_service.get_invoice_by_token(payment_token)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
-    return payment_service.to_public_response(invoice)
+    return await payment_service.to_public_response(invoice)
 
 
 @router.post("/pay/{payment_token}/refresh", response_model=PublicPaymentResponse)
@@ -53,4 +53,4 @@ async def refresh_public_payment(
             if refreshed is not None:
                 invoice = refreshed
 
-    return payment_service.to_public_response(invoice)
+    return await payment_service.to_public_response(invoice)

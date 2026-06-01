@@ -47,11 +47,15 @@ export const initialWebhookForm: {
   webhook_url: string;
   webhook_secret: string;
   checkout_delivery: CheckoutDeliveryMode;
+  return_url_success: string;
+  return_url_failed: string;
 } = {
   project_id: "",
   webhook_url: "",
   webhook_secret: "",
   checkout_delivery: "payment_page",
+  return_url_success: "",
+  return_url_failed: "",
 };
 
 export const initialPayoutForm: CreatePayoutPayload = {

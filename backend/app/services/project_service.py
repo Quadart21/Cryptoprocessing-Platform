@@ -92,6 +92,8 @@ class ProjectService:
         webhook_url: str | None = None,
         webhook_secret: str | None = None,
         checkout_delivery: str | None = None,
+        return_url_success: str | None = None,
+        return_url_failed: str | None = None,
     ) -> Project:
         project = await self.get_project(project_id)
         if project is None or project.tenant_id != tenant_id:
@@ -99,22 +101,35 @@ class ProjectService:
 
         if webhook_url is not None:
             trimmed = webhook_url.strip()
-            if not trimmed:
-                raise ValueError("Webhook URL не может быть пустым.")
-            project.webhook_url = self._normalize_webhook_url(trimmed)
+            if trimmed:
+                project.webhook_url = self._normalize_webhook_url(trimmed)
 
         if checkout_delivery is not None:
             from app.services.checkout_delivery_service import CheckoutDeliveryService
 
             project.checkout_delivery = CheckoutDeliveryService.normalize(checkout_delivery)
 
+        if return_url_success is not None:
+            project.return_url_success = self._normalize_return_url(return_url_success)
+
+        if return_url_failed is not None:
+            project.return_url_failed = self._normalize_return_url(return_url_failed)
+
         secret = (webhook_secret or "").strip()
         if secret:
             project.webhook_secret_hash = KeyService.hash_secret(secret)
             project.webhook_secret_encrypted = encrypt_value(secret)
 
-        if webhook_url is None and checkout_delivery is None and not secret:
-            raise ValueError("Укажите webhook URL, checkout_delivery или secret.")
+        has_return_update = return_url_success is not None or return_url_failed is not None
+        if (
+            webhook_url is None
+            and checkout_delivery is None
+            and not secret
+            and not has_return_update
+        ):
+            raise ValueError(
+                "Укажите webhook URL, checkout_delivery, ссылки возврата в магазин или secret.",
+            )
 
         self.db.add(project)
         await self.db.commit()
@@ -237,6 +252,26 @@ class ProjectService:
             if _is_blocked_ip(ip_value):
                 raise ValueError("Webhook target points to private/local/metadata network.")
 
+        return normalized
+
+    @staticmethod
+    def _normalize_return_url(value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        parsed = urlparse(normalized)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("Ссылка возврата должна начинаться с http:// или https:// и содержать хост.")
+        if settings.is_production and parsed.scheme != "https":
+            raise ValueError("Ссылка возврата в production должна использовать HTTPS.")
+        if (
+            not settings.is_production
+            and not settings.webhook_allow_http_in_local
+            and parsed.scheme != "https"
+        ):
+            raise ValueError("Ссылка возврата должна использовать HTTPS.")
         return normalized
 
 

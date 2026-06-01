@@ -129,6 +129,8 @@ export function updateWebhookConfig(
     webhook_url?: string;
     webhook_secret?: string;
     checkout_delivery?: CheckoutDeliveryMode;
+    return_url_success?: string | null;
+    return_url_failed?: string | null;
   },
 ): Promise<WebhookConfigItem> {
   return request<WebhookConfigItem>("/client/webhooks", {

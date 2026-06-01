@@ -63,6 +63,9 @@ class PublicPaymentResponse(BaseModel):
     qr_url: str | None
     expires_at: datetime
     merchant_order_id: str
+    merchant_name: str | None = None
+    return_url_success: str | None = None
+    return_url_failed: str | None = None
 
 
 class InvoiceAdminDetailResponse(InvoiceResponse):

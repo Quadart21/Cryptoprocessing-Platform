@@ -57,6 +57,8 @@ class WebhookConfigRequest(BaseModel):
     webhook_url: str | None = Field(default=None, min_length=8, max_length=500)
     webhook_secret: str | None = Field(default=None, max_length=255)
     checkout_delivery: CheckoutDeliveryMode | None = None
+    return_url_success: str | None = Field(default=None, max_length=500)
+    return_url_failed: str | None = Field(default=None, max_length=500)
 
 
 class WebhookConfigResponse(BaseModel):
@@ -64,6 +66,8 @@ class WebhookConfigResponse(BaseModel):
     webhook_url: str | None
     has_secret: bool
     checkout_delivery: CheckoutDeliveryMode = "both"
+    return_url_success: str | None = None
+    return_url_failed: str | None = None
 
 
 class WebhookTestRequest(BaseModel):

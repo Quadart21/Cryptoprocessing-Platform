@@ -17,4 +17,6 @@ class Project(UUIDPrimaryKeyMixin, TenantBoundMixin, TimestampMixin, Base):
     checkout_delivery: Mapped[str] = mapped_column(
         String(32), nullable=False, default="both"
     )
+    return_url_success: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    return_url_failed: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending_review")

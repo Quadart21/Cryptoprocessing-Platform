@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.invoice import Invoice
+from app.models.project import Project
 from app.schemas.invoice import PublicPaymentResponse
 
 
@@ -46,8 +47,11 @@ class PaymentPageService:
         await self.db.flush()
         return invoice.payment_token
 
-    @staticmethod
-    def to_public_response(invoice: Invoice) -> PublicPaymentResponse:
+    async def to_public_response(self, invoice: Invoice) -> PublicPaymentResponse:
+        project = await self.db.get(Project, invoice.project_id)
+        merchant_name = project.name if project is not None else None
+        return_url_success = project.return_url_success if project is not None else None
+        return_url_failed = project.return_url_failed if project is not None else None
         return PublicPaymentResponse(
             status=invoice.status,
             amount_crypto=invoice.amount_crypto,
@@ -59,4 +63,7 @@ class PaymentPageService:
             qr_url=invoice.qr_url,
             expires_at=invoice.expires_at,
             merchant_order_id=invoice.merchant_order_id,
+            merchant_name=merchant_name,
+            return_url_success=return_url_success,
+            return_url_failed=return_url_failed,
         )

@@ -440,6 +440,37 @@ export function IntegrationCommandCenter({
                   <option value="both">Оба варианта</option>
                 </select>
               </label>
+
+              <div className="integration-card-head" style={{ marginTop: "1.25rem" }}>
+                <strong>Возврат в магазин</strong>
+                <span>Ссылки на платёжной странице</span>
+              </div>
+              <p className="integration-inline-note">
+                После оплаты или ошибки покупатель увидит кнопку «Вернуться в магазин». Можно добавить
+                свои query-параметры, например{" "}
+                <code>?order_id=123&amp;status=success</code>.
+              </p>
+              <label className="mc-field">
+                <span>Успешная оплата (success)</span>
+                <input
+                  value={webhookForm.return_url_success}
+                  onChange={(event) =>
+                    onWebhookFormChange({ ...webhookForm, return_url_success: event.target.value })
+                  }
+                  placeholder="https://your-shop.com/checkout/success"
+                />
+              </label>
+              <label className="mc-field">
+                <span>Ошибка или отмена (failed)</span>
+                <input
+                  value={webhookForm.return_url_failed}
+                  onChange={(event) =>
+                    onWebhookFormChange({ ...webhookForm, return_url_failed: event.target.value })
+                  }
+                  placeholder="https://your-shop.com/checkout/failed"
+                />
+              </label>
+
               <p className="integration-inline-note">
                 Настройка проекта: в ответе POST /invoices и в webhook приходит только выбранный формат.
                 Платёжная страница — `payment_page_url` (`/pay/&#123;token&#125;`). H2H — `payment_address` и `qr_url`.

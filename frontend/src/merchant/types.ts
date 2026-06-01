@@ -27,6 +27,8 @@ export type WebhookFormState = {
   webhook_url: string;
   webhook_secret: string;
   checkout_delivery: CheckoutDeliveryMode;
+  return_url_success: string;
+  return_url_failed: string;
 };
 
 /** Публичный контракт экрана кабинета (AppController → ClientDashboard). */

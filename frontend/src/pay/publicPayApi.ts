@@ -11,6 +11,9 @@ export type PublicPayment = {
   qr_url: string | null;
   expires_at: string;
   merchant_order_id: string;
+  merchant_name: string | null;
+  return_url_success: string | null;
+  return_url_failed: string | null;
 };
 
 async function parseError(response: Response): Promise<string> {

@@ -372,6 +372,8 @@ export function AppController() {
       ...current,
       webhook_url: currentConfig?.webhook_url ?? "",
       checkout_delivery: currentConfig?.checkout_delivery ?? "payment_page",
+      return_url_success: currentConfig?.return_url_success ?? "",
+      return_url_failed: currentConfig?.return_url_failed ?? "",
     }));
   }, [webhookConfigs, webhookForm.project_id]);
 
@@ -1214,7 +1216,14 @@ export function AppController() {
       setLoading(true);
       setError(null);
       setSuccess(null);
-      const result = await updateWebhookConfig(token, webhookForm);
+      const result = await updateWebhookConfig(token, {
+        project_id: webhookForm.project_id,
+        webhook_url: webhookForm.webhook_url.trim() || undefined,
+        webhook_secret: webhookForm.webhook_secret.trim() || undefined,
+        checkout_delivery: webhookForm.checkout_delivery,
+        return_url_success: webhookForm.return_url_success.trim() || null,
+        return_url_failed: webhookForm.return_url_failed.trim() || null,
+      });
       const webhookItems = await fetchWebhookConfigs(token);
       setWebhookConfigs(webhookItems);
       setSuccess(
