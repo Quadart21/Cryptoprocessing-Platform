@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.14.6] — 2026-06-02
+
+### Исправлено
+
+- **Старт API после v0.14.5**: убран импорт несуществующего `ConnectionLimitExceededError` — из‑за него падал `cryptoprocessing.service`.
+
+---
+
 ## [0.14.5] — 2026-06-02
 
 ### Добавлено

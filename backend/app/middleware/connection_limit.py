@@ -6,9 +6,7 @@ from starlette.responses import JSONResponse, Response
 
 from app.core.config import settings
 from app.services.connection_limit_service import (
-    ConnectionLimitExceededError,
     ConnectionLimitService,
-    ConnectionLease,
     get_connection_limit_service,
 )
 
