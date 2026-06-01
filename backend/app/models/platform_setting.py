@@ -13,7 +13,7 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     code: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
     provider_fee_percent: Mapped[Decimal] = mapped_column(
-        Numeric(10, 4), nullable=False, default=Decimal("0.2000")
+        Numeric(10, 4), nullable=False, default=Decimal("1.0000")
     )
     default_markup_percent: Mapped[Decimal] = mapped_column(
         Numeric(10, 4), nullable=False, default=Decimal("0.0000")
@@ -86,9 +86,9 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
-    # Минимальная наценка платформы (USDT) для депозитов в диапазоне эквивалента в USDT [low, high].
+    # Минимум суммарной комиссии (провайдер + платформа) в USDT.
     platform_markup_min_usdt: Mapped[Decimal] = mapped_column(
-        Numeric(18, 8), nullable=False, default=Decimal("0.5")
+        Numeric(18, 8), nullable=False, default=Decimal("0.55")
     )
     platform_markup_min_band_usdt_low: Mapped[Decimal] = mapped_column(
         Numeric(18, 8), nullable=False, default=Decimal("10")

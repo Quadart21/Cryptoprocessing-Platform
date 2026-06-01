@@ -65,17 +65,18 @@ class NotificationTemplateTestResponse(NotificationTemplatePreviewResponse):
 
 class PlatformBillingSettingsResponse(BaseModel):
     provider_fee_percent: Decimal = Field(
-        default=Decimal("1"),
-        description="Фиксировано в коде: 1% комиссия провайдера (Crypto-Cash).",
+        description="Комиссия провайдера (Crypto-Cash), % от gross.",
     )
-    default_markup_percent: Decimal
+    default_markup_percent: Decimal = Field(
+        description="Наценка платформы, % от gross.",
+    )
     default_turnover_fee_percent: Decimal = Field(
         default=Decimal("0"),
-        description="Не используется; оставлено для совместимости API.",
+        description="Не используется; совместимость API.",
     )
     platform_markup_min_usdt: Decimal = Field(
         default=Decimal("0.55"),
-        description="Минимум суммарной комиссии (провайдер + платформа) в USDT; фиксировано в коде.",
+        description="Минимум суммарной комиссии (провайдер + платформа) в USDT.",
     )
     platform_markup_min_band_usdt_low: Decimal = Field(
         default=Decimal("0"),
@@ -134,15 +135,15 @@ class ExchangeRateRefreshResponse(BaseModel):
 
 
 class PlatformBillingSettingsUpdateRequest(BaseModel):
+    provider_fee_percent: Decimal
     default_markup_percent: Decimal
+    platform_markup_min_usdt: Decimal = Field(
+        default=Decimal("0.55"),
+        description="Минимум суммарной комиссии (провайдер + платформа) в USDT.",
+    )
     allow_tenant_markup_override: bool
     payouts_enabled: bool
-    provider_fee_percent: Decimal | None = Field(
-        default=None,
-        description="Игнорируется (в коде 1%).",
-    )
     default_turnover_fee_percent: Decimal | None = Field(default=None, description="Игнорируется.")
-    platform_markup_min_usdt: Decimal | None = Field(default=None, description="Игнорируется (0.55 USDT).")
     platform_markup_min_band_usdt_low: Decimal | None = None
     platform_markup_min_band_usdt_high: Decimal | None = None
     allow_tenant_turnover_fee_override: bool | None = None

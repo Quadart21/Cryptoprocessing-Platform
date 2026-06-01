@@ -25,11 +25,6 @@ from app.services.statistics_exclusion_service import StatisticsExclusionService
 
 logger = logging.getLogger(__name__)
 
-# Комиссия Crypto-Cash (провайдер) — фиксирована в коде.
-PROVIDER_FEE_PERCENT = Decimal("1")
-# Минимум суммарной комиссии (провайдер + платформа) в USDT.
-MIN_TOTAL_PAYMENT_FEE_USDT = Decimal("0.55")
-
 
 class InvoiceAmountOutOfRangeError(ValueError):
     def __init__(
@@ -631,7 +626,7 @@ class InvoiceService:
         await balance_service.apply_bucket_delta(balance, "provider_gross_amount", gross_amount)
         await balance_service.apply_bucket_delta(balance, "pending_amount", net_amount)
 
-        provider_percent = PROVIDER_FEE_PERCENT
+        provider_percent = await BillingPolicyService(self.db).get_provider_fee_percent()
         markup_percent = await BillingPolicyService(self.db).get_effective_markup_percent(invoice.tenant_id)
 
         await balance_service.add_ledger_entry(
@@ -727,15 +722,18 @@ class InvoiceService:
         fiat_currency: str,
     ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
         billing_policy_service = BillingPolicyService(self.db)
+        provider_fee_percent = await billing_policy_service.get_provider_fee_percent()
         markup_percent = await billing_policy_service.get_effective_markup_percent(tenant_id)
+        min_total_fee_usdt = await billing_policy_service.get_min_total_payment_fee_usdt()
 
-        provider_fee = self._calculate_percent_amount(gross_amount, PROVIDER_FEE_PERCENT)
+        provider_fee = self._calculate_percent_amount(gross_amount, provider_fee_percent)
         platform_fee = self._calculate_percent_amount(gross_amount, markup_percent)
         provider_fee, platform_fee = await self._apply_min_total_fee_usdt(
             provider_fee=provider_fee,
             platform_fee=platform_fee,
             gross_amount=gross_amount,
             fiat_currency=fiat_currency,
+            min_total_fee_usdt=min_total_fee_usdt,
         )
         turnover_fee = Decimal("0")
         total_fee = (provider_fee + platform_fee).quantize(self.AMOUNT_PRECISION)
@@ -751,10 +749,11 @@ class InvoiceService:
         platform_fee: Decimal,
         gross_amount: Decimal,
         fiat_currency: str,
+        min_total_fee_usdt: Decimal,
     ) -> tuple[Decimal, Decimal]:
-        """Если provider + platform < 0.55 USDT, итоговая комиссия = 0.55 USDT (пропорционально)."""
+        """Если provider + platform < min USDT, итоговая комиссия = min (пропорционально)."""
         raw_total = (provider_fee + platform_fee).quantize(self.AMOUNT_PRECISION)
-        if raw_total <= Decimal("0"):
+        if raw_total <= Decimal("0") or min_total_fee_usdt <= Decimal("0"):
             return provider_fee, platform_fee
 
         fc = (fiat_currency or self.BALANCE_CURRENCY).strip().upper()
@@ -764,17 +763,21 @@ class InvoiceService:
         if total_usdt is None:
             logger.warning("Skipping min total fee USDT: no rate for %s/USDT", fc)
             return provider_fee, platform_fee
-        if total_usdt >= MIN_TOTAL_PAYMENT_FEE_USDT:
+        if total_usdt >= min_total_fee_usdt:
             return provider_fee, platform_fee
 
         target_total = await rate_svc.convert_from_fiat(
-            MIN_TOTAL_PAYMENT_FEE_USDT,
+            min_total_fee_usdt,
             fc,
             "USDT",
             zero_markup,
         )
         if target_total is None:
-            logger.warning("Skipping min total fee USDT: cannot convert 0.55 USDT to %s", fc)
+            logger.warning(
+                "Skipping min total fee USDT: cannot convert %s USDT to %s",
+                min_total_fee_usdt,
+                fc,
+            )
             return provider_fee, platform_fee
 
         target_total = min(target_total.quantize(self.AMOUNT_PRECISION), gross_amount)

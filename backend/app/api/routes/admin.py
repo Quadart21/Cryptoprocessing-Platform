@@ -882,7 +882,9 @@ async def update_platform_billing_settings(
     billing_policy_service = BillingPolicyService(db)
     try:
         platform_settings = await billing_policy_service.update_platform_settings(
+            provider_fee_percent=payload.provider_fee_percent,
             default_markup_percent=payload.default_markup_percent,
+            platform_markup_min_usdt=payload.platform_markup_min_usdt,
             allow_tenant_markup_override=payload.allow_tenant_markup_override,
             payouts_enabled=payload.payouts_enabled,
             exchange_rate_markup_percent=payload.exchange_rate_markup_percent,
@@ -1439,10 +1441,10 @@ async def _map_platform_billing_settings_response(
     current_exchange_rates: dict[str, Decimal] | None = None,
 ) -> PlatformBillingSettingsResponse:
     return PlatformBillingSettingsResponse(
-        provider_fee_percent=Decimal("1"),
+        provider_fee_percent=platform_settings.provider_fee_percent,
         default_markup_percent=platform_settings.default_markup_percent,
         default_turnover_fee_percent=Decimal("0"),
-        platform_markup_min_usdt=Decimal("0.55"),
+        platform_markup_min_usdt=platform_settings.platform_markup_min_usdt,
         platform_markup_min_band_usdt_low=Decimal("0"),
         platform_markup_min_band_usdt_high=Decimal("0"),
         allow_tenant_markup_override=platform_settings.allow_tenant_markup_override,

@@ -92,7 +92,10 @@ class BillingPolicyService:
         return Decimal("0")
 
     async def get_provider_fee_percent(self) -> Decimal:
-        return Decimal("1")
+        return Decimal((await self.get_platform_settings()).provider_fee_percent)
+
+    async def get_min_total_payment_fee_usdt(self) -> Decimal:
+        return Decimal((await self.get_platform_settings()).platform_markup_min_usdt)
 
     async def get_exchange_rate_markup_percent(self) -> Decimal:
         try:
@@ -176,7 +179,9 @@ class BillingPolicyService:
     async def update_platform_settings(
         self,
         *,
+        provider_fee_percent: Decimal,
         default_markup_percent: Decimal,
+        platform_markup_min_usdt: Decimal,
         allow_tenant_markup_override: bool,
         payouts_enabled: bool,
         exchange_rate_markup_percent: Decimal = Decimal("0"),
@@ -188,15 +193,15 @@ class BillingPolicyService:
         seo_og_image_url: str | None = None,
         seo_robots: str = "index, follow",
         seo_canonical_url: str | None = None,
-        # Устаревшие поля — игнорируются (комиссия провайдера 1%, минимум 0.55 USDT в коде).
-        provider_fee_percent: Decimal | None = None,
+        # Не используются (совместимость API).
         default_turnover_fee_percent: Decimal | None = None,
         allow_tenant_turnover_fee_override: bool | None = None,
-        platform_markup_min_usdt: Decimal | None = None,
         platform_markup_min_band_usdt_low: Decimal | None = None,
         platform_markup_min_band_usdt_high: Decimal | None = None,
     ) -> PlatformSetting:
+        self._validate_percent(provider_fee_percent, "provider_fee_percent")
         self._validate_percent(default_markup_percent, "default_markup_percent")
+        self._validate_non_negative(platform_markup_min_usdt, "platform_markup_min_usdt")
         self._validate_rate_adjustment_percent(
             exchange_rate_markup_percent,
             "exchange_rate_markup_percent",
@@ -206,7 +211,9 @@ class BillingPolicyService:
         )
 
         settings = await self.get_platform_settings()
+        settings.provider_fee_percent = provider_fee_percent
         settings.default_markup_percent = default_markup_percent
+        settings.platform_markup_min_usdt = platform_markup_min_usdt
         settings.allow_tenant_markup_override = allow_tenant_markup_override
         settings.payouts_enabled = payouts_enabled
         settings.exchange_rate_markup_percent = exchange_rate_markup_percent

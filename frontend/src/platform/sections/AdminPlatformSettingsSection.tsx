@@ -213,16 +213,7 @@ export function AdminPlatformSettingsSection({
   const telegramEditorRef = useRef<NotificationTemplateWysiwygHandle | null>(null);
 
   useEffect(() => {
-    setPlatformSettingsForm(
-      platformBillingSettings
-        ? {
-            ...platformBillingSettings,
-            provider_fee_percent: "1",
-            default_turnover_fee_percent: "0",
-            platform_markup_min_usdt: "0.55",
-          }
-        : null,
-    );
+    setPlatformSettingsForm(platformBillingSettings ? { ...platformBillingSettings } : null);
     setSmtpBzApiKey("");
     setTelegramBotToken("");
     setAdminTelegramChatId("");
@@ -634,16 +625,39 @@ export function AdminPlatformSettingsSection({
         <FieldGrid>
           <label>
             <span>Комиссия провайдера (%)</span>
-            <input type="text" readOnly disabled value="1" />
+            <input
+              type="number"
+              step="0.0001"
+              min="0"
+              max="100"
+              value={platformSettingsForm.provider_fee_percent}
+              onChange={(event) =>
+                updatePlatformSettings({ provider_fee_percent: event.target.value })
+              }
+            />
           </label>
           <label>
             <span>Наценка платформы (%)</span>
             <input
               type="number"
               step="0.0001"
+              min="0"
+              max="100"
               value={platformSettingsForm.default_markup_percent}
               onChange={(event) =>
                 updatePlatformSettings({ default_markup_percent: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            <span>Минимум комиссии (USDT)</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={platformSettingsForm.platform_markup_min_usdt}
+              onChange={(event) =>
+                updatePlatformSettings({ platform_markup_min_usdt: event.target.value })
               }
             />
           </label>
@@ -658,14 +672,11 @@ export function AdminPlatformSettingsSection({
               }
             />
           </label>
-          <label>
-            <span>Минимум комиссии (USDT)</span>
-            <input type="text" readOnly disabled value="0.55" />
-          </label>
         </FieldGrid>
         <p className="muted-text aps-field-span-2" style={{ gridColumn: "1 / -1", marginTop: "0.5rem" }}>
-          Комиссия с платежа = 1% провайдера + ваша наценка (% от суммы зачёта). Если сумма меньше 0.55
-          USDT — взимается 0.55 USDT. Оба процента считаются от одной и той же суммы (gross).
+          Комиссия с платежа = % провайдера + % платформы (оба от суммы зачёта). Если сумма комиссий
+          меньше минимума в USDT — взимается минимум. Наценку по клиентам можно переопределить в блоке
+          «Правила клиента».
         </p>
       </div>
     );
