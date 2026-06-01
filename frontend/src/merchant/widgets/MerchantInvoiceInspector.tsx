@@ -211,6 +211,8 @@ export function MerchantInvoiceInspector({
           </div>
 
           <InvoiceSettlementBreakdown
+            fallbackAmountCrypto={invoice.amount_crypto}
+            fallbackCryptoCurrency={invoice.crypto_currency}
             fallbackCurrency={invoice.fiat_currency}
             invoiceStatus={invoice.status}
             settlement={invoice.settlement}

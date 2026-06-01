@@ -4,6 +4,7 @@ import { formatDecimal, formatMoneyAmount } from "../../utils/format";
 import { invoiceCompactPillClass, invoiceStatusLabelRu } from "../../utils/invoiceStatus";
 import {
   findTransactionForInvoice,
+  invoiceCanAttemptSettlementRepair,
   invoiceNeedsSettlementRepair,
 } from "../../utils/invoiceSettlementRepair";
 import type {
@@ -131,6 +132,9 @@ export function AdminClientDetailSection({
     ? findTransactionForInvoice(selectedTenantTransactions, selectedInvoiceDetail.id)
     : undefined;
   const showRepairSettlement =
+    selectedInvoiceDetail !== null &&
+    invoiceCanAttemptSettlementRepair(selectedInvoiceDetail, selectedInvoiceTransaction);
+  const repairLooksMisconverted =
     selectedInvoiceDetail !== null &&
     invoiceNeedsSettlementRepair(selectedInvoiceDetail, selectedInvoiceTransaction);
 
@@ -692,11 +696,16 @@ export function AdminClientDetailSection({
                         <p>Оплачен: {selectedInvoiceDetail.paid_at ?? "Еще нет"}</p>
                         <p>Подтвержден: {selectedInvoiceDetail.confirmed_at ?? "Еще нет"}</p>
                       </div>
-                      {showRepairSettlement ? (
+                      {repairLooksMisconverted ? (
                         <p className="muted-text pw-repair-hint">
                           Обнаружена ошибка учёта: gross в USDT совпадает с суммой в{" "}
                           {selectedInvoiceDetail.crypto_currency}. Нажмите «Пересчитать settlement» — gross и
                           комиссии будут пересчитаны по курсу.
+                        </p>
+                      ) : showRepairSettlement ? (
+                        <p className="muted-text pw-repair-hint">
+                          Оплаченный altcoin-инвойс: при необходимости можно пересчитать settlement в USDT по
+                          текущему курсу.
                         </p>
                       ) : null}
                       <div className="action-row-inline pw-action-strip">

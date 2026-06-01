@@ -1425,11 +1425,13 @@ export function AppController() {
       setLoading(true);
       setError(null);
       setSuccess(null);
+      const { csrf_token } = await fetchCsrfToken(token);
+      applyCsrfToken(csrf_token);
       const invoice = await repairAdminInvoiceSettlement(token, invoiceId);
       const [invoiceItems, transactionItems, eventItems] = await Promise.all([
         fetchAdminInvoices(token),
         fetchAdminTransactions(token),
-        fetchAdminEvents(token),
+        safeLoad(() => fetchAdminEvents(token), []),
       ]);
       setPlatformInvoices(invoiceItems);
       setPlatformTransactions(transactionItems);

@@ -5,6 +5,8 @@ type InvoiceSettlementBreakdownProps = {
   settlement: InvoiceSettlement | null | undefined;
   invoiceStatus: string;
   fallbackCurrency: string;
+  fallbackAmountCrypto?: string | null;
+  fallbackCryptoCurrency?: string | null;
 };
 
 function formatMoney(amount: string, currency: string): string {
@@ -20,8 +22,12 @@ export function InvoiceSettlementBreakdown({
   settlement,
   invoiceStatus,
   fallbackCurrency,
+  fallbackAmountCrypto,
+  fallbackCryptoCurrency,
 }: InvoiceSettlementBreakdownProps) {
   const currency = settlement?.currency ?? fallbackCurrency;
+  const amountCrypto = settlement?.amount_crypto ?? fallbackAmountCrypto ?? "0";
+  const cryptoCurrency = settlement?.crypto_currency ?? fallbackCryptoCurrency ?? "—";
   const showFinal = settlement?.is_final ?? isPaidLikeStatus(invoiceStatus);
 
   if (!settlement) {
@@ -56,7 +62,7 @@ export function InvoiceSettlementBreakdown({
         <div className="invoice-settlement-row invoice-settlement-row--crypto">
           <dt>Клиент отправил</dt>
           <dd>
-            {formatMoney(settlement.amount_crypto, settlement.crypto_currency)}
+            {formatMoney(amountCrypto, cryptoCurrency)}
           </dd>
         </div>
         <div className="invoice-settlement-row invoice-settlement-row--highlight">
