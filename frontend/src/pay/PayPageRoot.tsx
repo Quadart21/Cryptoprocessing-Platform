@@ -157,6 +157,14 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     ? `${formatDecimal(payment.amount_crypto)} ${payment.crypto_currency}`
     : "";
 
+  const headerTitle = payment?.merchant_name ?? (
+    <>
+      Noren<span>Cash</span>
+    </>
+  );
+
+  const awaiting = payment && !isSuccessStatus(payment.status) && !isFailedStatus(payment.status);
+
   async function copyValue(label: string, value: string) {
     try {
       await navigator.clipboard.writeText(value);
@@ -169,61 +177,55 @@ export function PayPageRoot({ token }: PayPageRootProps) {
 
   return (
     <div className="pp-page">
-      <div className="pp-aurora pp-aurora--one" aria-hidden />
-      <div className="pp-aurora pp-aurora--two" aria-hidden />
+      <div className="pp-nebula pp-nebula--one" aria-hidden />
+      <div className="pp-nebula pp-nebula--two" aria-hidden />
       <div className="pp-grid-bg" aria-hidden />
 
       <main className="pp-shell">
-        <header className="pp-topbar">
-          <div className="pp-brand">
-            <span className="pp-brand-gem" aria-hidden />
+        <header className="pp-header">
+          <div className="pp-header-user">
+            <span className="pp-avatar" aria-hidden>
+              NC
+            </span>
             <div>
-              <p className="pp-eyebrow">Secure checkout</p>
-              <h1 className="pp-brand-title">
-                Noren<span>Cash</span>
-              </h1>
+              <p className="pp-greeting">Безопасная оплата</p>
+              <h1 className="pp-header-title">{headerTitle}</h1>
             </div>
           </div>
-          {payment?.merchant_name ? (
-            <p className="pp-merchant">{payment.merchant_name}</p>
-          ) : null}
           {statusMeta ? (
             <span className={`pp-pill pp-pill--${tone}`}>{statusMeta.label}</span>
           ) : null}
         </header>
 
         {loading ? (
-          <section className="pp-card pp-card--state">
+          <section className="pp-glass pp-card--state">
             <div className="pp-spinner" aria-hidden />
             <p className="pp-muted">Подготавливаем платёж…</p>
           </section>
         ) : null}
 
         {!loading && error ? (
-          <section className="pp-card pp-card--state">
+          <section className="pp-glass pp-card--state">
             <h2 className="pp-title">Платёж недоступен</h2>
             <p className="pp-muted">{error}</p>
           </section>
         ) : null}
 
         {!loading && payment && !error ? (
-          <div className="pp-layout">
-            <section className="pp-card pp-card--summary">
-              <p className="pp-eyebrow pp-eyebrow--gold">Сумма к оплате</p>
-              <div className="pp-amount-block">
-                <strong className="pp-amount">{amountLine}</strong>
-                <span className="pp-amount-fiat">
-                  ≈ {formatDecimal(payment.amount_fiat)} {payment.fiat_currency}
-                </span>
+          <>
+            <section className="pp-glass pp-hero">
+              <p className="pp-hero-label">Сумма к оплате</p>
+              <strong className="pp-hero-amount">{amountLine}</strong>
+              <span className="pp-hero-fiat">
+                ≈ {formatDecimal(payment.amount_fiat)} {payment.fiat_currency}
+              </span>
+              <div className="pp-hero-pills">
+                <span className="pp-chip">{payment.network}</span>
+                <span className="pp-chip pp-chip--muted">Заказ {payment.merchant_order_id}</span>
               </div>
 
-              <div className="pp-meta-row">
-                <span className="pp-tag">{payment.network}</span>
-                <span className="pp-tag">Заказ {payment.merchant_order_id}</span>
-              </div>
-
-              {!isSuccessStatus(payment.status) && !isFailedStatus(payment.status) ? (
-                <div className="pp-timer">
+              {awaiting ? (
+                <div className="pp-timer-bar">
                   <div
                     className="pp-timer-ring"
                     style={{ "--pp-progress": String(countdown.progress) } as CSSProperties}
@@ -237,110 +239,136 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                   </div>
                 </div>
               ) : null}
-
-              {isSuccessStatus(payment.status) ? (
-                <div className="pp-terminal pp-terminal--success">
-                  <div className="pp-terminal-icon" aria-hidden>
-                    ✓
-                  </div>
-                  <h2 className="pp-title">Оплата получена</h2>
-                  <p className="pp-muted">
-                    Средства зафиксированы. Продавец получит уведомление — можете закрыть эту вкладку.
-                  </p>
-                  {payment.return_url_success ? (
-                    <ReturnToShopBanner
-                      autoRedirect
-                      href={payment.return_url_success}
-                      tone="success"
-                    />
-                  ) : null}
-                </div>
-              ) : null}
-
-              {isFailedStatus(payment.status) ? (
-                <div className="pp-terminal pp-terminal--failed">
-                  <div className="pp-terminal-icon pp-terminal-icon--failed" aria-hidden>
-                    !
-                  </div>
-                  <h2 className="pp-title">
-                    {payment.status === "expired" ? "Время оплаты истекло" : "Платёж не выполнен"}
-                  </h2>
-                  <p className="pp-muted">Запросите новую ссылку у продавца или вернитесь в магазин.</p>
-                  {payment.return_url_failed ? (
-                    <ReturnToShopBanner href={payment.return_url_failed} tone="failed" />
-                  ) : null}
-                </div>
-              ) : null}
             </section>
 
-            {!isSuccessStatus(payment.status) && !isFailedStatus(payment.status) ? (
-              <section className="pp-card pp-card--pay">
-                <div className="pp-pay-head">
-                  <div>
-                    <p className="pp-eyebrow">Быстрая оплата</p>
-                    <h2 className="pp-title">Отсканируйте QR</h2>
-                  </div>
+            {isSuccessStatus(payment.status) ? (
+              <section className="pp-terminal pp-terminal--success">
+                <div className="pp-terminal-icon" aria-hidden>
+                  ✓
+                </div>
+                <h2 className="pp-title">Оплата получена</h2>
+                <p className="pp-muted">
+                  Средства зафиксированы. Продавец получит уведомление — можете закрыть эту вкладку.
+                </p>
+                {payment.return_url_success ? (
+                  <ReturnToShopBanner autoRedirect href={payment.return_url_success} tone="success" />
+                ) : null}
+              </section>
+            ) : null}
+
+            {isFailedStatus(payment.status) ? (
+              <section className="pp-terminal pp-terminal--failed">
+                <div className="pp-terminal-icon pp-terminal-icon--failed" aria-hidden>
+                  !
+                </div>
+                <h2 className="pp-title">
+                  {payment.status === "expired" ? "Время оплаты истекло" : "Платёж не выполнен"}
+                </h2>
+                <p className="pp-muted">Запросите новую ссылку у продавца или вернитесь в магазин.</p>
+                {payment.return_url_failed ? (
+                  <ReturnToShopBanner href={payment.return_url_failed} tone="failed" />
+                ) : null}
+              </section>
+            ) : null}
+
+            {awaiting ? (
+              <>
+                <div className="pp-actions">
                   <button
-                    className="pp-button pp-button--ghost"
+                    className="pp-action"
                     onClick={() => void copyValue("amount", payment.amount_crypto)}
                     type="button"
                   >
-                    {copied === "amount" ? "Скопировано" : "Копировать сумму"}
+                    <span className="pp-action-icon" aria-hidden>
+                      ⧉
+                    </span>
+                    <span className="pp-action-label">
+                      {copied === "amount" ? "Скопировано" : "Сумма"}
+                    </span>
+                  </button>
+                  <button
+                    className="pp-action"
+                    onClick={() => setShowAddress((current) => !current)}
+                    type="button"
+                  >
+                    <span className="pp-action-icon" aria-hidden>
+                      ⊕
+                    </span>
+                    <span className="pp-action-label">
+                      {showAddress ? "Скрыть" : "Адрес"}
+                    </span>
+                  </button>
+                  <button
+                    className="pp-action"
+                    onClick={() => void loadPayment(true)}
+                    type="button"
+                  >
+                    <span className="pp-action-icon" aria-hidden>
+                      ↻
+                    </span>
+                    <span className="pp-action-label">Статус</span>
                   </button>
                 </div>
 
-                {qrSrc ? (
-                  <div className="pp-qr-stage">
-                    <div className="pp-qr-glow" aria-hidden />
-                    <div className="pp-qr-frame">
-                      <img alt="QR-код для оплаты" className="pp-qr-image" src={qrSrc} />
+                <section className="pp-glass pp-panel">
+                  <div className="pp-panel-head">
+                    <div>
+                      <h2 className="pp-panel-title">Отсканируйте QR</h2>
+                      <p className="pp-panel-sub">Быстрая оплата в кошельке</p>
                     </div>
                   </div>
-                ) : null}
 
-                <ol className="pp-steps">
-                  <li>Откройте кошелёк с {payment.crypto_currency}.</li>
-                  <li>Выберите сеть {payment.network}.</li>
-                  <li>
-                    Отправьте <strong>{amountLine}</strong> без округления.
-                  </li>
-                </ol>
+                  {qrSrc ? (
+                    <div className="pp-qr-stage">
+                      <div className="pp-qr-glow" aria-hidden />
+                      <div className="pp-qr-frame">
+                        <img alt="QR-код для оплаты" className="pp-qr-image" src={qrSrc} />
+                      </div>
+                    </div>
+                  ) : null}
 
-                <button
-                  className="pp-button pp-button--ghost pp-button--full"
-                  onClick={() => setShowAddress((current) => !current)}
-                  type="button"
-                >
-                  {showAddress ? "Скрыть адрес" : "Оплата вручную по адресу"}
-                </button>
+                  <ol className="pp-step-list">
+                    <li className="pp-step-item">
+                      <span className="pp-step-num">1</span>
+                      <span>Откройте кошелёк с {payment.crypto_currency}.</span>
+                    </li>
+                    <li className="pp-step-item">
+                      <span className="pp-step-num">2</span>
+                      <span>
+                        Выберите сеть <strong>{payment.network}</strong>.
+                      </span>
+                    </li>
+                    <li className="pp-step-item">
+                      <span className="pp-step-num">3</span>
+                      <span>
+                        Отправьте <strong>{amountLine}</strong> без округления.
+                      </span>
+                    </li>
+                  </ol>
 
-                {showAddress ? (
-                  <div className="pp-address-panel">
-                    <code>{payment.payment_address}</code>
-                    <button
-                      className="pp-button pp-button--primary"
-                      onClick={() => void copyValue("address", payment.payment_address)}
-                      type="button"
-                    >
-                      {copied === "address" ? "Адрес скопирован" : "Копировать адрес"}
-                    </button>
-                  </div>
-                ) : null}
-
-                <button
-                  className="pp-button pp-button--soft pp-button--full"
-                  onClick={() => void loadPayment(true)}
-                  type="button"
-                >
-                  Обновить статус
-                </button>
-              </section>
+                  {showAddress ? (
+                    <div className="pp-address-panel">
+                      <code>{payment.payment_address}</code>
+                      <button
+                        className="pp-button pp-button--primary"
+                        onClick={() => void copyValue("address", payment.payment_address)}
+                        type="button"
+                      >
+                        {copied === "address" ? "Адрес скопирован" : "Копировать адрес"}
+                      </button>
+                    </div>
+                  ) : null}
+                </section>
+              </>
             ) : null}
-          </div>
+          </>
         ) : null}
 
         <footer className="pp-footer">
-          <p>256-bit TLS · Криптоплатёж NorenCash</p>
+          <p>Защищённое соединение</p>
+          <p className="pp-brand-foot">
+            Noren<span>Cash</span>
+          </p>
         </footer>
       </main>
     </div>
