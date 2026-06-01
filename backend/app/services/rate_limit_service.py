@@ -19,11 +19,20 @@ class RateLimitHit:
 
 
 class RateLimitExceededError(Exception):
-    def __init__(self, *, scope: str, key: str, limit: int, retry_after: int):
+    def __init__(
+        self,
+        *,
+        scope: str,
+        key: str,
+        limit: int,
+        retry_after: int,
+        layer: str = "sustained",
+    ):
         self.scope = scope
         self.key = key
         self.limit = limit
         self.retry_after = max(retry_after, 1)
+        self.layer = layer
         super().__init__("Rate limit exceeded.")
 
 
@@ -36,7 +45,15 @@ class RateLimitService:
         self._local_lock = threading.Lock()
         self._local_counters: dict[str, tuple[int, float]] = {}
 
-    def enforce(self, *, scope: str, key: str, limit: int, window_seconds: int) -> RateLimitHit:
+    def enforce(
+        self,
+        *,
+        scope: str,
+        key: str,
+        limit: int,
+        window_seconds: int,
+        layer: str = "sustained",
+    ) -> RateLimitHit:
         if limit <= 0:
             return RateLimitHit(current=0, limit=0, retry_after=window_seconds)
 
@@ -54,6 +71,7 @@ class RateLimitService:
                 key=normalized_key,
                 limit=limit,
                 retry_after=retry_after,
+                layer=layer,
             )
         return RateLimitHit(current=current, limit=limit, retry_after=retry_after)
 

@@ -168,6 +168,19 @@ class Settings(BaseSettings):
         default=40,
         alias="RATE_LIMIT_PUBLIC_PAY_REFRESH_IP_PER_MINUTE",
     )
+    rate_limit_burst_enabled: bool = Field(default=True, alias="RATE_LIMIT_BURST_ENABLED")
+    rate_limit_burst_window_seconds: int = Field(
+        default=10,
+        alias="RATE_LIMIT_BURST_WINDOW_SECONDS",
+    )
+    rate_limit_global_burst_ip_limit: int = Field(
+        default=45,
+        alias="RATE_LIMIT_GLOBAL_BURST_IP_LIMIT",
+    )
+    rate_limit_global_burst_ip_window_seconds: int = Field(
+        default=10,
+        alias="RATE_LIMIT_GLOBAL_BURST_IP_WINDOW_SECONDS",
+    )
     rate_limit_webhook_test_ip_per_minute: int = Field(
         default=30,
         alias="RATE_LIMIT_WEBHOOK_TEST_IP_PER_MINUTE",
@@ -330,6 +343,12 @@ class Settings(BaseSettings):
             errors.append("RATE_LIMIT_READ_IP_PER_MINUTE must be > 0.")
         if self.rate_limit_public_pay_refresh_ip_per_minute <= 0:
             errors.append("RATE_LIMIT_PUBLIC_PAY_REFRESH_IP_PER_MINUTE must be > 0.")
+        if self.rate_limit_burst_window_seconds <= 0:
+            errors.append("RATE_LIMIT_BURST_WINDOW_SECONDS must be > 0.")
+        if self.rate_limit_global_burst_ip_limit < 0:
+            errors.append("RATE_LIMIT_GLOBAL_BURST_IP_LIMIT must be >= 0.")
+        if self.rate_limit_global_burst_ip_window_seconds <= 0:
+            errors.append("RATE_LIMIT_GLOBAL_BURST_IP_WINDOW_SECONDS must be > 0.")
         if self.rate_limit_webhook_test_ip_per_minute <= 0:
             errors.append("RATE_LIMIT_WEBHOOK_TEST_IP_PER_MINUTE must be > 0.")
         if self.rate_limit_webhook_test_auth_per_minute <= 0:

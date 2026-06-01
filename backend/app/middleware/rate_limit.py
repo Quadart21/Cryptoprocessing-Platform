@@ -9,6 +9,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.core.config import settings
+from app.services.rate_limit_burst import resolve_burst_limit
 from app.services.rate_limit_service import (
     RateLimitExceededError,
     RateLimitService,
@@ -26,6 +27,7 @@ class RateLimitRule:
     limit: int
     window_seconds: int
     key_mode: KeyMode
+    burst_limit: int | None = None
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -41,6 +43,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_login_ip_per_minute,
                 window_seconds=60,
                 key_mode="ip",
+                burst_limit=5,
             ),
             RateLimitRule(
                 name="auth_register_ip",
@@ -49,6 +52,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_register_ip_per_10m,
                 window_seconds=600,
                 key_mode="ip",
+                burst_limit=3,
             ),
             RateLimitRule(
                 name="auth_set_password_ip",
@@ -57,6 +61,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_register_ip_per_10m,
                 window_seconds=600,
                 key_mode="ip",
+                burst_limit=3,
             ),
             RateLimitRule(
                 name="invoice_create_ip",
@@ -137,6 +142,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_otp_per_minute,
                 window_seconds=60,
                 key_mode="ip_auth",
+                burst_limit=5,
             ),
             RateLimitRule(
                 name="twofactor_enable_auth",
@@ -145,6 +151,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_otp_per_minute,
                 window_seconds=60,
                 key_mode="ip_auth",
+                burst_limit=5,
             ),
             RateLimitRule(
                 name="twofactor_disable_auth",
@@ -153,6 +160,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_otp_per_minute,
                 window_seconds=60,
                 key_mode="ip_auth",
+                burst_limit=5,
             ),
             RateLimitRule(
                 name="internal_webhook_ip",
@@ -169,6 +177,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_read_ip_per_minute,
                 window_seconds=60,
                 key_mode="ip",
+                burst_limit=20,
             ),
             RateLimitRule(
                 name="public_pay_refresh_ip",
@@ -177,6 +186,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_public_pay_refresh_ip_per_minute,
                 window_seconds=60,
                 key_mode="ip",
+                burst_limit=8,
             ),
             RateLimitRule(
                 name="sandbox_enroll_ip",
@@ -193,6 +203,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_set_password_per_minute,
                 window_seconds=60,
                 key_mode="ip",
+                burst_limit=3,
             ),
             RateLimitRule(
                 name="2fa_enable_auth",
@@ -201,6 +212,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_2fa_enable_per_minute,
                 window_seconds=60,
                 key_mode="auth",
+                burst_limit=3,
             ),
             RateLimitRule(
                 name="payout_create_auth",
@@ -209,6 +221,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 limit=settings.rate_limit_payout_create_per_minute,
                 window_seconds=60,
                 key_mode="auth",
+                burst_limit=2,
             ),
         ]
 
@@ -218,28 +231,78 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path
         method = request.method.upper()
+
+        if settings.rate_limit_burst_enabled and settings.rate_limit_global_burst_ip_limit > 0:
+            try:
+                self._enforce_global_burst(request)
+            except RateLimitExceededError as exc:
+                return self._rate_limit_response(exc)
+
         for rule in self.rules:
             if method != rule.method or not self._path_matches(path, rule.path):
                 continue
-            key = self._build_key(request, rule.key_mode)
             try:
-                self.service.enforce(
-                    scope=rule.name,
-                    key=key,
-                    limit=rule.limit,
-                    window_seconds=rule.window_seconds,
-                )
+                self._enforce_rule(request, rule)
             except RateLimitExceededError as exc:
-                return JSONResponse(
-                    status_code=429,
-                    content={
-                        "detail": "Too many requests. Please retry later.",
-                        "scope": rule.name,
-                        "retry_after": exc.retry_after,
-                    },
-                    headers={"Retry-After": str(exc.retry_after)},
-                )
+                return self._rate_limit_response(exc)
         return await call_next(request)
+
+    def _enforce_global_burst(self, request: Request) -> None:
+        ip_key = self._extract_client_ip(request)
+        self.service.enforce(
+            scope="global_burst_ip",
+            key=ip_key,
+            limit=settings.rate_limit_global_burst_ip_limit,
+            window_seconds=settings.rate_limit_global_burst_ip_window_seconds,
+            layer="burst",
+        )
+
+    def _enforce_rule(self, request: Request, rule: RateLimitRule) -> None:
+        key = self._build_key(request, rule.key_mode)
+        burst_window = settings.rate_limit_burst_window_seconds
+
+        if settings.rate_limit_burst_enabled:
+            burst_limit = rule.burst_limit
+            if burst_limit is None:
+                burst_limit = resolve_burst_limit(
+                    sustained_limit=rule.limit,
+                    window_seconds=rule.window_seconds,
+                    burst_window_seconds=burst_window,
+                )
+            if burst_limit > 0:
+                self.service.enforce(
+                    scope=f"{rule.name}:burst",
+                    key=key,
+                    limit=burst_limit,
+                    window_seconds=burst_window,
+                    layer="burst",
+                )
+
+        self.service.enforce(
+            scope=rule.name,
+            key=key,
+            limit=rule.limit,
+            window_seconds=rule.window_seconds,
+            layer="sustained",
+        )
+
+    @staticmethod
+    def _rate_limit_response(exc: RateLimitExceededError) -> JSONResponse:
+        detail = (
+            "Too many requests in a short period. Please retry later."
+            if exc.layer == "burst"
+            else "Too many requests. Please retry later."
+        )
+        return JSONResponse(
+            status_code=429,
+            content={
+                "detail": detail,
+                "scope": exc.scope,
+                "layer": exc.layer,
+                "retry_after": exc.retry_after,
+            },
+            headers={"Retry-After": str(exc.retry_after)},
+        )
 
     @staticmethod
     def _path_matches(path: str, rule_path: str) -> bool:
