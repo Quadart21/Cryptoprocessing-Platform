@@ -46,6 +46,18 @@ function isFailedStatus(status: string): boolean {
   return normalized === "failed" || normalized === "expired";
 }
 
+function chunkAddress(address: string, size = 8): string[] {
+  const normalized = address.trim();
+  if (!normalized) {
+    return [];
+  }
+  const parts: string[] = [];
+  for (let index = 0; index < normalized.length; index += size) {
+    parts.push(normalized.slice(index, index + size));
+  }
+  return parts;
+}
+
 function buildQrSrc(payment: PublicPayment): string | null {
   if (payment.qr_url) {
     return payment.qr_url;
@@ -62,6 +74,88 @@ type ReturnBannerProps = {
   tone: "success" | "failed";
   autoRedirect?: boolean;
 };
+
+type PaymentDepositAddressProps = {
+  address: string;
+  cryptoCurrency: string;
+  network: string;
+  copied: boolean;
+  onCopy: () => void;
+};
+
+function PaymentDepositAddress({
+  address,
+  cryptoCurrency,
+  network,
+  copied,
+  onCopy,
+}: PaymentDepositAddressProps) {
+  const chunks = chunkAddress(address);
+
+  return (
+    <section className="pp-deposit" aria-labelledby="pp-deposit-title">
+      <div className="pp-deposit-header">
+        <div className="pp-deposit-heading">
+          <span className="pp-deposit-icon" aria-hidden>
+            <svg fill="none" height="18" viewBox="0 0 24 24" width="18">
+              <path
+                d="M12 3v12m0 0l4-4m-4 4L8 11M5 21h14"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.75"
+              />
+            </svg>
+          </span>
+          <div>
+            <h3 className="pp-deposit-title" id="pp-deposit-title">
+              Адрес для перевода
+            </h3>
+            <p className="pp-deposit-sub">
+              {cryptoCurrency} · сеть {network}
+            </p>
+          </div>
+        </div>
+        <button
+          className={`pp-deposit-copy${copied ? " pp-deposit-copy--done" : ""}`}
+          onClick={onCopy}
+          type="button"
+        >
+          {copied ? (
+            <>
+              <span className="pp-deposit-copy-icon" aria-hidden>
+                ✓
+              </span>
+              Скопировано
+            </>
+          ) : (
+            <>
+              <span className="pp-deposit-copy-icon" aria-hidden>
+                ⧉
+              </span>
+              Копировать
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="pp-deposit-field">
+        <p className="pp-deposit-chunks" translate="no">
+          {chunks.map((part, index) => (
+            <span className="pp-deposit-chunk" key={`${index}-${part}`}>
+              {part}
+            </span>
+          ))}
+        </p>
+      </div>
+
+      <p className="pp-deposit-note">
+        Отправляйте только <strong>{cryptoCurrency}</strong> в сети <strong>{network}</strong>. Другая
+        монета или сеть могут привести к потере средств.
+      </p>
+    </section>
+  );
+}
 
 function ReturnToShopBanner({ href, tone, autoRedirect = false }: ReturnBannerProps) {
   const [secondsLeft, setSecondsLeft] = useState(autoRedirect ? REDIRECT_DELAY_SEC : 0);
@@ -107,7 +201,6 @@ export function PayPageRoot({ token }: PayPageRootProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [showAddress, setShowAddress] = useState(false);
   const [countdown, setCountdown] = useState({ label: "—", progress: 0 });
 
   const loadPayment = useCallback(async (withRefresh: boolean) => {
@@ -288,14 +381,14 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                   </button>
                   <button
                     className="pp-action"
-                    onClick={() => setShowAddress((current) => !current)}
+                    onClick={() => void copyValue("address", payment.payment_address)}
                     type="button"
                   >
                     <span className="pp-action-icon" aria-hidden>
                       ⊕
                     </span>
                     <span className="pp-action-label">
-                      {showAddress ? "Скрыть" : "Адрес"}
+                      {copied === "address" ? "Скопировано" : "Адрес"}
                     </span>
                   </button>
                   <button
@@ -327,6 +420,16 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                     </div>
                   ) : null}
 
+                  {payment.payment_address ? (
+                    <PaymentDepositAddress
+                      address={payment.payment_address}
+                      copied={copied === "address"}
+                      cryptoCurrency={payment.crypto_currency}
+                      network={payment.network}
+                      onCopy={() => void copyValue("address", payment.payment_address)}
+                    />
+                  ) : null}
+
                   <ol className="pp-step-list">
                     <li className="pp-step-item">
                       <span className="pp-step-num">1</span>
@@ -345,19 +448,6 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                       </span>
                     </li>
                   </ol>
-
-                  {showAddress ? (
-                    <div className="pp-address-panel">
-                      <code>{payment.payment_address}</code>
-                      <button
-                        className="pp-button pp-button--primary"
-                        onClick={() => void copyValue("address", payment.payment_address)}
-                        type="button"
-                      >
-                        {copied === "address" ? "Адрес скопирован" : "Копировать адрес"}
-                      </button>
-                    </div>
-                  ) : null}
                 </section>
               </>
             ) : null}

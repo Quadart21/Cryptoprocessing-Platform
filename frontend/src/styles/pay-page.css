@@ -397,21 +397,135 @@
   border: 1px solid var(--pp-line-strong);
 }
 
-.pp-address-panel {
-  margin-top: 0.75rem;
+.pp-deposit {
+  margin: 0.25rem 0 1rem;
   padding: 1rem;
   border-radius: var(--pp-radius-lg);
-  border: 1px dashed rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--pp-line-strong);
+  background:
+    linear-gradient(145deg, rgba(0, 163, 255, 0.08), rgba(0, 0, 0, 0.35)),
+    rgba(8, 12, 22, 0.65);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 12px 28px rgba(0, 0, 0, 0.25);
 }
 
-.pp-address-panel code {
-  display: block;
-  margin-bottom: 0.75rem;
-  word-break: break-all;
+.pp-deposit-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.pp-deposit-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.pp-deposit-icon {
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.65rem;
+  display: grid;
+  place-items: center;
+  color: var(--pp-accent);
+  background: rgba(0, 163, 255, 0.12);
+  border: 1px solid var(--pp-line-strong);
+}
+
+.pp-deposit-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pp-deposit-sub {
+  margin: 0.15rem 0 0;
   font-size: 0.75rem;
-  line-height: 1.45;
+  color: var(--pp-muted);
+}
+
+.pp-deposit-copy {
+  flex-shrink: 0;
+  appearance: none;
+  border: 1px solid var(--pp-line-strong);
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
   color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.pp-deposit-copy:hover {
+  background: rgba(0, 163, 255, 0.12);
+  border-color: rgba(0, 163, 255, 0.45);
+}
+
+.pp-deposit-copy--done {
+  color: #a7f3d0;
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.pp-deposit-copy-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.pp-deposit-field {
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.9rem;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.pp-deposit-chunks {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  font-size: clamp(0.78rem, 3.4vw, 0.88rem);
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  color: #f1f5f9;
+}
+
+.pp-deposit-chunk {
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+
+.pp-deposit-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--pp-muted);
+}
+
+.pp-deposit-note strong {
+  color: #cbd5e1;
+  font-weight: 600;
 }
 
 .pp-button {
