@@ -25,6 +25,11 @@ from app.services.statistics_exclusion_service import StatisticsExclusionService
 
 logger = logging.getLogger(__name__)
 
+# Комиссия Crypto-Cash (провайдер) — фиксирована в коде.
+PROVIDER_FEE_PERCENT = Decimal("1")
+# Минимум суммарной комиссии (провайдер + платформа) в USDT.
+MIN_TOTAL_PAYMENT_FEE_USDT = Decimal("0.55")
+
 
 class InvoiceAmountOutOfRangeError(ValueError):
     def __init__(
@@ -626,11 +631,8 @@ class InvoiceService:
         await balance_service.apply_bucket_delta(balance, "provider_gross_amount", gross_amount)
         await balance_service.apply_bucket_delta(balance, "pending_amount", net_amount)
 
-        provider_percent = await BillingPolicyService(self.db).get_provider_fee_percent()
+        provider_percent = PROVIDER_FEE_PERCENT
         markup_percent = await BillingPolicyService(self.db).get_effective_markup_percent(invoice.tenant_id)
-        turnover_percent = await BillingPolicyService(self.db).get_effective_turnover_fee_percent(
-            invoice.tenant_id
-        )
 
         await balance_service.add_ledger_entry(
             tenant_id=invoice.tenant_id,
@@ -667,18 +669,19 @@ class InvoiceService:
             description="Удержание наценки платформы.",
             metadata_json={"percent": str(markup_percent)},
         )
-        await balance_service.add_ledger_entry(
-            tenant_id=invoice.tenant_id,
-            currency=self.BALANCE_CURRENCY,
-            amount=turnover_fee,
-            direction="debit",
-            balance_bucket="pending_amount",
-            entry_type="invoice.turnover_fee",
-            invoice_id=invoice.id,
-            transaction_id=transaction.id,
-            description="Удержание комиссии платформы от оборота.",
-            metadata_json={"percent": str(turnover_percent)},
-        )
+        if turnover_fee > Decimal("0"):
+            await balance_service.add_ledger_entry(
+                tenant_id=invoice.tenant_id,
+                currency=self.BALANCE_CURRENCY,
+                amount=turnover_fee,
+                direction="debit",
+                balance_bucket="pending_amount",
+                entry_type="invoice.turnover_fee",
+                invoice_id=invoice.id,
+                transaction_id=transaction.id,
+                description="Удержание комиссии платформы от оборота.",
+                metadata_json={"percent": "0"},
+            )
 
     async def _release_pending_to_available(
         self,
@@ -724,97 +727,61 @@ class InvoiceService:
         fiat_currency: str,
     ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
         billing_policy_service = BillingPolicyService(self.db)
-        platform_settings = await billing_policy_service.get_platform_settings()
-        provider_fee_percent = await billing_policy_service.get_provider_fee_percent()
         markup_percent = await billing_policy_service.get_effective_markup_percent(tenant_id)
-        turnover_fee_percent = await billing_policy_service.get_effective_turnover_fee_percent(tenant_id)
 
-        # Sequential fee overlay:
-        # provider fee -> platform markup -> turnover fee.
-        provider_fee = self._calculate_percent_amount(gross_amount, provider_fee_percent)
-        provider_fee = await self._apply_provider_fee_usdt_floor(
-            fee_amount=provider_fee,
+        provider_fee = self._calculate_percent_amount(gross_amount, PROVIDER_FEE_PERCENT)
+        platform_fee = self._calculate_percent_amount(gross_amount, markup_percent)
+        provider_fee, platform_fee = await self._apply_min_total_fee_usdt(
+            provider_fee=provider_fee,
+            platform_fee=platform_fee,
             gross_amount=gross_amount,
             fiat_currency=fiat_currency,
-            max_fee=gross_amount,
-            platform_settings=platform_settings,
-            log_context="provider fee",
         )
-        after_provider = (gross_amount - provider_fee).quantize(self.AMOUNT_PRECISION)
-
-        platform_fee = self._calculate_percent_amount(after_provider, markup_percent)
-        after_platform = (after_provider - platform_fee).quantize(self.AMOUNT_PRECISION)
-        if after_platform < Decimal("0"):
-            raise ValueError(
-                "Наценка платформы превышает остаток после комиссии провайдера.",
-            )
-
-        turnover_fee = self._calculate_percent_amount(after_platform, turnover_fee_percent)
-        net_amount = (after_platform - turnover_fee).quantize(self.AMOUNT_PRECISION)
+        turnover_fee = Decimal("0")
+        total_fee = (provider_fee + platform_fee).quantize(self.AMOUNT_PRECISION)
+        net_amount = (gross_amount - total_fee).quantize(self.AMOUNT_PRECISION)
         if net_amount < Decimal("0"):
             raise ValueError("Чистая сумма клиента не может быть отрицательной.")
         return provider_fee, platform_fee, turnover_fee, net_amount
 
-    async def _apply_provider_fee_usdt_floor(
+    async def _apply_min_total_fee_usdt(
         self,
         *,
-        fee_amount: Decimal,
+        provider_fee: Decimal,
+        platform_fee: Decimal,
         gross_amount: Decimal,
         fiat_currency: str,
-        max_fee: Decimal,
-        platform_settings,
-        log_context: str,
-    ) -> Decimal:
-        """Минимум USDT для комиссии провайдера (Crypto-Cash) в диапазоне [low, high] по gross."""
-        fc = (fiat_currency or "USD").strip().upper()
-        min_usdt = Decimal(platform_settings.platform_markup_min_usdt)
-        band_low = Decimal(platform_settings.platform_markup_min_band_usdt_low)
-        band_high = Decimal(platform_settings.platform_markup_min_band_usdt_high)
-        if min_usdt <= Decimal("0") or band_high < band_low:
-            return fee_amount
+    ) -> tuple[Decimal, Decimal]:
+        """Если provider + platform < 0.55 USDT, итоговая комиссия = 0.55 USDT (пропорционально)."""
+        raw_total = (provider_fee + platform_fee).quantize(self.AMOUNT_PRECISION)
+        if raw_total <= Decimal("0"):
+            return provider_fee, platform_fee
 
+        fc = (fiat_currency or self.BALANCE_CURRENCY).strip().upper()
         rate_svc = get_exchange_rate_service()
         zero_markup = Decimal("0")
-        gross_usdt = await rate_svc.convert_to_fiat(gross_amount, fc, "USDT", zero_markup)
-        if gross_usdt is None:
-            logger.warning(
-                "Skipping %s USDT floor: no USDT rate for invoice fiat %s",
-                log_context,
-                fc,
-            )
-            return fee_amount
+        total_usdt = await rate_svc.convert_to_fiat(raw_total, fc, "USDT", zero_markup)
+        if total_usdt is None:
+            logger.warning("Skipping min total fee USDT: no rate for %s/USDT", fc)
+            return provider_fee, platform_fee
+        if total_usdt >= MIN_TOTAL_PAYMENT_FEE_USDT:
+            return provider_fee, platform_fee
 
-        if gross_usdt < band_low or gross_usdt > band_high:
-            return fee_amount
+        target_total = await rate_svc.convert_from_fiat(
+            MIN_TOTAL_PAYMENT_FEE_USDT,
+            fc,
+            "USDT",
+            zero_markup,
+        )
+        if target_total is None:
+            logger.warning("Skipping min total fee USDT: cannot convert 0.55 USDT to %s", fc)
+            return provider_fee, platform_fee
 
-        fee_usdt = await rate_svc.convert_to_fiat(fee_amount, fc, "USDT", zero_markup)
-        if fee_usdt is None:
-            logger.warning(
-                "Skipping %s USDT floor: could not convert fee to USDT (fiat=%s)",
-                log_context,
-                fc,
-            )
-            return fee_amount
-
-        target_usdt = max(fee_usdt, min_usdt)
-        if target_usdt <= fee_usdt:
-            return fee_amount
-
-        bumped = await rate_svc.convert_from_fiat(target_usdt, fc, "USDT", zero_markup)
-        if bumped is None:
-            logger.warning(
-                "Skipping %s USDT floor: could not convert %s USDT to fiat %s",
-                log_context,
-                target_usdt,
-                fc,
-            )
-            return fee_amount
-
-        bumped = bumped.quantize(self.AMOUNT_PRECISION)
-        fee_cap = max_fee.quantize(self.AMOUNT_PRECISION)
-        if bumped > fee_cap:
-            bumped = fee_cap
-        return bumped
+        target_total = min(target_total.quantize(self.AMOUNT_PRECISION), gross_amount)
+        provider_share = provider_fee / raw_total
+        provider_fee = (target_total * provider_share).quantize(self.AMOUNT_PRECISION)
+        platform_fee = (target_total - provider_fee).quantize(self.AMOUNT_PRECISION)
+        return provider_fee, platform_fee
 
     def _calculate_percent_amount(self, base_amount: Decimal, percent: Decimal) -> Decimal:
         return ((base_amount * percent) / Decimal("100")).quantize(self.AMOUNT_PRECISION)

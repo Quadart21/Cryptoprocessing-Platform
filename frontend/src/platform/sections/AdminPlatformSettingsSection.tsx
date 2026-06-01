@@ -217,11 +217,9 @@ export function AdminPlatformSettingsSection({
       platformBillingSettings
         ? {
             ...platformBillingSettings,
-            platform_markup_min_usdt: platformBillingSettings.platform_markup_min_usdt ?? "0.5",
-            platform_markup_min_band_usdt_low:
-              platformBillingSettings.platform_markup_min_band_usdt_low ?? "10",
-            platform_markup_min_band_usdt_high:
-              platformBillingSettings.platform_markup_min_band_usdt_high ?? "250",
+            provider_fee_percent: "1",
+            default_turnover_fee_percent: "0",
+            platform_markup_min_usdt: "0.55",
           }
         : null,
     );
@@ -266,7 +264,7 @@ export function AdminPlatformSettingsSection({
     }
     setTenantPolicyForm({
       custom_markup_percent: selectedTenantBillingPolicy.custom_markup_percent,
-      custom_turnover_fee_percent: selectedTenantBillingPolicy.custom_turnover_fee_percent,
+      custom_turnover_fee_percent: null,
       payouts_enabled: selectedTenantBillingPolicy.payouts_enabled,
       requires_manual_payout_review: selectedTenantBillingPolicy.requires_manual_payout_review,
     });
@@ -636,12 +634,7 @@ export function AdminPlatformSettingsSection({
         <FieldGrid>
           <label>
             <span>Комиссия провайдера (%)</span>
-            <input
-              type="number"
-              step="0.0001"
-              value={platformSettingsForm.provider_fee_percent}
-              onChange={(event) => updatePlatformSettings({ provider_fee_percent: event.target.value })}
-            />
+            <input type="text" readOnly disabled value="1" />
           </label>
           <label>
             <span>Наценка платформы (%)</span>
@@ -651,17 +644,6 @@ export function AdminPlatformSettingsSection({
               value={platformSettingsForm.default_markup_percent}
               onChange={(event) =>
                 updatePlatformSettings({ default_markup_percent: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            <span>Комиссия с оборота (%)</span>
-            <input
-              type="number"
-              step="0.0001"
-              value={platformSettingsForm.default_turnover_fee_percent}
-              onChange={(event) =>
-                updatePlatformSettings({ default_turnover_fee_percent: event.target.value })
               }
             />
           </label>
@@ -676,51 +658,15 @@ export function AdminPlatformSettingsSection({
               }
             />
           </label>
+          <label>
+            <span>Минимум комиссии (USDT)</span>
+            <input type="text" readOnly disabled value="0.55" />
+          </label>
         </FieldGrid>
         <p className="muted-text aps-field-span-2" style={{ gridColumn: "1 / -1", marginTop: "0.5rem" }}>
-          Для депозитов с USDT-эквивалентом в указанном диапазоне: комиссия провайдера (Crypto-Cash)
-          не ниже минимума в USDT. Наценка платформы считается только по проценту, без этого пола.
-          Пример: 0,15 USDT по проценту провайдера → 0,5 USDT; 0,55 USDT → без изменений. Диапазон —
-          по сумме в USDT после пересчёта из crypto (DOGE, BTC и т.д.).
+          Комиссия с платежа = 1% провайдера + ваша наценка (% от суммы зачёта). Если сумма меньше 0.55
+          USDT — взимается 0.55 USDT. Оба процента считаются от одной и той же суммы (gross).
         </p>
-        <FieldGrid>
-          <label>
-            <span>Мин. комиссия провайдера (USDT)</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={platformSettingsForm.platform_markup_min_usdt}
-              onChange={(event) =>
-                updatePlatformSettings({ platform_markup_min_usdt: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            <span>Диапазон: от (USDT экв.)</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={platformSettingsForm.platform_markup_min_band_usdt_low}
-              onChange={(event) =>
-                updatePlatformSettings({ platform_markup_min_band_usdt_low: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            <span>Диапазон: до (USDT экв.)</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={platformSettingsForm.platform_markup_min_band_usdt_high}
-              onChange={(event) =>
-                updatePlatformSettings({ platform_markup_min_band_usdt_high: event.target.value })
-              }
-            />
-          </label>
-        </FieldGrid>
       </div>
     );
   }
@@ -840,23 +786,6 @@ export function AdminPlatformSettingsSection({
             checked={platformSettingsForm.allow_tenant_markup_override}
             onChange={(event) =>
               updatePlatformSettings({ allow_tenant_markup_override: event.target.checked })
-            }
-          />
-        </label>
-        <label className="aps-switch-card">
-          <div>
-            <strong>Разрешить кастомную комиссию с оборота</strong>
-            <p className="muted-text">
-              Откроет клиентам отдельную настройку комиссии по обороту.
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            checked={platformSettingsForm.allow_tenant_turnover_fee_override}
-            onChange={(event) =>
-              updatePlatformSettings({
-                allow_tenant_turnover_fee_override: event.target.checked,
-              })
             }
           />
         </label>
@@ -1503,21 +1432,6 @@ export function AdminPlatformSettingsSection({
                     setTenantPolicyForm({
                       ...tenantPolicyForm,
                       custom_markup_percent:
-                        event.target.value.trim() === "" ? null : event.target.value,
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Комиссия с оборота клиента (%)</span>
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={tenantPolicyForm.custom_turnover_fee_percent ?? ""}
-                  onChange={(event) =>
-                    setTenantPolicyForm({
-                      ...tenantPolicyForm,
-                      custom_turnover_fee_percent:
                         event.target.value.trim() === "" ? null : event.target.value,
                     })
                   }

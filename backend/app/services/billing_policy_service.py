@@ -89,18 +89,10 @@ class BillingPolicyService:
         return Decimal(platform_settings.default_markup_percent)
 
     async def get_effective_turnover_fee_percent(self, tenant_id: str) -> Decimal:
-        platform_settings = await self.get_platform_settings()
-        tenant_policy = await self.get_tenant_policy(tenant_id)
-        if (
-            tenant_policy is not None
-            and tenant_policy.custom_turnover_fee_percent is not None
-            and platform_settings.allow_tenant_turnover_fee_override
-        ):
-            return Decimal(tenant_policy.custom_turnover_fee_percent)
-        return Decimal(platform_settings.default_turnover_fee_percent)
+        return Decimal("0")
 
     async def get_provider_fee_percent(self) -> Decimal:
-        return Decimal((await self.get_platform_settings()).provider_fee_percent)
+        return Decimal("1")
 
     async def get_exchange_rate_markup_percent(self) -> Decimal:
         try:
@@ -184,15 +176,9 @@ class BillingPolicyService:
     async def update_platform_settings(
         self,
         *,
-        provider_fee_percent: Decimal,
         default_markup_percent: Decimal,
-        default_turnover_fee_percent: Decimal,
         allow_tenant_markup_override: bool,
-        allow_tenant_turnover_fee_override: bool,
         payouts_enabled: bool,
-        platform_markup_min_usdt: Decimal = Decimal("0.5"),
-        platform_markup_min_band_usdt_low: Decimal = Decimal("10"),
-        platform_markup_min_band_usdt_high: Decimal = Decimal("250"),
         exchange_rate_markup_percent: Decimal = Decimal("0"),
         manual_exchange_rates: dict[str, Decimal] | None = None,
         seo_title: str | None = None,
@@ -202,17 +188,15 @@ class BillingPolicyService:
         seo_og_image_url: str | None = None,
         seo_robots: str = "index, follow",
         seo_canonical_url: str | None = None,
+        # Устаревшие поля — игнорируются (комиссия провайдера 1%, минимум 0.55 USDT в коде).
+        provider_fee_percent: Decimal | None = None,
+        default_turnover_fee_percent: Decimal | None = None,
+        allow_tenant_turnover_fee_override: bool | None = None,
+        platform_markup_min_usdt: Decimal | None = None,
+        platform_markup_min_band_usdt_low: Decimal | None = None,
+        platform_markup_min_band_usdt_high: Decimal | None = None,
     ) -> PlatformSetting:
-        self._validate_percent(provider_fee_percent, "provider_fee_percent")
         self._validate_percent(default_markup_percent, "default_markup_percent")
-        self._validate_percent(default_turnover_fee_percent, "default_turnover_fee_percent")
-        self._validate_non_negative(platform_markup_min_usdt, "platform_markup_min_usdt")
-        self._validate_non_negative(platform_markup_min_band_usdt_low, "platform_markup_min_band_usdt_low")
-        self._validate_non_negative(platform_markup_min_band_usdt_high, "platform_markup_min_band_usdt_high")
-        if platform_markup_min_band_usdt_high < platform_markup_min_band_usdt_low:
-            raise ValueError(
-                "platform_markup_min_band_usdt_high must be greater than or equal to platform_markup_min_band_usdt_low.",
-            )
         self._validate_rate_adjustment_percent(
             exchange_rate_markup_percent,
             "exchange_rate_markup_percent",
@@ -222,15 +206,9 @@ class BillingPolicyService:
         )
 
         settings = await self.get_platform_settings()
-        settings.provider_fee_percent = provider_fee_percent
         settings.default_markup_percent = default_markup_percent
-        settings.default_turnover_fee_percent = default_turnover_fee_percent
         settings.allow_tenant_markup_override = allow_tenant_markup_override
-        settings.allow_tenant_turnover_fee_override = allow_tenant_turnover_fee_override
         settings.payouts_enabled = payouts_enabled
-        settings.platform_markup_min_usdt = platform_markup_min_usdt
-        settings.platform_markup_min_band_usdt_low = platform_markup_min_band_usdt_low
-        settings.platform_markup_min_band_usdt_high = platform_markup_min_band_usdt_high
         settings.exchange_rate_markup_percent = exchange_rate_markup_percent
         settings.manual_exchange_rates_json = json.dumps(
             {key: str(value) for key, value in normalized_manual_exchange_rates.items()},
@@ -267,12 +245,10 @@ class BillingPolicyService:
     ) -> TenantFeePolicy:
         if custom_markup_percent is not None:
             self._validate_percent(custom_markup_percent, "custom_markup_percent")
-        if custom_turnover_fee_percent is not None:
-            self._validate_percent(custom_turnover_fee_percent, "custom_turnover_fee_percent")
 
         policy = await self.get_or_create_tenant_policy(tenant_id)
         policy.custom_markup_percent = custom_markup_percent
-        policy.custom_turnover_fee_percent = custom_turnover_fee_percent
+        policy.custom_turnover_fee_percent = None
         policy.payouts_enabled = payouts_enabled
         policy.requires_manual_payout_review = requires_manual_payout_review
         self.db.add(policy)

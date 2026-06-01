@@ -64,20 +64,26 @@ class NotificationTemplateTestResponse(NotificationTemplatePreviewResponse):
 
 
 class PlatformBillingSettingsResponse(BaseModel):
-    provider_fee_percent: Decimal
+    provider_fee_percent: Decimal = Field(
+        default=Decimal("1"),
+        description="Фиксировано в коде: 1% комиссия провайдера (Crypto-Cash).",
+    )
     default_markup_percent: Decimal
-    default_turnover_fee_percent: Decimal
+    default_turnover_fee_percent: Decimal = Field(
+        default=Decimal("0"),
+        description="Не используется; оставлено для совместимости API.",
+    )
     platform_markup_min_usdt: Decimal = Field(
-        default=Decimal("0.5"),
-        description="Минимальная комиссия провайдера (Crypto-Cash) в USDT при депозите в целевом диапазоне.",
+        default=Decimal("0.55"),
+        description="Минимум суммарной комиссии (провайдер + платформа) в USDT; фиксировано в коде.",
     )
     platform_markup_min_band_usdt_low: Decimal = Field(
-        default=Decimal("10"),
-        description="Нижняя граница суммы инвойса (эквивалент USDT), включительно.",
+        default=Decimal("0"),
+        description="Не используется.",
     )
     platform_markup_min_band_usdt_high: Decimal = Field(
-        default=Decimal("250"),
-        description="Верхняя граница суммы инвойса (эквивалент USDT), включительно.",
+        default=Decimal("0"),
+        description="Не используется.",
     )
     allow_tenant_markup_override: bool
     allow_tenant_turnover_fee_override: bool
@@ -128,15 +134,18 @@ class ExchangeRateRefreshResponse(BaseModel):
 
 
 class PlatformBillingSettingsUpdateRequest(BaseModel):
-    provider_fee_percent: Decimal
     default_markup_percent: Decimal
-    default_turnover_fee_percent: Decimal
-    platform_markup_min_usdt: Decimal = Decimal("0.5")
-    platform_markup_min_band_usdt_low: Decimal = Decimal("10")
-    platform_markup_min_band_usdt_high: Decimal = Decimal("250")
     allow_tenant_markup_override: bool
-    allow_tenant_turnover_fee_override: bool
     payouts_enabled: bool
+    provider_fee_percent: Decimal | None = Field(
+        default=None,
+        description="Игнорируется (в коде 1%).",
+    )
+    default_turnover_fee_percent: Decimal | None = Field(default=None, description="Игнорируется.")
+    platform_markup_min_usdt: Decimal | None = Field(default=None, description="Игнорируется (0.55 USDT).")
+    platform_markup_min_band_usdt_low: Decimal | None = None
+    platform_markup_min_band_usdt_high: Decimal | None = None
+    allow_tenant_turnover_fee_override: bool | None = None
     email_notifications_enabled: bool = True
     telegram_notifications_enabled: bool = True
     smtp_bz_enabled: bool = False
