@@ -181,6 +181,22 @@ class Settings(BaseSettings):
         default=10,
         alias="RATE_LIMIT_GLOBAL_BURST_IP_WINDOW_SECONDS",
     )
+    rate_limit_api_key_account_per_minute: int = Field(
+        default=600,
+        alias="RATE_LIMIT_API_KEY_ACCOUNT_PER_MINUTE",
+    )
+    rate_limit_api_key_account_burst: int = Field(
+        default=50,
+        alias="RATE_LIMIT_API_KEY_ACCOUNT_BURST",
+    )
+    max_concurrent_connections_per_ip: int = Field(
+        default=30,
+        alias="MAX_CONCURRENT_CONNECTIONS_PER_IP",
+    )
+    max_concurrent_connection_ttl_seconds: int = Field(
+        default=120,
+        alias="MAX_CONCURRENT_CONNECTION_TTL_SECONDS",
+    )
     rate_limit_webhook_test_ip_per_minute: int = Field(
         default=30,
         alias="RATE_LIMIT_WEBHOOK_TEST_IP_PER_MINUTE",
@@ -349,6 +365,14 @@ class Settings(BaseSettings):
             errors.append("RATE_LIMIT_GLOBAL_BURST_IP_LIMIT must be >= 0.")
         if self.rate_limit_global_burst_ip_window_seconds <= 0:
             errors.append("RATE_LIMIT_GLOBAL_BURST_IP_WINDOW_SECONDS must be > 0.")
+        if self.rate_limit_api_key_account_per_minute < 0:
+            errors.append("RATE_LIMIT_API_KEY_ACCOUNT_PER_MINUTE must be >= 0.")
+        if self.rate_limit_api_key_account_burst < 0:
+            errors.append("RATE_LIMIT_API_KEY_ACCOUNT_BURST must be >= 0.")
+        if self.max_concurrent_connections_per_ip < 0:
+            errors.append("MAX_CONCURRENT_CONNECTIONS_PER_IP must be >= 0.")
+        if self.max_concurrent_connection_ttl_seconds <= 0:
+            errors.append("MAX_CONCURRENT_CONNECTION_TTL_SECONDS must be > 0.")
         if self.rate_limit_webhook_test_ip_per_minute <= 0:
             errors.append("RATE_LIMIT_WEBHOOK_TEST_IP_PER_MINUTE must be > 0.")
         if self.rate_limit_webhook_test_auth_per_minute <= 0:

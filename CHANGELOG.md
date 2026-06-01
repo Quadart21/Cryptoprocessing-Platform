@@ -4,6 +4,15 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.14.5] — 2026-06-02
+
+### Добавлено
+
+- **Rate limit API key (на аккаунт)**: общий лимит запросов в минуту для всех ключей tenant (`X-API-Key` на `/api/v1/client/*`) + burst 50/10 с. Настройка: `RATE_LIMIT_API_KEY_ACCOUNT_PER_MINUTE`, `RATE_LIMIT_API_KEY_ACCOUNT_BURST`.
+- **Max concurrent connections на IP**: одновременные запросы с одного IP ограничены (по умолчанию 30). Настройка: `MAX_CONCURRENT_CONNECTIONS_PER_IP`, `MAX_CONCURRENT_CONNECTION_TTL_SECONDS`.
+
+---
+
 ## [0.14.4] — 2026-06-02
 
 ### Добавлено
