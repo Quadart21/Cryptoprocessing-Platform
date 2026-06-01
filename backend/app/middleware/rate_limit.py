@@ -174,7 +174,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 name="public_pay_refresh_ip",
                 method="POST",
                 path=f"{prefix}/public/pay/{{payment_token}}/refresh",
-                limit=12,
+                limit=settings.rate_limit_public_pay_refresh_ip_per_minute,
                 window_seconds=60,
                 key_mode="ip",
             ),

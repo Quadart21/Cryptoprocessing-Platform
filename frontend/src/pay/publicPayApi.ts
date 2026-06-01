@@ -16,6 +16,22 @@ export type PublicPayment = {
   return_url_failed: string | null;
 };
 
+export class PublicPaymentError extends Error {
+  readonly status: number;
+  readonly retryAfterSeconds: number | null;
+
+  constructor(message: string, status: number, retryAfterSeconds: number | null = null) {
+    super(message);
+    this.name = "PublicPaymentError";
+    this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+export function isRateLimitedPaymentError(error: unknown): error is PublicPaymentError {
+  return error instanceof PublicPaymentError && error.status === 429;
+}
+
 async function parseError(response: Response): Promise<string> {
   try {
     const payload = (await response.json()) as { detail?: string };
@@ -28,14 +44,31 @@ async function parseError(response: Response): Promise<string> {
   return `HTTP ${response.status}`;
 }
 
+function parseRetryAfterSeconds(response: Response): number | null {
+  const raw = response.headers.get("Retry-After");
+  if (!raw) {
+    return null;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+async function readPaymentResponse(response: Response): Promise<PublicPayment> {
+  if (!response.ok) {
+    throw new PublicPaymentError(
+      await parseError(response),
+      response.status,
+      response.status === 429 ? parseRetryAfterSeconds(response) : null,
+    );
+  }
+  return response.json() as Promise<PublicPayment>;
+}
+
 export async function fetchPublicPayment(token: string): Promise<PublicPayment> {
   const response = await fetch(`${resolveApiBaseUrl()}/public/pay/${encodeURIComponent(token)}`, {
     headers: { Accept: "application/json" },
   });
-  if (!response.ok) {
-    throw new Error(await parseError(response));
-  }
-  return response.json() as Promise<PublicPayment>;
+  return readPaymentResponse(response);
 }
 
 export async function refreshPublicPayment(token: string): Promise<PublicPayment> {
@@ -46,10 +79,7 @@ export async function refreshPublicPayment(token: string): Promise<PublicPayment
       headers: { Accept: "application/json" },
     },
   );
-  if (!response.ok) {
-    throw new Error(await parseError(response));
-  }
-  return response.json() as Promise<PublicPayment>;
+  return readPaymentResponse(response);
 }
 
 export function resolvePayPageToken(): string | null {

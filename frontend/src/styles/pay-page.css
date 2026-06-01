@@ -84,6 +84,17 @@
   margin-bottom: 1.35rem;
 }
 
+.pp-poll-hint {
+  margin: -0.65rem 0 1rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+}
+
 .pp-header-user {
   display: flex;
   align-items: center;

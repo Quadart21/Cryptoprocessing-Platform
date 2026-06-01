@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { formatDecimal } from "../utils/format";
 import { getInvoiceDetailStatusMeta, invoiceStatusTone } from "../utils/invoiceStatus";
 import {
   fetchPublicPayment,
+  isRateLimitedPaymentError,
   refreshPublicPayment,
   type PublicPayment,
 } from "./publicPayApi";
@@ -13,6 +14,10 @@ type PayPageRootProps = {
 };
 
 const REDIRECT_DELAY_SEC = 6;
+/** POST /refresh — синхронизация с провайдером; не чаще лимита на бэкенде. */
+const POLL_PENDING_REFRESH_MS = 30_000;
+/** GET — только чтение статуса после оплаты (paid → confirmed). */
+const POLL_PAID_READ_MS = 20_000;
 
 function formatCountdown(expiresAt: string): { label: string; progress: number } {
   const target = new Date(expiresAt).getTime();
@@ -31,8 +36,12 @@ function formatCountdown(expiresAt: string): { label: string; progress: number }
   return { label, progress };
 }
 
-function isAwaitingPayment(status: string): boolean {
-  const normalized = status.trim().toLowerCase();
+function normalizeStatus(status: string): string {
+  return status.trim().toLowerCase();
+}
+
+function shouldPollPaymentStatus(status: string): boolean {
+  const normalized = normalizeStatus(status);
   return normalized === "pending" || normalized === "paid";
 }
 
@@ -200,20 +209,52 @@ export function PayPageRoot({ token }: PayPageRootProps) {
   const [payment, setPayment] = useState<PublicPayment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pollHint, setPollHint] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [countdown, setCountdown] = useState({ label: "—", progress: 0 });
+  const paymentRef = useRef<PublicPayment | null>(null);
+  const pollPausedUntilRef = useRef(0);
 
-  const loadPayment = useCallback(async (withRefresh: boolean) => {
-    try {
-      setError(null);
-      const next = withRefresh ? await refreshPublicPayment(token) : await fetchPublicPayment(token);
-      setPayment(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось загрузить платёж.");
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  paymentRef.current = payment;
+
+  const loadPayment = useCallback(
+    async (withRefresh: boolean, options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (Date.now() < pollPausedUntilRef.current) {
+        return;
+      }
+      try {
+        if (!silent) {
+          setError(null);
+          setPollHint(null);
+        }
+        const next = withRefresh
+          ? await refreshPublicPayment(token)
+          : await fetchPublicPayment(token);
+        setPayment(next);
+        if (silent) {
+          setPollHint(null);
+        }
+      } catch (err) {
+        if (silent && paymentRef.current) {
+          if (isRateLimitedPaymentError(err)) {
+            const pauseMs = (err.retryAfterSeconds ?? 45) * 1000;
+            pollPausedUntilRef.current = Date.now() + pauseMs;
+            setPollHint("Слишком частые запросы. Обновим статус через минуту.");
+          } else {
+            setPollHint("Не удалось обновить статус. Повторим позже.");
+          }
+          return;
+        }
+        setError(err instanceof Error ? err.message : "Не удалось загрузить платёж.");
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [token],
+  );
 
   useEffect(() => {
     void loadPayment(false);
@@ -229,15 +270,26 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     return () => window.clearInterval(timer);
   }, [payment]);
 
+  const paymentStatus = payment ? normalizeStatus(payment.status) : null;
+
   useEffect(() => {
-    if (!payment || !isAwaitingPayment(payment.status)) {
+    if (!paymentStatus || !shouldPollPaymentStatus(paymentStatus)) {
       return;
     }
-    const timer = window.setInterval(() => {
-      void loadPayment(true);
-    }, 10_000);
+
+    const poll = () => {
+      if (paymentStatus === "pending") {
+        void loadPayment(true, { silent: true });
+        return;
+      }
+      void loadPayment(false, { silent: true });
+    };
+
+    const intervalMs =
+      paymentStatus === "pending" ? POLL_PENDING_REFRESH_MS : POLL_PAID_READ_MS;
+    const timer = window.setInterval(poll, intervalMs);
     return () => window.clearInterval(timer);
-  }, [payment, loadPayment]);
+  }, [paymentStatus, loadPayment]);
 
   const statusMeta = useMemo(
     () => (payment ? getInvoiceDetailStatusMeta(payment.status) : null),
@@ -289,6 +341,12 @@ export function PayPageRoot({ token }: PayPageRootProps) {
             <span className={`pp-pill pp-pill--${tone}`}>{statusMeta.label}</span>
           ) : null}
         </header>
+
+        {pollHint ? (
+          <p className="pp-poll-hint" role="status">
+            {pollHint}
+          </p>
+        ) : null}
 
         {loading ? (
           <section className="pp-glass pp-card--state">
@@ -393,7 +451,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                   </button>
                   <button
                     className="pp-action"
-                    onClick={() => void loadPayment(true)}
+                    onClick={() => void loadPayment(true, { silent: false })}
                     type="button"
                   >
                     <span className="pp-action-icon" aria-hidden>

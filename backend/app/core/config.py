@@ -164,6 +164,10 @@ class Settings(BaseSettings):
         default=300,
         alias="RATE_LIMIT_READ_IP_PER_MINUTE",
     )
+    rate_limit_public_pay_refresh_ip_per_minute: int = Field(
+        default=40,
+        alias="RATE_LIMIT_PUBLIC_PAY_REFRESH_IP_PER_MINUTE",
+    )
     rate_limit_webhook_test_ip_per_minute: int = Field(
         default=30,
         alias="RATE_LIMIT_WEBHOOK_TEST_IP_PER_MINUTE",
@@ -324,6 +328,8 @@ class Settings(BaseSettings):
             errors.append("RATE_LIMIT_INVOICE_AUTH_PER_MINUTE must be > 0.")
         if self.rate_limit_read_ip_per_minute <= 0:
             errors.append("RATE_LIMIT_READ_IP_PER_MINUTE must be > 0.")
+        if self.rate_limit_public_pay_refresh_ip_per_minute <= 0:
+            errors.append("RATE_LIMIT_PUBLIC_PAY_REFRESH_IP_PER_MINUTE must be > 0.")
         if self.rate_limit_webhook_test_ip_per_minute <= 0:
             errors.append("RATE_LIMIT_WEBHOOK_TEST_IP_PER_MINUTE must be > 0.")
         if self.rate_limit_webhook_test_auth_per_minute <= 0:
