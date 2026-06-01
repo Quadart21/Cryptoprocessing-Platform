@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
 import { invoiceCompactPillClass, invoiceStatusLabelRu } from "../../utils/invoiceStatus";
+import {
+  findTransactionForInvoice,
+  invoiceNeedsSettlementRepair,
+} from "../../utils/invoiceSettlementRepair";
 import type {
   AccountingSummary,
   InvoiceAdminDetail,
@@ -38,6 +42,8 @@ type AdminClientDetailSectionProps = {
   onUpdateAdminProject: (projectId: string, payload: ProjectAdminUpdatePayload) => void;
   onUpdateAdminTenant: (tenantId: string, payload: TenantAdminUpdatePayload) => void;
   onUpdateInvoiceStatus: (status: string) => void;
+  onSyncInvoice: (invoiceId: string) => void;
+  onRepairInvoiceSettlement: (invoiceId: string) => void;
   onApprovePayout: (payoutId: string) => void;
   onRejectPayout: (payoutId: string) => void;
 };
@@ -72,6 +78,8 @@ export function AdminClientDetailSection({
   onUpdateAdminProject,
   onUpdateAdminTenant,
   onUpdateInvoiceStatus,
+  onSyncInvoice,
+  onRepairInvoiceSettlement,
   onApprovePayout,
   onRejectPayout,
 }: AdminClientDetailSectionProps) {
@@ -118,6 +126,13 @@ export function AdminClientDetailSection({
       setDetailTab("invoice");
     }
   }, [selectedInvoiceId]);
+
+  const selectedInvoiceTransaction = selectedInvoiceDetail
+    ? findTransactionForInvoice(selectedTenantTransactions, selectedInvoiceDetail.id)
+    : undefined;
+  const showRepairSettlement =
+    selectedInvoiceDetail !== null &&
+    invoiceNeedsSettlementRepair(selectedInvoiceDetail, selectedInvoiceTransaction);
 
   return (
     <section className="dashboard-grid client-grid">
@@ -677,7 +692,32 @@ export function AdminClientDetailSection({
                         <p>Оплачен: {selectedInvoiceDetail.paid_at ?? "Еще нет"}</p>
                         <p>Подтвержден: {selectedInvoiceDetail.confirmed_at ?? "Еще нет"}</p>
                       </div>
+                      {showRepairSettlement ? (
+                        <p className="muted-text pw-repair-hint">
+                          Обнаружена ошибка учёта: gross в USDT совпадает с суммой в{" "}
+                          {selectedInvoiceDetail.crypto_currency}. Нажмите «Пересчитать settlement» — gross и
+                          комиссии будут пересчитаны по курсу.
+                        </p>
+                      ) : null}
                       <div className="action-row-inline pw-action-strip">
+                        <button
+                          className="ghost-button"
+                          disabled={loading}
+                          onClick={() => onSyncInvoice(selectedInvoiceDetail.id)}
+                          type="button"
+                        >
+                          Синхронизировать
+                        </button>
+                        {showRepairSettlement ? (
+                          <button
+                            className="ghost-button danger-soft"
+                            disabled={loading}
+                            onClick={() => onRepairInvoiceSettlement(selectedInvoiceDetail.id)}
+                            type="button"
+                          >
+                            Пересчитать settlement
+                          </button>
+                        ) : null}
                         <button
                           className="ghost-button"
                           onClick={() => onUpdateInvoiceStatus("pending")}

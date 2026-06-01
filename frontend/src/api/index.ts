@@ -113,6 +113,7 @@ export {
   fetchAdminInvoiceDetail,
   updateAdminInvoiceStatus,
   syncAdminInvoice,
+  repairAdminInvoiceSettlement,
   fetchAdminTransactions,
   fetchAdminPayouts,
   fetchAdminEvents,

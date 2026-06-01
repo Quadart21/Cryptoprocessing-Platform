@@ -1764,6 +1764,18 @@ export function syncAdminInvoice(
   });
 }
 
+export function repairAdminInvoiceSettlement(
+  token: string,
+  invoiceId: string,
+): Promise<InvoiceAdminDetail> {
+  return request<InvoiceAdminDetail>(`/admin/invoices/${invoiceId}/repair-settlement`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export function fetchSandboxPlatformSettings(token: string): Promise<SandboxPlatformSettings> {
   return request<SandboxPlatformSettings>("/admin/sandbox/settings", {
     headers: {

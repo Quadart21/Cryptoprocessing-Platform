@@ -71,6 +71,7 @@ import {
   setPasswordByRecoveryToken,
   setupTwoFactor,
   syncAdminInvoice,
+  repairAdminInvoiceSettlement,
   syncClientInvoice,
   type AccountingSummary,
   type AdminUserCreatePayload,
@@ -1404,10 +1405,54 @@ export function AppController() {
       if (selectedTenantId) {
         const tenantInvoices = await fetchTenantInvoices(token, selectedTenantId);
         setSelectedTenantInvoices(tenantInvoices);
+        setSelectedTenantTransactions(await fetchTenantTransactions(token, selectedTenantId));
       }
       setSuccess(`Статус инвойса синхронизирован: ${invoiceStatusLabelRu(invoice.status)}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось синхронизировать инвойс.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRepairInvoiceSettlement(invoiceId: string) {
+    if (!token) return;
+    const confirmed = window.confirm(
+      "Пересчитать settlement по инвойсу? Сумма в USDT и комиссии будут пересчитаны по курсу из crypto-суммы. Баланс клиента будет скорректирован.",
+    );
+    if (!confirmed) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const invoice = await repairAdminInvoiceSettlement(token, invoiceId);
+      const [invoiceItems, transactionItems, eventItems] = await Promise.all([
+        fetchAdminInvoices(token),
+        fetchAdminTransactions(token),
+        fetchAdminEvents(token),
+      ]);
+      setPlatformInvoices(invoiceItems);
+      setPlatformTransactions(transactionItems);
+      setPlatformEvents(eventItems);
+      if (selectedInvoiceId === invoiceId) {
+        setSelectedInvoiceDetail(invoice);
+        setSelectedInvoiceEvents(await safeLoad(() => fetchInvoiceEvents(token, invoiceId), []));
+      }
+      if (selectedTenantId) {
+        const [tenantInvoices, tenantTransactions, tenantAccounting] = await Promise.all([
+          fetchTenantInvoices(token, selectedTenantId),
+          fetchTenantTransactions(token, selectedTenantId),
+          safeLoad(() => fetchTenantAccountingSummary(token, selectedTenantId), null),
+        ]);
+        setSelectedTenantInvoices(tenantInvoices);
+        setSelectedTenantTransactions(tenantTransactions);
+        if (tenantAccounting) {
+          setSelectedTenantAccounting(tenantAccounting);
+        }
+      }
+      setSuccess("Settlement пересчитан: gross и комиссии приведены к USDT-эквиваленту.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось пересчитать settlement.");
     } finally {
       setLoading(false);
     }
@@ -2009,6 +2054,7 @@ return (
           onSelectInvoice={(invoiceId) => void handleSelectInvoice(invoiceId)}
           onUpdateInvoiceStatus={(status) => void handleUpdateInvoiceStatus(status)}
           onSyncInvoice={(invoiceId) => void handleSyncInvoice(invoiceId)}
+          onRepairInvoiceSettlement={(invoiceId) => void handleRepairInvoiceSettlement(invoiceId)}
           onUpdatePlatformSettings={handleUpdatePlatformSettings}
           onReloadPlatformSettings={handleReloadPlatformSettings}
           onFetchPlatformExchangeRate={handleFetchPlatformExchangeRate}

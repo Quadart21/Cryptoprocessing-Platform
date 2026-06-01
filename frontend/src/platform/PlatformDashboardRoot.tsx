@@ -75,6 +75,7 @@ export function PlatformDashboardRoot({
   onSelectInvoice,
   onUpdateInvoiceStatus,
   onSyncInvoice,
+  onRepairInvoiceSettlement,
   onUpdatePlatformSettings,
   onReloadPlatformSettings,
   onFetchPlatformExchangeRate,
@@ -333,6 +334,8 @@ export function PlatformDashboardRoot({
                 onUpdateAdminProject={onUpdateAdminProject}
                 onUpdateAdminTenant={onUpdateAdminTenant}
                 onUpdateInvoiceStatus={onUpdateInvoiceStatus}
+                onSyncInvoice={onSyncInvoice}
+                onRepairInvoiceSettlement={onRepairInvoiceSettlement}
               />
             </div>
           ) : null}
