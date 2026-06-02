@@ -37,7 +37,17 @@ pull_latest() {
     return
   fi
   log "Pulling latest code (${GIT_BRANCH})"
-  sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}' && git fetch origin '${GIT_BRANCH}' && git checkout '${GIT_BRANCH}' && git pull --ff-only origin '${GIT_BRANCH}'"
+  sudo -u "${APP_USER}" bash -lc "
+    set -euo pipefail
+    cd '${APP_DIR}'
+    git fetch origin '${GIT_BRANCH}'
+    git checkout '${GIT_BRANCH}'
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+      echo 'Local changes in tracked files will be reset to origin/${GIT_BRANCH} (.env is not affected).'
+      git status --short
+    fi
+    git reset --hard 'origin/${GIT_BRANCH}'
+  "
 }
 
 install_backend_deps() {

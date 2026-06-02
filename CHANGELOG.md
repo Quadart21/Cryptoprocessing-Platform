@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.14.8] — 2026-06-02
+
+### Исправлено
+
+- **Deploy**: `update-server.sh` сбрасывает локальные правки tracked-файлов через `git reset --hard origin/main` (`.env` не трогается) — больше не падает на изменённых `ops/ubuntu/*.sh`.
+
+---
+
 ## [0.14.7] — 2026-06-02
 
 ### Добавлено
