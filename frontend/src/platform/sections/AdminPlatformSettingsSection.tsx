@@ -153,6 +153,7 @@ export function AdminPlatformSettingsSection({
   const [smtpBzApiKey, setSmtpBzApiKey] = useState("");
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [telegramBotInfo, setTelegramBotInfo] = useState<TelegramBotIdentity | null>(null);
+  const [telegramBotCheckError, setTelegramBotCheckError] = useState<string | null>(null);
   const [adminTelegramChatId, setAdminTelegramChatId] = useState("");
   const [telegramTestResult, setTelegramTestResult] =
     useState<TelegramAdminTestResponse | null>(null);
@@ -183,20 +184,8 @@ export function AdminPlatformSettingsSection({
     setTelegramTestResult(null);
     setSmtpTestRecipient("");
     setSmtpTestResult(null);
-    if (platformBillingSettings) {
-      setTelegramBotInfo({
-        token_configured: platformBillingSettings.telegram_bot_token_configured,
-        token_masked: platformBillingSettings.telegram_bot_token_masked ?? null,
-        api_base_url: platformBillingSettings.telegram_api_base_url,
-        bot_id: null,
-        username: null,
-        first_name: null,
-        display_name: null,
-        checked_with_override: false,
-      });
-    } else {
-      setTelegramBotInfo(null);
-    }
+    setTelegramBotInfo(null);
+    setTelegramBotCheckError(null);
   }, [platformBillingSettings]);
 
   useEffect(() => {
@@ -339,12 +328,18 @@ export function AdminPlatformSettingsSection({
     if (!platformSettingsForm) return;
     setCheckingTelegramBot(true);
     setTelegramTestResult(null);
+    setTelegramBotCheckError(null);
     try {
       const info = await onInspectPlatformTelegramBot({
         telegram_api_base_url: platformSettingsForm.telegram_api_base_url,
         telegram_bot_token: telegramBotToken.trim() || null,
       });
       setTelegramBotInfo(info);
+    } catch (err) {
+      setTelegramBotInfo(null);
+      setTelegramBotCheckError(
+        err instanceof Error ? err.message : "Не удалось проверить Telegram-бота.",
+      );
     } finally {
       setCheckingTelegramBot(false);
     }
@@ -353,6 +348,7 @@ export function AdminPlatformSettingsSection({
   async function handleSendTelegramTest() {
     if (!platformSettingsForm || adminTelegramChatId.trim() === "") return;
     setSendingTelegramTest(true);
+    setTelegramBotCheckError(null);
     try {
       const result = await onSendPlatformTelegramTest({
         admin_telegram_chat_id: adminTelegramChatId.trim(),
@@ -360,6 +356,11 @@ export function AdminPlatformSettingsSection({
         telegram_bot_token: telegramBotToken.trim() || null,
       });
       setTelegramTestResult(result);
+    } catch (err) {
+      setTelegramTestResult(null);
+      setTelegramBotCheckError(
+        err instanceof Error ? err.message : "Не удалось отправить тестовое сообщение.",
+      );
     } finally {
       setSendingTelegramTest(false);
     }
@@ -908,9 +909,19 @@ export function AdminPlatformSettingsSection({
           <label className="aps-field-span-2">
             <span>Новый токен бота</span>
             <input
+              type="password"
+              autoComplete="off"
+              placeholder="Вставьте токен из @BotFather (1234567890:AAH…)"
               value={telegramBotToken}
-              onChange={(event) => setTelegramBotToken(event.target.value)}
+              onChange={(event) => {
+                setTelegramBotToken(event.target.value);
+                setTelegramBotCheckError(null);
+              }}
             />
+            <small className="muted-text">
+              Для проверки без сохранения вставьте токен сюда и нажмите «Проверить бота». Чтобы записать в
+              БД — «Сохранить изменения» внизу раздела.
+            </small>
           </label>
         </FieldGrid>
         <div className="aps-test-box">
@@ -941,12 +952,29 @@ export function AdminPlatformSettingsSection({
               {sendingTelegramTest ? "Отправляем..." : "Отправить тест"}
             </button>
           </div>
-          {telegramBotInfo ? (
-            <p className="muted-text">
-              Бот: {telegramBotInfo.display_name ?? telegramBotInfo.username ?? "не определён"}
-              {telegramBotInfo.token_masked ? `, токен ${telegramBotInfo.token_masked}` : ""}
+          {telegramBotCheckError ? (
+            <p className="aps-telegram-check-error" role="alert">
+              {telegramBotCheckError}
             </p>
           ) : null}
+          {telegramBotInfo?.display_name || telegramBotInfo?.username ? (
+            <p className="muted-text aps-telegram-check-ok">
+              Бот подключён:{" "}
+              {telegramBotInfo.display_name ??
+                (telegramBotInfo.username ? `@${telegramBotInfo.username}` : "OK")}
+              {telegramBotInfo.token_masked ? ` · токен ${telegramBotInfo.token_masked}` : ""}
+            </p>
+          ) : platformSettingsForm.telegram_bot_token_configured ? (
+            <p className="muted-text">
+              В БД сохранён токен
+              {platformSettingsForm.telegram_bot_token_masked
+                ? ` ${platformSettingsForm.telegram_bot_token_masked}`
+                : ""}
+              . Нажмите «Проверить бота» — если токен отозван в @BotFather, вставьте новый выше.
+            </p>
+          ) : (
+            <p className="muted-text">Токен бота ещё не сохранён.</p>
+          )}
           {telegramTestResult ? (
             <p className="muted-text">Сообщение отправлено в чат {telegramTestResult.chat_id}.</p>
           ) : null}

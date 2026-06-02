@@ -20,6 +20,8 @@ from app.services.billing_policy_service import BillingPolicyService
 
 logger = logging.getLogger(__name__)
 
+TELEGRAM_BOT_TOKEN_PATTERN = re.compile(r"^\d{8,}:[A-Za-z0-9_-]{20,}$")
+
 
 @dataclass(frozen=True)
 class NotificationEventDefinition:
@@ -392,6 +394,8 @@ class NotificationService:
         )
         if telegram_bot_token is not None:
             normalized_telegram_bot_token = telegram_bot_token.strip()
+            if normalized_telegram_bot_token:
+                self._validate_telegram_bot_token_format(normalized_telegram_bot_token)
             platform_settings.telegram_bot_token_encrypted = (
                 encrypt_value(normalized_telegram_bot_token)
                 if normalized_telegram_bot_token
@@ -1025,14 +1029,49 @@ class NotificationService:
         return self._mask_secret(api_key) if api_key else "Stored"
 
     def is_telegram_bot_token_configured(self, platform_settings: PlatformSetting) -> bool:
-        return bool((platform_settings.telegram_bot_token_encrypted or "").strip())
+        return bool(self._get_telegram_bot_token(platform_settings))
 
     def get_masked_telegram_bot_token(self, platform_settings: PlatformSetting) -> str | None:
-        encrypted = (platform_settings.telegram_bot_token_encrypted or "").strip()
-        if not encrypted:
-            return None
         token = self._get_telegram_bot_token(platform_settings)
-        return self._mask_token(token) if token else "Stored"
+        return self._mask_token(token) if token else None
+
+    @classmethod
+    def _validate_telegram_bot_token_format(cls, token: str) -> None:
+        normalized = token.strip()
+        if not TELEGRAM_BOT_TOKEN_PATTERN.fullmatch(normalized):
+            raise ValueError(
+                "Формат токена неверный. Скопируйте полный токен из @BotFather "
+                "(вид: 1234567890:AAHxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)."
+            )
+
+    @classmethod
+    def _raise_telegram_api_error(cls, response: requests.Response, action: str) -> None:
+        description = ""
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                description = str(payload.get("description") or "").strip()
+        except ValueError:
+            description = response.text[:240].strip()
+
+        lowered = description.lower()
+        if response.status_code == 401 or "unauthorized" in lowered or (
+            "not found" in lowered and "token" in lowered
+        ):
+            raise ValueError(
+                "Токен бота недействитен или отозван в Telegram. "
+                "В @BotFather откройте бота → API Token → сгенерируйте новый токен, "
+                "вставьте в поле «Новый токен бота», нажмите «Сохранить изменения» внизу раздела "
+                "и снова «Проверить бота»."
+            ) from None
+        if response.status_code == 404:
+            raise ValueError(
+                "Telegram API URL недоступен (HTTP 404). Оставьте https://api.telegram.org "
+                "или укажите корректный прокси."
+            ) from None
+
+        suffix = f": {description}" if description else ""
+        raise ValueError(f"Telegram API отклонил запрос {action} (HTTP {response.status_code}){suffix}")
 
     def inspect_telegram_bot(
         self,
@@ -1047,7 +1086,17 @@ class NotificationService:
             telegram_bot_token=telegram_bot_token,
         )
         if not bot_token:
-            raise ValueError("Telegram Bot Token не настроен.")
+            encrypted = (platform_settings.telegram_bot_token_encrypted or "").strip()
+            if encrypted:
+                raise ValueError(
+                    "Токен в базе не расшифровывается (возможно, сменился SECRET_KEY на сервере). "
+                    "Вставьте новый токен из @BotFather в поле «Новый токен бота» и сохраните настройки."
+                )
+            raise ValueError(
+                "Telegram Bot Token не настроен. Вставьте токен из @BotFather в поле «Новый токен бота»."
+            )
+
+        self._validate_telegram_bot_token_format(bot_token)
 
         try:
             response = requests.get(
@@ -1058,7 +1107,7 @@ class NotificationService:
             raise ValueError(f"Не удалось выполнить getMe: {exc}") from exc
 
         if response.status_code >= 400:
-            raise ValueError(f"Telegram API вернул HTTP {response.status_code}: {response.text[:240]}")
+            self._raise_telegram_api_error(response, "getMe")
 
         try:
             payload = response.json()
@@ -1146,9 +1195,7 @@ class NotificationService:
             raise ValueError(f"Не удалось отправить тестовое сообщение: {exc}") from exc
 
         if response.status_code >= 400:
-            raise ValueError(
-                f"Telegram API вернул HTTP {response.status_code} при отправке: {response.text[:240]}"
-            )
+            self._raise_telegram_api_error(response, "sendMessage")
 
         try:
             payload = response.json()
