@@ -32,6 +32,8 @@ export function MerchantDashboardRoot({
   onboarding,
   success,
   error,
+  onDismissSuccess,
+  onDismissError,
   newApiSecret,
   loading,
   projects,
@@ -150,6 +152,8 @@ export function MerchantDashboardRoot({
           error={error}
           newApiSecret={newApiSecret}
           success={success}
+          onDismissError={onDismissError}
+          onDismissSuccess={onDismissSuccess}
           onCloseSecretModal={onCloseSecretModal}
         />
 

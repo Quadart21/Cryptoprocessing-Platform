@@ -5,6 +5,7 @@
 @import "./styles/landing-lime.css";
 @import "./styles/landing-auth-shell.css";
 @import "./styles/dashboard.css";
+@import "./styles/dashboard-toast.css";
 @import "./styles/integration.css";
 @import "./styles/client-cabinet.css";
 @import "./styles/merchant-pages.css";

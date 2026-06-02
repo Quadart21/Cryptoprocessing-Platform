@@ -2023,6 +2023,8 @@ return (
           loading={loading}
           success={success}
           error={error}
+          onDismissSuccess={() => setSuccess(null)}
+          onDismissError={() => setError(null)}
           newApiSecret={newApiSecret}
           tenantForm={tenantForm}
           createdTenant={createdTenant}
@@ -2108,6 +2110,8 @@ return (
           onboarding={onboarding}
           success={success}
           error={error}
+          onDismissSuccess={() => setSuccess(null)}
+          onDismissError={() => setError(null)}
           newApiSecret={newApiSecret}
           loading={loading}
           projects={projects}

@@ -32,6 +32,8 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     loading,
     success,
     error,
+    onDismissSuccess,
+    onDismissError,
     newApiSecret,
     tenantForm,
     createdTenant,
@@ -193,6 +195,8 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
           error={error}
           newApiSecret={newApiSecret}
           success={success}
+          onDismissError={onDismissError}
+          onDismissSuccess={onDismissSuccess}
           onCloseSecretModal={onCloseSecretModal}
         />
 

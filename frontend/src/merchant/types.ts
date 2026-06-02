@@ -37,6 +37,8 @@ export type ClientDashboardProps = {
   onboarding: OnboardingStatus | null;
   success: string | null;
   error: string | null;
+  onDismissSuccess: () => void;
+  onDismissError: () => void;
   newApiSecret: string | null;
   loading: boolean;
   projects: ProjectItem[];

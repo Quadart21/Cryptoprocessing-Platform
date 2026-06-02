@@ -88,6 +88,8 @@ export type AdminDashboardProps = {
   loading: boolean;
   success: string | null;
   error: string | null;
+  onDismissSuccess: () => void;
+  onDismissError: () => void;
   newApiSecret: string | null;
   tenantForm: TenantCreatePayload;
   createdTenant: TenantCreateResponse | null;
