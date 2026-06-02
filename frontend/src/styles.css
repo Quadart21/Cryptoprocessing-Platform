@@ -17,7 +17,8 @@
 @import "./styles/landing-experience.css";
 @import "./styles/responsive.css";
 @import "./styles/theme-overrides.css";
-@import "./styles/console-theme.css";
+@import "./styles/console-settings.css";
+@import "./styles/notification-templates.css";
 @import "./styles/console-forms.css";
 @import "./styles/console-assets.css";
 @import "./styles/pay-page.css";

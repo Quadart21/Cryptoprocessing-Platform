@@ -1,11 +1,10 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
 import type {
   ExchangeRateLookup,
   ExchangeRateRefresh,
   NotificationTemplatePreview,
   NotificationTemplatePreviewPayload,
-  NotificationTemplateItem,
   NotificationTemplateTestPayload,
   NotificationTemplateTestResponse,
   PlatformBillingSettings,
@@ -19,22 +18,7 @@ import type {
   TenantBillingPolicy,
   TenantItem,
 } from "../../api";
-import {
-  NotificationTemplateWysiwygEditor,
-  type NotificationTemplateWysiwygHandle,
-} from "../components/NotificationTemplateWysiwygEditor";
-import {
-  TEMPLATE_FIELD_GUIDES,
-  TEMPLATE_VARIABLE_HINTS,
-} from "../components/notificationTemplateGuide";
-import {
-  isTelegramAutoBody,
-  resolveEmailEditorHtml,
-  resolveTelegramEditorHtml,
-  emailEditorHtmlToStorage,
-  telegramEditorHtmlToStorage,
-} from "../components/notificationTemplateEditorUtils";
-import { useNotificationTemplateSubjectInput } from "../components/NotificationTemplateSubjectInput";
+import { NotificationTemplatesWorkspace } from "../components/NotificationTemplatesWorkspace";
 
 type AdminPlatformSettingsSectionProps = {
   adminAssetRates: RateItem[];
@@ -94,23 +78,10 @@ const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { key: "seo", label: "SEO", eyebrow: "Мета-теги", description: "Заголовки, описания, favicon и Open Graph для поисковиков.", icon: "07" },
   { key: "email", label: "Email", eyebrow: "Канал", description: "SMTP.bz и тестовая отправка писем.", icon: "04" },
   { key: "telegram", label: "Telegram", eyebrow: "Канал", description: "Токен бота, проверка и тестовая доставка.", icon: "05" },
-  { key: "templates", label: "Шаблоны", eyebrow: "Контент", description: "Темы и тексты уведомлений по событиям.", icon: "06" },
+  { key: "templates", label: "Шаблоны", eyebrow: "Контент", description: "Тексты email и Telegram для каждого события платформы.", icon: "06" },
   { key: "events", label: "События", eyebrow: "Матрица", description: "Какие каналы активны для каждого события.", icon: "07" },
   { key: "tenant", label: "Клиенты", eyebrow: "Индивидуально", description: "Переопределения правил для выбранного клиента.", icon: "08" },
 ];
-
-function hasConfiguredTemplateContent(template: NotificationTemplateItem) {
-  if (template.configured) return true;
-  const messageLinesChanged =
-    (template.message_lines ?? "").trim() !== "" &&
-    (template.message_lines ?? "").trim() !== (template.default_message_lines ?? "").trim();
-  return (
-    messageLinesChanged ||
-    [template.email_subject, template.email_body, template.telegram_body].some(
-      (value) => Boolean(value && value.trim() !== ""),
-    )
-  );
-}
 
 function SectionShell({
   meta,
@@ -199,18 +170,10 @@ export function AdminPlatformSettingsSection({
     TenantBillingPolicy,
     "tenant_id"
   > | null>(null);
-  const [templateEventCode, setTemplateEventCode] = useState("");
-  const [templatePreview, setTemplatePreview] = useState<NotificationTemplatePreview | null>(null);
-  const [templateTestEmail, setTemplateTestEmail] = useState("");
-  const [templateTestTelegramChatId, setTemplateTestTelegramChatId] = useState("");
-  const [sendingTemplateTest, setSendingTemplateTest] = useState(false);
-  const [previewingTemplate, setPreviewingTemplate] = useState(false);
   const [activeSection, setActiveSection] = useState<SettingsSectionKey>("fees");
   const [expandedSections, setExpandedSections] = useState<Set<SettingsSectionKey>>(
     new Set(["fees"]),
   );
-  const richEditorRef = useRef<NotificationTemplateWysiwygHandle | null>(null);
-  const telegramEditorRef = useRef<NotificationTemplateWysiwygHandle | null>(null);
 
   useEffect(() => {
     setPlatformSettingsForm(platformBillingSettings ? { ...platformBillingSettings } : null);
@@ -220,18 +183,7 @@ export function AdminPlatformSettingsSection({
     setTelegramTestResult(null);
     setSmtpTestRecipient("");
     setSmtpTestResult(null);
-    setTemplatePreview(null);
-    setTemplateTestEmail("");
-    setTemplateTestTelegramChatId("");
     if (platformBillingSettings) {
-      const firstConfiguredTemplate = platformBillingSettings.notification_templates.find(
-        hasConfiguredTemplateContent,
-      );
-      setTemplateEventCode(
-        firstConfiguredTemplate?.code ??
-          platformBillingSettings.notification_templates[0]?.code ??
-          "",
-      );
       setTelegramBotInfo({
         token_configured: platformBillingSettings.telegram_bot_token_configured,
         token_masked: platformBillingSettings.telegram_bot_token_masked ?? null,
@@ -243,7 +195,6 @@ export function AdminPlatformSettingsSection({
         checked_with_override: false,
       });
     } else {
-      setTemplateEventCode("");
       setTelegramBotInfo(null);
     }
   }, [platformBillingSettings]);
@@ -260,49 +211,6 @@ export function AdminPlatformSettingsSection({
       requires_manual_payout_review: selectedTenantBillingPolicy.requires_manual_payout_review,
     });
   }, [selectedTenantBillingPolicy]);
-
-  const selectedTemplate = useMemo(() => {
-    if (!platformSettingsForm) return null;
-    return (
-      platformSettingsForm.notification_templates.find(
-        (item) => item.code === templateEventCode,
-      ) ?? platformSettingsForm.notification_templates[0] ?? null
-    );
-  }, [platformSettingsForm, templateEventCode]);
-
-  const configuredTemplateCount = useMemo(() => {
-    if (!platformSettingsForm) return 0;
-    return platformSettingsForm.notification_templates.filter(hasConfiguredTemplateContent).length;
-  }, [platformSettingsForm]);
-
-  const selectedTemplateSubjectValue = selectedTemplate?.email_subject ?? "";
-  const telegramUsesAutoTemplate =
-    selectedTemplate == null || isTelegramAutoBody(selectedTemplate.telegram_body);
-
-  const subjectInput = useNotificationTemplateSubjectInput({
-    value: selectedTemplateSubjectValue,
-    onChange: (value) => {
-      if (!selectedTemplate) return;
-      handleTemplateFieldChange(selectedTemplate.code, "email_subject", value);
-    },
-  });
-
-  const selectedEmailEditorHtml = useMemo(() => {
-    if (!selectedTemplate) return "<p></p>";
-    return resolveEmailEditorHtml(
-      selectedTemplate.message_lines,
-      selectedTemplate.email_body,
-      selectedTemplate.default_message_lines,
-    );
-  }, [selectedTemplate]);
-
-  const selectedTelegramEditorHtml = useMemo(() => {
-    if (!selectedTemplate) return "<p></p>";
-    return resolveTelegramEditorHtml(
-      selectedTemplate.telegram_body,
-      selectedTemplate.default_telegram_body,
-    );
-  }, [selectedTemplate]);
 
   const manualRateCurrencies = useMemo(() => {
     const all = new Set<string>();
@@ -425,113 +333,6 @@ export function AdminPlatformSettingsSection({
         item.code === code ? { ...item, [channel]: enabled } : item,
       ),
     });
-  }
-
-  function handleTemplateFieldChange(
-    code: string,
-    field: keyof Pick<
-      NotificationTemplateItem,
-      "email_subject" | "message_lines" | "email_body" | "telegram_body"
-    >,
-    value: string,
-  ) {
-    if (!platformSettingsForm) return;
-    setPlatformSettingsForm({
-      ...platformSettingsForm,
-      notification_templates: platformSettingsForm.notification_templates.map((template) =>
-        template.code === code ? { ...template, [field]: value.trim() === "" ? null : value } : template,
-      ),
-    });
-  }
-
-  function handleTemplateBodyChange(
-    code: string,
-    payload: { message_lines: string | null; email_body: string | null },
-  ) {
-    if (!platformSettingsForm) return;
-    setPlatformSettingsForm({
-      ...platformSettingsForm,
-      notification_templates: platformSettingsForm.notification_templates.map((template) =>
-        template.code === code
-          ? {
-              ...template,
-              message_lines: payload.message_lines,
-              email_body: payload.email_body,
-            }
-          : template,
-      ),
-    });
-  }
-
-  function handleResetTemplate(code: string) {
-    if (!platformSettingsForm) return;
-    setTemplatePreview(null);
-    setPlatformSettingsForm({
-      ...platformSettingsForm,
-      notification_templates: platformSettingsForm.notification_templates.map((template) =>
-        template.code === code
-          ? {
-              ...template,
-              email_subject: null,
-              message_lines: template.default_message_lines,
-              email_body: null,
-              telegram_body: null,
-            }
-          : template,
-      ),
-    });
-  }
-
-  function insertTemplateVariable(variable: string) {
-    const active = document.activeElement;
-    if (active === subjectInput.inputRef.current) {
-      subjectInput.insertVariable(variable);
-      return;
-    }
-    const activeShell = active?.closest(".nte-shell");
-    if (activeShell?.classList.contains("nte-shell-telegram")) {
-      telegramEditorRef.current?.insertVariable(variable);
-      return;
-    }
-    richEditorRef.current?.insertVariable(variable);
-  }
-
-  async function handlePreviewTemplate() {
-    if (!selectedTemplate) return;
-    setPreviewingTemplate(true);
-    try {
-      const result = await onPreviewNotificationTemplate({
-        code: selectedTemplate.code,
-        email_subject: selectedTemplate.email_subject,
-        message_lines: selectedTemplate.message_lines,
-        email_body: selectedTemplate.email_body,
-        telegram_body: selectedTemplate.telegram_body,
-      });
-      setTemplatePreview(result);
-    } finally {
-      setPreviewingTemplate(false);
-    }
-  }
-
-  async function handleSendTemplateTest() {
-    if (!selectedTemplate) return;
-    setSendingTemplateTest(true);
-    try {
-      const result = await onSendNotificationTemplateTest({
-        code: selectedTemplate.code,
-        email_subject: selectedTemplate.email_subject,
-        message_lines: selectedTemplate.message_lines,
-        email_body: selectedTemplate.email_body,
-        telegram_body: selectedTemplate.telegram_body,
-        test_recipient_email: templateTestEmail.trim() || null,
-        telegram_chat_id: templateTestTelegramChatId.trim() || null,
-        smtp_bz_api_key: smtpBzApiKey.trim() || null,
-        telegram_bot_token: telegramBotToken.trim() || null,
-      });
-      setTemplatePreview(result);
-    } finally {
-      setSendingTemplateTest(false);
-    }
   }
 
   async function handleCheckTelegramBot() {
@@ -1157,217 +958,15 @@ export function AdminPlatformSettingsSection({
   function renderTemplatesSection() {
     if (!platformSettingsForm) return renderUnavailable();
     return (
-      <div className="aps-stack">
-        <div className="aps-inline-status">
-          <StatPill label="Всего шаблонов" value={String(platformSettingsForm.notification_templates.length)} />
-          <StatPill
-            label="Настроено в БД"
-            value={String(configuredTemplateCount)}
-            tone={configuredTemplateCount > 0 ? "good" : "muted"}
-          />
-        </div>
-        <label className="aps-select-block">
-          <span>Шаблон</span>
-          <select
-            value={templateEventCode}
-            onChange={(event) => {
-              setTemplateEventCode(event.target.value);
-              setTemplatePreview(null);
-            }}
-          >
-            {platformSettingsForm.notification_templates.map((template) => (
-              <option key={template.code} value={template.code}>
-                {hasConfiguredTemplateContent(template)
-                  ? `${template.title} • настроен`
-                  : template.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        {selectedTemplate ? (
-          <div className="aps-template-editor">
-            <aside className="aps-template-sidebar">
-              <strong>Справка по полям</strong>
-              <div className="aps-template-field-guide">
-                {TEMPLATE_FIELD_GUIDES.map((field) => (
-                  <article key={field.key} className="aps-template-field-card">
-                    <div className="aps-template-field-head">
-                      <strong>{field.title}</strong>
-                      <span>{field.channel}</span>
-                    </div>
-                    <p className="muted-text">{field.description}</p>
-                  </article>
-                ))}
-              </div>
-              <strong className="aps-template-sidebar-title">Переменные</strong>
-              <p className="muted-text">
-                Клик вставляет переменную в активное поле (тема, email или Telegram).
-              </p>
-              <div className="aps-template-variable-list aps-template-variable-list-detailed">
-                {platformSettingsForm.notification_template_variables.map((variable) => (
-                  <button
-                    key={variable}
-                    type="button"
-                    className="aps-template-variable-item"
-                    onClick={() => insertTemplateVariable(variable)}
-                  >
-                    <code>{variable}</code>
-                    <span>{TEMPLATE_VARIABLE_HINTS[variable] ?? "Значение из контекста события."}</span>
-                  </button>
-                ))}
-              </div>
-            </aside>
-            <div className="aps-template-main">
-              <FieldGrid>
-                <label className="aps-field-span-2 aps-template-field-block">
-                  <span>Тема письма</span>
-                  <small className="muted-text">
-                    {TEMPLATE_FIELD_GUIDES.find((field) => field.key === "email_subject")?.description}
-                  </small>
-                  <input
-                    ref={subjectInput.inputRef}
-                    value={selectedTemplateSubjectValue}
-                    placeholder={selectedTemplate.default_email_subject}
-                    onChange={(event) =>
-                      handleTemplateFieldChange(selectedTemplate.code, "email_subject", event.target.value)
-                    }
-                  />
-                </label>
-                <div className="aps-field-span-2 aps-template-field-block">
-                  <span>Тело email</span>
-                  <small className="muted-text">
-                    {TEMPLATE_FIELD_GUIDES.find((field) => field.key === "email_body")?.description}
-                  </small>
-                  <NotificationTemplateWysiwygEditor
-                    ref={richEditorRef}
-                    variant="email"
-                    html={selectedEmailEditorHtml}
-                    placeholder={selectedTemplate.default_message_lines}
-                    onChange={(html) =>
-                      handleTemplateBodyChange(
-                        selectedTemplate.code,
-                        emailEditorHtmlToStorage(html),
-                      )
-                    }
-                  />
-                </div>
-                <label className="aps-field-span-2 aps-switch-inline">
-                  <span>Telegram: тема + текст email (авто)</span>
-                  <input
-                    type="checkbox"
-                    checked={telegramUsesAutoTemplate}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        handleTemplateFieldChange(selectedTemplate.code, "telegram_body", "");
-                      } else {
-                        handleTemplateFieldChange(
-                          selectedTemplate.code,
-                          "telegram_body",
-                          resolveTelegramEditorHtml(
-                            selectedTemplate.default_telegram_body,
-                            selectedTemplate.default_telegram_body,
-                          ),
-                        );
-                      }
-                    }}
-                  />
-                </label>
-                {!telegramUsesAutoTemplate ? (
-                  <div className="aps-field-span-2 aps-template-field-block">
-                    <span>Тело Telegram</span>
-                    <small className="muted-text">
-                      {TEMPLATE_FIELD_GUIDES.find((field) => field.key === "telegram_body")?.description}
-                    </small>
-                    <NotificationTemplateWysiwygEditor
-                      ref={telegramEditorRef}
-                      variant="telegram"
-                      html={selectedTelegramEditorHtml}
-                      placeholder={selectedTemplate.default_telegram_body}
-                      onChange={(html) =>
-                        handleTemplateFieldChange(
-                          selectedTemplate.code,
-                          "telegram_body",
-                          telegramEditorHtmlToStorage(html) ?? "",
-                        )
-                      }
-                    />
-                  </div>
-                ) : (
-                  <p className="aps-field-span-2 muted-text">
-                    Telegram получит тему письма и текстовую версию email автоматически.
-                  </p>
-                )}
-              </FieldGrid>
-              <div className="aps-action-row">
-                <button type="button" className="secondary-button" onClick={() => handleResetTemplate(selectedTemplate.code)}>
-                  Сбросить к дефолту
-                </button>
-                <button type="button" className="secondary-button" disabled={previewingTemplate} onClick={() => void handlePreviewTemplate()}>
-                  {previewingTemplate ? "Preview..." : "Preview"}
-                </button>
-              </div>
-              <FieldGrid>
-                <label>
-                  <span>Тестовый email</span>
-                  <input
-                    value={templateTestEmail}
-                    placeholder="admin@example.com"
-                    onChange={(event) => setTemplateTestEmail(event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span>Telegram chat ID</span>
-                  <input
-                    value={templateTestTelegramChatId}
-                    placeholder="123456789"
-                    onChange={(event) => setTemplateTestTelegramChatId(event.target.value)}
-                  />
-                </label>
-              </FieldGrid>
-              <div className="aps-action-row">
-                <button
-                  type="button"
-                  disabled={sendingTemplateTest || (!templateTestEmail.trim() && !templateTestTelegramChatId.trim())}
-                  onClick={() => void handleSendTemplateTest()}
-                >
-                  {sendingTemplateTest ? "Отправляем..." : "Отправить тест"}
-                </button>
-              </div>
-              {templatePreview ? (
-                <div className="aps-template-preview">
-                  <div>
-                    <span className="muted-text">Email subject</span>
-                    <strong>{templatePreview.email_subject}</strong>
-                  </div>
-                  <div>
-                    <span className="muted-text">Email text</span>
-                    <pre>{templatePreview.email_text}</pre>
-                  </div>
-                  <div>
-                    <span className="muted-text">Telegram</span>
-                    <pre>{templatePreview.telegram_text}</pre>
-                  </div>
-                  <div>
-                    <span className="muted-text">Email preview</span>
-                    <iframe
-                      className="aps-template-preview-frame"
-                      title="Email preview"
-                      sandbox=""
-                      srcDoc={templatePreview.email_html}
-                    />
-                  </div>
-                  <details>
-                    <summary>HTML source</summary>
-                    <pre>{templatePreview.email_html}</pre>
-                  </details>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : (
-          renderUnavailable()
-        )}
-      </div>
+      <NotificationTemplatesWorkspace
+        loadedSettings={platformBillingSettings}
+        platformSettings={platformSettingsForm}
+        setPlatformSettings={setPlatformSettingsForm}
+        smtpBzApiKey={smtpBzApiKey}
+        telegramBotToken={telegramBotToken}
+        onPreviewNotificationTemplate={onPreviewNotificationTemplate}
+        onSendNotificationTemplateTest={onSendNotificationTemplateTest}
+      />
     );
   }
 
