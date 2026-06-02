@@ -5,6 +5,14 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.17] — 2026-06-03
+
+### Исправлено
+
+- **Production crash после v0.14.16**: восстановлен импорт `PublicPaymentResponse` в `payment_page_service.py` (backend и Celery не стартовали).
+
+---
+
 ## [0.14.16] — 2026-06-03
 
 ### Добавлено

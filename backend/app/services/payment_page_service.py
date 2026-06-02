@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.invoice import Invoice
 from app.models.project import Project
+from app.schemas.invoice import PublicPaymentResponse
 from app.services.invoice_confirmations import confirmations_fields_for_invoice
 
 
