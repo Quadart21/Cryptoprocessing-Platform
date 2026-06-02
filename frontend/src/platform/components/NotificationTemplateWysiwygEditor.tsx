@@ -7,7 +7,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from "react";
 
-import { injectVariableTokens } from "./notificationTemplateEditorUtils";
+import { prepareStoredHtmlForEditor } from "./notificationTemplateEditorUtils";
 
 export type NotificationTemplateWysiwygHandle = {
   insertVariable: (variable: string) => void;
@@ -80,7 +80,7 @@ export const NotificationTemplateWysiwygEditor = forwardRef<
         placeholder: placeholder ?? "Введите текст уведомления…",
       }),
     ],
-    content: injectVariableTokens(html || "<p></p>"),
+    content: prepareStoredHtmlForEditor(html || "<p></p>"),
     editorProps: {
       attributes: {
         class: "nte-prosemirror",
@@ -96,7 +96,7 @@ export const NotificationTemplateWysiwygEditor = forwardRef<
 
   useEffect(() => {
     if (!editor) return;
-    const normalized = injectVariableTokens(html || "<p></p>");
+    const normalized = prepareStoredHtmlForEditor(html || "<p></p>");
     if (normalized === lastHtmlRef.current) return;
     skipUpdateRef.current = true;
     editor.commands.setContent(normalized, { emitUpdate: false });

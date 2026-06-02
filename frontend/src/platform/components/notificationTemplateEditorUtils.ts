@@ -39,8 +39,29 @@ function renderVariableToken(variable: string): string {
   return `<code>{{ ${escapeHtml(trimmed)} }}</code>`;
 }
 
+export function isTemplateVariableReference(value: string): boolean {
+  return /^\{\{\s*[a-zA-Z0-9_]+\s*\}\}$/.test(value.trim());
+}
+
+export function isSafeMediaSrc(src: string): boolean {
+  const trimmed = src.trim();
+  if (!trimmed) return false;
+  if (isTemplateVariableReference(trimmed)) return true;
+  return (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("mailto:") ||
+    trimmed.startsWith("/")
+  );
+}
+
 export function injectVariableTokens(text: string): string {
   return text.replace(VARIABLE_PATTERN, (_, variable: string) => renderVariableToken(variable));
+}
+
+/** Не трогать {{ }} внутри HTML-атрибутов (src картинок, href ссылок). */
+export function prepareStoredHtmlForEditor(html: string): string {
+  return html.trim() || "<p></p>";
 }
 
 export function plainLinesToEditorHtml(text: string): string {
@@ -75,7 +96,7 @@ export function resolveEmailEditorHtml(
   fallbackMessageLines: string,
 ): string {
   if (!isDefaultEmailBody(emailBody) && emailBody?.trim()) {
-    return injectVariableTokens(emailBody.trim());
+    return prepareStoredHtmlForEditor(emailBody);
   }
   const source = (messageLines ?? fallbackMessageLines).replace(/\r/g, "");
   return plainLinesToEditorHtml(source);
@@ -88,7 +109,7 @@ export function resolveTelegramEditorHtml(
   const source = (telegramBody ?? fallbackTelegramBody).replace(/\r/g, "").trim();
   if (!source) return "<p></p>";
   if (source.includes("<") && source.includes(">")) {
-    return injectVariableTokens(source);
+    return prepareStoredHtmlForEditor(source);
   }
   return plainLinesToEditorHtml(source);
 }
@@ -193,13 +214,18 @@ function sanitizeNode(node: Node): string {
   }
   if (tag === "IMG") {
     const src = (element.getAttribute("src") ?? "").trim();
-    if (!src) return "";
+    if (!isSafeMediaSrc(src)) return "";
     const alt = (element.getAttribute("alt") ?? "").trim();
     return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" class="nte-image" />`;
   }
   if (tag === "A") {
     const href = (element.getAttribute("href") ?? "").trim();
-    if (!href.startsWith("http://") && !href.startsWith("https://") && !href.startsWith("mailto:")) {
+    if (
+      !isTemplateVariableReference(href) &&
+      !href.startsWith("http://") &&
+      !href.startsWith("https://") &&
+      !href.startsWith("mailto:")
+    ) {
       return Array.from(element.childNodes).map(sanitizeNode).join("");
     }
     return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${Array.from(element.childNodes).map(sanitizeNode).join("")}</a>`;
@@ -222,11 +248,13 @@ export function emailEditorHtmlToStorage(html: string): {
 } {
   const plain = editorHtmlToPlainLines(html);
   const sanitized = sanitizeEditorHtml(html);
-  if (!plain && !sanitized.replace(/<[^>]+>/g, "").trim()) {
+  const hasImage = /<img\b/i.test(sanitized);
+  const textOnly = sanitized.replace(/<[^>]+>/g, "").trim();
+  if (!plain && !textOnly && !hasImage) {
     return { message_lines: null, email_body: null };
   }
   return {
-    message_lines: plain || null,
+    message_lines: plain || (hasImage ? "[image]" : null),
     email_body: sanitized || null,
   };
 }
@@ -234,7 +262,9 @@ export function emailEditorHtmlToStorage(html: string): {
 export function telegramEditorHtmlToStorage(html: string): string | null {
   const plain = editorHtmlToPlainLines(html);
   const sanitized = sanitizeEditorHtml(html);
-  if (!plain && !sanitized.replace(/<[^>]+>/g, "").trim()) {
+  const hasImage = /<img\b/i.test(sanitized);
+  const textOnly = sanitized.replace(/<[^>]+>/g, "").trim();
+  if (!plain && !textOnly && !hasImage) {
     return null;
   }
   return sanitized || null;
