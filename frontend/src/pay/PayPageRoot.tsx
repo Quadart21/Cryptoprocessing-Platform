@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { formatDecimal } from "../utils/format";
-import { formatNetworkConfirmations } from "../utils/networkConfirmations";
 import { getInvoiceDetailStatusMeta, invoiceStatusTone } from "../utils/invoiceStatus";
+import { PaymentConfirmationsProgress } from "./PaymentConfirmationsProgress";
 import {
   fetchPublicPayment,
   isRateLimitedPaymentError,
@@ -320,16 +320,6 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     normalizeStatus(payment.status) === "pending" &&
     !isFailedStatus(payment.status);
   const confirming = payment && isConfirmingStatus(payment.status);
-  const confirmationProgress = useMemo(
-    () =>
-      payment
-        ? formatNetworkConfirmations(
-            payment.network_confirmations_actual,
-            payment.network_confirmations_required,
-          )
-        : null,
-    [payment],
-  );
 
   async function copyValue(label: string, value: string) {
     try {
@@ -414,17 +404,12 @@ export function PayPageRoot({ token }: PayPageRootProps) {
             </section>
 
             {confirming ? (
-              <section className="pp-terminal pp-terminal--success">
-                <div className="pp-terminal-icon" aria-hidden>
-                  ↻
-                </div>
-                <h2 className="pp-title">Транзакция в сети</h2>
-                <p className="pp-muted">
-                  Платёж отправлен — ждём подтверждения блокчейна ({payment.crypto_currency}
-                  {confirmationProgress ? `, ${confirmationProgress}` : ""}). Это может занять
-                  несколько минут.
-                </p>
-              </section>
+              <PaymentConfirmationsProgress
+                actual={payment.network_confirmations_actual}
+                cryptoCurrency={payment.crypto_currency}
+                network={payment.network}
+                required={payment.network_confirmations_required}
+              />
             ) : null}
 
             {isSuccessStatus(payment.status) ? (

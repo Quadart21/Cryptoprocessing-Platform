@@ -606,6 +606,277 @@
   border-color: rgba(248, 113, 113, 0.3);
 }
 
+.pp-confirm {
+  margin-bottom: 1rem;
+  padding: 1.25rem 1.15rem 1.2rem;
+  border-radius: var(--pp-radius-xl);
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  background:
+    linear-gradient(155deg, rgba(245, 158, 11, 0.14), rgba(18, 24, 38, 0.82)),
+    var(--pp-surface);
+  backdrop-filter: blur(20px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 48px rgba(245, 158, 11, 0.08),
+    0 20px 40px rgba(0, 0, 0, 0.28);
+}
+
+.pp-confirm-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+
+.pp-confirm-icon-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.pp-confirm-icon-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(251, 191, 36, 0.2);
+  border-top-color: #fbbf24;
+  animation: pp-spin 1.4s linear infinite;
+}
+
+.pp-confirm-icon {
+  position: absolute;
+  inset: 0.35rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.pp-confirm-copy {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.pp-confirm-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.pp-confirm-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--pp-muted);
+}
+
+.pp-confirm-live {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+}
+
+.pp-confirm-live-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.75);
+  animation: pp-confirm-pulse 1.6s ease-in-out infinite;
+}
+
+.pp-confirm-body {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.pp-confirm-ring {
+  --pp-confirm-progress: 0;
+  flex-shrink: 0;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 50%;
+  padding: 0.28rem;
+  background:
+    radial-gradient(farthest-side, rgba(12, 16, 26, 0.95) 67%, transparent 69%),
+    conic-gradient(
+      #fbbf24 calc(var(--pp-confirm-progress) * 360deg),
+      rgba(255, 255, 255, 0.07) 0
+    );
+  box-shadow: 0 0 28px rgba(245, 158, 11, 0.22);
+  transition: box-shadow 0.35s ease, transform 0.35s ease;
+}
+
+.pp-confirm-ring--bump {
+  transform: scale(1.04);
+  box-shadow: 0 0 36px rgba(251, 191, 36, 0.45);
+}
+
+.pp-confirm-ring-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 12, 20, 0.92);
+  border: 1px solid rgba(251, 191, 36, 0.15);
+}
+
+.pp-confirm-counter {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: #fef3c7;
+  transition: transform 0.35s ease, color 0.35s ease;
+}
+
+.pp-confirm-counter--bump {
+  animation: pp-confirm-counter-bump 0.75s ease;
+}
+
+.pp-confirm-counter-label {
+  margin-top: 0.1rem;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(253, 230, 138, 0.65);
+}
+
+.pp-confirm-stats {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.pp-confirm-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.pp-confirm-stat-value {
+  font-size: 1.65rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #fef3c7;
+}
+
+.pp-confirm-stat-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--pp-muted);
+}
+
+.pp-confirm-stat-divider {
+  font-size: 1.35rem;
+  font-weight: 300;
+  color: rgba(253, 230, 138, 0.35);
+  margin-top: -0.35rem;
+}
+
+.pp-confirm-track-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.pp-confirm-track {
+  flex: 1;
+  height: 0.45rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pp-confirm-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.45);
+  transition: width 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pp-confirm-fill--pulse {
+  animation: pp-confirm-fill-pulse 0.75s ease;
+}
+
+.pp-confirm-percent {
+  flex-shrink: 0;
+  min-width: 2.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fde68a;
+  text-align: right;
+}
+
+.pp-confirm-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.pp-confirm-segment {
+  flex: 1 1 0.55rem;
+  min-width: 0.55rem;
+  max-width: 1.35rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition:
+    background 0.35s ease,
+    border-color 0.35s ease,
+    transform 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+.pp-confirm-segment--filled {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+.pp-confirm-segment--fresh {
+  transform: scaleY(1.35);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.65);
+}
+
+.pp-confirm-note {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--pp-muted);
+  text-align: left;
+}
+
 .pp-terminal-icon {
   width: 3.25rem;
   height: 3.25rem;
@@ -729,6 +1000,45 @@
   50% {
     opacity: 0.9;
     transform: scale(1.05);
+  }
+}
+
+@keyframes pp-confirm-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+}
+
+@keyframes pp-confirm-counter-bump {
+  0% {
+    transform: scale(1);
+    color: #fef3c7;
+  }
+  35% {
+    transform: scale(1.14);
+    color: #fff;
+  }
+  100% {
+    transform: scale(1);
+    color: #fef3c7;
+  }
+}
+
+@keyframes pp-confirm-fill-pulse {
+  0% {
+    filter: brightness(1);
+  }
+  40% {
+    filter: brightness(1.35);
+  }
+  100% {
+    filter: brightness(1);
   }
 }
 
