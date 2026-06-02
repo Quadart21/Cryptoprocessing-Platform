@@ -30,14 +30,14 @@ async def _sync_all_pending_invoices() -> dict:
             (
                 await db.scalars(
                     select(Invoice)
-                    .where(Invoice.status.in_(["pending", "paid"]))
+                    .where(Invoice.status.in_(["pending", "confirming", "paid"]))
                     .order_by(Invoice.created_at.desc())
                     .limit(100)
                 )
             ).all()
         )
         
-        logger.info(f"Found {len(pending_invoices)} pending/paid invoices to sync")
+        logger.info(f"Found {len(pending_invoices)} pending/confirming/paid invoices to sync")
         
         for invoice in pending_invoices:
             try:

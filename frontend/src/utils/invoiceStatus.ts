@@ -7,7 +7,7 @@ export function invoiceStatusTone(status: string): InvoiceStatusTone {
   if (s === "paid" || s === "confirmed") {
     return "success";
   }
-  if (s === "pending") {
+  if (s === "pending" || s === "confirming") {
     return "warning";
   }
   return "danger";
@@ -17,6 +17,7 @@ export function invoiceStatusLabelRu(status: string): string {
   const s = status.trim().toLowerCase();
   const map: Record<string, string> = {
     pending: "Ожидает оплату",
+    confirming: "Подтверждение в сети",
     paid: "Оплачен",
     confirmed: "Подтверждён",
     expired: "Истёк срок",
@@ -30,6 +31,8 @@ export function invoiceDetailBadgeClass(status: string): string {
   const s = status.trim().toLowerCase();
   switch (s) {
     case "pending":
+      return "invoice-status-badge-pending";
+    case "confirming":
       return "invoice-status-badge-pending";
     case "paid":
       return "invoice-status-badge-paid";

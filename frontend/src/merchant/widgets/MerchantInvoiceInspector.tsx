@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { InvoiceDetail } from "../../api";
 import { formatDecimal } from "../../utils/format";
+import { formatNetworkConfirmations } from "../../utils/networkConfirmations";
 import { getInvoiceDetailStatusMeta } from "../../utils/invoiceStatus";
 
 import { InvoiceSettlementBreakdown } from "./InvoiceSettlementBreakdown";
@@ -35,6 +36,9 @@ function formatCountdown(value: string | null | undefined, status: string): stri
   }
   if (status === "paid" || status === "confirmed") {
     return "Оплачен";
+  }
+  if (status === "confirming") {
+    return "Подтверждение в сети";
   }
   if (status === "failed") {
     return "Платеж не завершен";
@@ -125,6 +129,10 @@ export function MerchantInvoiceInspector({
   }
 
   const statusMeta = getInvoiceDetailStatusMeta(invoice.status);
+  const confirmationProgress = formatNetworkConfirmations(
+    invoice.network_confirmations_actual,
+    invoice.network_confirmations_required,
+  );
 
   return (
     <dialog className="mw-inspector-dialog invoice-modal" ref={ref}>
@@ -208,6 +216,12 @@ export function MerchantInvoiceInspector({
               <span>Таймер</span>
               <strong>{countdown}</strong>
             </div>
+            {confirmationProgress ? (
+              <div className="detail-chip">
+                <span>Подтверждения</span>
+                <strong>{confirmationProgress}</strong>
+              </div>
+            ) : null}
           </div>
 
           <InvoiceSettlementBreakdown

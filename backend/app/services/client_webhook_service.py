@@ -16,6 +16,7 @@ from app.models.project import Project
 from app.models.transaction import Transaction
 from app.services.checkout_delivery_service import CheckoutDeliveryService
 from app.services.event_service import EventService
+from app.services.invoice_confirmations import confirmations_fields_from_stored
 from app.services.payment_page_service import PaymentPageService
 
 
@@ -248,6 +249,7 @@ class ClientWebhookService:
             "checkout_delivery": payment_fields.checkout_delivery,
             "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
             "confirmed_at": invoice.confirmed_at.isoformat() if invoice.confirmed_at else None,
+            **confirmations_fields_from_stored(invoice),
         }
 
     def _build_headers(

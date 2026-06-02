@@ -69,6 +69,7 @@ from app.services.auth_service import AuthError, AuthService
 from app.services.balance_service import BalanceService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
+from app.services.invoice_confirmations import confirmations_fields_from_stored
 from app.services.invoice_service import InvoiceAmountOutOfRangeError, InvoiceService
 from app.services.notification_service import NotificationService
 from app.services.project_service import ProjectService
@@ -1094,6 +1095,7 @@ def _map_invoice_response(
         status=invoice.status,
         expires_at=invoice.expires_at,
         created_at=invoice.created_at,
+        **confirmations_fields_from_stored(invoice),
     )
 
 

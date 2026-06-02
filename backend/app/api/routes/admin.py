@@ -88,6 +88,7 @@ from app.services.auth_service import AuthService
 from app.services.accounting_service import AccountingService
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.exchange_rate_service import get_exchange_rate_service
+from app.services.invoice_confirmations import confirmations_fields_from_stored
 from app.services.invoice_service import InvoiceService
 from app.services.notification_service import NotificationService
 from app.services.project_service import ProjectService
@@ -1527,6 +1528,7 @@ def _map_invoice_response(invoice: Invoice) -> InvoiceResponse:
         status=invoice.status,
         expires_at=invoice.expires_at,
         created_at=invoice.created_at,
+        **confirmations_fields_from_stored(invoice),
     )
 
 

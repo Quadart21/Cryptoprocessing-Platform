@@ -9,8 +9,18 @@ OpenAPI:       https://noren.digital/openapi.json
   1. GET  /health          — проверка доступности API
   2. GET  /rates           — доступные валюты и сети
   3. POST /invoices        — создание инвойса
-  4. GET  /invoices/{id}   — текущий статус
+  4. GET  /invoices/{id}   — текущий статус (+ network_confirmations_actual/required)
   5. POST /invoices/{id}/sync — принудительная синхронизация с провайдером
+
+Статусы инвойса (после маппинга Crypto-Cash):
+  pending    — ждём перевод на адрес
+  confirming — транзакция в сети, идут подтверждения блокчейна (Waiting у CC)
+  paid       — депозит принят провайдером
+  confirmed  — финальное подтверждение
+
+Поля подтверждений в ответе API:
+  network_confirmations_actual   — сколько блоков уже подтверждено (например 7)
+  network_confirmations_required — сколько нужно для сети (DOGE: 15)
 
 Hosted checkout (docs): в ответе POST /invoices поле payment_page_url —
   https://noren.digital/pay/{token} (QR, таймер, автообновление статуса).
@@ -34,6 +44,7 @@ Hosted checkout (docs): в ответе POST /invoices поле payment_page_url
   NOREN_OPEN_BROWSER   — 1 = открыть payment_page_url в браузере (по умолчанию)
   NOREN_PAYMENT_HTML   — путь к локальному HTML (по умолчанию last_payment.html)
   NOREN_USER_AGENT     — User-Agent для обхода WAF
+  NOREN_SUCCESS_STATUSES — через запятую: статусы успеха (по умолчанию paid,confirmed)
 """
 
 from __future__ import annotations
@@ -58,8 +69,9 @@ DEFAULT_RATES_RETRIES = 1
 DEFAULT_RATES_RETRY_DELAY_SEC = 2
 DEFAULT_RATES_TIMEOUT_SEC = 15
 DEFAULT_HTTP_TIMEOUT_SEC = 30
-PAID_STATUSES = frozenset({"paid", "confirmed"})
-TERMINAL_STATUSES = frozenset({"paid", "confirmed", "expired", "cancelled", "failed"})
+CONFIRMING_STATUS = "confirming"
+DEFAULT_SUCCESS_STATUSES = frozenset({"paid", "confirmed"})
+TERMINAL_STATUSES = frozenset({"expired", "cancelled", "failed"})
 
 _DEFAULT_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -114,6 +126,50 @@ def _env_bool(name: str, *, default: bool = False) -> bool:
     if not raw:
         return default
     return raw in {"1", "true", "yes", "on"}
+
+
+def _env_status_set(name: str, default: frozenset[str]) -> frozenset[str]:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    values = {part.strip().lower() for part in raw.split(",") if part.strip()}
+    return frozenset(values) if values else default
+
+
+def format_confirmations(invoice: dict[str, Any]) -> str | None:
+    actual = invoice.get("network_confirmations_actual")
+    required = invoice.get("network_confirmations_required")
+    if actual is None and required is None:
+        return None
+    try:
+        actual_int = int(actual) if actual is not None else None
+    except (TypeError, ValueError):
+        actual_int = None
+    try:
+        required_int = int(required) if required is not None else None
+    except (TypeError, ValueError):
+        required_int = None
+    if required_int is not None and required_int > 0:
+        return f"{actual_int or 0}/{required_int}"
+    if actual_int is not None:
+        return str(actual_int)
+    return None
+
+
+def describe_status(status: str, confirmations: str | None) -> str:
+    normalized = status.strip().lower()
+    if normalized == CONFIRMING_STATUS:
+        suffix = f" ({confirmations})" if confirmations else ""
+        return f"подтверждение в сети{suffix}"
+    if normalized == "pending":
+        return "ожидает оплату"
+    if normalized == "paid":
+        suffix = f", подтверждения {confirmations}" if confirmations else ""
+        return f"оплачен{suffix}"
+    if normalized == "confirmed":
+        suffix = f", подтверждения {confirmations}" if confirmations else ""
+        return f"подтверждён{suffix}"
+    return normalized or "unknown"
 
 
 def api_request(
@@ -402,10 +458,14 @@ def sync_invoice(base: str, public: str, secret: str, invoice_id: str) -> dict[s
 
 
 def print_invoice_details(invoice: dict[str, Any], *, title: str) -> None:
+    status = str(invoice.get("status") or "")
+    confirmations = format_confirmations(invoice)
     log(title)
     log(f"    ID:              {invoice.get('id')}")
     log(f"    merchant_order:  {invoice.get('merchant_order_id')}")
-    log(f"    status:          {invoice.get('status')}")
+    log(f"    status:          {status} ({describe_status(status, confirmations)})")
+    if confirmations:
+        log(f"    confirmations:   {confirmations}")
     log(f"    checkout:        {invoice.get('checkout_delivery')}")
     log(f"    amount_crypto:   {invoice.get('amount_crypto')} {invoice.get('crypto_currency')}")
     log(f"    network:         {invoice.get('network')}")
@@ -435,6 +495,12 @@ def write_payment_html(invoice: dict[str, Any]) -> Path:
     status = invoice.get("status")
     expires = invoice.get("expires_at")
     order_id = invoice.get("merchant_order_id")
+    confirmations = format_confirmations(invoice)
+    confirm_line = (
+        f"<p>Подтверждения сети: <strong>{confirmations}</strong></p>"
+        if confirmations
+        else ""
+    )
 
     if page_url:
         body = f"""<!DOCTYPE html>
@@ -454,6 +520,7 @@ def write_payment_html(invoice: dict[str, Any]) -> Path:
     <h1>Оплата {amount} {currency}</h1>
     <p>Заказ: <code>{order_id}</code></p>
     <p>Статус: <strong>{status}</strong></p>
+    {confirm_line}
     <p>Истекает: {expires}</p>
     <p><a href="{page_url}">Открыть платёжную страницу Noren</a></p>
     <p>Если редирект не сработал, перейдите по ссылке вручную.</p>
@@ -482,6 +549,7 @@ def write_payment_html(invoice: dict[str, Any]) -> Path:
     <h1>Оплата {amount} {currency} ({network})</h1>
     <p>Заказ: <code>{order_id}</code></p>
     <p>Статус: <strong>{status}</strong></p>
+    {confirm_line}
     <p>Сумма: <strong>{amount} {currency}</strong></p>
     <p>Адрес:</p>
     <p><code>{address}</code></p>
@@ -531,9 +599,15 @@ def poll_until_paid(
     *,
     poll_interval: int,
     expires_at_raw: str | None,
+    success_statuses: frozenset[str],
 ) -> dict[str, Any]:
-    log(f"Начинаю опрос каждые {poll_interval} с (GET /invoices/{{id}} + POST /sync)")
+    log(
+        f"Начинаю опрос каждые {poll_interval} с (POST /sync + GET /invoices/{{id}}). "
+        f"Успех при status in {{{', '.join(sorted(success_statuses))}}}"
+    )
     attempt = 0
+    last_status: str | None = None
+    last_confirmations: str | None = None
 
     while True:
         attempt += 1
@@ -541,20 +615,32 @@ def poll_until_paid(
 
         try:
             synced = sync_invoice(base, public, secret, invoice_id)
-            status = str(synced.get("status") or "").lower()
-            log(f"    sync -> status={status}")
+            source = "sync"
         except Exception as exc:
             log(f"    sync ошибка: {exc}")
             synced = get_invoice(base, public, secret, invoice_id)
-            status = str(synced.get("status") or "").lower()
-            log(f"    get  -> status={status}")
+            source = "get"
 
-        if status in PAID_STATUSES:
-            log("Оплата получена.")
+        status = str(synced.get("status") or "").lower()
+        confirmations = format_confirmations(synced)
+        if status != last_status or confirmations != last_confirmations:
+            log(f"    {source} -> status={status} ({describe_status(status, confirmations)})")
+            if confirmations:
+                log(f"    confirmations:   {confirmations}")
+            last_status = status
+            last_confirmations = confirmations
+
+        if status == CONFIRMING_STATUS:
+            log("    транзакция в блокчейне — ждём накопления подтверждений сети")
+        elif status == "pending":
+            log("    ждём входящий перевод на payment_address")
+
+        if status in success_statuses:
+            log("Целевой статус достигнут.")
             return synced
 
         if status in TERMINAL_STATUSES:
-            log(f"Инвойс в финальном статусе: {status}")
+            log(f"Инвойс в финальном статусе без оплаты: {status}")
             return synced
 
         if expires_at_raw:
@@ -566,7 +652,7 @@ def poll_until_paid(
             except ValueError:
                 pass
 
-        log(f"Ожидание оплаты... следующий опрос через {poll_interval} с")
+        log(f"Ожидание... следующий опрос через {poll_interval} с")
         time.sleep(poll_interval)
 
 
@@ -592,6 +678,7 @@ def main() -> int:
     )
     rates_timeout = _env_int("NOREN_RATES_TIMEOUT", DEFAULT_RATES_TIMEOUT_SEC)
     skip_rates = _env_bool("NOREN_SKIP_RATES")
+    success_statuses = _env_status_set("NOREN_SUCCESS_STATUSES", DEFAULT_SUCCESS_STATUSES)
 
     if not base or not public or not secret:
         log(
@@ -645,10 +732,18 @@ def main() -> int:
 
     print_invoice_details(invoice, title="Инвойс создан:")
     display_payment_page(invoice)
+    required = invoice.get("network_confirmations_required")
+    if required:
+        log(f"Для {crypto}/{network} нужно подтверждений сети: {required}")
     if invoice.get("payment_page_url"):
-        log("Оплатите по ссылке payment_page выше или дождитесь подтверждения в терминале.")
+        log(
+            "Оплатите по payment_page. После перевода статус сменится "
+            "pending → confirming (счётчик блоков) → paid/confirmed."
+        )
     else:
-        log("Отправьте указанную сумму на payment_address и дождитесь подтверждения.")
+        log(
+            "Отправьте сумму на payment_address. Скрипт покажет confirming и прогресс N/M."
+        )
     log("")
 
     invoice_id = str(invoice.get("id") or "")
@@ -664,6 +759,7 @@ def main() -> int:
             invoice_id,
             poll_interval=poll_interval,
             expires_at_raw=invoice.get("expires_at"),
+            success_statuses=success_statuses,
         )
     except KeyboardInterrupt:
         log("Остановлено пользователем (Ctrl+C).")
@@ -671,11 +767,19 @@ def main() -> int:
 
     print_invoice_details(final, title="Итоговый статус:")
     status = str(final.get("status") or "").lower()
-    if status in PAID_STATUSES:
-        log("Готово: платёж подтверждён.")
+    confirmations = format_confirmations(final)
+    if status in success_statuses:
+        if status == "confirmed":
+            log("Готово: инвойс полностью подтверждён.")
+        elif status == "paid":
+            log("Готово: депозит принят (status=paid).")
+        else:
+            log(f"Готово: достигнут статус {status}.")
+        if confirmations:
+            log(f"Подтверждения сети на финале: {confirmations}")
         return 0
 
-    log(f"Завершено без оплаты (status={status}).")
+    log(f"Завершено без целевого статуса (status={status}).")
     return 1
 
 

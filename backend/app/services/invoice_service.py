@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.tenant import apply_db_security_context
 from app.models.invoice import Invoice
+from app.models.ledger_entry import LedgerEntry
 from app.models.project import Project
 from app.models.transaction import Transaction
 from app.providers.base import ProviderCreateInvoiceRequest
@@ -18,7 +19,10 @@ from app.services.balance_service import BalanceService
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
-from app.services.exchange_rate_service import get_exchange_rate_service
+from app.services.invoice_confirmations import (
+    apply_confirmations_to_stored_payload,
+    seed_required_confirmations,
+)
 from app.services.payment_page_service import PaymentPageService
 from app.services.rates_service import RatesService
 from app.services.statistics_exclusion_service import StatisticsExclusionService
@@ -197,6 +201,18 @@ class InvoiceService:
             metadata_json=payload.metadata,
             raw_provider_payload_json=provider_response.raw_payload,
         )
+        stored_payload = dict(invoice.raw_provider_payload_json or {})
+        apply_confirmations_to_stored_payload(stored_payload, provider_response.raw_payload)
+        try:
+            required_confirmations = await rates_service.get_network_confirmations_required(
+                currency=provider_response.crypto_currency,
+                network=provider_response.network,
+            )
+            seed_required_confirmations(stored_payload, required_confirmations)
+        except ValueError:
+            pass
+        if stored_payload != (invoice.raw_provider_payload_json or {}):
+            invoice.raw_provider_payload_json = stored_payload
         self.db.add(invoice)
         await self.db.flush()
         invoice_snapshot = self._build_invoice_snapshot(invoice)
@@ -385,6 +401,8 @@ class InvoiceService:
             if provider_status and stored_payload.get("last_webhook_status") != provider_status:
                 stored_payload["last_webhook_status"] = provider_status
                 meta_changed = True
+            if apply_confirmations_to_stored_payload(stored_payload, raw_payload):
+                meta_changed = True
             if not meta_changed:
                 return invoice
             invoice.raw_provider_payload_json = stored_payload
@@ -403,6 +421,7 @@ class InvoiceService:
             stored_payload["tx_hash"] = tx_hash
         if raw_payload:
             stored_payload["last_webhook_payload"] = raw_payload
+        apply_confirmations_to_stored_payload(stored_payload, raw_payload)
         invoice.raw_provider_payload_json = stored_payload
 
         transaction.status = normalized_status
@@ -548,7 +567,16 @@ class InvoiceService:
         balance = await balance_service.get_or_create_balance(invoice.tenant_id, self.BALANCE_CURRENCY)
 
         if previous_status not in paid_like_statuses and new_status in paid_like_statuses:
-            await self._apply_initial_settlement(invoice, transaction, balance_service, balance)
+            settlement_exists = await self.db.scalar(
+                select(LedgerEntry.id)
+                .where(
+                    LedgerEntry.invoice_id == invoice.id,
+                    LedgerEntry.entry_type == "invoice.gross_accrual",
+                )
+                .limit(1)
+            )
+            if settlement_exists is None:
+                await self._apply_initial_settlement(invoice, transaction, balance_service, balance)
 
         if previous_status == "paid" and new_status == "confirmed":
             await self._release_pending_to_available(invoice, transaction, balance_service, balance)
@@ -866,12 +894,13 @@ class InvoiceService:
             "pending": "pending",
             "queued": "pending",
             "new": "pending",
-            "waiting": "paid",
+            # Crypto-Cash Waiting = tx seen, network confirmations in progress (DOGE 15 blocks, etc.)
+            "waiting": "confirming",
             "paid": "paid",
             "underpaid": "failed",
             "overpaid": "paid",
             "confirmed": "confirmed",
-            "confirming": "paid",
+            "confirming": "confirming",
             "expired": "expired",
             "cancelled": "failed",
             "canceled": "failed",

@@ -29,6 +29,8 @@ class InvoiceResponse(BaseModel):
     payment_page_url: str | None = None
     checkout_delivery: str = "both"
     status: str
+    network_confirmations_actual: int | None = None
+    network_confirmations_required: int | None = None
     expires_at: datetime
     created_at: datetime
 
@@ -61,6 +63,8 @@ class PublicPaymentResponse(BaseModel):
     fiat_currency: str
     payment_address: str
     qr_url: str | None
+    network_confirmations_actual: int | None = None
+    network_confirmations_required: int | None = None
     expires_at: datetime
     merchant_order_id: str
     merchant_name: str | None = None

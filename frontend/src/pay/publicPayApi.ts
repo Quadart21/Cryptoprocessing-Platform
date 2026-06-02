@@ -9,6 +9,8 @@ export type PublicPayment = {
   fiat_currency: string;
   payment_address: string;
   qr_url: string | null;
+  network_confirmations_actual: number | null;
+  network_confirmations_required: number | null;
   expires_at: string;
   merchant_order_id: string;
   merchant_name: string | null;

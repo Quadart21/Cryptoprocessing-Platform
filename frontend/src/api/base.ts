@@ -151,6 +151,8 @@ export type InvoiceItem = {
   payment_page_url: string | null;
   checkout_delivery: CheckoutDeliveryMode;
   status: string;
+  network_confirmations_actual: number | null;
+  network_confirmations_required: number | null;
   expires_at: string;
   created_at: string;
 };

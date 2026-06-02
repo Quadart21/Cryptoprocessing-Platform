@@ -5,6 +5,24 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.16] — 2026-06-03
+
+### Добавлено
+
+- **Подтверждения сети Crypto-Cash**: поля `network_confirmations_actual` / `network_confirmations_required` в API инвойсов, pay-странице и исходящих webhook; отображение прогресса `N/M` в pay UI, кабинете мерчанта и модалке инвойса.
+- **Пример `noren_doge_invoice_poll.py`**: опрос статуса `confirming`, лог счётчика блоков, env `NOREN_SUCCESS_STATUSES`.
+
+### Изменено
+
+- **Маппинг статусов провайдера**: Crypto-Cash `Waiting` → `confirming` (не `paid` до завершения подтверждений); Celery sync подхватывает инвойсы в `confirming`.
+- **Settlement**: защита от повторного начисления при переходе `confirming → paid`, если gross_accrual уже был.
+
+### Исправлено
+
+- Расхождение с Crypto-Cash, когда DOGE уже в сети, а у нас инвойс преждевременно помечался как оплаченный.
+
+---
+
 ## [0.14.15] — 2026-05-31
 
 ### Исправлено

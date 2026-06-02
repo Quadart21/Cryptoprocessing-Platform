@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.invoice import Invoice
 from app.models.project import Project
-from app.schemas.invoice import PublicPaymentResponse
+from app.services.invoice_confirmations import confirmations_fields_for_invoice
 
 
 class PaymentPageService:
@@ -52,6 +52,7 @@ class PaymentPageService:
         merchant_name = project.name if project is not None else None
         return_url_success = project.return_url_success if project is not None else None
         return_url_failed = project.return_url_failed if project is not None else None
+        confirmations = await confirmations_fields_for_invoice(self.db, invoice)
         return PublicPaymentResponse(
             status=invoice.status,
             amount_crypto=invoice.amount_crypto,
@@ -66,4 +67,5 @@ class PaymentPageService:
             merchant_name=merchant_name,
             return_url_success=return_url_success,
             return_url_failed=return_url_failed,
+            **confirmations,
         )

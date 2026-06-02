@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { InvoiceItem } from "../../api";
 import { formatDecimal } from "../../utils/format";
+import { formatNetworkConfirmations } from "../../utils/networkConfirmations";
 import { getInvoiceDetailStatusMeta } from "../../utils/invoiceStatus";
 
 type InvoiceDetailModalProps = {
@@ -34,6 +35,10 @@ function formatCountdown(value: string | null | undefined, status: string): stri
 
   if (status === "paid" || status === "confirmed") {
     return "Оплачен";
+  }
+
+  if (status === "confirming") {
+    return "Подтверждение в сети";
   }
 
   if (status === "failed") {
@@ -108,6 +113,10 @@ export function InvoiceDetailModal({
   }
 
   const statusMeta = getInvoiceDetailStatusMeta(invoice.status);
+  const confirmationProgress = formatNetworkConfirmations(
+    invoice.network_confirmations_actual,
+    invoice.network_confirmations_required,
+  );
 
   return (
     <div className="nc-modal-overlay" onClick={onClose}>
@@ -156,6 +165,12 @@ export function InvoiceDetailModal({
                 <span>Обратный отсчет</span>
                 <strong>{countdown}</strong>
               </div>
+              {confirmationProgress ? (
+                <div className="detail-chip">
+                  <span>Подтверждения сети</span>
+                  <strong>{confirmationProgress}</strong>
+                </div>
+              ) : null}
             </div>
 
             <div className="invoice-modal-card">

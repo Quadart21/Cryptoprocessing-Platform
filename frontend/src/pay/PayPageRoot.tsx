@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { formatDecimal } from "../utils/format";
+import { formatNetworkConfirmations } from "../utils/networkConfirmations";
 import { getInvoiceDetailStatusMeta, invoiceStatusTone } from "../utils/invoiceStatus";
 import {
   fetchPublicPayment,
@@ -42,7 +43,11 @@ function normalizeStatus(status: string): string {
 
 function shouldPollPaymentStatus(status: string): boolean {
   const normalized = normalizeStatus(status);
-  return normalized === "pending" || normalized === "paid";
+  return normalized === "pending" || normalized === "confirming" || normalized === "paid";
+}
+
+function isConfirmingStatus(status: string): boolean {
+  return normalizeStatus(status) === "confirming";
 }
 
 function isSuccessStatus(status: string): boolean {
@@ -278,7 +283,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     }
 
     const poll = () => {
-      if (paymentStatus === "pending") {
+      if (paymentStatus === "pending" || paymentStatus === "confirming") {
         void loadPayment(true, { silent: true });
         return;
       }
@@ -286,7 +291,9 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     };
 
     const intervalMs =
-      paymentStatus === "pending" ? POLL_PENDING_REFRESH_MS : POLL_PAID_READ_MS;
+      paymentStatus === "pending" || paymentStatus === "confirming"
+        ? POLL_PENDING_REFRESH_MS
+        : POLL_PAID_READ_MS;
     const timer = window.setInterval(poll, intervalMs);
     return () => window.clearInterval(timer);
   }, [paymentStatus, loadPayment]);
@@ -304,11 +311,25 @@ export function PayPageRoot({ token }: PayPageRootProps) {
 
   const headerTitle = payment?.merchant_name ?? (
     <>
-      Noren<span>Cash</span>
+      Noren<span>Digital</span>
     </>
   );
 
-  const awaiting = payment && !isSuccessStatus(payment.status) && !isFailedStatus(payment.status);
+  const awaitingPayment =
+    payment &&
+    normalizeStatus(payment.status) === "pending" &&
+    !isFailedStatus(payment.status);
+  const confirming = payment && isConfirmingStatus(payment.status);
+  const confirmationProgress = useMemo(
+    () =>
+      payment
+        ? formatNetworkConfirmations(
+            payment.network_confirmations_actual,
+            payment.network_confirmations_required,
+          )
+        : null,
+    [payment],
+  );
 
   async function copyValue(label: string, value: string) {
     try {
@@ -330,7 +351,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
         <header className="pp-header">
           <div className="pp-header-user">
             <span className="pp-avatar" aria-hidden>
-              NC
+              ND
             </span>
             <div>
               <p className="pp-greeting">Безопасная оплата</p>
@@ -375,7 +396,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                 <span className="pp-chip pp-chip--muted">Заказ {payment.merchant_order_id}</span>
               </div>
 
-              {awaiting ? (
+              {awaitingPayment ? (
                 <div className="pp-timer-bar">
                   <div
                     className="pp-timer-ring"
@@ -391,6 +412,20 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                 </div>
               ) : null}
             </section>
+
+            {confirming ? (
+              <section className="pp-terminal pp-terminal--success">
+                <div className="pp-terminal-icon" aria-hidden>
+                  ↻
+                </div>
+                <h2 className="pp-title">Транзакция в сети</h2>
+                <p className="pp-muted">
+                  Платёж отправлен — ждём подтверждения блокчейна ({payment.crypto_currency}
+                  {confirmationProgress ? `, ${confirmationProgress}` : ""}). Это может занять
+                  несколько минут.
+                </p>
+              </section>
+            ) : null}
 
             {isSuccessStatus(payment.status) ? (
               <section className="pp-terminal pp-terminal--success">
@@ -422,7 +457,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
               </section>
             ) : null}
 
-            {awaiting ? (
+            {awaitingPayment ? (
               <>
                 <div className="pp-actions">
                   <button
@@ -515,7 +550,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
         <footer className="pp-footer">
           <p>Защищённое соединение</p>
           <p className="pp-brand-foot">
-            Noren<span>Cash</span>
+            Noren<span>Digital</span>
           </p>
         </footer>
       </main>

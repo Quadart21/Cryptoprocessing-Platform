@@ -47,6 +47,7 @@ class RatesService:
     MIN_WITHDRAW_KEYS = ("min_withdraw", "minWithdraw")
     MAX_WITHDRAW_KEYS = ("max_withdraw", "maxWithdraw")
     NETWORK_FEE_KEYS = ("network_fee", "fee", "networkFee")
+    NETWORK_CONFIRM_KEYS = ("networkConfirm", "network_confirm", "confirmations", "confirm")
 
     def __init__(self, db: AsyncSession | None = None):
         self.db = db
@@ -256,6 +257,47 @@ class RatesService:
             acquiring=acquiring,
             platform_enabled=platform_enabled,
         )
+
+    async def get_network_confirmations_required(self, *, currency: str, network: str) -> int | None:
+        normalized_currency, normalized_network = self._normalize_pair(currency, network)
+        provider = get_payment_provider()
+        response = await asyncio.to_thread(provider.list_currencies)
+        items = response.get("data", {}).get("items", [])
+        target_item = next(
+            (
+                item
+                for item in items
+                if str(item.get("currency") or "").upper() == normalized_currency
+            ),
+            None,
+        )
+        if target_item is None:
+            raise ValueError(
+                f"Пара {normalized_currency}/{normalized_network} не найдена у провайдера."
+            )
+
+        limits = target_item.get("limits", []) or []
+        limit = next(
+            (
+                candidate
+                for candidate in limits
+                if str(candidate.get("network") or "").upper() == normalized_network
+            ),
+            None,
+        )
+        if limit is None:
+            raise ValueError(
+                f"Сеть {normalized_network} для {normalized_currency} не поддерживается провайдером."
+            )
+
+        value = self._pick_first(limit, *self.NETWORK_CONFIRM_KEYS)
+        if value in (None, ""):
+            return None
+        try:
+            parsed = int(str(value).strip())
+        except ValueError:
+            return None
+        return parsed if parsed > 0 else None
 
     async def _load_platform_overrides(self) -> dict[tuple[str, str], bool]:
         if self.db is None:
