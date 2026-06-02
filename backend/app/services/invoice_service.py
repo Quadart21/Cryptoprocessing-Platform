@@ -19,6 +19,7 @@ from app.services.balance_service import BalanceService
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
+from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_confirmations import (
     apply_confirmations_to_stored_payload,
     seed_required_confirmations,

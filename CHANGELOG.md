@@ -5,6 +5,14 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.18] — 2026-06-03
+
+### Исправлено
+
+- **Admin accounting crash**: восстановлен импорт `get_exchange_rate_service` в `invoice_service.py` (`NameError` при `GET /api/v1/admin/.../accounting`).
+
+---
+
 ## [0.14.17] — 2026-06-03
 
 ### Исправлено
