@@ -15,114 +15,21 @@ LETSENCRYPT_NO_EMAIL="${LETSENCRYPT_NO_EMAIL:-0}"
 CLOUDFLARE_ORIGIN_CERT_PATH="${CLOUDFLARE_ORIGIN_CERT_PATH:-/etc/ssl/cloudflare/${DOMAIN}.pem}"
 CLOUDFLARE_ORIGIN_KEY_PATH="${CLOUDFLARE_ORIGIN_KEY_PATH:-/etc/ssl/cloudflare/${DOMAIN}.key}"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=nginx-ddos-lib.sh
+source "${SCRIPT_DIR}/nginx-ddos-lib.sh"
+
 build_server_names() {
-  local names="${DOMAIN} ${DOCS_DOMAIN}"
-  if [[ -n "${DOMAIN_ALIASES}" ]]; then
-    IFS=',' read -ra aliases <<< "${DOMAIN_ALIASES}"
-    for raw_alias in "${aliases[@]}"; do
-      local alias_name
-      alias_name="$(echo "${raw_alias}" | xargs)"
-      if [[ -n "${alias_name}" && "${alias_name}" != "${DOMAIN}" ]]; then
-        names="${names} ${alias_name}"
-      fi
-    done
-  fi
-  echo "${names}"
+  nginx_build_server_names "${DOMAIN}" "${DOCS_DOMAIN}" "${DOMAIN_ALIASES}"
 }
 
 write_nginx_http_only_conf() {
-  local target_file="$1"
-  local server_names="$2"
-
-  cat >"${target_file}" <<EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${server_names};
-    charset utf-8;
-    charset_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-
-    client_max_body_size 20m;
-
-    # Static assets from Vite build (faster than proxying through app)
-    location /assets/ {
-        alias ${APP_DIR}/frontend/dist/assets/;
-        expires 30d;
-        add_header Cache-Control "public, max-age=2592000, immutable";
-        access_log off;
-        try_files \$uri =404;
-    }
-
-    location / {
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 120s;
-        proxy_connect_timeout 15s;
-        proxy_send_timeout 120s;
-        proxy_pass http://127.0.0.1:8000;
-    }
-}
-EOF
+  nginx_write_http_only_conf "$1" "$2" "${APP_DIR}"
 }
 
 write_nginx_cloudflare_conf() {
-  local target_file="$1"
-  local server_names="$2"
-  local www_alias="$3"
-
-  cat >"${target_file}" <<EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${server_names};
-    return 301 https://\$host\$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name ${server_names};
-    charset utf-8;
-    charset_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-
-    ssl_certificate ${CLOUDFLARE_ORIGIN_CERT_PATH};
-    ssl_certificate_key ${CLOUDFLARE_ORIGIN_KEY_PATH};
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers off;
-
-    $(if [[ -n "${www_alias}" ]]; then echo "if (\$host = ${www_alias}) { return 301 https://${DOMAIN}\$request_uri; }"; fi)
-
-    client_max_body_size 20m;
-
-    # Static assets from Vite build (faster than proxying through app)
-    location /assets/ {
-        alias ${APP_DIR}/frontend/dist/assets/;
-        expires 30d;
-        add_header Cache-Control "public, max-age=2592000, immutable";
-        access_log off;
-        try_files \$uri =404;
-    }
-
-    location / {
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 120s;
-        proxy_connect_timeout 15s;
-        proxy_send_timeout 120s;
-        proxy_pass http://127.0.0.1:8000;
-    }
-}
-EOF
+  nginx_write_cloudflare_conf "$1" "$2" "$3" "${APP_DIR}" "${DOMAIN}" \
+    "${CLOUDFLARE_ORIGIN_CERT_PATH}" "${CLOUDFLARE_ORIGIN_KEY_PATH}"
 }
 
 if [[ "${EUID}" -ne 0 ]]; then
@@ -281,6 +188,7 @@ if echo " ${SERVER_NAMES} " | grep -q " www.${DOMAIN} "; then
 fi
 
 NGINX_TARGET="/etc/nginx/sites-available/${DOMAIN}"
+nginx_install_ddos_conf_files "${APP_DIR}"
 if [[ "${ENABLE_SSL}" == "1" && "${SSL_MODE}" == "cloudflare_origin" ]]; then
   if [[ ! -f "${CLOUDFLARE_ORIGIN_CERT_PATH}" || ! -f "${CLOUDFLARE_ORIGIN_KEY_PATH}" ]]; then
     echo "Cloudflare Origin cert/key not found."

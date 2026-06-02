@@ -60,6 +60,16 @@ sync_missing_tables() {
   sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}/backend' && ./.venv/bin/python -m app.scripts.sync_schema"
 }
 
+install_systemd_units() {
+  if [[ -f "${APP_DIR}/ops/ubuntu/cryptoprocessing.service" ]]; then
+    log "Installing systemd unit files"
+    install -m 644 "${APP_DIR}/ops/ubuntu/cryptoprocessing.service" /etc/systemd/system/cryptoprocessing.service
+    install -m 644 "${APP_DIR}/ops/ubuntu/cryptoprocessing-celery-worker.service" /etc/systemd/system/cryptoprocessing-celery-worker.service
+    install -m 644 "${APP_DIR}/ops/ubuntu/cryptoprocessing-celery-beat.service" /etc/systemd/system/cryptoprocessing-celery-beat.service
+    systemctl daemon-reload
+  fi
+}
+
 restart_backend() {
   log "Restarting backend service ${BACKEND_SERVICE}"
   systemctl restart "${BACKEND_SERVICE}"
@@ -84,6 +94,17 @@ restart_celery_beat() {
 reload_nginx() {
   if [[ "${RELOAD_NGINX}" != "1" ]]; then
     return
+  fi
+  if [[ -f "${APP_DIR}/ops/ubuntu/nginx-ddos-lib.sh" ]]; then
+    log "Applying nginx DDoS config (if present)"
+    # shellcheck source=nginx-ddos-lib.sh
+    source "${APP_DIR}/ops/ubuntu/nginx-ddos-lib.sh"
+    domain="$(grep -E '^PUBLIC_API_BASE_URL=' "${APP_DIR}/.env" 2>/dev/null | tail -n1 | sed -E 's#^PUBLIC_API_BASE_URL=https?://([^/]+)/.*#\1#' || true)"
+    domain="${domain:-noren.digital}"
+    nginx_install_ddos_conf_files "${APP_DIR}" || true
+    if [[ -f "/etc/nginx/sites-available/${domain}" ]]; then
+      nginx_regenerate_vhost "${domain}" "${APP_DIR}" || true
+    fi
   fi
   log "Reloading nginx"
   nginx -t
@@ -123,6 +144,7 @@ build_frontend
 check_backend_syntax
 run_migrations
 sync_missing_tables
+install_systemd_units
 restart_backend
 restart_celery_worker
 restart_celery_beat

@@ -4,6 +4,15 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.14.7] — 2026-06-02
+
+### Добавлено
+
+- **DDoS-защита (nginx)**: `limit_req` / `limit_conn` по зонам (API, pay, auth, general), Cloudflare real IP, скрипт `ops/ubuntu/apply-ddos-protection.sh`, гайд `ops/ubuntu/CLOUDFLARE-DDOS.md`.
+- **Uvicorn**: 2 workers по умолчанию (`UVICORN_WORKERS` в `.env`).
+
+---
+
 ## [0.14.6] — 2026-06-02
 
 ### Исправлено

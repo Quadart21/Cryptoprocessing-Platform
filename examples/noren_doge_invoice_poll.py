@@ -12,6 +12,10 @@ OpenAPI:       https://noren.digital/openapi.json
   4. GET  /invoices/{id}   — текущий статус
   5. POST /invoices/{id}/sync — принудительная синхронизация с провайдером
 
+Hosted checkout (docs): в ответе POST /invoices поле payment_page_url —
+  https://noren.digital/pay/{token} (QR, таймер, автообновление статуса).
+  Зависит от checkout_delivery проекта: payment_page | h2h | both.
+
 Переменные (окружение или .env рядом со скриптом):
   NOREN_API_BASE       — https://noren.digital
   NOREN_PUBLIC_KEY     — pk_live_...
@@ -24,6 +28,11 @@ OpenAPI:       https://noren.digital/openapi.json
   NOREN_CRYPTO_CURRENCY — fallback, если /rates недоступен (по умолчанию DOGE)
   NOREN_NETWORK        — fallback-сеть (по умолчанию DOGE)
   NOREN_RATES_RETRIES  — число повторов /rates при 5xx (по умолчанию 3)
+  NOREN_RATES_TIMEOUT  — таймаут /rates в секундах (по умолчанию 15)
+  NOREN_HTTP_TIMEOUT   — таймаут остальных запросов (по умолчанию 30)
+  NOREN_SKIP_RATES     — 1 = не вызывать /rates, сразу DOGE/DOGE из env
+  NOREN_OPEN_BROWSER   — 1 = открыть payment_page_url в браузере (по умолчанию)
+  NOREN_PAYMENT_HTML   — путь к локальному HTML (по умолчанию last_payment.html)
   NOREN_USER_AGENT     — User-Agent для обхода WAF
 """
 
@@ -34,18 +43,21 @@ import os
 import sys
 import time
 import uuid
+import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 DEFAULT_AMOUNT_DOGE = "15"
 DEFAULT_POLL_INTERVAL_SEC = 10
 DEFAULT_CRYPTO_CURRENCY = "DOGE"
 DEFAULT_NETWORK = "DOGE"
-DEFAULT_RATES_RETRIES = 3
+DEFAULT_RATES_RETRIES = 1
 DEFAULT_RATES_RETRY_DELAY_SEC = 2
+DEFAULT_RATES_TIMEOUT_SEC = 15
+DEFAULT_HTTP_TIMEOUT_SEC = 30
 PAID_STATUSES = frozenset({"paid", "confirmed"})
 TERMINAL_STATUSES = frozenset({"paid", "confirmed", "expired", "cancelled", "failed"})
 
@@ -56,6 +68,11 @@ _DEFAULT_UA = (
 
 
 def log(message: str) -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{ts}] {message}", flush=True)
 
@@ -87,6 +104,18 @@ def _http_headers(extra: dict[str, str]) -> dict[str, str]:
     return merged
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    return int(raw) if raw.isdigit() else default
+
+
+def _env_bool(name: str, *, default: bool = False) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
 def api_request(
     method: str,
     url: str,
@@ -95,7 +124,11 @@ def api_request(
     secret: str,
     body: dict[str, Any] | None = None,
     auth: bool = True,
+    timeout: int | None = None,
+    wait_hint: str | None = None,
 ) -> Any:
+    if timeout is None:
+        timeout = _env_int("NOREN_HTTP_TIMEOUT", DEFAULT_HTTP_TIMEOUT_SEC)
     headers: dict[str, str] = {}
     if auth:
         headers["X-API-Key"] = public
@@ -108,9 +141,11 @@ def api_request(
     log(f">>> {method} {url}")
     if body is not None:
         log(f"    body: {json.dumps(body, ensure_ascii=False)}")
+    if wait_hint:
+        log(wait_hint)
 
     try:
-        with urlopen(req, timeout=60) as resp:
+        with urlopen(req, timeout=timeout) as resp:
             payload = resp.read().decode("utf-8") or "{}"
             parsed = json.loads(payload)
             log(f"<<< HTTP {resp.status}")
@@ -119,6 +154,13 @@ def api_request(
         detail = exc.read().decode("utf-8", errors="replace")
         log(f"<<< HTTP {exc.code}: {detail}")
         raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
+    except URLError as exc:
+        reason = exc.reason
+        if isinstance(reason, TimeoutError) or "timed out" in str(reason).lower():
+            log(f"<<< timeout после {timeout} с")
+            raise RuntimeError(f"timeout после {timeout} с: {url}") from exc
+        log(f"<<< сетевая ошибка: {reason}")
+        raise RuntimeError(f"network error: {reason}") from exc
 
 
 def check_health(base: str) -> dict[str, Any]:
@@ -133,6 +175,12 @@ def check_health(base: str) -> dict[str, Any]:
 
 def explain_api_error(exc: Exception) -> str:
     text = str(exc)
+    if "timeout" in text.lower():
+        return (
+            "GET /rates не ответил вовремя — Noren ждёт Crypto-Cash, и запрос зависает на стороне сервера. "
+            "Скрипт переключится на fallback DOGE/DOGE из env. "
+            "Чтобы не ждать /rates вообще, задайте NOREN_SKIP_RATES=1 в .env."
+        )
     if "provider_error" not in text and "internal_error" not in text:
         return text
     try:
@@ -192,16 +240,18 @@ def fetch_rates_with_retry(
     *,
     retries: int,
     retry_delay: int,
+    timeout: int,
 ) -> dict[str, Any]:
     last_error: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
-            return fetch_rates(base, public, secret)
+            return fetch_rates(base, public, secret, timeout=timeout)
         except Exception as exc:
             last_error = exc
-            if attempt >= retries or "HTTP 5" not in str(exc):
+            retryable = "HTTP 5" in str(exc) or "timeout" in str(exc).lower()
+            if attempt >= retries or not retryable:
                 break
-            log(f"/rates вернул ошибку, повтор {attempt}/{retries} через {retry_delay} с...")
+            log(f"/rates не ответил, повтор {attempt}/{retries} через {retry_delay} с...")
             time.sleep(retry_delay)
     assert last_error is not None
     raise last_error
@@ -216,7 +266,15 @@ def resolve_crypto_route(
     fallback_network: str,
     rates_retries: int,
     rates_retry_delay: int,
+    rates_timeout: int,
+    skip_rates: bool,
 ) -> tuple[str, str, str]:
+    if skip_rates:
+        crypto = fallback_crypto.strip().upper()
+        network = fallback_network.strip().upper()
+        log(f"NOREN_SKIP_RATES=1 — пропускаю /rates, использую {crypto}/{network}")
+        return crypto, network, "env"
+
     try:
         rates = fetch_rates_with_retry(
             base,
@@ -224,6 +282,7 @@ def resolve_crypto_route(
             secret,
             retries=rates_retries,
             retry_delay=rates_retry_delay,
+            timeout=rates_timeout,
         )
         crypto, network = pick_doge_network(rates)
         return crypto, network, "rates"
@@ -235,8 +294,21 @@ def resolve_crypto_route(
         return crypto, network, "fallback"
 
 
-def fetch_rates(base: str, public: str, secret: str) -> dict[str, Any]:
-    return api_request("GET", f"{base}/api/v1/client/rates", public=public, secret=secret)
+def fetch_rates(base: str, public: str, secret: str, *, timeout: int | None = None) -> dict[str, Any]:
+    rates_timeout = timeout if timeout is not None else _env_int(
+        "NOREN_RATES_TIMEOUT", DEFAULT_RATES_TIMEOUT_SEC
+    )
+    return api_request(
+        "GET",
+        f"{base}/api/v1/client/rates",
+        public=public,
+        secret=secret,
+        timeout=rates_timeout,
+        wait_hint=(
+            f"    ожидание ответа /rates (до {rates_timeout} с) — "
+            "сервер запрашивает список валют у Crypto-Cash..."
+        ),
+    )
 
 
 def resolve_project_id(base: str, public: str, secret: str, configured: str) -> str:
@@ -334,12 +406,121 @@ def print_invoice_details(invoice: dict[str, Any], *, title: str) -> None:
     log(f"    ID:              {invoice.get('id')}")
     log(f"    merchant_order:  {invoice.get('merchant_order_id')}")
     log(f"    status:          {invoice.get('status')}")
+    log(f"    checkout:        {invoice.get('checkout_delivery')}")
     log(f"    amount_crypto:   {invoice.get('amount_crypto')} {invoice.get('crypto_currency')}")
     log(f"    network:         {invoice.get('network')}")
-    log(f"    payment_address: {invoice.get('payment_address')}")
+    if invoice.get("payment_page_url"):
+        log(f"    payment_page:    {invoice.get('payment_page_url')}")
+    if invoice.get("payment_address"):
+        log(f"    payment_address: {invoice.get('payment_address')}")
     if invoice.get("qr_url"):
         log(f"    qr_url:          {invoice.get('qr_url')}")
     log(f"    expires_at:      {invoice.get('expires_at')}")
+
+
+def _payment_html_path() -> Path:
+    configured = os.environ.get("NOREN_PAYMENT_HTML", "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return Path(__file__).resolve().parent / "last_payment.html"
+
+
+def write_payment_html(invoice: dict[str, Any]) -> Path:
+    page_url = str(invoice.get("payment_page_url") or "").strip()
+    address = str(invoice.get("payment_address") or "")
+    qr_url = str(invoice.get("qr_url") or "")
+    amount = invoice.get("amount_crypto")
+    currency = invoice.get("crypto_currency")
+    network = invoice.get("network")
+    status = invoice.get("status")
+    expires = invoice.get("expires_at")
+    order_id = invoice.get("merchant_order_id")
+
+    if page_url:
+        body = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url={page_url}">
+  <title>Оплата {amount} {currency}</title>
+  <style>
+    body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }}
+    a {{ color: #2563eb; }}
+    .box {{ border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; }}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Оплата {amount} {currency}</h1>
+    <p>Заказ: <code>{order_id}</code></p>
+    <p>Статус: <strong>{status}</strong></p>
+    <p>Истекает: {expires}</p>
+    <p><a href="{page_url}">Открыть платёжную страницу Noren</a></p>
+    <p>Если редирект не сработал, перейдите по ссылке вручную.</p>
+  </div>
+</body>
+</html>"""
+    else:
+        qr_block = (
+            f'<p><img src="{qr_url}" alt="QR" width="220" height="220"></p>'
+            if qr_url
+            else ""
+        )
+        body = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Оплата {amount} {currency}</title>
+  <style>
+    body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }}
+    code {{ word-break: break-all; }}
+    .box {{ border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; }}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Оплата {amount} {currency} ({network})</h1>
+    <p>Заказ: <code>{order_id}</code></p>
+    <p>Статус: <strong>{status}</strong></p>
+    <p>Сумма: <strong>{amount} {currency}</strong></p>
+    <p>Адрес:</p>
+    <p><code>{address}</code></p>
+    {qr_block}
+    <p>Истекает: {expires}</p>
+  </div>
+</body>
+</html>"""
+
+    out = _payment_html_path()
+    out.write_text(body, encoding="utf-8")
+    return out
+
+
+def display_payment_page(invoice: dict[str, Any]) -> None:
+    page_url = str(invoice.get("payment_page_url") or "").strip()
+    html_path = write_payment_html(invoice)
+
+    log("")
+    log("=" * 60)
+    log("  ПЛАТЁЖНАЯ СТРАНИЦА")
+    log("=" * 60)
+    if page_url:
+        log(f"  URL:  {page_url}")
+        log("  (hosted checkout: QR, таймер, автообновление статуса)")
+    else:
+        log("  payment_page_url не вернулся (checkout_delivery=h2h).")
+        log(f"  Локальная страница с адресом и QR: file:///{html_path.as_posix()}")
+    log(f"  HTML: file:///{html_path.as_posix()}")
+    log("=" * 60)
+    log("")
+
+    if _env_bool("NOREN_OPEN_BROWSER", default=True):
+        target = page_url or html_path.as_uri()
+        log(f"Открываю в браузере: {target}")
+        try:
+            webbrowser.open(target, new=2)
+        except Exception as exc:
+            log(f"Не удалось открыть браузер: {exc}")
 
 
 def poll_until_paid(
@@ -409,6 +590,8 @@ def main() -> int:
     rates_retry_delay = int(
         os.environ.get("NOREN_RATES_RETRY_DELAY", str(DEFAULT_RATES_RETRY_DELAY_SEC))
     )
+    rates_timeout = _env_int("NOREN_RATES_TIMEOUT", DEFAULT_RATES_TIMEOUT_SEC)
+    skip_rates = _env_bool("NOREN_SKIP_RATES")
 
     if not base or not public or not secret:
         log(
@@ -437,6 +620,8 @@ def main() -> int:
         fallback_network=fallback_network,
         rates_retries=rates_retries,
         rates_retry_delay=rates_retry_delay,
+        rates_timeout=rates_timeout,
+        skip_rates=skip_rates,
     )
     log(f"Маршрут оплаты: {crypto}/{network} (источник: {route_source})")
 
@@ -459,8 +644,11 @@ def main() -> int:
         return 1
 
     print_invoice_details(invoice, title="Инвойс создан:")
-    log("")
-    log("Отправьте указанную сумму DOGE на payment_address и дождитесь подтверждения.")
+    display_payment_page(invoice)
+    if invoice.get("payment_page_url"):
+        log("Оплатите по ссылке payment_page выше или дождитесь подтверждения в терминале.")
+    else:
+        log("Отправьте указанную сумму на payment_address и дождитесь подтверждения.")
     log("")
 
     invoice_id = str(invoice.get("id") or "")

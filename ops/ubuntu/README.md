@@ -121,6 +121,18 @@ sudo SKIP_GIT_PULL=1 bash /opt/cryptoprocessing/ops/ubuntu/update-server.sh
 sudo bash /opt/cryptoprocessing/ops/ubuntu/restart_app.sh
 ```
 
+### DDoS / rate limit (nginx + Cloudflare)
+
+На сервере (nginx `limit_req`, real IP от Cloudflare, 2 uvicorn workers):
+
+```bash
+sudo bash /opt/cryptoprocessing/ops/ubuntu/apply-ddos-protection.sh
+```
+
+Правила в Cloudflare Dashboard — пошагово: `ops/ubuntu/CLOUDFLARE-DDOS.md`.
+
+В `.env` опционально: `UVICORN_WORKERS=2` (по умолчанию 2 после обновления systemd unit).
+
 ---
 
 ## Что настраивать в `.env`
