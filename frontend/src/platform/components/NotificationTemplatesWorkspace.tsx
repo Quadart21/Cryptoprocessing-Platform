@@ -75,7 +75,7 @@ export function NotificationTemplatesWorkspace({
   const [editorTab, setEditorTab] = useState<EditorTab>("email");
   const [listFilter, setListFilter] = useState<TemplateListFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [variablesOpen, setVariablesOpen] = useState(false);
+  const [variablesOpen, setVariablesOpen] = useState(true);
   const [variableSearch, setVariableSearch] = useState("");
   const [preview, setPreview] = useState<NotificationTemplatePreview | null>(null);
   const [testEmail, setTestEmail] = useState("");
