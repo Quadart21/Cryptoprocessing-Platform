@@ -21,6 +21,8 @@ from app.services.billing_policy_service import BillingPolicyService
 logger = logging.getLogger(__name__)
 
 TELEGRAM_BOT_TOKEN_PATTERN = re.compile(r"^\d{8,}:[A-Za-z0-9_-]{20,}$")
+IMAGE_PLACEHOLDER_LINE_RE = re.compile(r"^\[image\b", re.IGNORECASE)
+DEFAULT_EMAIL_BODY_TEMPLATE = "{{ message_lines_html }}"
 
 
 @dataclass(frozen=True)
@@ -668,6 +670,56 @@ class NotificationService:
             }
         return normalized
 
+    @classmethod
+    def _is_plain_image_placeholder_line(cls, line: str) -> bool:
+        return bool(IMAGE_PLACEHOLDER_LINE_RE.match(line.strip()))
+
+    @classmethod
+    def _strip_image_placeholder_lines(cls, lines: list[str]) -> tuple[list[str], bool]:
+        had_placeholder = any(cls._is_plain_image_placeholder_line(line) for line in lines)
+        filtered = [
+            line
+            for line in lines
+            if line.strip() and not cls._is_plain_image_placeholder_line(line)
+        ]
+        return filtered, had_placeholder
+
+    @classmethod
+    def _lines_to_html_paragraphs(cls, lines: list[str]) -> str:
+        return "".join(f"<p>{escape(line)}</p>" for line in lines if line.strip())
+
+    @classmethod
+    def _email_body_template_is_rich(cls, email_body: str | None) -> bool:
+        value = (email_body or "").strip()
+        if not value or value == cls.DEFAULT_TEMPLATE["email_body"]:
+            return False
+        return "<" in value and ">" in value
+
+    def _resolve_final_email_html(
+        self,
+        *,
+        email_body_template: str,
+        rendered_email_body: str,
+        message_lines: list[str],
+        message_lines_html: str,
+        logo_url: str | None,
+        brand_name: str,
+    ) -> str:
+        _, had_image_placeholder = self._strip_image_placeholder_lines(message_lines)
+
+        if self._email_body_template_is_rich(email_body_template):
+            body = rendered_email_body.strip()
+            if body and self._looks_like_html_message(body):
+                return body
+
+        # Раньше в message_lines попадал служебный «[image]» — картинку даёт _wrap_email_html (логотип бренда).
+        if had_image_placeholder and logo_url:
+            return message_lines_html
+
+        return message_lines_html or "".join(
+            f"<p>{escape(line)}</p>" for line in message_lines if line.strip()
+        )
+
     def _render_notification_payload(
         self,
         *,
@@ -692,8 +744,9 @@ class NotificationService:
         message_lines = [line.strip() for line in fallback_lines if line.strip()]
         if not message_lines:
             message_lines = [normalized_subject]
+        message_lines, _ = self._strip_image_placeholder_lines(message_lines)
         message_lines_text = "\n".join(message_lines)
-        message_lines_html = "".join(f"<p>{escape(line)}</p>" for line in message_lines)
+        message_lines_html = self._lines_to_html_paragraphs(message_lines)
 
         context = self._build_template_context(
             platform_settings=platform_settings,
@@ -719,29 +772,34 @@ class NotificationService:
                 for line in rendered_message_lines.replace("\r", "").split("\n")
                 if line.strip()
             ]
-            message_lines_html = "".join(f"<p>{escape(line)}</p>" for line in message_lines)
-            context["message_lines"] = message_lines_text
+            message_lines, _ = self._strip_image_placeholder_lines(message_lines)
+            message_lines_html = self._lines_to_html_paragraphs(message_lines)
+            context["message_lines"] = "\n".join(message_lines)
             context["message_lines_html"] = message_lines_html
-        rendered_email_body = self._render_template(
-            str(template.get("email_body") or "").strip(),
-            context,
-        )
+        email_body_template = str(template.get("email_body") or "").strip() or self.DEFAULT_TEMPLATE[
+            "email_body"
+        ]
+        rendered_email_body = self._render_template(email_body_template, context)
         rendered_telegram_body = self._render_template(
             str(template.get("telegram_body") or "").strip(),
             context,
         )
 
-        if rendered_email_body:
-            safe_email_html = rendered_email_body
-            safe_email_text = self._strip_html(rendered_email_body)
-        else:
-            safe_email_html = message_lines_html
-            safe_email_text = message_lines_text
+        logo_url = (platform_settings.notification_logo_url or "").strip() or None
+        safe_email_html = self._resolve_final_email_html(
+            email_body_template=email_body_template,
+            rendered_email_body=rendered_email_body,
+            message_lines=message_lines,
+            message_lines_html=message_lines_html,
+            logo_url=logo_url,
+            brand_name=context["brand_name"],
+        )
+        safe_email_text = self._strip_html(safe_email_html)
 
         branded_email_html = self._wrap_email_html(
             body_html=safe_email_html,
             brand_name=context["brand_name"],
-            logo_url=(platform_settings.notification_logo_url or "").strip() or None,
+            logo_url=logo_url,
             brand_url=context["brand_url"] or None,
         )
 
@@ -823,11 +881,13 @@ class NotificationService:
         )
         if rendered_message_lines:
             variables["message_lines"] = rendered_message_lines
-            variables["message_lines_html"] = "".join(
-                f"<p>{escape(line.strip())}</p>"
+            plain_lines = [
+                line.strip()
                 for line in rendered_message_lines.replace("\r", "").split("\n")
                 if line.strip()
-            )
+            ]
+            plain_lines, _ = self._strip_image_placeholder_lines(plain_lines)
+            variables["message_lines_html"] = self._lines_to_html_paragraphs(plain_lines)
         return {
             "code": event_code,
             "title": definition.title,
@@ -852,8 +912,9 @@ class NotificationService:
         message_lines = [line.strip() for line in fallback_lines if line.strip()]
         if not message_lines:
             message_lines = [fallback_subject.strip() or definition.title]
+        message_lines, _ = self._strip_image_placeholder_lines(message_lines)
         message_lines_text = "\n".join(message_lines)
-        message_lines_html = "".join(f"<p>{escape(line)}</p>" for line in message_lines)
+        message_lines_html = self._lines_to_html_paragraphs(message_lines)
         context: dict[str, str] = {
             "event_code": event_code,
             "event_title": definition.title,
@@ -1506,7 +1567,7 @@ class NotificationService:
         brand_url: str | None,
     ) -> str:
         logo_markup = ""
-        if logo_url:
+        if logo_url and "<img" not in body_html.lower():
             logo_markup = (
                 '<div style="margin-bottom:18px;">'
                 f'<img src="{escape(logo_url)}" alt="{escape(brand_name)}" '

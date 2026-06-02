@@ -131,8 +131,7 @@ function nodeToPlainText(node: Node): string {
     return "\n";
   }
   if (tag === "IMG") {
-    const alt = (element.getAttribute("alt") ?? "").trim();
-    return alt ? `[image: ${alt}]` : "[image]";
+    return "";
   }
   if (tag === "LI") {
     return Array.from(element.childNodes).map(nodeToPlainText).join("").trim();
@@ -165,8 +164,6 @@ export function editorHtmlToPlainLines(html: string): string {
       continue;
     }
     if (tag === "IMG") {
-      const alt = (element.getAttribute("alt") ?? "").trim();
-      blocks.push(alt ? `[image: ${alt}]` : "[image]");
       continue;
     }
     const line = nodeToPlainText(element).replace(/\n+/g, " ").trim();
@@ -254,7 +251,7 @@ export function emailEditorHtmlToStorage(html: string): {
     return { message_lines: null, email_body: null };
   }
   return {
-    message_lines: plain || (hasImage ? "[image]" : null),
+    message_lines: plain || null,
     email_body: sanitized || null,
   };
 }
@@ -272,5 +269,6 @@ export function telegramEditorHtmlToStorage(html: string): string | null {
 
 export function isEmptyEditorHtml(html: string): boolean {
   const plain = editorHtmlToPlainLines(html);
-  return !plain;
+  if (plain) return false;
+  return !/<img\b/i.test(sanitizeEditorHtml(html));
 }
