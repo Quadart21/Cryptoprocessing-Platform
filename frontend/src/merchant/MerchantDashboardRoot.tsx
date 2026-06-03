@@ -26,6 +26,7 @@ import { OutboundLedger } from "./widgets/OutboundLedger";
 import { PayoutDesk } from "./widgets/PayoutDesk";
 import { ProjectDirectory } from "./widgets/ProjectDirectory";
 import { ReceivableList } from "./widgets/ReceivableList";
+import MerchantTradingViewChart from "./widgets/MerchantTradingViewChart";
 
 export function MerchantDashboardRoot({
   user,
@@ -206,6 +207,8 @@ export function MerchantDashboardRoot({
                 </article>
               </section>
 
+              <MerchantTradingViewChart rates={rates} />
+
               <div className="mc-split mc-split--balanced">
                 <article className="mc-surface">
                   <header className="mc-surface-header">
@@ -366,16 +369,23 @@ export function MerchantDashboardRoot({
 
           {section === "invoices" ? (
             <div className="console-section-stack mc-page-stack mw-invoices-page">
-              <InvoiceIssuanceWizard
-                availableNetworks={availableNetworks}
-                invoiceForm={invoiceForm}
-                loading={loading}
-                onCreateInvoice={onCreateInvoice}
-                onInvoiceFormChange={onInvoiceFormChange}
-                projects={projects}
-                rates={rates}
-                selectedNetwork={selectedNetwork}
-              />
+              <div className="mc-split mc-split--chart">
+                <InvoiceIssuanceWizard
+                  availableNetworks={availableNetworks}
+                  invoiceForm={invoiceForm}
+                  loading={loading}
+                  onCreateInvoice={onCreateInvoice}
+                  onInvoiceFormChange={onInvoiceFormChange}
+                  projects={projects}
+                  rates={rates}
+                  selectedNetwork={selectedNetwork}
+                />
+                <MerchantTradingViewChart
+                  compact
+                  defaultCurrency={invoiceForm.crypto_currency}
+                  rates={rates}
+                />
+              </div>
               <ReceivableList
                 invoices={invoices}
                 onSelectInvoice={onSelectClientInvoice}
