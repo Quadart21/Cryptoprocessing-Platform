@@ -41,7 +41,6 @@ class CryptoCashRatesCache:
             if self._poll_thread and self._poll_thread.is_alive():
                 return
             self._stop_event.clear()
-            self.refresh_sync()
             self._poll_thread = threading.Thread(
                 target=self._poll_loop,
                 name="crypto-cash-rates-poller",
@@ -81,8 +80,10 @@ class CryptoCashRatesCache:
 
     def _poll_loop(self) -> None:
         interval = max(1, settings.exchange_rate_poll_interval_seconds)
-        while not self._stop_event.wait(interval):
+        while True:
             self.refresh_sync()
+            if self._stop_event.wait(interval):
+                break
 
     def _fetch_from_api(self) -> dict[str, Decimal]:
         with self._lock:

@@ -113,8 +113,22 @@ reload_nginx() {
 
 smoke_check() {
   log "Running local health check"
-  curl -fsS http://127.0.0.1:8000/api/v1/health
-  printf '\n'
+  local url="http://127.0.0.1:8000/api/v1/health"
+  local attempts=20
+  local delay=2
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
+    if curl -fsS "${url}"; then
+      printf '\n'
+      return 0
+    fi
+    if [[ "${attempt}" -lt "${attempts}" ]]; then
+      sleep "${delay}"
+    fi
+  done
+  echo "Health check failed after ${attempts} attempts (${url})" >&2
+  systemctl status "${BACKEND_SERVICE}" --no-pager -l >&2 || true
+  journalctl -u "${BACKEND_SERVICE}" -n 40 --no-pager >&2 || true
+  exit 1
 }
 
 print_done() {

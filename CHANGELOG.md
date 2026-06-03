@@ -5,6 +5,16 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.27] — 2026-06-03
+
+### Исправлено
+
+- **Деплой**: health check с retry (до 40 с) — не падает, пока uvicorn поднимает workers после fetch курсов.
+- **Старт API**: первый опрос Crypto-Cash в фоне, без блокировки lifespan.
+- **sync_schema**: при деплое применяются DDL-пatches (в т.ч. `exchange_rate_price_field`) до рестарта сервиса.
+
+---
+
 ## [0.14.26] — 2026-06-03
 
 ### Добавлено
