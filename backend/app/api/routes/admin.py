@@ -54,6 +54,7 @@ from app.schemas.invoice import (
     InvoiceAdminDetailResponse,
     InvoiceResponse,
     InvoiceStatusUpdateRequest,
+    InvoiceTransactionDetailsResponse,
 )
 from app.schemas.project import (
     ApiKeyRegenerateResponse,
@@ -90,6 +91,7 @@ from app.services.billing_policy_service import BillingPolicyService
 from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_confirmations import confirmations_fields_from_stored
 from app.services.invoice_service import InvoiceService
+from app.services.invoice_transaction_details import build_invoice_transaction_details
 from app.services.notification_service import NotificationService
 from app.services.project_service import ProjectService
 from app.services.payout_service import PayoutService
@@ -1270,7 +1272,7 @@ async def get_invoice_detail(
     invoice = await invoice_service.get_invoice_by_id(invoice_id)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
-    return _map_invoice_admin_detail_response(invoice)
+    return await _map_invoice_admin_detail_response(db, invoice)
 
 
 @router.post("/invoices/{invoice_id}/status", response_model=InvoiceAdminDetailResponse)
@@ -1292,7 +1294,7 @@ async def update_invoice_status(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    return _map_invoice_admin_detail_response(invoice)
+    return await _map_invoice_admin_detail_response(db, invoice)
 
 
 @router.post("/invoices/{invoice_id}/repair-settlement", response_model=InvoiceAdminDetailResponse)
@@ -1309,7 +1311,7 @@ async def repair_invoice_settlement(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
-    return _map_invoice_admin_detail_response(invoice)
+    return await _map_invoice_admin_detail_response(db, invoice)
 
 
 @router.post("/invoices/{invoice_id}/sync", response_model=InvoiceAdminDetailResponse)
@@ -1337,7 +1339,7 @@ async def sync_invoice_status(
         ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return _map_invoice_admin_detail_response(invoice)
+    return await _map_invoice_admin_detail_response(db, invoice)
 
 
 @router.get("/payouts", response_model=list[PayoutRequestResponse])
@@ -1532,7 +1534,12 @@ def _map_invoice_response(invoice: Invoice) -> InvoiceResponse:
     )
 
 
-def _map_invoice_admin_detail_response(invoice: Invoice) -> InvoiceAdminDetailResponse:
+async def _map_invoice_admin_detail_response(
+    db: AsyncSession,
+    invoice: Invoice,
+) -> InvoiceAdminDetailResponse:
+    transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
+    details_payload = await build_invoice_transaction_details(db, invoice, transaction)
     return InvoiceAdminDetailResponse(
         id=invoice.id,
         tenant_id=invoice.tenant_id,
@@ -1554,6 +1561,7 @@ def _map_invoice_admin_detail_response(invoice: Invoice) -> InvoiceAdminDetailRe
         confirmed_at=invoice.confirmed_at,
         metadata_json=invoice.metadata_json,
         raw_provider_payload_json=invoice.raw_provider_payload_json,
+        transaction_details=InvoiceTransactionDetailsResponse(**details_payload),
     )
 
 

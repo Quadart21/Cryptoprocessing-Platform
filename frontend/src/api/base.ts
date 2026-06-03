@@ -170,8 +170,35 @@ export type InvoiceSettlement = {
   paid_at: string | null;
 };
 
+export type InvoiceTransactionDetails = {
+  operation_type: string;
+  created_at: string;
+  last_updated_at: string;
+  paid_at: string | null;
+  trading_pair: string;
+  amount_crypto: string;
+  crypto_currency: string;
+  amount_fiat: string;
+  fiat_currency: string;
+  status: string;
+  exchange_id: string;
+  wallet_address: string | null;
+  tx_hash: string | null;
+  exchange_rate: string | null;
+  exchange_rate_currency: string;
+  processing_commission: string | null;
+  platform_commission: string | null;
+  network_commission: string | null;
+  network_commission_currency: string | null;
+  commission_currency: string;
+  network_confirmations_actual: number | null;
+  network_confirmations_required: number | null;
+  is_estimate: boolean;
+};
+
 export type InvoiceDetail = InvoiceItem & {
   settlement: InvoiceSettlement | null;
+  transaction_details: InvoiceTransactionDetails | null;
 };
 
 export type InvoiceAdminDetail = InvoiceItem & {
@@ -180,6 +207,7 @@ export type InvoiceAdminDetail = InvoiceItem & {
   confirmed_at: string | null;
   metadata_json: Record<string, unknown> | null;
   raw_provider_payload_json: Record<string, unknown> | null;
+  transaction_details: InvoiceTransactionDetails | null;
 };
 
 export type CreateInvoicePayload = {

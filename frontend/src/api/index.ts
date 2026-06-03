@@ -21,6 +21,7 @@ export type {
   InvoiceItem,
   InvoiceDetail,
   InvoiceSettlement,
+  InvoiceTransactionDetails,
   InvoiceAdminDetail,
   CreateInvoicePayload,
   BalanceResponse,

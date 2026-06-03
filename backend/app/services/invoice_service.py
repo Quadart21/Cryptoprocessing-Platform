@@ -422,6 +422,8 @@ class InvoiceService:
             stored_payload["tx_hash"] = tx_hash
         if raw_payload:
             stored_payload["last_webhook_payload"] = raw_payload
+            if source == "sync":
+                stored_payload["retrieve_response"] = raw_payload
         apply_confirmations_to_stored_payload(stored_payload, raw_payload)
         invoice.raw_provider_payload_json = stored_payload
 

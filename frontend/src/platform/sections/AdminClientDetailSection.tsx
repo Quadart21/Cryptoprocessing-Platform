@@ -19,6 +19,7 @@ import type {
   TransactionItem,
 } from "../../api";
 import { TenantPayoutsPanel } from "./TenantPayoutsPanel";
+import { InvoiceTransactionDetailsCard } from "../../merchant/widgets/InvoiceTransactionDetailsCard";
 
 type ClientDetailTab = "overview" | "profile" | "access" | "integration" | "ledger" | "invoice";
 
@@ -688,6 +689,12 @@ export function AdminClientDetailSection({
                           <strong>{selectedInvoiceDetail.network}</strong>
                         </div>
                       </div>
+                      {selectedInvoiceDetail.transaction_details ? (
+                        <InvoiceTransactionDetailsCard
+                          compact
+                          details={selectedInvoiceDetail.transaction_details}
+                        />
+                      ) : null}
                       <div className="result-box">
                         <p>Invoice ID: {selectedInvoiceDetail.id}</p>
                         <p>Provider order: {selectedInvoiceDetail.provider_order_id}</p>

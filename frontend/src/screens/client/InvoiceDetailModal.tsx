@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 
-import type { InvoiceItem } from "../../api";
+import type { InvoiceDetail } from "../../api";
+import { InvoiceTransactionDetailsCard } from "../../merchant/widgets/InvoiceTransactionDetailsCard";
 import { formatDecimal } from "../../utils/format";
 import { formatNetworkConfirmations } from "../../utils/networkConfirmations";
 import { getInvoiceDetailStatusMeta } from "../../utils/invoiceStatus";
 
 type InvoiceDetailModalProps = {
-  invoice: InvoiceItem | null;
+  invoice: InvoiceDetail | null;
   isOpen: boolean;
   loading: boolean;
   onClose: () => void;
@@ -172,6 +173,10 @@ export function InvoiceDetailModal({
                 </div>
               ) : null}
             </div>
+
+            {invoice.transaction_details ? (
+              <InvoiceTransactionDetailsCard details={invoice.transaction_details} />
+            ) : null}
 
             <div className="invoice-modal-card">
               <div className="invoice-modal-card-header">

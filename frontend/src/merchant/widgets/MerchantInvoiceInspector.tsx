@@ -6,6 +6,7 @@ import { formatNetworkConfirmations } from "../../utils/networkConfirmations";
 import { getInvoiceDetailStatusMeta } from "../../utils/invoiceStatus";
 
 import { InvoiceSettlementBreakdown } from "./InvoiceSettlementBreakdown";
+import { InvoiceTransactionDetailsCard } from "./InvoiceTransactionDetailsCard";
 
 export type MerchantInvoiceInspectorProps = {
   invoice: InvoiceDetail | null;
@@ -231,6 +232,10 @@ export function MerchantInvoiceInspector({
             invoiceStatus={invoice.status}
             settlement={invoice.settlement}
           />
+
+          {invoice.transaction_details ? (
+            <InvoiceTransactionDetailsCard details={invoice.transaction_details} />
+          ) : null}
 
           <div className="invoice-modal-card">
             <div className="invoice-modal-card-header">

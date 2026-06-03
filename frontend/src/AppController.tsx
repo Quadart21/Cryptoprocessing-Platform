@@ -1143,7 +1143,7 @@ export function AppController() {
             : `Инвойс создан: ${invoice.provider_order_id}`,
       );
       setSelectedClientInvoiceId(invoice.id);
-      setSelectedClientInvoiceDetail({ ...invoice, settlement: null });
+      setSelectedClientInvoiceDetail({ ...invoice, settlement: null, transaction_details: null });
       setIsClientInvoiceModalOpen(true);
       setInvoices((current) => {
         const next = current.filter((item) => item.id !== invoice.id);
@@ -1151,7 +1151,11 @@ export function AppController() {
       });
       const [createdDetail, invoiceItems, balanceInfo, transactionItems, accountingSummary, webhookItems] =
         await Promise.all([
-          fetchClientInvoiceDetail(token, invoice.id).catch(() => ({ ...invoice, settlement: null })),
+          fetchClientInvoiceDetail(token, invoice.id).catch(() => ({
+            ...invoice,
+            settlement: null,
+            transaction_details: null,
+          })),
           fetchInvoices(token).catch(() => null),
           fetchBalance(token),
           fetchClientTransactions(token),

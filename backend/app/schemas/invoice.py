@@ -50,8 +50,37 @@ class InvoiceSettlementResponse(BaseModel):
     paid_at: datetime | None = None
 
 
+class InvoiceTransactionDetailsResponse(BaseModel):
+    """Structured payment record similar to provider dashboard rows."""
+
+    operation_type: str = "sale"
+    created_at: datetime
+    last_updated_at: datetime
+    paid_at: datetime | None = None
+    trading_pair: str
+    amount_crypto: Decimal
+    crypto_currency: str
+    amount_fiat: Decimal
+    fiat_currency: str
+    status: str
+    exchange_id: str
+    wallet_address: str | None = None
+    tx_hash: str | None = None
+    exchange_rate: Decimal | None = None
+    exchange_rate_currency: str
+    processing_commission: Decimal | None = None
+    platform_commission: Decimal | None = None
+    network_commission: Decimal | None = None
+    network_commission_currency: str | None = None
+    commission_currency: str
+    network_confirmations_actual: int | None = None
+    network_confirmations_required: int | None = None
+    is_estimate: bool = False
+
+
 class InvoiceDetailResponse(InvoiceResponse):
     settlement: InvoiceSettlementResponse | None = None
+    transaction_details: InvoiceTransactionDetailsResponse | None = None
 
 
 class PublicPaymentResponse(BaseModel):
@@ -78,6 +107,7 @@ class InvoiceAdminDetailResponse(InvoiceResponse):
     confirmed_at: datetime | None
     metadata_json: dict | None
     raw_provider_payload_json: dict | None
+    transaction_details: InvoiceTransactionDetailsResponse | None = None
 
 
 class InvoiceStatusUpdateRequest(BaseModel):

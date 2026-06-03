@@ -35,6 +35,7 @@ from app.schemas.invoice import (
     InvoiceDetailResponse,
     InvoiceResponse,
     InvoiceSettlementResponse,
+    InvoiceTransactionDetailsResponse,
 )
 from app.schemas.onboarding import OnboardingStatusResponse
 from app.schemas.notification import (
@@ -71,6 +72,7 @@ from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
 from app.services.invoice_confirmations import confirmations_fields_from_stored
 from app.services.invoice_service import InvoiceAmountOutOfRangeError, InvoiceService
+from app.services.invoice_transaction_details import build_invoice_transaction_details
 from app.services.notification_service import NotificationService
 from app.services.project_service import ProjectService
 from app.services.rates_service import RatesService
@@ -842,7 +844,8 @@ async def get_invoice(
             else CheckoutDeliveryService.normalize(None)
         )
         transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
-        return _map_invoice_detail_response(
+        return await _map_invoice_detail_response(
+            db,
             invoice,
             checkout_delivery=checkout_delivery,
             transaction=transaction,
@@ -886,7 +889,8 @@ async def sync_invoice(
             else CheckoutDeliveryService.normalize(None)
         )
         transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
-        return _map_invoice_detail_response(
+        return await _map_invoice_detail_response(
+            db,
             invoice,
             checkout_delivery=checkout_delivery,
             transaction=transaction,
@@ -1123,16 +1127,19 @@ def _map_invoice_settlement(
     )
 
 
-def _map_invoice_detail_response(
+async def _map_invoice_detail_response(
+    db: AsyncSession,
     invoice: Invoice,
     *,
     checkout_delivery: str | None = None,
     transaction=None,
 ) -> InvoiceDetailResponse:
     base = _map_invoice_response(invoice, checkout_delivery=checkout_delivery)
+    details_payload = await build_invoice_transaction_details(db, invoice, transaction)
     return InvoiceDetailResponse(
         **base.model_dump(),
         settlement=_map_invoice_settlement(invoice, transaction),
+        transaction_details=InvoiceTransactionDetailsResponse(**details_payload),
     )
 
 
