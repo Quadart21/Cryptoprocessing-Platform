@@ -24,7 +24,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    app_name: str = Field(default="CryptoProcessing Platform", alias="APP_NAME")
+    app_name: str = Field(default="NorenDigital", alias="APP_NAME")
     app_env: str = Field(default="local", alias="APP_ENV")
     app_debug: bool = Field(default=False, alias="APP_DEBUG")
     public_api_base_url: str = Field(default="", alias="PUBLIC_API_BASE_URL")
@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     db_statement_timeout_ms: int = Field(default=15000, alias="DB_STATEMENT_TIMEOUT_MS")
 
     cache_default_ttl_seconds: int = Field(default=30, alias="CACHE_DEFAULT_TTL_SECONDS")
-    cache_rates_ttl_seconds: int = Field(default=45, alias="CACHE_RATES_TTL_SECONDS")
+    cache_rates_ttl_seconds: int = Field(default=2, alias="CACHE_RATES_TTL_SECONDS")
     cache_provider_currencies_ttl_seconds: int = Field(
         default=60,
         alias="CACHE_PROVIDER_CURRENCIES_TTL_SECONDS",
@@ -124,6 +124,14 @@ class Settings(BaseSettings):
     )
     crypto_cash_public_key: str = Field(default="", alias="CRYPTO_CASH_PUBLIC_KEY")
     crypto_cash_secret_key: str = Field(default="", alias="CRYPTO_CASH_SECRET_KEY")
+    crypto_cash_rates_export_url: str = Field(
+        default="https://rates.crypto-cash.world/api/v1/market/rates/export/json",
+        alias="CRYPTO_CASH_RATES_EXPORT_URL",
+    )
+    exchange_rate_poll_interval_seconds: int = Field(
+        default=2,
+        alias="EXCHANGE_RATE_POLL_INTERVAL_SECONDS",
+    )
 
     webhook_require_signature: bool = Field(default=True, alias="WEBHOOK_REQUIRE_SIGNATURE")
     webhook_allow_legacy_payload: bool = Field(

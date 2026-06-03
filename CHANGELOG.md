@@ -5,6 +5,19 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.25] — 2026-06-03
+
+### Изменено
+
+- **Курсы**: источник — Crypto-Cash `rates/export/json` вместо CoinLore; фоновый опрос каждые 2 секунды (API и Celery worker).
+- **Кэш `/client/rates`**: TTL по умолчанию 2 с, в линию с интервалом опроса.
+
+### Добавлено
+
+- Настройки `CRYPTO_CASH_RATES_EXPORT_URL` и `EXCHANGE_RATE_POLL_INTERVAL_SECONDS`.
+
+---
+
 ## [0.14.24] — 2026-06-03
 
 ### Изменено

@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import worker_process_init, worker_process_shutdown
 
 from app.core.config import settings
 
@@ -31,12 +32,26 @@ def get_celery_app() -> Celery:
             "task": "app.tasks.invoice_sync.sync_all_pending_invoices",
             "schedule": crontab(minute="*/5"),
         },
-        "refresh-exchange-rates-every-10-minutes": {
+        "persist-exchange-rates-every-10-minutes": {
             "task": "app.tasks.invoice_sync.refresh_exchange_rate_cache",
             "schedule": crontab(minute="*/10"),
         },
     }
     return celery_app
+
+
+@worker_process_init.connect
+def _start_crypto_cash_rates_polling(**_: object) -> None:
+    from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
+
+    get_crypto_cash_rates_cache().start_polling()
+
+
+@worker_process_shutdown.connect
+def _stop_crypto_cash_rates_polling(**_: object) -> None:
+    from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
+
+    get_crypto_cash_rates_cache().stop_polling()
 
 
 celery_app = get_celery_app()

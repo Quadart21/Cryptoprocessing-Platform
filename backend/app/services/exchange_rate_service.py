@@ -1,19 +1,13 @@
-import asyncio
 import logging
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Optional
 
-import requests
-
-from app.db.session import AsyncSessionLocal
+from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
 
 logger = logging.getLogger(__name__)
 
 
 class ExchangeRateService:
-    BASE_URL = "https://api.coinlore.net/api"
-    PAGE_LIMIT = 100
-    MAX_PAGES = 200
     STABLECOIN_EQUIVALENTS = frozenset({"USD", "USDT", "USDC"})
 
     async def get_rate(self, currency: str, quote: str = "USD") -> Optional[Decimal]:
@@ -33,21 +27,23 @@ class ExchangeRateService:
         if manual_rate is not None:
             return manual_rate
 
+        live_rate = get_crypto_cash_rates_cache().get_rate(currency)
+        if live_rate is not None:
+            return live_rate
+
         cached_rate = await self._get_cached_rate(currency, quote)
         if cached_rate is not None:
             return cached_rate
 
-        try:
-            return await asyncio.to_thread(self._fetch_rate, currency)
-        except Exception:
-            logger.exception("Failed to fetch live exchange rate for %s/%s", currency, quote)
-            return None
+        snapshot = get_crypto_cash_rates_cache().refresh_sync()
+        return snapshot.get(currency)
 
     async def _get_manual_rate(self, currency: str, quote: str) -> Optional[Decimal]:
         if quote not in {"USD", "USDT"}:
             return None
         try:
             from app.services.billing_policy_service import BillingPolicyService
+            from app.db.session import AsyncSessionLocal
 
             async with AsyncSessionLocal() as session:
                 manual_rates = await BillingPolicyService(session).get_manual_exchange_rates()
@@ -62,6 +58,7 @@ class ExchangeRateService:
             return None
         try:
             from app.services.billing_policy_service import BillingPolicyService
+            from app.db.session import AsyncSessionLocal
 
             async with AsyncSessionLocal() as session:
                 cached_rates = await BillingPolicyService(session).get_cached_exchange_rates()
@@ -71,48 +68,12 @@ class ExchangeRateService:
 
         return cached_rates.get(currency)
 
-    def _fetch_rate(self, currency: str) -> Optional[Decimal]:
-        if currency == "USD":
-            return Decimal("1")
-        if currency == "USDT":
-            return Decimal("1")
-
-        session = requests.Session()
-        for page in range(self.MAX_PAGES):
-            start = page * self.PAGE_LIMIT
-            response = session.get(
-                f"{self.BASE_URL}/tickers/",
-                params={"start": start, "limit": self.PAGE_LIMIT},
-                timeout=10,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                },
-            )
-            response.raise_for_status()
-            payload = response.json()
-            items = payload.get("data", [])
-            if not items:
-                break
-
-            for item in items:
-                symbol = str(item.get("symbol") or "").upper()
-                if symbol != currency:
-                    continue
-                price_usd = item.get("price_usd")
-                if price_usd in (None, ""):
-                    return None
-                try:
-                    return Decimal(str(price_usd))
-                except (InvalidOperation, ValueError, TypeError):
-                    return None
-
-            if len(items) < self.PAGE_LIMIT:
-                break
-
-        logger.warning("CoinLore symbol not found: %s", currency)
-        return None
-
     def refresh_rates_for_symbols(self, symbols: list[str]) -> dict[str, Decimal]:
+        cache = get_crypto_cash_rates_cache()
+        snapshot = cache.get_snapshot()
+        if not snapshot:
+            snapshot = cache.refresh_sync()
+
         resolved: dict[str, Decimal] = {}
         seen: set[str] = set()
         for raw_symbol in symbols:
@@ -120,13 +81,14 @@ class ExchangeRateService:
             if not symbol or symbol in seen:
                 continue
             seen.add(symbol)
-            try:
-                rate = self._fetch_rate(symbol)
-            except Exception as exc:
-                logger.error("Failed to refresh live rate for %s: %s", symbol, exc)
+            if symbol in self.STABLECOIN_EQUIVALENTS:
+                resolved[symbol] = Decimal("1")
                 continue
+            rate = snapshot.get(symbol)
             if rate is not None:
                 resolved[symbol] = rate
+            else:
+                logger.warning("Crypto-Cash rate not found for symbol: %s", symbol)
         return resolved
 
     async def convert_to_fiat(

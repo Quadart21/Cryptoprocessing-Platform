@@ -51,7 +51,14 @@ MERCHANT_OPENAPI_ALLOWLIST: set[tuple[str, str]] = {
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_database_ready()
-    yield
+    from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
+
+    rates_cache = get_crypto_cash_rates_cache()
+    rates_cache.start_polling()
+    try:
+        yield
+    finally:
+        rates_cache.stop_polling()
 
 
 def create_application() -> FastAPI:
