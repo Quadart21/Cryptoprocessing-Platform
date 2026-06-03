@@ -396,6 +396,8 @@ export type AccountingSummary = {
   average_invoice_amount: string;
 };
 
+export type ExchangeRatePriceField = "last" | "buy" | "sell";
+
 export type PlatformBillingSettings = {
   provider_fee_percent: string;
   default_markup_percent: string;
@@ -404,6 +406,7 @@ export type PlatformBillingSettings = {
   platform_markup_min_band_usdt_low: string;
   platform_markup_min_band_usdt_high: string;
   exchange_rate_markup_percent: string;
+  exchange_rate_price_field: ExchangeRatePriceField;
   manual_exchange_rates: Record<string, string>;
   current_exchange_rates: Record<string, string>;
   allow_tenant_markup_override: boolean;

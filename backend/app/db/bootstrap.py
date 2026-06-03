@@ -171,7 +171,7 @@ DDL_PATCHES = [
     """,
     """
     ALTER TABLE platform_settings
-    ADD COLUMN IF NOT EXISTS notification_brand_name VARCHAR(255) NOT NULL DEFAULT 'NorenCash'
+    ADD COLUMN IF NOT EXISTS notification_brand_name VARCHAR(255) NOT NULL DEFAULT 'NorenDigital'
     """,
     """
     ALTER TABLE platform_settings
@@ -199,7 +199,7 @@ DDL_PATCHES = [
     """,
     """
     ALTER TABLE platform_settings
-    ADD COLUMN IF NOT EXISTS smtp_bz_sender_name VARCHAR(255) NOT NULL DEFAULT 'NorenCash'
+    ADD COLUMN IF NOT EXISTS smtp_bz_sender_name VARCHAR(255) NOT NULL DEFAULT 'NorenDigital'
     """,
     """
     ALTER TABLE platform_settings
@@ -248,6 +248,10 @@ DDL_PATCHES = [
     """
     ALTER TABLE platform_settings
     ADD COLUMN IF NOT EXISTS exchange_rate_markup_percent NUMERIC(10, 4) NOT NULL DEFAULT 0.0000
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS exchange_rate_price_field VARCHAR(20) NOT NULL DEFAULT 'last'
     """,
     """
     ALTER TABLE platform_settings

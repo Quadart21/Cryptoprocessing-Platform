@@ -891,6 +891,7 @@ async def update_platform_billing_settings(
             allow_tenant_markup_override=payload.allow_tenant_markup_override,
             payouts_enabled=payload.payouts_enabled,
             exchange_rate_markup_percent=payload.exchange_rate_markup_percent,
+            exchange_rate_price_field=payload.exchange_rate_price_field,
             manual_exchange_rates=payload.manual_exchange_rates,
             seo_title=payload.seo_title,
             seo_description=payload.seo_description,
@@ -992,7 +993,8 @@ async def get_platform_exchange_rate(
     db: AsyncSession = Depends(get_db),
 ) -> ExchangeRateLookupResponse:
     normalized_currency = currency.strip().upper()
-    manual_rates = await BillingPolicyService(db).get_manual_exchange_rates()
+    billing_policy_service = BillingPolicyService(db)
+    manual_rates = await billing_policy_service.get_manual_exchange_rates()
     manual_rate = manual_rates.get(normalized_currency)
     if manual_rate is not None:
         return ExchangeRateLookupResponse(
@@ -1002,12 +1004,13 @@ async def get_platform_exchange_rate(
             source="manual",
         )
 
+    price_field = await billing_policy_service.get_exchange_rate_price_field()
     rate = await get_exchange_rate_service().get_rate(normalized_currency, "USD")
     return ExchangeRateLookupResponse(
         currency=normalized_currency,
         quote_currency="USD",
         rate=rate,
-        source="cached",
+        source=f"crypto_cash_{price_field}",
     )
 
 
@@ -1490,6 +1493,11 @@ async def _map_platform_billing_settings_response(
         seo_robots=platform_settings.seo_robots,
         seo_canonical_url=platform_settings.seo_canonical_url,
         exchange_rate_markup_percent=platform_settings.exchange_rate_markup_percent,
+        exchange_rate_price_field=(
+            platform_settings.exchange_rate_price_field
+            if platform_settings.exchange_rate_price_field in {"last", "buy", "sell"}
+            else "last"
+        ),
         manual_exchange_rates=await BillingPolicyService(notification_service.db).get_manual_exchange_rates(),
         current_exchange_rates=current_exchange_rates or {},
     )

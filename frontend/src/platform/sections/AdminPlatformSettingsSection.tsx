@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 
 import type {
   ExchangeRateLookup,
+  ExchangeRatePriceField,
   ExchangeRateRefresh,
   NotificationTemplatePreview,
   NotificationTemplatePreviewPayload,
@@ -19,6 +20,25 @@ import type {
   TenantItem,
 } from "../../api";
 import { NotificationTemplatesWorkspace } from "../components/NotificationTemplatesWorkspace";
+
+const EXCHANGE_RATE_PRICE_FIELD_LABELS: Record<ExchangeRatePriceField, string> = {
+  last: "Last",
+  buy: "Buy",
+  sell: "Sell",
+};
+
+function formatExchangeRateSource(
+  source: string | undefined,
+  priceField: ExchangeRatePriceField,
+): string {
+  if (source === "manual") return "Ручной";
+  if (source?.startsWith("crypto_cash_")) {
+    const field = source.slice("crypto_cash_".length) as ExchangeRatePriceField;
+    const label = EXCHANGE_RATE_PRICE_FIELD_LABELS[field] ?? field;
+    return `Crypto-Cash · ${label}`;
+  }
+  return `Crypto-Cash · ${EXCHANGE_RATE_PRICE_FIELD_LABELS[priceField]}`;
+}
 
 type AdminPlatformSettingsSectionProps = {
   adminAssetRates: RateItem[];
@@ -489,14 +509,31 @@ export function AdminPlatformSettingsSection({
     const currency = selectedManualRateCurrency;
     const currentRate = selectedExchangeRate?.rate ?? null;
     const manualRate = currency ? platformSettingsForm.manual_exchange_rates?.[currency] ?? "" : "";
+    const priceField = platformSettingsForm.exchange_rate_price_field ?? "last";
     const rateSource = manualRate
       ? "Ручной"
-      : selectedExchangeRate?.source === "cached"
-        ? "Кэш БД"
-        : "API";
+      : formatExchangeRateSource(selectedExchangeRate?.source, priceField);
 
     return (
       <div className="aps-stack">
+        <label className="aps-field-span-2">
+          <span>Цена Crypto-Cash для курса</span>
+          <select
+            value={priceField}
+            onChange={(event) =>
+              updatePlatformSettings({
+                exchange_rate_price_field: event.target.value as ExchangeRatePriceField,
+              })
+            }
+          >
+            <option value="last">Last — lastPrice (последняя)</option>
+            <option value="buy">Buy — цена покупки</option>
+            <option value="sell">Sell — цена продажи</option>
+          </select>
+        </label>
+        <p className="muted-text aps-field-span-2">
+          Поле из JSON export Crypto-Cash. Применяется ко всем автоматическим курсам и settlement.
+        </p>
         <label className="aps-field-span-2">
           <span>Токен</span>
           <select
@@ -528,7 +565,7 @@ export function AdminPlatformSettingsSection({
             tone={
               manualRate
                 ? "good"
-                : selectedExchangeRate?.source === "cached"
+                : selectedExchangeRate?.source?.startsWith("crypto_cash_")
                   ? "default"
                   : "muted"
             }
@@ -625,6 +662,7 @@ export function AdminPlatformSettingsSection({
           <span>Название бренда</span>
           <input
             value={platformSettingsForm.notification_brand_name}
+            placeholder="NorenDigital"
             onChange={(event) =>
               updatePlatformSettings({ notification_brand_name: event.target.value })
             }
@@ -670,7 +708,7 @@ export function AdminPlatformSettingsSection({
                 seo_title: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
-            placeholder="Crypto Processing - Приём платежей"
+            placeholder="NorenDigital — приём платежей"
           />
         </label>
         <label>

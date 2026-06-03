@@ -107,6 +107,12 @@ class BillingPolicyService:
             )
             return Decimal("0")
 
+    async def get_exchange_rate_price_field(self) -> str:
+        from app.services.exchange_rate_price_field import normalize_exchange_rate_price_field
+
+        settings = await self.get_platform_settings()
+        return normalize_exchange_rate_price_field(settings.exchange_rate_price_field)
+
     async def get_manual_exchange_rates(self) -> dict[str, Decimal]:
         settings = await self.get_platform_settings()
         raw_value = settings.manual_exchange_rates_json or "{}"
@@ -185,6 +191,7 @@ class BillingPolicyService:
         allow_tenant_markup_override: bool,
         payouts_enabled: bool,
         exchange_rate_markup_percent: Decimal = Decimal("0"),
+        exchange_rate_price_field: str = "last",
         manual_exchange_rates: dict[str, Decimal] | None = None,
         seo_title: str | None = None,
         seo_description: str | None = None,
@@ -209,6 +216,11 @@ class BillingPolicyService:
         normalized_manual_exchange_rates = self._normalize_manual_exchange_rates(
             manual_exchange_rates or {}
         )
+        from app.services.exchange_rate_price_field import normalize_exchange_rate_price_field
+
+        normalized_exchange_rate_price_field = normalize_exchange_rate_price_field(
+            exchange_rate_price_field
+        )
 
         settings = await self.get_platform_settings()
         settings.provider_fee_percent = provider_fee_percent
@@ -217,6 +229,7 @@ class BillingPolicyService:
         settings.allow_tenant_markup_override = allow_tenant_markup_override
         settings.payouts_enabled = payouts_enabled
         settings.exchange_rate_markup_percent = exchange_rate_markup_percent
+        settings.exchange_rate_price_field = normalized_exchange_rate_price_field
         settings.manual_exchange_rates_json = json.dumps(
             {key: str(value) for key, value in normalized_manual_exchange_rates.items()},
             sort_keys=True,
@@ -231,6 +244,12 @@ class BillingPolicyService:
         self.db.add(settings)
         await self.db.commit()
         await self.db.refresh(settings)
+
+        from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
+
+        rates_cache = get_crypto_cash_rates_cache()
+        rates_cache.set_price_field(normalized_exchange_rate_price_field)
+        rates_cache.refresh_sync()
         return settings
 
     async def get_or_create_tenant_policy(self, tenant_id: str) -> TenantFeePolicy:

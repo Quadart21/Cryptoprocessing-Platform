@@ -7,6 +7,11 @@ from typing import Optional
 import requests
 
 from app.core.config import settings
+from app.services.exchange_rate_price_field import (
+    DEFAULT_EXCHANGE_RATE_PRICE_FIELD,
+    EXCHANGE_RATE_PRICE_FIELD_TO_JSON_KEY,
+    normalize_exchange_rate_price_field,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +23,18 @@ class CryptoCashRatesCache:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._rates: dict[str, Decimal] = {}
+        self._price_field: str = DEFAULT_EXCHANGE_RATE_PRICE_FIELD
         self._last_success_at: float = 0.0
         self._poll_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+
+    def set_price_field(self, price_field: str) -> None:
+        with self._lock:
+            self._price_field = normalize_exchange_rate_price_field(price_field)
+
+    def get_price_field(self) -> str:
+        with self._lock:
+            return self._price_field
 
     def start_polling(self) -> None:
         with self._lock:
@@ -71,6 +85,10 @@ class CryptoCashRatesCache:
             self.refresh_sync()
 
     def _fetch_from_api(self) -> dict[str, Decimal]:
+        with self._lock:
+            price_field = self._price_field
+        json_key = EXCHANGE_RATE_PRICE_FIELD_TO_JSON_KEY[price_field]
+
         response = requests.get(
             settings.crypto_cash_rates_export_url,
             timeout=settings.provider_http_connect_timeout_seconds,
@@ -92,11 +110,11 @@ class CryptoCashRatesCache:
             symbol = str(item.get("give") or "").upper()
             if not symbol:
                 continue
-            last_price = item.get("lastPrice")
-            if last_price in (None, ""):
+            raw_price = item.get(json_key)
+            if raw_price in (None, ""):
                 continue
             try:
-                price = Decimal(str(last_price))
+                price = Decimal(str(raw_price))
             except (InvalidOperation, ValueError, TypeError):
                 continue
             if price <= 0:
@@ -104,7 +122,9 @@ class CryptoCashRatesCache:
             resolved[symbol] = price
 
         if not resolved:
-            raise ValueError("Crypto-Cash rates export returned no usable rates")
+            raise ValueError(
+                f"Crypto-Cash rates export returned no usable rates for price field {price_field}"
+            )
         return resolved
 
 

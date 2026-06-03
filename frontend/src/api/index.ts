@@ -45,6 +45,7 @@ export type {
   NotificationTemplateTestPayload,
   NotificationTemplateTestResponse,
   PlatformBillingSettings,
+  ExchangeRatePriceField,
   ExchangeRateLookup,
   ExchangeRateRefresh,
   TelegramBotIdentity,

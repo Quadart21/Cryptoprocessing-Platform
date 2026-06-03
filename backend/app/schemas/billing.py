@@ -1,6 +1,10 @@
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+ExchangeRatePriceField = Literal["last", "buy", "sell"]
 
 
 class NotificationEventToggle(BaseModel):
@@ -116,6 +120,7 @@ class PlatformBillingSettingsResponse(BaseModel):
     seo_robots: str = "index, follow"
     seo_canonical_url: str | None = None
     exchange_rate_markup_percent: Decimal = Decimal("0")
+    exchange_rate_price_field: ExchangeRatePriceField = "last"
     manual_exchange_rates: dict[str, Decimal] = Field(default_factory=dict)
     current_exchange_rates: dict[str, Decimal] = Field(default_factory=dict)
 
@@ -152,14 +157,14 @@ class PlatformBillingSettingsUpdateRequest(BaseModel):
     smtp_bz_enabled: bool = False
     smtp_bz_api_base_url: str = "https://api.smtp.bz/v1"
     smtp_bz_sender_email: str = ""
-    smtp_bz_sender_name: str = "NorenCash"
+    smtp_bz_sender_name: str = "NorenDigital"
     smtp_bz_reply_to: str | None = None
     smtp_bz_tag: str | None = None
     smtp_bz_api_key: str | None = None
     telegram_api_base_url: str = "https://api.telegram.org"
     telegram_bot_token: str | None = None
     notification_events: list[NotificationEventToggle] = Field(default_factory=list)
-    notification_brand_name: str = "NorenCash"
+    notification_brand_name: str = "NorenDigital"
     notification_logo_url: str | None = None
     notification_primary_url: str | None = None
     notification_templates: list[NotificationTemplateUpdate] = Field(default_factory=list)
@@ -171,6 +176,7 @@ class PlatformBillingSettingsUpdateRequest(BaseModel):
     seo_robots: str = "index, follow"
     seo_canonical_url: str | None = None
     exchange_rate_markup_percent: Decimal = Decimal("0")
+    exchange_rate_price_field: ExchangeRatePriceField = "last"
     manual_exchange_rates: dict[str, Decimal] = Field(default_factory=dict)
 
 
