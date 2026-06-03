@@ -1,48 +1,11 @@
-const KNOWN_SYMBOLS: Record<string, string> = {
-  BTC: "WHITEBIT:BTCUSDT.P",
-  DOGE: "WHITEBIT:DOGEUSDT.P",
-  ETH: "WHITEBIT:ETHUSDT.P",
-  TON: "WHITEBIT:TONUSDT.P",
-  LTC: "WHITEBIT:LTCUSDT.P",
-  TRX: "WHITEBIT:TRXUSDT.P",
-  SOL: "WHITEBIT:SOLUSDT.P",
-  XRP: "WHITEBIT:XRPUSDT.P",
-  BNB: "WHITEBIT:BNBUSDT.P",
-};
-
 const STABLECOIN_QUOTES = new Set(["USDT", "USDC", "USD", "BUSD", "DAI", "TUSD"]);
 
 export function resolveTradingViewSymbol(currency: string, quote = "USDT"): string {
   const normalized = currency.trim().toUpperCase();
-  if (!normalized) {
+  if (!normalized || STABLECOIN_QUOTES.has(normalized)) {
     return "";
   }
-  if (KNOWN_SYMBOLS[normalized]) {
-    return KNOWN_SYMBOLS[normalized];
-  }
-  if (STABLECOIN_QUOTES.has(normalized)) {
-    return "";
-  }
-  return `WHITEBIT:${normalized}${quote}.P`;
-}
-
-export function buildTradingViewCompareSymbols(
-  primaryCurrency: string,
-  availableCurrencies: string[],
-): Array<{
-  symbol: string;
-  position: "SameScale";
-}> {
-  const primary = primaryCurrency.trim().toUpperCase();
-  return availableCurrencies
-    .filter((currency) => currency !== primary)
-    .slice(0, 2)
-    .map((currency) => resolveTradingViewSymbol(currency))
-    .filter(Boolean)
-    .map((symbol) => ({
-      symbol,
-      position: "SameScale" as const,
-    }));
+  return `BINANCE:${normalized}${quote}`;
 }
 
 export function buildTradingViewSymbolOptions(
@@ -68,4 +31,13 @@ export function pickTradingViewCurrency(
     return normalizedPreferred;
   }
   return options[0] ?? "";
+}
+
+export function tradingViewChartUrl(symbol: string): string {
+  const normalized = symbol.trim();
+  if (!normalized.includes(":")) {
+    return "https://www.tradingview.com/";
+  }
+  const [exchange, pair] = normalized.split(":", 2);
+  return `https://www.tradingview.com/symbols/${pair}/?exchange=${exchange}`;
 }

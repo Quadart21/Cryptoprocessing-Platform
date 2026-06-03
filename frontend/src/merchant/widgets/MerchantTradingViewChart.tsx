@@ -1,10 +1,10 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  buildTradingViewCompareSymbols,
   buildTradingViewSymbolOptions,
   pickTradingViewCurrency,
   resolveTradingViewSymbol,
+  tradingViewChartUrl,
   tradingViewSymbolLabel,
 } from "../utils/tradingViewSymbols";
 
@@ -23,6 +23,37 @@ const INTERVAL_OPTIONS = [
   { value: "D", label: "1д" },
 ] as const;
 
+function buildWidgetConfig(
+  symbol: string,
+  interval: (typeof INTERVAL_OPTIONS)[number]["value"],
+  compact: boolean,
+): string {
+  return JSON.stringify({
+    allow_symbol_change: false,
+    calendar: false,
+    details: false,
+    hide_side_toolbar: true,
+    hide_top_toolbar: compact,
+    hide_legend: false,
+    hide_volume: true,
+    hotlist: false,
+    interval,
+    locale: "ru",
+    save_image: false,
+    style: "1",
+    symbol,
+    theme: "dark",
+    timezone: "Etc/UTC",
+    backgroundColor: "#080e1c",
+    gridColor: "rgba(117, 158, 255, 0.08)",
+    watchlist: [],
+    withdateranges: false,
+    compareSymbols: [],
+    studies: [],
+    autosize: true,
+  });
+}
+
 function MerchantTradingViewChart({
   rates,
   defaultCurrency,
@@ -34,7 +65,7 @@ function MerchantTradingViewChart({
   const [selectedCurrency, setSelectedCurrency] = useState(() =>
     pickTradingViewCurrency(symbolOptions, defaultCurrency),
   );
-  const [chartInterval, setChartInterval] = useState<(typeof INTERVAL_OPTIONS)[number]["value"]>("15");
+  const [chartInterval, setChartInterval] = useState<(typeof INTERVAL_OPTIONS)[number]["value"]>("1");
 
   const tradingViewSymbol = useMemo(
     () => resolveTradingViewSymbol(selectedCurrency),
@@ -58,64 +89,28 @@ function MerchantTradingViewChart({
   }, [defaultCurrency, symbolOptions]);
 
   useEffect(() => {
-    const host = containerRef.current;
-    if (!host || !tradingViewSymbol) {
+    const container = containerRef.current;
+    if (!container || !tradingViewSymbol) {
       return;
     }
 
-    host.replaceChildren();
-
-    const container = document.createElement("div");
-    container.className = "tradingview-widget-container mc-tv-widget__embed";
-    container.style.height = "100%";
-    container.style.width = "100%";
-
-    const widget = document.createElement("div");
-    widget.className = "tradingview-widget-container__widget";
-    widget.style.height = "100%";
-    widget.style.width = "100%";
-    container.appendChild(widget);
-
-    const compareSymbols = buildTradingViewCompareSymbols(selectedCurrency, symbolOptions);
-    const config: Record<string, unknown> = {
-      allow_symbol_change: false,
-      calendar: false,
-      details: false,
-      hide_side_toolbar: true,
-      hide_top_toolbar: !compact,
-      hide_legend: false,
-      hide_volume: compact,
-      hotlist: false,
-      interval: chartInterval,
-      locale: "ru",
-      save_image: false,
-      style: "1",
-      symbol: tradingViewSymbol,
-      theme: "dark",
-      timezone: "Etc/UTC",
-      backgroundColor: "#080e1c",
-      gridColor: "rgba(117, 158, 255, 0.08)",
-      watchlist: [],
-      withdateranges: false,
-      studies: [],
-      autosize: true,
-    };
-    if (compareSymbols.length > 0) {
-      config.compareSymbols = compareSymbols;
+    container.querySelectorAll("script").forEach((node) => node.remove());
+    const widget = container.querySelector(".tradingview-widget-container__widget");
+    if (widget instanceof HTMLElement) {
+      widget.replaceChildren();
     }
 
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
     script.type = "text/javascript";
     script.async = true;
-    script.innerHTML = JSON.stringify(config);
+    script.innerHTML = buildWidgetConfig(tradingViewSymbol, chartInterval, compact);
     container.appendChild(script);
-    host.appendChild(container);
 
     return () => {
-      host.replaceChildren();
+      container.querySelectorAll("script").forEach((node) => node.remove());
     };
-  }, [chartInterval, compact, selectedCurrency, symbolOptions, tradingViewSymbol]);
+  }, [chartInterval, compact, tradingViewSymbol]);
 
   if (symbolOptions.length === 0) {
     return (
@@ -171,15 +166,24 @@ function MerchantTradingViewChart({
         </div>
       </header>
 
-      <div className="mc-tv-widget__stage" ref={containerRef} />
-
-      <p className="mc-tv-widget__credit">
-        График{" "}
-        <a href={`https://ru.tradingview.com/chart/?symbol=${encodeURIComponent(tradingViewSymbol)}`} rel="noopener noreferrer" target="_blank">
-          TradingView
-        </a>
-        · биржа WhiteBIT
-      </p>
+      <div className="mc-tv-widget__stage">
+        <div
+          className="tradingview-widget-container mc-tv-widget__embed"
+          ref={containerRef}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <div
+            className="tradingview-widget-container__widget"
+            style={{ height: "calc(100% - 32px)", width: "100%" }}
+          />
+          <div className="tradingview-widget-copyright mc-tv-widget__copyright">
+            <a href={tradingViewChartUrl(tradingViewSymbol)} rel="noopener nofollow noreferrer" target="_blank">
+              <span>{tradingViewSymbolLabel(selectedCurrency)}</span>
+            </a>
+            <span className="mc-tv-widget__trademark"> · TradingView</span>
+          </div>
+        </div>
+      </div>
     </article>
   );
 }

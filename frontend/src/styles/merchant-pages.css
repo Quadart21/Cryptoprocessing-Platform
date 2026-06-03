@@ -971,15 +971,32 @@
   width: 100%;
 }
 
+.mc-tv-widget__copyright {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.mc-tv-widget__copyright a {
+  color: #7ec8ff;
+  text-decoration: none;
+}
+
+.mc-tv-widget__copyright a:hover {
+  text-decoration: underline;
+}
+
+.mc-tv-widget__trademark {
+  color: var(--text-2);
+}
+
 .mc-tv-widget__stage iframe {
   height: 100% !important;
   width: 100% !important;
-}
-
-.mc-tv-widget__canvas,
-.mc-tv-widget__stage .tradingview-widget-container__widget {
-  width: 100%;
-  height: 100%;
 }
 
 .mc-tv-widget--compact .mc-tv-widget__stage {
@@ -988,18 +1005,7 @@
 }
 
 .mc-tv-widget__credit {
-  margin: 10px 0 0;
-  font-size: 11px;
-  color: var(--text-2);
-}
-
-.mc-tv-widget__credit a {
-  color: #7ec8ff;
-  text-decoration: none;
-}
-
-.mc-tv-widget__credit a:hover {
-  text-decoration: underline;
+  display: none;
 }
 
 .mc-tv-widget--empty .mc-tv-widget__empty {
