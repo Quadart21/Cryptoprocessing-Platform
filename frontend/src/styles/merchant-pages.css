@@ -989,3 +989,9 @@
 .mc-tv-widget__credit a:hover {
   text-decoration: underline;
 }
+
+.mc-tv-widget--empty .mc-tv-widget__empty {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}

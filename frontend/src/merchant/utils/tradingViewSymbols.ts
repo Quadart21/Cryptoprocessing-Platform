@@ -8,51 +8,64 @@ const KNOWN_SYMBOLS: Record<string, string> = {
   SOL: "WHITEBIT:SOLUSDT.P",
   XRP: "WHITEBIT:XRPUSDT.P",
   BNB: "WHITEBIT:BNBUSDT.P",
-  USDT: "WHITEBIT:USDTUSD",
 };
 
-const QUICK_PICKS = ["DOGE", "BTC", "ETH", "TON", "TRX", "SOL"] as const;
+const STABLECOIN_QUOTES = new Set(["USDT", "USDC", "USD", "BUSD", "DAI", "TUSD"]);
 
 export function resolveTradingViewSymbol(currency: string, quote = "USDT"): string {
   const normalized = currency.trim().toUpperCase();
   if (!normalized) {
-    return KNOWN_SYMBOLS.DOGE;
+    return "";
   }
   if (KNOWN_SYMBOLS[normalized]) {
     return KNOWN_SYMBOLS[normalized];
   }
-  if (normalized === quote) {
-    return KNOWN_SYMBOLS.USDT;
+  if (STABLECOIN_QUOTES.has(normalized)) {
+    return "";
   }
   return `WHITEBIT:${normalized}${quote}.P`;
 }
 
-export function buildTradingViewCompareSymbols(primaryCurrency: string): Array<{
+export function buildTradingViewCompareSymbols(
+  primaryCurrency: string,
+  availableCurrencies: string[],
+): Array<{
   symbol: string;
   position: "SameScale";
 }> {
   const primary = primaryCurrency.trim().toUpperCase();
-  const candidates = QUICK_PICKS.filter((item) => item !== primary).slice(0, 2);
-  return candidates.map((currency) => ({
-    symbol: resolveTradingViewSymbol(currency),
-    position: "SameScale",
-  }));
+  return availableCurrencies
+    .filter((currency) => currency !== primary)
+    .slice(0, 2)
+    .map((currency) => resolveTradingViewSymbol(currency))
+    .filter(Boolean)
+    .map((symbol) => ({
+      symbol,
+      position: "SameScale" as const,
+    }));
 }
 
 export function buildTradingViewSymbolOptions(
   rates: Array<{ currency: string }> | undefined,
 ): string[] {
-  const fromRates = (rates ?? [])
-    .map((rate) => rate.currency.trim().toUpperCase())
-    .filter(Boolean);
-  const merged = [...QUICK_PICKS, ...fromRates];
-  return [...new Set(merged)].filter((currency) => currency !== "USDT");
+  return [...new Set(
+    (rates ?? [])
+      .map((rate) => rate.currency.trim().toUpperCase())
+      .filter((currency) => Boolean(currency) && !STABLECOIN_QUOTES.has(currency)),
+  )].sort((left, right) => left.localeCompare(right, "ru"));
 }
 
 export function tradingViewSymbolLabel(currency: string): string {
-  const normalized = currency.trim().toUpperCase();
-  if (normalized === "USDT") {
-    return "USDT/USD";
+  return `${currency.trim().toUpperCase()}/USDT`;
+}
+
+export function pickTradingViewCurrency(
+  options: string[],
+  preferred?: string,
+): string {
+  const normalizedPreferred = preferred?.trim().toUpperCase() ?? "";
+  if (normalizedPreferred && options.includes(normalizedPreferred)) {
+    return normalizedPreferred;
   }
-  return `${normalized}/USDT`;
+  return options[0] ?? "";
 }

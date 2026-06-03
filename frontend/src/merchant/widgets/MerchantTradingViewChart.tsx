@@ -3,6 +3,7 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildTradingViewCompareSymbols,
   buildTradingViewSymbolOptions,
+  pickTradingViewCurrency,
   resolveTradingViewSymbol,
   tradingViewSymbolLabel,
 } from "../utils/tradingViewSymbols";
@@ -24,22 +25,33 @@ const INTERVAL_OPTIONS = [
 
 function MerchantTradingViewChart({
   rates,
-  defaultCurrency = "DOGE",
+  defaultCurrency,
   compact = false,
   className = "",
 }: MerchantTradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedCurrency, setSelectedCurrency] = useState(defaultCurrency.trim().toUpperCase() || "DOGE");
+  const symbolOptions = useMemo(() => buildTradingViewSymbolOptions(rates), [rates]);
+  const [selectedCurrency, setSelectedCurrency] = useState(() =>
+    pickTradingViewCurrency(symbolOptions, defaultCurrency),
+  );
   const [chartInterval, setChartInterval] = useState<(typeof INTERVAL_OPTIONS)[number]["value"]>("15");
 
-  const symbolOptions = useMemo(() => buildTradingViewSymbolOptions(rates), [rates]);
   const tradingViewSymbol = useMemo(
     () => resolveTradingViewSymbol(selectedCurrency),
     [selectedCurrency],
   );
 
   useEffect(() => {
-    const normalized = defaultCurrency.trim().toUpperCase();
+    setSelectedCurrency((current) => {
+      if (current && symbolOptions.includes(current)) {
+        return current;
+      }
+      return pickTradingViewCurrency(symbolOptions, defaultCurrency);
+    });
+  }, [defaultCurrency, symbolOptions]);
+
+  useEffect(() => {
+    const normalized = defaultCurrency?.trim().toUpperCase() ?? "";
     if (normalized && symbolOptions.includes(normalized)) {
       setSelectedCurrency(normalized);
     }
@@ -47,7 +59,7 @@ function MerchantTradingViewChart({
 
   useEffect(() => {
     const host = containerRef.current;
-    if (!host) {
+    if (!host || !tradingViewSymbol) {
       return;
     }
 
@@ -81,7 +93,7 @@ function MerchantTradingViewChart({
       gridColor: "rgba(117, 158, 255, 0.08)",
       watchlist: [],
       withdateranges: false,
-      compareSymbols: buildTradingViewCompareSymbols(selectedCurrency),
+      compareSymbols: buildTradingViewCompareSymbols(selectedCurrency, symbolOptions),
       studies: [],
       autosize: true,
     });
@@ -90,7 +102,22 @@ function MerchantTradingViewChart({
     return () => {
       host.replaceChildren();
     };
-  }, [chartInterval, compact, selectedCurrency, tradingViewSymbol]);
+  }, [chartInterval, compact, selectedCurrency, symbolOptions, tradingViewSymbol]);
+
+  if (symbolOptions.length === 0) {
+    return (
+      <article className={`mc-surface mc-tv-widget mc-tv-widget--empty ${className}`.trim()}>
+        <header className="mc-surface-header">
+          <p className="mc-surface-eyebrow">Рынок</p>
+          <h2 className="mc-surface-title">{compact ? "Курс токена" : "График котировок"}</h2>
+        </header>
+        <p className="muted-text mc-tv-widget__empty">
+          Нет доступных пар для графика. Включите монеты в настройках платформы — здесь появятся только
+          принимаемые вами токены.
+        </p>
+      </article>
+    );
+  }
 
   return (
     <article className={`mc-surface mc-tv-widget${compact ? " mc-tv-widget--compact" : ""} ${className}`.trim()}>
@@ -100,8 +127,8 @@ function MerchantTradingViewChart({
           <h2 className="mc-surface-title">{compact ? "Курс токена" : "График котировок"}</h2>
           <p className="mc-surface-desc" style={{ marginBottom: 0 }}>
             {compact
-              ? "Актуальная цена перед выставлением счёта — данные TradingView."
-              : "Следите за курсами принимаемых монет в реальном времени."}
+              ? "Курс выбранного токена из вашего списка приёма."
+              : `Доступно пар: ${symbolOptions.length} — только монеты из вашего каталога.`}
           </p>
         </div>
         <div className="mc-tv-widget__controls">
