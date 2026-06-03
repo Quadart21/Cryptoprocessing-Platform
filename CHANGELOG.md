@@ -5,6 +5,15 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.28] — 2026-06-03
+
+### Изменено
+
+- **`/client/rates`**: в каталог попадают только токены с полным набором цен Crypto-Cash (last/buy/sell) в market export.
+- **Рестарт сервиса**: poller останавливается без блокировки; `TimeoutStopSec=45` в systemd.
+
+---
+
 ## [0.14.27] — 2026-06-03
 
 ### Исправлено

@@ -11,7 +11,8 @@ from app.models.asset_availability import AssetAvailability
 from app.providers.factory import get_payment_provider
 from app.schemas.rates import RateItemResponse, RateNetworkResponse, RatesResponse
 from app.services.cache_service import get_cache_service
-from app.services.exchange_rate_service import get_exchange_rate_service
+from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
+from app.services.exchange_rate_service import ExchangeRateService, get_exchange_rate_service
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class PayInLimits:
 
 
 class RatesService:
-    RATES_CACHE_KEY = "rates:all:v3"
+    RATES_CACHE_KEY = "rates:all:v5"
     RATES_CACHE_PREFIX = "rates:"
     MIN_DEPOSIT_KEYS = (
         "min_deposit",
@@ -66,12 +67,13 @@ class RatesService:
         items = self._extract_provider_items(response)
         overrides = await self._load_platform_overrides()
         rate_service = get_exchange_rate_service()
+        catalog_symbols = await asyncio.to_thread(get_crypto_cash_rates_cache().get_catalog_symbols)
         currencies: set[str] = set()
         for item in items:
             if not isinstance(item, dict):
                 continue
             currency_name = str(item.get("currency") or item.get("ticker") or "").upper()
-            if currency_name:
+            if currency_name and self._is_allowed_client_currency(currency_name, catalog_symbols):
                 currencies.add(currency_name)
         fiat_rates = await rate_service.get_rates_for_symbols(sorted(currencies), "USD")
         mapped_items: list[RateItemResponse] = []
@@ -80,7 +82,7 @@ class RatesService:
             if not isinstance(item, dict):
                 continue
             currency = str(item.get("currency") or item.get("ticker") or "").upper()
-            if not currency:
+            if not currency or not self._is_allowed_client_currency(currency, catalog_symbols):
                 continue
             limits_by_network = {
                 network_name: limit
@@ -194,6 +196,7 @@ class RatesService:
         if self.db is None:
             return
         normalized_currency, normalized_network = self._normalize_pair(currency, network)
+        self._assert_market_rate_catalog_currency(normalized_currency)
         rule = await self.db.scalar(
             select(AssetAvailability).where(
                 AssetAvailability.currency == normalized_currency,
@@ -205,6 +208,7 @@ class RatesService:
 
     async def get_client_payin_limits(self, *, currency: str, network: str) -> PayInLimits:
         normalized_currency, normalized_network = self._normalize_pair(currency, network)
+        self._assert_market_rate_catalog_currency(normalized_currency)
         response = get_payment_provider().list_currencies()
         items = response.get("data", {}).get("items", [])
         overrides = await self._load_platform_overrides()
@@ -402,6 +406,23 @@ class RatesService:
         if parsed < Decimal("0"):
             return None
         return parsed
+
+    @staticmethod
+    def _is_allowed_client_currency(currency: str, catalog_symbols: frozenset[str]) -> bool:
+        normalized_currency = currency.strip().upper()
+        if normalized_currency in ExchangeRateService.STABLECOIN_EQUIVALENTS:
+            return True
+        if not catalog_symbols:
+            return False
+        return normalized_currency in catalog_symbols
+
+    @staticmethod
+    def _assert_market_rate_catalog_currency(currency: str) -> None:
+        catalog_symbols = get_crypto_cash_rates_cache().get_catalog_symbols()
+        if RatesService._is_allowed_client_currency(currency, catalog_symbols):
+            return
+        normalized_currency = currency.strip().upper()
+        raise ValueError(f"Токен {normalized_currency} недоступен для оплаты.")
 
     @staticmethod
     def _resolve_availability_reason(

@@ -2,6 +2,8 @@ from typing import Final
 
 VALID_EXCHANGE_RATE_PRICE_FIELDS: Final[frozenset[str]] = frozenset({"last", "buy", "sell"})
 DEFAULT_EXCHANGE_RATE_PRICE_FIELD: Final[str] = "last"
+MARKET_RATE_QUOTE_CURRENCIES: Final[frozenset[str]] = frozenset({"USDT", "USD", "USDC"})
+MARKET_RATE_REQUIRED_PRICE_KEYS: Final[tuple[str, ...]] = ("lastPrice", "buy", "sell")
 
 EXCHANGE_RATE_PRICE_FIELD_TO_JSON_KEY: Final[dict[str, str]] = {
     "last": "lastPrice",
