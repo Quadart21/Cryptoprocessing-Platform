@@ -65,15 +65,19 @@ function MerchantTradingViewChart({
 
     host.replaceChildren();
 
-    const widget = document.createElement("div");
-    widget.className = "mc-tv-widget__canvas";
-    host.appendChild(widget);
+    const container = document.createElement("div");
+    container.className = "tradingview-widget-container mc-tv-widget__embed";
+    container.style.height = "100%";
+    container.style.width = "100%";
 
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.type = "text/javascript";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
+    const widget = document.createElement("div");
+    widget.className = "tradingview-widget-container__widget";
+    widget.style.height = "100%";
+    widget.style.width = "100%";
+    container.appendChild(widget);
+
+    const compareSymbols = buildTradingViewCompareSymbols(selectedCurrency, symbolOptions);
+    const config: Record<string, unknown> = {
       allow_symbol_change: false,
       calendar: false,
       details: false,
@@ -93,11 +97,20 @@ function MerchantTradingViewChart({
       gridColor: "rgba(117, 158, 255, 0.08)",
       watchlist: [],
       withdateranges: false,
-      compareSymbols: buildTradingViewCompareSymbols(selectedCurrency, symbolOptions),
       studies: [],
       autosize: true,
-    });
-    host.appendChild(script);
+    };
+    if (compareSymbols.length > 0) {
+      config.compareSymbols = compareSymbols;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.type = "text/javascript";
+    script.async = true;
+    script.innerHTML = JSON.stringify(config);
+    container.appendChild(script);
+    host.appendChild(container);
 
     return () => {
       host.replaceChildren();
