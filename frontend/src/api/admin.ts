@@ -112,6 +112,16 @@ export function updateAdminTenant(
   });
 }
 
+export function fetchPlatformApiUsage(
+  token: string,
+  days = 30,
+): Promise<import("./base").ApiUsageResponse> {
+  const query = new URLSearchParams({ days: String(days) });
+  return request<import("./base").ApiUsageResponse>(`/admin/api-usage?${query.toString()}`, {
+    headers: authHeaders(token),
+  });
+}
+
 export function fetchProjectApiUsage(
   token: string,
   projectId: string,

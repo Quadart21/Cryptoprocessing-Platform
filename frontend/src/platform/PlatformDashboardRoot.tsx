@@ -14,6 +14,7 @@ import {
   AdminClientDetailSectionLazy,
   AdminClientsSectionLazy,
   AdminOverviewSectionLazy,
+  AdminPlatformApiUsageSectionLazy,
   AdminPlatformPayoutsPanelLazy,
   AdminPlatformSettingsSectionLazy,
   AdminPublicPagesSectionLazy,
@@ -296,6 +297,12 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                 <section className="dashboard-grid client-grid">
                   <PlatformEventsPanelLazy className="panel panel-span-2" events={platformEvents} />
                 </section>
+              </div>
+            ) : null}
+
+            {section === "api-traffic" ? (
+              <div className="console-section-stack">
+                <AdminPlatformApiUsageSectionLazy adminToken={adminToken} />
               </div>
             ) : null}
 

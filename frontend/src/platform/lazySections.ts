@@ -55,6 +55,11 @@ export const PlatformTransactionsPanelLazy = lazy(async () => {
   return { default: m.PlatformTransactionsPanel };
 });
 
+export const AdminPlatformApiUsageSectionLazy = lazy(async () => {
+  const m = await import("./sections/AdminPlatformApiUsageSection");
+  return { default: m.AdminPlatformApiUsageSection };
+});
+
 export const PlatformEventsPanelLazy = lazy(async () => {
   const m = await import("./sections/AdminPlatformPanels");
   return { default: m.PlatformEventsPanel };

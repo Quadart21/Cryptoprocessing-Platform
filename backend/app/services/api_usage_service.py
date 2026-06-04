@@ -101,8 +101,6 @@ class ApiUsageService:
         normalized_route = normalize_route_key(route_key)
         usage_date = _today_utc()
         scopes = _resolve_scopes(tenant_id=tenant_id, project_id=project_id)
-        if not scopes:
-            scopes = [("platform", "global")]
 
         for scope_type, scope_id in scopes:
             redis_key = self._hash_key(usage_date, category, scope_type, scope_id)
@@ -133,6 +131,9 @@ class ApiUsageService:
             project_id=project_id,
             error=True,
         )
+
+    def get_platform_usage(self, *, days: int = 30) -> ApiUsageSummary:
+        return self._get_usage(scope_type="platform", scope_id="global", days=days)
 
     def get_project_usage(self, project_id: str, *, days: int = 30) -> ApiUsageSummary:
         return self._get_usage(scope_type="project", scope_id=project_id, days=days)
@@ -290,7 +291,7 @@ def _resolve_scopes(
     tenant_id: str | None,
     project_id: str | None,
 ) -> list[tuple[str, str]]:
-    scopes: list[tuple[str, str]] = []
+    scopes: list[tuple[str, str]] = [("platform", "global")]
     if project_id:
         scopes.append(("project", project_id))
     if tenant_id:

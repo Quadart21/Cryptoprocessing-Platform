@@ -52,6 +52,7 @@ export type AdminSection =
   | "transactions"
   | "payouts"
   | "events"
+  | "api-traffic"
   | "client-detail"
   | "platform-settings"
   | "public-pages"
@@ -68,6 +69,7 @@ export const ADMIN_MENU_ITEMS: DashboardRailItem[] = [
   { key: "transactions", label: "Транзакции" },
   { key: "payouts", label: "Выплаты" },
   { key: "events", label: "События" },
+  { key: "api-traffic", label: "Трафик API" },
   { key: "platform-settings", label: "Настройки" },
   { key: "public-pages", label: "Страницы" },
   { key: "assets", label: "Токены и сети" },

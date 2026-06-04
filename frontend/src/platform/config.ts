@@ -10,7 +10,7 @@ export const ADMIN_SECTION_META: Record<
   overview: {
     group: "Мониторинг",
     title: "Пульт платформы",
-    description: "Сводка, последние инвойсы и транзакции по всей системе. События — в разделе «События».",
+    description: "Сводка, последние инвойсы и транзакции. Трафик API — в одноимённом разделе.",
   },
   invoices: {
     group: "Мониторинг",
@@ -31,6 +31,11 @@ export const ADMIN_SECTION_META: Record<
     group: "Мониторинг",
     title: "События и webhooks",
     description: "Системные и провайдерские события в хронологии.",
+  },
+  "api-traffic": {
+    group: "Мониторинг",
+    title: "Трафик API",
+    description: "Сводка запросов по всей платформе: Merchant API, Crypto-Cash, pay-страница и rate limit.",
   },
   requests: {
     group: "Клиенты",
@@ -98,6 +103,7 @@ export function buildAdminMenuGroups(
         { key: "transactions", label: "Транзакции" },
         { key: "payouts", label: "Выплаты" },
         { key: "events", label: "События" },
+        { key: "api-traffic", label: "Трафик API" },
       ],
     },
     {

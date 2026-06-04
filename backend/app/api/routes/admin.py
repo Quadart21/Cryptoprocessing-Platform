@@ -793,6 +793,15 @@ def _map_api_usage(summary: ApiUsageSummary) -> ApiUsageResponse:
     )
 
 
+@router.get("/api-usage", response_model=ApiUsageResponse)
+async def get_platform_api_usage(
+    days: int = Query(default=30, ge=1, le=45),
+    _: User = Depends(require_platform_permission("admin.events.read")),
+) -> ApiUsageResponse:
+    summary = get_api_usage_service().get_platform_usage(days=days)
+    return _map_api_usage(summary)
+
+
 @router.get("/projects/{project_id}/api-usage", response_model=ApiUsageResponse)
 async def get_project_api_usage(
     project_id: str,
