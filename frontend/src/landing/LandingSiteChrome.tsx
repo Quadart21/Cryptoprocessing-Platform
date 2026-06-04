@@ -467,13 +467,15 @@ export function LandingSiteChrome({
 
           <div className="lpx-hero-copy">
 
-            <p className="lpx-hero-kicker">Сохраняйте оборот под контролем</p>
+            <p className="lpx-hero-kicker">Crypto acquiring</p>
 
             <h1 id="lpx-hero-heading" className="lpx-hero-title">
 
-              Лучшая платформа для{" "}
+              Приём{" "}
 
-              <span className="lpx-hero-title-lime">приёма криптовалюты</span>
+              <span className="lpx-hero-title-lime">криптовалюты</span>
+
+              {" "}для бизнеса
 
               <span className="lpx-hero-title-dot">.</span>
 
@@ -481,7 +483,7 @@ export function LandingSiteChrome({
 
             <p className="lpx-hero-lead">
 
-              REST API, вебхуки и кабинет мерчанта в одном контуре — без лишней суеты и с понятной экономикой комиссий.
+              REST API, вебхуки и кабинет мерчанта. Прозрачная комиссия, статусы в реальном времени.
 
             </p>
 
@@ -499,7 +501,7 @@ export function LandingSiteChrome({
 
               <span className="lpx-hero-social-text">
 
-                <strong>168K+</strong> активных операций в сети
+                <strong>168K+</strong> обработанных транзакций
 
               </span>
 
@@ -547,7 +549,7 @@ export function LandingSiteChrome({
 
               <p className="lpx-hero-micro-text">
 
-                Инвойсы, синхронизация статусов и выплаты — всё через единый API и подписанные события.
+                Инвойсы, выплаты и события — через один API.
 
               </p>
 
@@ -699,15 +701,15 @@ export function LandingSiteChrome({
 
               <h2 id="lpx-bento-heading" className="lpx-section-title">
 
-                Ваш надёжный партнёр в{" "}
+                Инфраструктура{" "}
 
-                <span className="lpx-section-title-accent">приёме криптовалюты</span>
+                <span className="lpx-section-title-accent">приёма платежей</span>
 
               </h2>
 
               <p className="lpx-section-deck">
 
-                REST API, подписанные вебхуки и прозрачная экономика — без скрытых условий и лишнего шума в интерфейсе.
+                API, вебхуки и фиксированные условия — без сюрпризов на этапе запуска.
 
               </p>
 
@@ -743,7 +745,7 @@ export function LandingSiteChrome({
 
                   <button type="button" className="lpx-bento-more" onClick={() => openAuth("register")}>
 
-                    Узнать больше
+                    Подробнее
 
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
 
@@ -873,7 +875,7 @@ export function LandingSiteChrome({
 
             <h2 id="lpx-proof-heading" className="lpx-proof-title">
 
-              Надёжная платформа <span className="lpx-proof-title-lime">в любое время</span> и в любой точке мира.
+              Инфраструктура <span className="lpx-proof-title-lime">без перерывов</span> и понятное подключение.
 
             </h2>
 
@@ -895,15 +897,13 @@ export function LandingSiteChrome({
 
             <p className="lpx-proof-lead">
 
-              SLA и сопровождение при интеграции — без «чёрного ящика». Видите статусы инвойсов, события webhook и сводки
-
-              оборота в одном кабинете.
+              SLA на поддержку. Статусы инвойсов, вебхуки и сводки оборота — в одном кабинете.
 
             </p>
 
             <p className="lpx-proof-text">
 
-              Подключение проходит по понятному чек-листу: тестовая среда, приёмка сценариев и только затем боевой режим.
+              Sandbox → приёмка сценариев → продакшн. Каждый шаг зафиксирован.
 
             </p>
 
@@ -911,13 +911,13 @@ export function LandingSiteChrome({
 
               <button type="button" className="nc-btn-primary nc-btn-lg" onClick={() => openAuth("register")}>
 
-                Узнать больше
+                Подключиться
 
               </button>
 
               <button type="button" className="lpx-proof-link" onClick={() => openAuth("login")}>
 
-                Есть вопрос?
+                Задать вопрос
 
               </button>
 
@@ -941,15 +941,13 @@ export function LandingSiteChrome({
 
             <h2 id="lpx-platform-heading" className="lpx-section-title">
 
-              Всё, что нужно для учёта и автоматизации
+              API и кабинет
 
             </h2>
 
             <p className="lpx-split-lead">
 
-              Единая модель данных для инвойсов и транзакций: ваш продукт получает предсказуемые колбэки и согласованную
-
-              семантику статусов.
+              Единая модель данных для инвойсов и транзакций. Предсказуемые колбэки, согласованные статусы.
 
             </p>
 
@@ -1007,13 +1005,13 @@ export function LandingSiteChrome({
 
             <h2 id="lpx-steps-heading" className="lpx-section-title">
 
-              От заявки до приёма платежей
+              От заявки до запуска
 
             </h2>
 
             <p className="lpx-section-deck lpx-section-deck--narrow">
 
-              Чёткая последовательность без хаоса в переписке: вы всегда знаете, какой шаг следующий.
+              Четыре шага. Каждый — с понятным результатом.
 
             </p>
 
@@ -1063,7 +1061,7 @@ export function LandingSiteChrome({
 
             <h2 id="lpx-faq-heading" className="lpx-section-title">
 
-              Ответы до созвона с отделом подключения
+              Частые вопросы
 
             </h2>
 
@@ -1143,11 +1141,11 @@ export function LandingSiteChrome({
 
               <h2 id="lpx-cta-heading" className="lpx-cta-title">
 
-                Готовы вывести оплату на новый уровень?
+                Начать подключение
 
               </h2>
 
-              <p className="lpx-cta-text">Оставьте заявку — подготовим сценарий интеграции под ваш стек и регион.</p>
+              <p className="lpx-cta-text">Оставьте заявку — согласуем формат интеграции под ваш стек.</p>
 
             </div>
 
@@ -1231,7 +1229,7 @@ export function LandingSiteChrome({
 
             </div>
 
-            <p className="lpx-footer-tagline">NorenDigital — криптопроцессинг и приём стейблкоинов для e-commerce и SaaS.</p>
+            <p className="lpx-footer-tagline">NorenDigital — приём криптовалюты и стейблкоинов для e-commerce и SaaS.</p>
 
             <p className="lpx-footer-copy">© {new Date().getFullYear()} NorenDigital</p>
 
