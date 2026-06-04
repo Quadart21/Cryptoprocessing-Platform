@@ -5,6 +5,14 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.47] — 2026-06-04
+
+### Изменено
+
+- **Settlement**: gross USDT для altcoin считается по `exchangeRate` из webhook/retrieve Crypto-Cash (статус Paid/completed): `amount × exchangeRate`; без курса провайдера settlement не проводится.
+
+---
+
 ## [0.14.46] — 2026-06-04
 
 ### Добавлено

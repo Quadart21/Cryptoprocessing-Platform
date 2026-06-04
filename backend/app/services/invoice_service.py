@@ -21,7 +21,12 @@ from app.services.billing_policy_service import BillingPolicyService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
 from app.services.exchange_rate_service import get_exchange_rate_service
-from app.services.provider_webhook_log import ProviderWebhookLogService
+from app.services.provider_settlement_rate import (
+    apply_settlement_fields_to_stored,
+    extract_settlement_rate_from_stored,
+    gross_from_provider_rate,
+    resolve_settlement_amount_crypto,
+)
 from app.services.invoice_confirmations import (
     apply_confirmations_to_stored_payload,
     confirmations_complete,
@@ -332,18 +337,30 @@ class InvoiceService:
     ) -> None:
         if not raw_payload:
             return
+
+        candidates: list[dict] = []
+        event = raw_payload.get("event")
+        if isinstance(event, dict):
+            data = event.get("data")
+            if isinstance(data, dict):
+                candidates.append(data)
+
         item = raw_payload.get("data", {}).get("item", {}) or {}
-        for key in ("receivedAmount", "expectedAmount", "requestedAmount", "amount"):
-            raw = item.get(key)
-            if raw in (None, ""):
-                continue
-            try:
-                invoice.amount_crypto = Decimal(str(raw).replace(",", ".")).quantize(
-                    InvoiceService.AMOUNT_PRECISION,
-                )
-                return
-            except Exception:
-                continue
+        if isinstance(item, dict):
+            candidates.append(item)
+
+        for candidate in candidates:
+            for key in ("receivedAmount", "expectedAmount", "requestedAmount", "amount"):
+                raw = candidate.get(key)
+                if raw in (None, ""):
+                    continue
+                try:
+                    invoice.amount_crypto = Decimal(str(raw).replace(",", ".")).quantize(
+                        InvoiceService.AMOUNT_PRECISION,
+                    )
+                    return
+                except Exception:
+                    continue
 
     async def apply_provider_status(
         self,
@@ -409,6 +426,11 @@ class InvoiceService:
         if provider_status and stored_payload.get("last_webhook_status") != provider_status:
             stored_payload["last_webhook_status"] = provider_status
         apply_confirmations_to_stored_payload(stored_payload, raw_payload)
+        apply_settlement_fields_to_stored(
+            stored_payload,
+            raw_payload,
+            provider_status=provider_status,
+        )
         try:
             if parse_confirmation_count(stored_payload.get("network_confirmations_required")) in (None, 0):
                 required_confirmations = await RatesService(self.db).get_network_confirmations_required(
@@ -668,6 +690,39 @@ class InvoiceService:
             )
         return converted.quantize(self.AMOUNT_PRECISION)
 
+    async def resolve_settlement_gross_amount(self, invoice: Invoice) -> Decimal:
+        """Gross USDT for settlement: Crypto-Cash exchangeRate from Paid webhook, else platform cache."""
+        stored_payload = invoice.raw_provider_payload_json or {}
+        amount_crypto = resolve_settlement_amount_crypto(
+            Decimal(invoice.amount_crypto),
+            stored_payload,
+        )
+        crypto_currency = invoice.crypto_currency.strip().upper()
+
+        rate_service = get_exchange_rate_service()
+        if crypto_currency in rate_service.STABLECOIN_EQUIVALENTS:
+            return amount_crypto.quantize(self.SETTLEMENT_USDT_PRECISION)
+
+        provider_rate = extract_settlement_rate_from_stored(stored_payload)
+        if provider_rate is not None:
+            gross = gross_from_provider_rate(
+                amount_crypto=amount_crypto,
+                exchange_rate=provider_rate,
+            )
+            logger.info(
+                "Settlement gross from Crypto-Cash exchangeRate invoice_id=%s rate=%s amount_crypto=%s gross=%s",
+                invoice.id,
+                provider_rate,
+                amount_crypto,
+                gross,
+            )
+            return gross
+
+        raise ValueError(
+            "Курс Crypto-Cash (exchangeRate) не найден в webhook/retrieve со статусом Paid. "
+            "Выполните sync инвойса после оплаты или дождитесь webhook acquiring::completed."
+        )
+
     async def _apply_initial_settlement(
         self,
         invoice: Invoice,
@@ -675,12 +730,7 @@ class InvoiceService:
         balance_service: BalanceService,
         balance,
     ) -> None:
-        gross_amount = await self.resolve_accounting_gross_amount(
-            amount_crypto=Decimal(invoice.amount_crypto),
-            crypto_currency=invoice.crypto_currency,
-            fiat_currency=self.BALANCE_CURRENCY,
-            exchange_rate_markup=Decimal("0"),
-        )
+        gross_amount = await self.resolve_settlement_gross_amount(invoice)
 
         provider_fee, platform_fee, turnover_fee, net_amount = await self._calculate_financials(
             tenant_id=invoice.tenant_id,
@@ -1043,12 +1093,7 @@ class InvoiceService:
         old_gross = Decimal(transaction.gross_amount)
         old_net = Decimal(transaction.net_amount)
 
-        new_gross = await self.resolve_accounting_gross_amount(
-            amount_crypto=Decimal(invoice.amount_crypto),
-            crypto_currency=invoice.crypto_currency,
-            fiat_currency=self.BALANCE_CURRENCY,
-            exchange_rate_markup=Decimal("0"),
-        )
+        new_gross = await self.resolve_settlement_gross_amount(invoice)
         provider_fee, platform_fee, turnover_fee, new_net = await self._calculate_financials(
             tenant_id=invoice.tenant_id,
             gross_amount=new_gross,

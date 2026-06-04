@@ -13,6 +13,7 @@ from app.services.invoice_confirmations import (
     read_stored_confirmations,
 )
 from app.services.invoice_service import InvoiceService
+from app.services.provider_settlement_rate import extract_settlement_rate_from_stored
 
 
 def invoice_accounting_is_ready(invoice: Invoice, transaction: Transaction | None) -> bool:
@@ -56,12 +57,16 @@ def _payload_item_candidates(stored_payload: dict | None) -> list[dict]:
         payload = stored_payload.get(key)
         if not isinstance(payload, dict):
             continue
+        event = payload.get("event")
+        if isinstance(event, dict):
+            data = event.get("data")
+            if isinstance(data, dict):
+                candidates.append(data)
         data = payload.get("data")
-        if not isinstance(data, dict):
-            continue
-        item = data.get("item")
-        if isinstance(item, dict):
-            candidates.append(item)
+        if isinstance(data, dict):
+            item = data.get("item")
+            if isinstance(item, dict):
+                candidates.append(item)
 
     event = stored_payload.get("event")
     if isinstance(event, dict):
@@ -183,7 +188,7 @@ async def build_invoice_transaction_details(
     display_fiat_currency = commission_currency
     exchange_rate = None
     if include_exchange_rate and Decimal(invoice.amount_crypto) > Decimal("0"):
-        provider_rate = extract_provider_rate(items)
+        provider_rate = extract_settlement_rate_from_stored(stored_payload) or extract_provider_rate(items)
         exchange_rate = resolve_exchange_rate(
             amount_crypto=Decimal(invoice.amount_crypto),
             gross_amount=gross_amount,
