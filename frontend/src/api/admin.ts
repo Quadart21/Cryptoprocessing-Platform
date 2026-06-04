@@ -233,8 +233,22 @@ export function fetchAdminPayouts(token: string): Promise<PayoutRequestItem[]> {
   });
 }
 
-export function fetchAdminEvents(token: string): Promise<ProviderEventItem[]> {
-  return request<ProviderEventItem[]>("/admin/events", {
+export function fetchAdminEvents(
+  token: string,
+  params?: { limit?: number; source?: string; event_type?: string },
+): Promise<ProviderEventItem[]> {
+  const search = new URLSearchParams();
+  if (params?.limit) {
+    search.set("limit", String(params.limit));
+  }
+  if (params?.source) {
+    search.set("source", params.source);
+  }
+  if (params?.event_type) {
+    search.set("event_type", params.event_type);
+  }
+  const query = search.toString();
+  return request<ProviderEventItem[]>(`/admin/events${query ? `?${query}` : ""}`, {
     headers: authHeaders(token),
   });
 }

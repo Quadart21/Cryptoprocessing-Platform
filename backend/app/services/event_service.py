@@ -45,13 +45,23 @@ class EventService:
         await self.db.flush()
         return event
 
-    async def list_events(self, limit: int = 100) -> list[ProviderEvent]:
+    async def list_events(
+        self,
+        limit: int = 200,
+        *,
+        source: str | None = None,
+        event_type: str | None = None,
+    ) -> list[ProviderEvent]:
         stmt = (
             select(ProviderEvent)
             .join(Invoice, Invoice.id == ProviderEvent.invoice_id)
             .order_by(ProviderEvent.created_at.desc())
             .limit(limit)
         )
+        if source:
+            stmt = stmt.where(ProviderEvent.source == source.strip())
+        if event_type:
+            stmt = stmt.where(ProviderEvent.event_type == event_type.strip())
         excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
         if excluded:
             stmt = stmt.where(Invoice.tenant_id.not_in(excluded))

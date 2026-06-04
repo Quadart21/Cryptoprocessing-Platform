@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, require_platform_permission
@@ -11,10 +11,13 @@ router = APIRouter()
 
 @router.get("/events", response_model=list[ProviderEventResponse])
 async def list_events(
+    limit: int = Query(default=200, ge=1, le=500),
+    source: str | None = Query(default=None),
+    event_type: str | None = Query(default=None),
     _: User = Depends(require_platform_permission("admin.events.read")),
     db: AsyncSession = Depends(get_db),
 ) -> list[ProviderEventResponse]:
-    events = await EventService(db).list_events()
+    events = await EventService(db).list_events(limit=limit, source=source, event_type=event_type)
     return [_map_event(event) for event in events]
 
 

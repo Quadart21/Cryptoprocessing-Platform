@@ -5,6 +5,15 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.43] — 2026-06-04
+
+### Добавлено
+
+- **Crypto-Cash webhook**: структурированный журнал в server logs (`app.crypto_cash.webhook`) — время, статус, полный payload; каждый webhook сохраняется в `provider_events` как `provider.webhook`.
+- **Админка**: панель «Crypto-Cash: webhook и статусы» — фильтр Webhook/Sync, время, статус провайдера, раскрываемый JSON payload; то же в карточке инвойса.
+
+---
+
 ## [0.14.42] — 2026-06-04
 
 ### Исправлено

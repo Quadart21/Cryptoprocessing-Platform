@@ -9,6 +9,7 @@ from app.db.tenant import set_db_security_context
 from app.schemas.invoice import InvoiceResponse
 from app.schemas.webhook import CryptoCashWebhookPayload
 from app.services.invoice_service import InvoiceService
+from app.services.provider_webhook_log import ProviderWebhookLogService
 from app.services.webhook_security import (
     CryptoCashWebhookSecurityError,
     CryptoCashWebhookSecurityService,
@@ -27,6 +28,10 @@ async def crypto_cash_webhook(
     try:
         raw_payload = await request.json()
     except JSONDecodeError as exc:
+        ProviderWebhookLogService.log_incoming(
+            outcome="invalid_json",
+            detail="Request body is not valid JSON.",
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid JSON payload.",
@@ -34,6 +39,11 @@ async def crypto_cash_webhook(
     try:
         payload = CryptoCashWebhookPayload.model_validate(raw_payload)
     except ValidationError as exc:
+        ProviderWebhookLogService.log_incoming(
+            outcome="validation_error",
+            raw_payload=raw_payload if isinstance(raw_payload, dict) else None,
+            detail=str(exc.errors()),
+        )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=exc.errors(),
@@ -42,6 +52,15 @@ async def crypto_cash_webhook(
     try:
         await CryptoCashWebhookSecurityService(db).verify(payload, raw_payload)
     except CryptoCashWebhookSecurityError as exc:
+        ProviderWebhookLogService.log_incoming(
+            outcome="rejected",
+            provider_event_id=payload.id,
+            provider_order_id=payload.resolved_provider_order_id,
+            merchant_order_id=payload.resolved_merchant_order_id,
+            provider_status=payload.resolved_status,
+            raw_payload=raw_payload,
+            detail=str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
@@ -59,6 +78,15 @@ async def crypto_cash_webhook(
             provider_event_id=payload.id,
         )
     except ValueError as exc:
+        ProviderWebhookLogService.log_incoming(
+            outcome="processing_error",
+            provider_event_id=payload.id,
+            provider_order_id=payload.resolved_provider_order_id,
+            merchant_order_id=payload.resolved_merchant_order_id,
+            provider_status=payload.resolved_status,
+            raw_payload=raw_payload,
+            detail=str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),

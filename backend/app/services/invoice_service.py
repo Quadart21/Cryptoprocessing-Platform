@@ -21,6 +21,7 @@ from app.services.billing_policy_service import BillingPolicyService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
 from app.services.exchange_rate_service import get_exchange_rate_service
+from app.services.provider_webhook_log import ProviderWebhookLogService
 from app.services.invoice_confirmations import (
     apply_confirmations_to_stored_payload,
     confirmations_complete,
@@ -376,6 +377,16 @@ class InvoiceService:
                 provider_name="crypto-cash",
             )
             if existing_event is not None:
+                ProviderWebhookLogService.log_incoming(
+                    outcome="duplicate_ignored",
+                    source=source,
+                    provider_event_id=provider_event_id,
+                    provider_order_id=provider_order_id,
+                    merchant_order_id=merchant_order_id,
+                    provider_status=provider_status,
+                    invoice_id=str(invoice.id),
+                    raw_payload=raw_payload,
+                )
                 refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=None)
                 return refreshed if refreshed is not None else invoice
 
@@ -413,6 +424,19 @@ class InvoiceService:
         ):
             invoice.raw_provider_payload_json = stored_payload
             self.db.add(invoice)
+            await self._persist_provider_callback(
+                event_service,
+                invoice_id=str(invoice.id),
+                source=source,
+                provider_order_id=provider_order_id,
+                merchant_order_id=merchant_order_id,
+                provider_event_id=provider_event_id,
+                provider_status=provider_status,
+                effective_status=effective_status,
+                previous_status=previous_status,
+                raw_payload=raw_payload,
+                outcome="unchanged",
+            )
             await self.db.commit()
             refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=None)
             return refreshed if refreshed is not None else invoice
@@ -444,12 +468,25 @@ class InvoiceService:
 
             invoice.confirmed_at = invoice.confirmed_at or datetime.now(timezone.utc)
 
+        await self._persist_provider_callback(
+            event_service,
+            invoice_id=str(invoice.id),
+            source=source,
+            provider_order_id=provider_order_id,
+            merchant_order_id=merchant_order_id,
+            provider_event_id=provider_event_id,
+            provider_status=provider_status,
+            effective_status=effective_status,
+            previous_status=previous_status,
+            raw_payload=raw_payload,
+            outcome="status_updated",
+        )
         await event_service.create_event(
             invoice_id=invoice.id,
             event_type=f"invoice.{effective_status}",
             source=source,
             payload=stored_payload,
-            provider_event_id=provider_event_id,
+            provider_event_id=None,
         )
         # Flush + refresh so all columns (created_at / updated_at) are loaded in the async session.
         # Without this, the instance can be expired after nested flushes — lazy-load then raises MissingGreenlet.
@@ -842,6 +879,51 @@ class InvoiceService:
                 return "confirmed"
             return "confirming"
         return raw_normalized
+
+    async def _persist_provider_callback(
+        self,
+        event_service: EventService,
+        *,
+        invoice_id: str,
+        source: str,
+        provider_order_id: str | None,
+        merchant_order_id: str | None,
+        provider_event_id: str | None,
+        provider_status: str,
+        effective_status: str,
+        previous_status: str,
+        raw_payload: dict | None,
+        outcome: str,
+    ) -> None:
+        callback_payload = {
+            "provider_status": provider_status,
+            "effective_status": effective_status,
+            "previous_status": previous_status,
+            "raw_payload": raw_payload,
+            "outcome": outcome,
+        }
+        ProviderWebhookLogService.log_incoming(
+            outcome=outcome,
+            source=source,
+            provider_event_id=provider_event_id,
+            provider_order_id=provider_order_id,
+            merchant_order_id=merchant_order_id,
+            provider_status=provider_status,
+            effective_status=effective_status,
+            previous_status=previous_status,
+            invoice_id=invoice_id,
+            raw_payload=raw_payload,
+        )
+        if source != "webhook":
+            return
+        await event_service.create_event(
+            invoice_id=invoice_id,
+            event_type="provider.webhook",
+            source=source,
+            payload=callback_payload,
+            provider_event_id=provider_event_id,
+        )
+        await self.db.flush()
 
     @staticmethod
     def _provider_meta_changed(

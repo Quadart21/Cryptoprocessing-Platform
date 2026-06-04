@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { InvoiceItem, ProviderEventItem, TransactionItem } from "../../api";
+import { ProviderEventList } from "../components/ProviderEventList";
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
 import {
   invoiceCompactPillClass,
@@ -199,7 +200,14 @@ export function PlatformTransactionsPanel({
 
 export function PlatformEventsPanel({ events, className = "panel" }: PlatformEventsPanelProps) {
   const [page, setPage] = useState(1);
-  const totalCount = events.length;
+  const [sourceFilter, setSourceFilter] = useState<"all" | "webhook" | "sync">("all");
+  const filteredEvents = useMemo(() => {
+    if (sourceFilter === "all") {
+      return events;
+    }
+    return events.filter((event) => event.source === sourceFilter);
+  }, [events, sourceFilter]);
+  const totalCount = filteredEvents.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PLATFORM_PANEL_PAGE_SIZE));
 
   useEffect(() => {
@@ -210,36 +218,54 @@ export function PlatformEventsPanel({ events, className = "panel" }: PlatformEve
 
   const pageEvents = useMemo(() => {
     const start = (page - 1) * PLATFORM_PANEL_PAGE_SIZE;
-    return events.slice(start, start + PLATFORM_PANEL_PAGE_SIZE);
-  }, [events, page]);
+    return filteredEvents.slice(start, start + PLATFORM_PANEL_PAGE_SIZE);
+  }, [filteredEvents, page]);
 
   return (
     <article className={className}>
       <div className="panel-header">
         <div>
           <p className="eyebrow">События и webhook</p>
-          <h2>Последние события платформы</h2>
+          <h2>Crypto-Cash: webhook и статусы</h2>
+          <p className="muted-text">
+            Журнал в БД и в server logs:{" "}
+            <code>journalctl -u cryptoprocessing -f | grep crypto_cash.webhook</code>
+          </p>
+        </div>
+        <div className="platform-events-filter">
+          <button
+            className={sourceFilter === "all" ? "primary-button" : "ghost-button"}
+            onClick={() => {
+              setSourceFilter("all");
+              setPage(1);
+            }}
+            type="button"
+          >
+            Все
+          </button>
+          <button
+            className={sourceFilter === "webhook" ? "primary-button" : "ghost-button"}
+            onClick={() => {
+              setSourceFilter("webhook");
+              setPage(1);
+            }}
+            type="button"
+          >
+            Webhook
+          </button>
+          <button
+            className={sourceFilter === "sync" ? "primary-button" : "ghost-button"}
+            onClick={() => {
+              setSourceFilter("sync");
+              setPage(1);
+            }}
+            type="button"
+          >
+            Sync
+          </button>
         </div>
       </div>
-      <div className="tenant-list">
-        {totalCount === 0 ? (
-          <p className="muted-text">Событий пока нет.</p>
-        ) : (
-          pageEvents.map((event) => (
-            <article className="tenant-card" key={event.id}>
-              <div>
-                <strong>{event.event_type}</strong>
-                <p>Invoice: {event.invoice_id}</p>
-                <p>Source: {event.source}</p>
-              </div>
-              <div className="tenant-meta">
-                <span>{event.status}</span>
-                <span>{event.created_at}</span>
-              </div>
-            </article>
-          ))
-        )}
-      </div>
+      <ProviderEventList events={pageEvents} />
       <PanelPaginationFooter
         onPageChange={setPage}
         page={page}

@@ -20,6 +20,7 @@ import type {
 } from "../../api";
 import { TenantPayoutsPanel } from "./TenantPayoutsPanel";
 import { InvoiceTransactionDetailsCard } from "../../merchant/widgets/InvoiceTransactionDetailsCard";
+import { ProviderEventList } from "../components/ProviderEventList";
 
 type ClientDetailTab = "overview" | "profile" | "access" | "integration" | "ledger" | "invoice";
 
@@ -763,25 +764,8 @@ export function AdminClientDetailSection({
                         <pre className="json-box">{JSON.stringify(selectedInvoiceDetail.raw_provider_payload_json, null, 2)}</pre>
                       </div>
                       <div className="result-box">
-                        <strong>События по инвойсу</strong>
-                        <div className="tenant-list compact-list pw-tenant-cards-compact">
-                          {selectedInvoiceEvents.length === 0 ? (
-                            <p className="muted-text">Событий пока нет.</p>
-                          ) : (
-                            selectedInvoiceEvents.map((event) => (
-                              <article className="tenant-card" key={event.id}>
-                                <div>
-                                  <strong>{event.event_type}</strong>
-                                  <p>Source: {event.source}</p>
-                                </div>
-                                <div className="tenant-meta">
-                                  <span>{event.status}</span>
-                                  <span>{event.created_at}</span>
-                                </div>
-                              </article>
-                            ))
-                          )}
-                        </div>
+                        <strong>События Crypto-Cash по инвойсу</strong>
+                        <ProviderEventList compact events={selectedInvoiceEvents} />
                       </div>
                     </>
                   )}
