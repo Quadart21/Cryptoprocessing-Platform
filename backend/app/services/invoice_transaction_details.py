@@ -8,12 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.invoice import Invoice
 from app.models.transaction import Transaction
-from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_confirmations import (
     confirmations_fields_for_invoice,
     read_stored_confirmations,
 )
 from app.services.invoice_service import InvoiceService
+
+
+def invoice_accounting_is_ready(invoice: Invoice, transaction: Transaction | None) -> bool:
+    """Expose gross/fees only after Crypto-Cash confirmed status and ledger settlement."""
+    if invoice.status != "confirmed":
+        return False
+    if transaction is None or transaction.status != "confirmed":
+        return False
+    return Decimal(transaction.gross_amount) > Decimal("0")
 
 RATE_KEYS = ("rate", "exchangeRate", "exchange_rate", "price", "conversionRate")
 NETWORK_FEE_KEYS = ("networkFee", "network_fee", "blockchainFee", "minerFee", "gasFee")
@@ -147,7 +155,11 @@ async def build_invoice_transaction_details(
     transaction: Transaction | None,
     *,
     include_exchange_rate: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, Any] | None:
+    if not invoice_accounting_is_ready(invoice, transaction):
+        return None
+
+    assert transaction is not None
     stored_payload = invoice.raw_provider_payload_json or {}
     items = _payload_item_candidates(stored_payload)
     confirmations = await confirmations_fields_for_invoice(db, invoice)
@@ -156,58 +168,17 @@ async def build_invoice_transaction_details(
         confirmations["network_confirmations_required"] = seeded_required
 
     commission_currency = InvoiceService.BALANCE_CURRENCY
-    gross_amount: Decimal | None = None
-    processing_commission: Decimal | None = None
-    platform_commission: Decimal | None = None
-    is_estimate = True
+    gross_amount = Decimal(transaction.gross_amount).quantize(InvoiceService.AMOUNT_PRECISION)
+    processing_commission = Decimal(transaction.provider_fee).quantize(InvoiceService.AMOUNT_PRECISION)
+    platform_commission = (
+        Decimal(transaction.platform_fee) + Decimal(transaction.turnover_fee)
+    ).quantize(InvoiceService.AMOUNT_PRECISION)
+    commission_currency = transaction.currency or commission_currency
 
-    invoice_service = InvoiceService(db)
-    if transaction is not None and transaction.gross_amount > Decimal("0"):
-        gross_amount = Decimal(transaction.gross_amount).quantize(InvoiceService.AMOUNT_PRECISION)
-        processing_commission = Decimal(transaction.provider_fee).quantize(InvoiceService.AMOUNT_PRECISION)
-        platform_commission = (
-            Decimal(transaction.platform_fee) + Decimal(transaction.turnover_fee)
-        ).quantize(InvoiceService.AMOUNT_PRECISION)
-        commission_currency = transaction.currency or commission_currency
-        is_estimate = False
-    elif invoice.status == "confirmed":
-        try:
-            gross_amount = await invoice_service.resolve_accounting_gross_amount(
-                amount_crypto=Decimal(invoice.amount_crypto),
-                crypto_currency=invoice.crypto_currency,
-                fiat_currency=commission_currency,
-                exchange_rate_markup=Decimal("0"),
-            )
-            provider_fee, platform_fee, turnover_fee, _net = await invoice_service._calculate_financials(
-                tenant_id=invoice.tenant_id,
-                gross_amount=gross_amount,
-                fiat_currency=commission_currency,
-            )
-            processing_commission = provider_fee
-            platform_commission = (platform_fee + turnover_fee).quantize(InvoiceService.AMOUNT_PRECISION)
-        except ValueError:
-            gross_amount = None
-
-    display_fiat_currency = commission_currency if gross_amount is not None else invoice.fiat_currency
-    rate_service = get_exchange_rate_service()
-    crypto_upper = invoice.crypto_currency.strip().upper()
-    fiat_upper = invoice.fiat_currency.strip().upper()
-    stable_pair = (
-        crypto_upper in rate_service.STABLECOIN_EQUIVALENTS
-        and fiat_upper in rate_service.STABLECOIN_EQUIVALENTS
-    )
-    if gross_amount is not None:
-        display_fiat = gross_amount
-        display_fiat_currency = commission_currency
-    elif stable_pair:
-        display_fiat = Decimal(invoice.amount_fiat)
-        display_fiat_currency = invoice.fiat_currency
-    else:
-        display_fiat = Decimal(invoice.amount_fiat)
-        display_fiat_currency = invoice.fiat_currency
-        is_estimate = True
+    display_fiat = gross_amount
+    display_fiat_currency = commission_currency
     exchange_rate = None
-    if include_exchange_rate and gross_amount is not None and Decimal(invoice.amount_crypto) > Decimal("0"):
+    if include_exchange_rate and Decimal(invoice.amount_crypto) > Decimal("0"):
         provider_rate = extract_provider_rate(items)
         exchange_rate = resolve_exchange_rate(
             amount_crypto=Decimal(invoice.amount_crypto),
@@ -244,5 +215,5 @@ async def build_invoice_transaction_details(
         "commission_currency": commission_currency,
         "network_confirmations_actual": confirmations["network_confirmations_actual"],
         "network_confirmations_required": confirmations["network_confirmations_required"],
-        "is_estimate": is_estimate,
+        "is_estimate": False,
     }

@@ -1,55 +1,26 @@
 import type { InvoiceSettlement } from "../../api";
 import { formatDecimal } from "../../utils/format";
+import { invoiceAccountingReady } from "../../utils/invoiceAccounting";
 
 type InvoiceSettlementBreakdownProps = {
   settlement: InvoiceSettlement | null | undefined;
   invoiceStatus: string;
-  fallbackCurrency: string;
-  fallbackAmountCrypto?: string | null;
-  fallbackCryptoCurrency?: string | null;
 };
 
 function formatMoney(amount: string, currency: string): string {
   return `${formatDecimal(amount)} ${currency}`;
 }
 
-function isConfirmedStatus(status: string): boolean {
-  return status.trim().toLowerCase() === "confirmed";
-}
-
-function isPaidLikeStatus(status: string): boolean {
-  const normalized = status.trim().toLowerCase();
-  return normalized === "paid" || normalized === "confirmed";
-}
-
 export function InvoiceSettlementBreakdown({
   settlement,
   invoiceStatus,
-  fallbackCurrency,
-  fallbackAmountCrypto,
-  fallbackCryptoCurrency,
 }: InvoiceSettlementBreakdownProps) {
-  const currency = settlement?.currency ?? fallbackCurrency;
-  const amountCrypto = settlement?.amount_crypto ?? fallbackAmountCrypto ?? "0";
-  const cryptoCurrency = settlement?.crypto_currency ?? fallbackCryptoCurrency ?? "—";
-  const showFinal = settlement?.is_final ?? isConfirmedStatus(invoiceStatus);
+  if (!invoiceAccountingReady({ status: invoiceStatus, settlement })) {
+    return null;
+  }
 
   if (!settlement) {
-    return (
-      <div className="invoice-modal-card invoice-settlement-card">
-        <div className="invoice-modal-card-header">
-          <div>
-            <p className="eyebrow">Расчёт</p>
-            <h3>Детализация платежа</h3>
-          </div>
-        </div>
-        <p className="muted-text">
-          {isPaidLikeStatus(invoiceStatus) && !isConfirmedStatus(invoiceStatus)
-            ? "Расчёт появится после полного подтверждения платежа в сети."
-            : "После подтверждения здесь будет сумма в USDT, комиссии и зачисление на баланс."}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -59,47 +30,38 @@ export function InvoiceSettlementBreakdown({
           <p className="eyebrow">Расчёт</p>
           <h3>Детализация платежа</h3>
         </div>
-        {!showFinal ? (
-          <span className="mc-badge mc-badge-neutral">
-            {isPaidLikeStatus(invoiceStatus) ? "Ожидает подтверждения" : "Ожидает оплаты"}
-          </span>
-        ) : null}
       </div>
 
       <dl className="invoice-settlement-rows">
         <div className="invoice-settlement-row invoice-settlement-row--crypto">
           <dt>Клиент отправил</dt>
           <dd>
-            {formatMoney(amountCrypto, cryptoCurrency)}
+            {formatMoney(settlement.amount_crypto, settlement.crypto_currency)}
           </dd>
         </div>
         <div className="invoice-settlement-row invoice-settlement-row--highlight">
-          <dt>Зачёт в {currency}</dt>
-          <dd>{formatMoney(settlement.gross_amount, currency)}</dd>
+          <dt>Зачёт в {settlement.currency}</dt>
+          <dd>{formatMoney(settlement.gross_amount, settlement.currency)}</dd>
         </div>
         <div className="invoice-settlement-row">
           <dt>Комиссия обработки</dt>
-          <dd>{formatMoney(settlement.processing_fee, currency)}</dd>
+          <dd>{formatMoney(settlement.processing_fee, settlement.currency)}</dd>
         </div>
         <div className="invoice-settlement-row">
           <dt>Комиссия платформы</dt>
-          <dd>{formatMoney(settlement.platform_fee, currency)}</dd>
+          <dd>{formatMoney(settlement.platform_fee, settlement.currency)}</dd>
         </div>
         <div className="invoice-settlement-row invoice-settlement-row--fee-total">
           <dt>Итого комиссий</dt>
-          <dd>{formatMoney(settlement.total_fee, currency)}</dd>
+          <dd>{formatMoney(settlement.total_fee, settlement.currency)}</dd>
         </div>
         <div className="invoice-settlement-row invoice-settlement-row--net">
           <dt>К зачислению</dt>
-          <dd>{formatMoney(settlement.net_amount, currency)}</dd>
+          <dd>{formatMoney(settlement.net_amount, settlement.currency)}</dd>
         </div>
       </dl>
 
-      {!showFinal ? (
-        <p className="muted-text invoice-settlement-note">
-          Точные суммы и курс фиксируются после полного подтверждения в сети.
-        </p>
-      ) : settlement.paid_at ? (
+      {settlement.paid_at ? (
         <p className="muted-text invoice-settlement-note">
           Оплачено:{" "}
           {new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(

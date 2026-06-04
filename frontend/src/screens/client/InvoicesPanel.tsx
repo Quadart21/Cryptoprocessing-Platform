@@ -23,7 +23,7 @@ export function InvoicesPanel({
         <p className="mc-surface-eyebrow">Платежи</p>
         <h2 className="mc-surface-title">Инвойсы</h2>
         <p className="mc-surface-desc">
-          Список счетов с суммой в крипте и учётом в фиате. Откройте карточку для адреса и QR или синхронизируйте статус.
+          Список счетов с суммой в крипте. Детализация зачёта в USDT — после подтверждения сети.
         </p>
       </header>
 
@@ -39,8 +39,7 @@ export function InvoicesPanel({
               <div>
                 <p className="mc-row-title">{invoice.merchant_order_id}</p>
                 <p className="mc-row-sub">
-                  {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency} · учёт{" "}
-                  {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency}
+                  {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency}
                 </p>
                 <p className="mc-row-sub mc-row-mono">{invoice.payment_address}</p>
                 <div className="mc-row-badges" style={{ marginTop: 8 }}>

@@ -4,6 +4,7 @@ import type { InvoiceDetail } from "../../api";
 import { formatDecimal } from "../../utils/format";
 import { formatNetworkConfirmations } from "../../utils/networkConfirmations";
 import { getInvoiceDetailStatusMeta } from "../../utils/invoiceStatus";
+import { invoiceAccountingReady } from "../../utils/invoiceAccounting";
 
 import { InvoiceSettlementBreakdown } from "./InvoiceSettlementBreakdown";
 import { InvoiceTransactionDetailsCard } from "./InvoiceTransactionDetailsCard";
@@ -29,31 +30,6 @@ function formatDateTime(value: string | null | undefined): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(parsed);
-}
-
-function isStableAsset(currency: string): boolean {
-  const normalized = currency.trim().toUpperCase();
-  return normalized === "USD" || normalized === "USDT" || normalized === "USDC";
-}
-
-function resolveAccountingDisplay(invoice: InvoiceDetail): { label: string; value: string } {
-  const settled = invoice.settlement?.is_final && invoice.settlement.gross_amount;
-  if (settled) {
-    return {
-      label: "Зачёт USDT",
-      value: `${formatDecimal(invoice.settlement!.gross_amount)} ${invoice.settlement!.currency}`,
-    };
-  }
-  if (isStableAsset(invoice.crypto_currency) && isStableAsset(invoice.fiat_currency)) {
-    return {
-      label: "Учёт",
-      value: `${formatDecimal(invoice.amount_fiat)} ${invoice.fiat_currency}`,
-    };
-  }
-  return {
-    label: "Зачёт USDT",
-    value: "После подтверждения",
-  };
 }
 
 function formatCountdown(value: string | null | undefined, status: string): string {
@@ -159,7 +135,7 @@ export function MerchantInvoiceInspector({
     invoice.network_confirmations_actual,
     invoice.network_confirmations_required,
   );
-  const accountingDisplay = resolveAccountingDisplay(invoice);
+  const showAccounting = invoiceAccountingReady(invoice);
 
   return (
     <dialog className="mw-inspector-dialog invoice-modal" ref={ref}>
@@ -225,10 +201,14 @@ export function MerchantInvoiceInspector({
                 {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency}
               </strong>
             </div>
-            <div className="detail-chip">
-              <span>{accountingDisplay.label}</span>
-              <strong>{accountingDisplay.value}</strong>
-            </div>
+            {showAccounting && invoice.settlement ? (
+              <div className="detail-chip">
+                <span>Зачёт USDT</span>
+                <strong>
+                  {formatDecimal(invoice.settlement.gross_amount)} {invoice.settlement.currency}
+                </strong>
+              </div>
+            ) : null}
             <div className="detail-chip">
               <span>Сеть</span>
               <strong>{invoice.network}</strong>
@@ -249,15 +229,9 @@ export function MerchantInvoiceInspector({
             ) : null}
           </div>
 
-          <InvoiceSettlementBreakdown
-            fallbackAmountCrypto={invoice.amount_crypto}
-            fallbackCryptoCurrency={invoice.crypto_currency}
-            fallbackCurrency={invoice.fiat_currency}
-            invoiceStatus={invoice.status}
-            settlement={invoice.settlement}
-          />
+          <InvoiceSettlementBreakdown invoiceStatus={invoice.status} settlement={invoice.settlement} />
 
-          {invoice.transaction_details ? (
+          {showAccounting && invoice.transaction_details ? (
             <InvoiceTransactionDetailsCard details={invoice.transaction_details} />
           ) : null}
 

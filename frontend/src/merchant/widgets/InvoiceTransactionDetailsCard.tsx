@@ -8,11 +8,6 @@ type InvoiceTransactionDetailsCardProps = {
   compact?: boolean;
 };
 
-function isStableAsset(currency: string): boolean {
-  const normalized = currency.trim().toUpperCase();
-  return normalized === "USD" || normalized === "USDT" || normalized === "USDC";
-}
-
 function formatTxDateTime(value: string | null | undefined): string {
   if (!value) {
     return "—";
@@ -141,11 +136,7 @@ export function InvoiceTransactionDetailsCard({
             {formatDecimal(details.amount_crypto)} {details.crypto_currency}
           </span>
           <span role="cell">
-            {details.is_estimate &&
-            !isStableAsset(details.crypto_currency) &&
-            details.processing_commission == null
-              ? "—"
-              : `${formatDecimal(details.amount_fiat)} ${details.fiat_currency}`}
+            {formatDecimal(details.amount_fiat)} {details.fiat_currency}
           </span>
           <span className="invoice-tx-summary-status" role="cell">
             {statusMeta.label}
@@ -195,18 +186,6 @@ export function InvoiceTransactionDetailsCard({
           </strong>
         </div>
       </div>
-
-      {details.is_estimate ? (
-        <p className="muted-text invoice-tx-note">
-          Комиссии рассчитаны по текущим настройкам. Финальные суммы фиксируются после подтверждения сети.
-        </p>
-      ) : null}
-      {!details.is_estimate && details.processing_commission == null ? (
-        <p className="muted-text invoice-tx-note">
-          Зачёт в USDT и комиссии появятся после полного подтверждения платежа в сети (
-          {details.network_confirmations_actual ?? "?"}/{details.network_confirmations_required ?? "?"}).
-        </p>
-      ) : null}
     </section>
   );
 }

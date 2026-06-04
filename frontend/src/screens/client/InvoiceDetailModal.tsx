@@ -5,6 +5,7 @@ import { InvoiceTransactionDetailsCard } from "../../merchant/widgets/InvoiceTra
 import { formatDecimal } from "../../utils/format";
 import { formatNetworkConfirmations } from "../../utils/networkConfirmations";
 import { getInvoiceDetailStatusMeta } from "../../utils/invoiceStatus";
+import { invoiceAccountingReady } from "../../utils/invoiceAccounting";
 
 type InvoiceDetailModalProps = {
   invoice: InvoiceDetail | null;
@@ -118,6 +119,7 @@ export function InvoiceDetailModal({
     invoice.network_confirmations_actual,
     invoice.network_confirmations_required,
   );
+  const showAccounting = invoiceAccountingReady(invoice);
 
   return (
     <div className="nc-modal-overlay" onClick={onClose}>
@@ -148,12 +150,14 @@ export function InvoiceDetailModal({
                   {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency}
                 </strong>
               </div>
-              <div className="detail-chip">
-                <span>Учетная сумма в системе</span>
-                <strong>
-                  {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency}
-                </strong>
-              </div>
+              {showAccounting && invoice.settlement ? (
+                <div className="detail-chip">
+                  <span>Зачёт USDT</span>
+                  <strong>
+                    {formatDecimal(invoice.settlement.gross_amount)} {invoice.settlement.currency}
+                  </strong>
+                </div>
+              ) : null}
               <div className="detail-chip">
                 <span>Сеть</span>
                 <strong>{invoice.network}</strong>
@@ -174,7 +178,7 @@ export function InvoiceDetailModal({
               ) : null}
             </div>
 
-            {invoice.transaction_details ? (
+            {showAccounting && invoice.transaction_details ? (
               <InvoiceTransactionDetailsCard details={invoice.transaction_details} />
             ) : null}
 

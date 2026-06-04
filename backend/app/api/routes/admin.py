@@ -1594,7 +1594,9 @@ async def _map_invoice_admin_detail_response(
         confirmed_at=invoice.confirmed_at,
         metadata_json=invoice.metadata_json,
         raw_provider_payload_json=invoice.raw_provider_payload_json,
-        transaction_details=InvoiceTransactionDetailsResponse(**details_payload),
+        transaction_details=(
+            InvoiceTransactionDetailsResponse(**details_payload) if details_payload else None
+        ),
     )
 
 

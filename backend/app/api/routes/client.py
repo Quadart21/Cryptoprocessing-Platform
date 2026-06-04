@@ -1137,7 +1137,11 @@ def _map_invoice_settlement(
     invoice: Invoice,
     transaction,
 ) -> InvoiceSettlementResponse | None:
-    if transaction is None or Decimal(transaction.gross_amount) <= Decimal("0"):
+    if invoice.status != "confirmed":
+        return None
+    if transaction is None or transaction.status != "confirmed":
+        return None
+    if Decimal(transaction.gross_amount) <= Decimal("0"):
         return None
     processing_fee = transaction.provider_fee
     platform_fee = transaction.platform_fee + transaction.turnover_fee
@@ -1174,7 +1178,9 @@ async def _map_invoice_detail_response(
     return InvoiceDetailResponse(
         **base.model_dump(),
         settlement=_map_invoice_settlement(invoice, transaction),
-        transaction_details=InvoiceTransactionDetailsResponse(**details_payload),
+        transaction_details=(
+            InvoiceTransactionDetailsResponse(**details_payload) if details_payload else None
+        ),
     )
 
 
