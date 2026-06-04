@@ -5,6 +5,14 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.34] — 2026-06-04
+
+### Исправлено
+
+- **Frontend deps**: обновлены vite 7.3.5, react-router-dom 6.30.4, postcss 8.5.15 — закрыты 4 уязвимости npm audit.
+
+---
+
 ## [0.14.33] — 2026-06-04
 
 ### Изменено
