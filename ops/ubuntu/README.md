@@ -146,7 +146,7 @@ sudo bash /opt/cryptoprocessing/ops/ubuntu/apply-ddos-protection.sh
 | `POSTGRES_PASSWORD` | Пароль PostgreSQL |
 | `SUPERADMIN_EMAIL` | Email супер-админа |
 | `SUPERADMIN_PASSWORD` | Пароль супер-админа |
-| `BACKEND_CORS_ORIGINS` | `https://domain,https://docs.domain,https://admin.domain,...` |
+| `BACKEND_CORS_ORIGINS` | `https://domain,https://app.domain,https://docs.domain,https://admin.domain,...` |
 | `PUBLIC_API_BASE_URL` | `https://domain` или `https://api.domain` |
 | `PUBLIC_PAY_BASE_URL` | `https://pay.domain` (ссылки `payment_page_url` → `https://pay.domain/{token}`) |
 

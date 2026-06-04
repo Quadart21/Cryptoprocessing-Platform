@@ -60,6 +60,38 @@ sync_missing_tables() {
   sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}/backend' && ./.venv/bin/python -m app.scripts.sync_schema"
 }
 
+ensure_cors_origins() {
+  local env_file="${APP_DIR}/.env"
+  [[ -f "${env_file}" ]] || return 0
+
+  local api_url
+  api_url="$(grep -E '^PUBLIC_API_BASE_URL=' "${env_file}" | tail -n1 | cut -d= -f2- | tr -d '\r' || true)"
+  local host="${api_url#https://}"
+  host="${host#http://}"
+  host="${host%%/*}"
+  [[ -n "${host}" ]] || return 0
+
+  local base_domain="${host#api.}"
+  if [[ "${base_domain}" == "${host}" ]]; then
+    base_domain="${host}"
+  fi
+
+  local app_origin="https://app.${base_domain}"
+  local current
+  current="$(grep -E '^BACKEND_CORS_ORIGINS=' "${env_file}" | tail -n1 | cut -d= -f2- | tr -d '\r' || true)"
+  if [[ -z "${current}" ]]; then
+    return 0
+  fi
+  if [[ ",${current}," == *",${app_origin},"* ]]; then
+    log "CORS already includes ${app_origin}"
+    return 0
+  fi
+
+  local updated="${current},${app_origin}"
+  log "Patching BACKEND_CORS_ORIGINS to include ${app_origin}"
+  sed -i "s#^BACKEND_CORS_ORIGINS=.*#BACKEND_CORS_ORIGINS=${updated}#" "${env_file}"
+}
+
 install_systemd_units() {
   if [[ -f "${APP_DIR}/ops/ubuntu/cryptoprocessing.service" ]]; then
     log "Installing systemd unit files"
@@ -158,6 +190,7 @@ build_frontend
 check_backend_syntax
 run_migrations
 sync_missing_tables
+ensure_cors_origins
 install_systemd_units
 restart_backend
 restart_celery_worker

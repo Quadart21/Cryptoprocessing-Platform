@@ -910,8 +910,9 @@ async def get_balance(
 ) -> BalanceResponse:
     _ensure_client_api_permission(auth, "client.balance.read")
     hold_service = BalanceHoldService(db)
-    await hold_service.release_matured_holds(auth.tenant_id)
-    await db.commit()
+    released_count = await hold_service.release_matured_holds(auth.tenant_id)
+    if released_count > 0:
+        await db.commit()
 
     balance_service = BalanceService(db)
     balance = await balance_service.get_or_create_balance(auth.tenant_id, PayoutService.BALANCE_CURRENCY)

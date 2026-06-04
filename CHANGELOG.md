@@ -5,6 +5,16 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.36] — 2026-06-04
+
+### Исправлено
+
+- **CORS**: `https://app.{domain}` добавлен в `BACKEND_CORS_ORIGINS` при setup; `restart_app.sh` дописывает origin на уже развёрнутых серверах.
+- **API** `GET /public/seo` — устранён 404 для SEO-метаданных фронта.
+- **Баланс**: DDL-патч `frozen_amount` / hold-колонок в bootstrap; commit в `/balance` только при фактической разморозке.
+
+---
+
 ## [0.14.35] — 2026-06-04
 
 ### Добавлено

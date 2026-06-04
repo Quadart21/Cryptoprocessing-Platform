@@ -136,6 +136,22 @@ DDL_PATCHES = [
     ALTER TABLE transactions
     ADD COLUMN IF NOT EXISTS net_amount NUMERIC(18, 8) NOT NULL DEFAULT 0
     """,
+    """
+    ALTER TABLE transactions
+    ADD COLUMN IF NOT EXISTS balance_available_at TIMESTAMPTZ
+    """,
+    """
+    ALTER TABLE transactions
+    ADD COLUMN IF NOT EXISTS balance_released_at TIMESTAMPTZ
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS ix_transactions_balance_available_at
+    ON transactions (balance_available_at)
+    """,
+    """
+    ALTER TABLE tenant_balances
+    ADD COLUMN IF NOT EXISTS frozen_amount NUMERIC(18, 8) NOT NULL DEFAULT 0
+    """,
     # billing settings
     """
     ALTER TABLE platform_settings

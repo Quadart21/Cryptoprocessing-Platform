@@ -5,10 +5,19 @@ from app.api.deps import get_db
 from app.db.tenant import set_db_security_context
 from app.providers.crypto_cash import CryptoCashProviderError
 from app.schemas.invoice import PublicPaymentResponse
+from app.schemas.public_seo import PublicSeoResponse
 from app.services.invoice_service import InvoiceService
 from app.services.payment_page_service import PaymentPageService
+from app.services.seo_service import SeoService
 
 router = APIRouter()
+
+
+@router.get("/seo", response_model=PublicSeoResponse)
+async def get_public_seo(db: AsyncSession = Depends(get_db)) -> PublicSeoResponse:
+    await _bind_public_payment_context(db)
+    settings = await SeoService(db).get_public_settings()
+    return PublicSeoResponse(**settings)
 
 
 async def _bind_public_payment_context(db: AsyncSession) -> None:

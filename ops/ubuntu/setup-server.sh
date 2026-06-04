@@ -180,7 +180,8 @@ configure_env() {
   local docs_domain="${DOCS_DOMAIN:-docs.${DOMAIN}}"
   local admin_domain="${ADMIN_DOMAIN:-admin.${DOMAIN}}"
   local pay_domain="${PAY_DOMAIN:-pay.${DOMAIN}}"
-  local cors="https://${DOMAIN},https://${docs_domain},https://${admin_domain},https://${pay_domain}"
+  local app_domain="${APP_DOMAIN:-app.${DOMAIN}}"
+  local cors="https://${DOMAIN},https://${app_domain},https://${docs_domain},https://${admin_domain},https://${pay_domain}"
   if [[ -n "${DOMAIN_ALIASES}" ]]; then
     IFS=',' read -ra aliases <<< "${DOMAIN_ALIASES}"
     for raw_alias in "${aliases[@]}"; do
@@ -240,6 +241,7 @@ run_deploy() {
     DOCS_DOMAIN="${DOCS_DOMAIN:-docs.${DOMAIN}}" \
     ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.${DOMAIN}}" \
     PAY_DOMAIN="${PAY_DOMAIN:-pay.${DOMAIN}}" \
+    APP_DOMAIN="${APP_DOMAIN:-app.${DOMAIN}}" \
     APP_DIR="${APP_DIR}" \
     APP_USER="${APP_USER}" \
     SSL_MODE="${SSL_MODE}" \
