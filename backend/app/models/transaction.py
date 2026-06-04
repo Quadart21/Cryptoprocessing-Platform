@@ -21,3 +21,5 @@ class Transaction(UUIDPrimaryKeyMixin, TenantBoundMixin, TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(20), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    balance_available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    balance_released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

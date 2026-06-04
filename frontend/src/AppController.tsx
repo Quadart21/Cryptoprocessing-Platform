@@ -1210,6 +1210,17 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     }
   }
 
+  async function handleRefreshBalance() {
+    if (!token) {
+      return;
+    }
+    try {
+      setBalance(await fetchBalance(token));
+    } catch {
+      /* ignore background refresh errors */
+    }
+  }
+
   async function handleCreatePayout(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
@@ -2217,6 +2228,7 @@ return (
           onSaveNotificationSettings={(payload) => void handleUpdateClientNotificationSettings(payload)}
           onChangePassword={(payload) => void handleChangeClientPassword(payload)}
           onCloseSecretModal={() => setNewApiSecret(null)}
+          onRefreshBalance={() => void handleRefreshBalance()}
         />
       )}
       </Suspense>

@@ -15,6 +15,7 @@ from app.providers.base import ProviderCreateInvoiceRequest
 from app.providers.factory import get_payment_provider
 from app.schemas.invoice import InvoiceCreateRequest
 from app.services.accounting_service import AccountingService
+from app.services.balance_hold_service import BalanceHoldService
 from app.services.balance_service import BalanceService
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.client_webhook_service import ClientWebhookService
@@ -570,9 +571,9 @@ class InvoiceService:
                 await self._apply_initial_settlement(invoice, transaction, balance_service, balance)
 
         if previous_status == "paid" and new_status == "confirmed":
-            await self._release_pending_to_available(invoice, transaction, balance_service, balance)
+            await self._freeze_confirmed_settlement(invoice, transaction, balance_service, balance)
         elif previous_status not in paid_like_statuses and new_status == "confirmed":
-            await self._release_pending_to_available(invoice, transaction, balance_service, balance)
+            await self._freeze_confirmed_settlement(invoice, transaction, balance_service, balance)
 
     async def resolve_accounting_gross_amount(
         self,
@@ -690,42 +691,15 @@ class InvoiceService:
                 metadata_json={"percent": "0"},
             )
 
-    async def _release_pending_to_available(
+    async def _freeze_confirmed_settlement(
         self,
         invoice: Invoice,
         transaction: Transaction,
         balance_service: BalanceService,
         balance,
     ) -> None:
-        net_amount = Decimal(transaction.net_amount).quantize(self.AMOUNT_PRECISION)
-        if net_amount <= 0:
-            return
-
-        await balance_service.apply_bucket_delta(balance, "pending_amount", -net_amount)
-        await balance_service.apply_bucket_delta(balance, "available_amount", net_amount)
-
-        await balance_service.add_ledger_entry(
-            tenant_id=invoice.tenant_id,
-            currency=self.BALANCE_CURRENCY,
-            amount=net_amount,
-            direction="debit",
-            balance_bucket="pending_amount",
-            entry_type="invoice.pending_release",
-            invoice_id=invoice.id,
-            transaction_id=transaction.id,
-            description="Списание суммы из pending после подтверждения.",
-        )
-        await balance_service.add_ledger_entry(
-            tenant_id=invoice.tenant_id,
-            currency=self.BALANCE_CURRENCY,
-            amount=net_amount,
-            direction="credit",
-            balance_bucket="available_amount",
-            entry_type="invoice.available_credit",
-            invoice_id=invoice.id,
-            transaction_id=transaction.id,
-            description="Зачисление суммы в доступный баланс клиента.",
-        )
+        hold_service = BalanceHoldService(self.db)
+        await hold_service.freeze_confirmed_settlement(invoice, transaction, balance)
 
     async def _calculate_financials(
         self,
@@ -949,7 +923,8 @@ class InvoiceService:
         net_delta = new_net - old_net
         balance_service = BalanceService(self.db)
         balance = await balance_service.get_or_create_balance(invoice.tenant_id, self.BALANCE_CURRENCY)
-        net_bucket = "available_amount" if transaction.status == "confirmed" else "pending_amount"
+        hold_service = BalanceHoldService(self.db)
+        net_bucket = await hold_service.resolve_net_bucket(transaction)
 
         if gross_delta != 0:
             await balance_service.apply_bucket_delta(balance, "provider_gross_amount", gross_delta)

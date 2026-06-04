@@ -19,6 +19,7 @@ import { MerchantApiReference } from "./reference/MerchantApiReference";
 import type { ClientDashboardProps, MerchantSection } from "./types";
 import { AccountNotificationsForm } from "./widgets/AccountNotificationsForm";
 import { AnalyticsPeriodStrip } from "./widgets/AnalyticsPeriodStrip";
+import { BalanceHoldsPanel } from "./widgets/BalanceHoldsPanel";
 import { InvoiceIssuanceWizard } from "./widgets/InvoiceIssuanceWizard";
 import { KeysVault } from "./widgets/KeysVault";
 import { MerchantInvoiceInspector } from "./widgets/MerchantInvoiceInspector";
@@ -81,6 +82,7 @@ export function MerchantDashboardRoot({
   onSaveNotificationSettings,
   onChangePassword,
   onCloseSecretModal,
+  onRefreshBalance,
 }: ClientDashboardProps) {
   const canSyncInvoices =
     user.permissions.includes("*") || user.permissions.includes("client.invoices.write");
@@ -434,9 +436,23 @@ export function MerchantDashboardRoot({
                 <article className="mc-stat">
                   <span className="mc-stat-label">Заморожено</span>
                   <strong className="mc-stat-value">
+                    {formatDecimal(balance?.frozen_amount ?? "0")} {balance?.currency ?? "USDT"}
+                  </strong>
+                </article>
+                <article className="mc-stat">
+                  <span className="mc-stat-label">В выводе</span>
+                  <strong className="mc-stat-value">
                     {formatDecimal(balance?.locked_amount ?? "0")} {balance?.currency ?? "USDT"}
                   </strong>
                 </article>
+                {Number(balance?.pending_amount ?? 0) > 0 ? (
+                  <article className="mc-stat">
+                    <span className="mc-stat-label">Ожидает подтверждения</span>
+                    <strong className="mc-stat-value">
+                      {formatDecimal(balance?.pending_amount ?? "0")} {balance?.currency ?? "USDT"}
+                    </strong>
+                  </article>
+                ) : null}
                 <article className="mc-stat">
                   <span className="mc-stat-label">Всего</span>
                   <strong className="mc-stat-value">
@@ -453,6 +469,8 @@ export function MerchantDashboardRoot({
                   <strong className="mc-stat-value">{analytics.summary.pureProfit}</strong>
                 </article>
               </section>
+
+              <BalanceHoldsPanel balance={balance} onRefresh={onRefreshBalance} />
 
               <PayoutDesk
                 loading={loading}

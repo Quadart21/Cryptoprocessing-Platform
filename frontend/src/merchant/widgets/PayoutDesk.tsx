@@ -28,7 +28,8 @@ export function PayoutDesk({
         <p className="mc-surface-eyebrow">Ликвидность</p>
         <h2 className="mc-surface-title">Вывод средств</h2>
         <p className="mc-surface-desc">
-          Запрос на вывод в USDT (TRC20). После отправки сумма уходит в locked до решения администратора.
+          Запрос на вывод в USDT (TRC20). Доступны только размороженные средства. После отправки сумма уходит в «В
+          выводе» до решения администратора.
         </p>
       </header>
 

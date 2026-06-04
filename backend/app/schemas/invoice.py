@@ -115,9 +115,22 @@ class InvoiceStatusUpdateRequest(BaseModel):
     tx_hash: str | None = Field(default=None, max_length=255)
 
 
+class BalanceHoldItem(BaseModel):
+    transaction_id: str
+    invoice_id: str
+    merchant_order_id: str
+    amount: Decimal
+    available_at: datetime
+
+
 class BalanceResponse(BaseModel):
     currency: str
     amount: Decimal
     available_amount: Decimal
+    frozen_amount: Decimal
+    pending_amount: Decimal
     locked_amount: Decimal
     total_amount: Decimal
+    hold_hours: int
+    next_release_at: datetime | None = None
+    holds: list[BalanceHoldItem] = Field(default_factory=list)

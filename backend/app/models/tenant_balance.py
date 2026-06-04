@@ -13,6 +13,7 @@ class TenantBalance(UUIDPrimaryKeyMixin, TenantBoundMixin, TimestampMixin, Base)
     __table_args__ = (
         CheckConstraint("available_amount >= 0", name="ck_tenant_balance_available_amount_positive"),
         CheckConstraint("pending_amount >= 0", name="ck_tenant_balance_pending_amount_positive"),
+        CheckConstraint("frozen_amount >= 0", name="ck_tenant_balance_frozen_amount_positive"),
         CheckConstraint("locked_amount >= 0", name="ck_tenant_balance_locked_amount_positive"),
         CheckConstraint("withdrawn_amount >= 0", name="ck_tenant_balance_withdrawn_amount_positive"),
         CheckConstraint("provider_gross_amount >= 0", name="ck_tenant_balance_provider_gross_amount_positive"),
@@ -21,6 +22,7 @@ class TenantBalance(UUIDPrimaryKeyMixin, TenantBoundMixin, TimestampMixin, Base)
     currency: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     available_amount: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=0)
     pending_amount: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=0)
+    frozen_amount: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=0)
     locked_amount: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=0)
     withdrawn_amount: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False, default=0)
     provider_gross_amount: Mapped[Decimal] = mapped_column(

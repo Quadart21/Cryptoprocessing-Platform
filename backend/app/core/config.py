@@ -151,6 +151,7 @@ class Settings(BaseSettings):
 
     auth_lockout_threshold: int = Field(default=5, alias="AUTH_LOCKOUT_THRESHOLD")
     auth_lockout_minutes: int = Field(default=15, alias="AUTH_LOCKOUT_MINUTES")
+    balance_hold_hours: int = Field(default=24, alias="BALANCE_HOLD_HOURS")
     max_concurrent_sessions_per_user: int = Field(default=3, alias="MAX_CONCURRENT_SESSIONS_PER_USER")
 
     rate_limit_login_ip_per_minute: int = Field(

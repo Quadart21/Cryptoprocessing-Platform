@@ -89,6 +89,7 @@ export type ClientDashboardProps = {
   }) => void;
   onChangePassword: (payload: { current_password: string; new_password: string }) => void;
   onCloseSecretModal: () => void;
+  onRefreshBalance: () => void;
 };
 
 export type MerchantSection =

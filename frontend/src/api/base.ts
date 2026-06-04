@@ -220,12 +220,25 @@ export type CreateInvoicePayload = {
   metadata: Record<string, string>;
 };
 
+export type BalanceHoldItem = {
+  transaction_id: string;
+  invoice_id: string;
+  merchant_order_id: string;
+  amount: string;
+  available_at: string;
+};
+
 export type BalanceResponse = {
   currency: string;
   amount: string;
   available_amount: string;
+  frozen_amount: string;
+  pending_amount: string;
   locked_amount: string;
   total_amount: string;
+  hold_hours: number;
+  next_release_at: string | null;
+  holds: BalanceHoldItem[];
 };
 
 export type TransactionItem = {

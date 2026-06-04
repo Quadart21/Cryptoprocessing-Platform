@@ -365,10 +365,15 @@ export function MerchantApiReference({
   -H "X-API-Secret: <secret_key>"`,
         successExample: `{
   "currency": "USDT",
-  "amount": "9821.34",
+  "amount": "9500.00",
   "available_amount": "9500.00",
-  "locked_amount": "321.34",
-  "total_amount": "9821.34"
+  "frozen_amount": "321.34",
+  "pending_amount": "0.00",
+  "locked_amount": "120.00",
+  "total_amount": "9941.34",
+  "hold_hours": 24,
+  "next_release_at": "2026-06-05T12:00:00Z",
+  "holds": []
 }`,
         errorExample: `HTTP 403
 {

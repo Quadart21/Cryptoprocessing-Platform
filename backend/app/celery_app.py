@@ -13,7 +13,7 @@ def get_celery_app() -> Celery:
         "cryptorocessing",
         broker=settings.redis_url,
         backend=settings.redis_url,
-        include=["app.tasks.invoice_sync"],
+        include=["app.tasks.invoice_sync", "app.tasks.balance_holds"],
     )
     celery_app.conf.update(
         task_serializer="json",
@@ -35,6 +35,10 @@ def get_celery_app() -> Celery:
         "persist-exchange-rates-every-10-minutes": {
             "task": "app.tasks.invoice_sync.refresh_exchange_rate_cache",
             "schedule": crontab(minute="*/10"),
+        },
+        "release-balance-holds-every-minute": {
+            "task": "app.tasks.balance_holds.release_matured_balance_holds",
+            "schedule": crontab(minute="*"),
         },
     }
     return celery_app

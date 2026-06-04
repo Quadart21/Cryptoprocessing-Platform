@@ -30,6 +30,7 @@ from app.schemas.auth import (
     TokenPairResponse,
 )
 from app.schemas.invoice import (
+    BalanceHoldItem,
     BalanceResponse,
     InvoiceCreateRequest,
     InvoiceDetailResponse,
@@ -67,6 +68,8 @@ from app.schemas.transaction import TransactionResponse
 from app.schemas.user import CurrentUserResponse
 from app.services.accounting_service import AccountingService
 from app.services.auth_service import AuthError, AuthService
+from app.core.config import settings
+from app.services.balance_hold_service import BalanceHoldService
 from app.services.balance_service import BalanceService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
@@ -906,16 +909,41 @@ async def get_balance(
     db: AsyncSession = Depends(get_db),
 ) -> BalanceResponse:
     _ensure_client_api_permission(auth, "client.balance.read")
+    hold_service = BalanceHoldService(db)
+    await hold_service.release_matured_holds(auth.tenant_id)
+    await db.commit()
+
     balance_service = BalanceService(db)
     balance = await balance_service.get_or_create_balance(auth.tenant_id, PayoutService.BALANCE_CURRENCY)
     available_amount = balance.available_amount
+    frozen_amount = balance.frozen_amount
+    pending_amount = balance.pending_amount
     locked_amount = balance.locked_amount
+    active_holds = await hold_service.list_active_holds(auth.tenant_id)
+    holds = [
+        BalanceHoldItem(
+            transaction_id=transaction.id,
+            invoice_id=invoice.id,
+            merchant_order_id=invoice.merchant_order_id,
+            amount=transaction.net_amount,
+            available_at=transaction.balance_available_at,  # type: ignore[arg-type]
+        )
+        for transaction, invoice in active_holds
+        if transaction.balance_available_at is not None
+    ]
+    next_release_at = holds[0].available_at if holds else None
+    total_amount = available_amount + frozen_amount + pending_amount + locked_amount
     return BalanceResponse(
         currency=PayoutService.BALANCE_CURRENCY,
         amount=available_amount,
         available_amount=available_amount,
+        frozen_amount=frozen_amount,
+        pending_amount=pending_amount,
         locked_amount=locked_amount,
-        total_amount=available_amount + locked_amount,
+        total_amount=total_amount,
+        hold_hours=max(int(settings.balance_hold_hours), 1),
+        next_release_at=next_release_at,
+        holds=holds,
     )
 
 
