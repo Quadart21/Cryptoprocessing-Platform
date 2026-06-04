@@ -49,7 +49,7 @@ async def refresh_public_payment(
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
 
-    if invoice.status in {"pending", "paid"}:
+    if invoice.status in {"pending", "confirming", "paid"}:
         invoice_service = InvoiceService(db)
         try:
             invoice = await invoice_service.sync_invoice_status(

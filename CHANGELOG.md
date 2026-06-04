@@ -5,6 +5,15 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.45] — 2026-06-04
+
+### Исправлено
+
+- **Sync инвойса**: retrieve больше не затирает `last_webhook_payload` (сохраняется `acquiring::completed`); финализация проверяет webhook, retrieve и статус `Paid` на sync.
+- **Pay-страница**: авто-refresh синхронизирует инвойсы в статусе `confirming`, не только `pending`/`paid`.
+
+---
+
 ## [0.14.44] — 2026-06-04
 
 ### Исправлено

@@ -152,6 +152,35 @@ def is_provider_deal_finalized(raw_payload: dict | None) -> bool:
         item = data.get("item")
         if isinstance(item, dict) and _is_paid_with_completed_at(item):
             return True
+        if _is_paid_with_completed_at(data):
+            return True
+
+    return False
+
+
+def resolve_provider_deal_finalized(
+    stored_payload: dict | None,
+    raw_payload: dict | None,
+    *,
+    source: str = "webhook",
+    provider_status_normalized: str | None = None,
+) -> bool:
+    """Check current and stored provider payloads; sync Paid is authoritative on retrieve."""
+    candidates: list[dict] = []
+    for payload in (raw_payload,):
+        if isinstance(payload, dict):
+            candidates.append(payload)
+    if isinstance(stored_payload, dict):
+        for key in ("last_webhook_payload", "retrieve_response"):
+            payload = stored_payload.get(key)
+            if isinstance(payload, dict) and payload not in candidates:
+                candidates.append(payload)
+
+    if any(is_provider_deal_finalized(payload) for payload in candidates):
+        return True
+
+    if source == "sync" and provider_status_normalized in {"paid", "confirmed", "completed"}:
+        return True
 
     return False
 

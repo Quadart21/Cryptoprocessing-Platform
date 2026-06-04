@@ -25,9 +25,9 @@ from app.services.provider_webhook_log import ProviderWebhookLogService
 from app.services.invoice_confirmations import (
     apply_confirmations_to_stored_payload,
     confirmations_complete,
-    is_provider_deal_finalized,
     parse_confirmation_count,
     read_stored_confirmations,
+    resolve_provider_deal_finalized,
     seed_required_confirmations,
     snap_confirmations_to_required,
 )
@@ -399,9 +399,12 @@ class InvoiceService:
         if tx_hash and stored_payload.get("tx_hash") != tx_hash:
             stored_payload["tx_hash"] = tx_hash
         if raw_payload is not None:
-            stored_payload["last_webhook_payload"] = raw_payload
             if source == "sync":
                 stored_payload["retrieve_response"] = raw_payload
+            elif source == "webhook":
+                stored_payload["last_webhook_payload"] = raw_payload
+            else:
+                stored_payload["last_webhook_payload"] = raw_payload
         if provider_status and stored_payload.get("last_webhook_status") != provider_status:
             stored_payload["last_webhook_status"] = provider_status
         apply_confirmations_to_stored_payload(stored_payload, raw_payload)
@@ -415,7 +418,12 @@ class InvoiceService:
         except ValueError:
             pass
 
-        provider_deal_finalized = is_provider_deal_finalized(raw_payload)
+        provider_deal_finalized = resolve_provider_deal_finalized(
+            stored_payload,
+            raw_payload,
+            source=source,
+            provider_status_normalized=raw_normalized,
+        )
         if provider_deal_finalized:
             snap_confirmations_to_required(stored_payload)
 
