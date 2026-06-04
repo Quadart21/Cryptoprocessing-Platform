@@ -15,6 +15,7 @@ from app.providers.base import (
     ProviderCreateInvoiceResponse,
 )
 from app.services.api_usage_service import get_api_usage_service
+from app.services.cache_service import get_cache_service
 
 
 class CryptoCashProviderError(Exception):
@@ -63,6 +64,23 @@ def provider_error_http_status(error: CryptoCashProviderError) -> int:
     return status.HTTP_502_BAD_GATEWAY
 
 
+def _provider_data(payload: dict | None) -> dict:
+    if not isinstance(payload, dict):
+        return {}
+    data = payload.get("data")
+    return data if isinstance(data, dict) else {}
+
+
+def _provider_item(payload: dict | None) -> dict:
+    item = _provider_data(payload).get("item", {})
+    return item if isinstance(item, dict) else {}
+
+
+def _provider_items(payload: dict | None) -> list:
+    items = _provider_data(payload).get("items", [])
+    return items if isinstance(items, list) else []
+
+
 class CryptoCashProvider(PaymentProviderInterface):
     def __init__(self) -> None:
         if not settings.crypto_cash_public_key or not settings.crypto_cash_secret_key:
@@ -103,8 +121,8 @@ class CryptoCashProvider(PaymentProviderInterface):
         )
         retrieve_response = self.get_invoice_status(external_id)
 
-        item = retrieve_response.get("data", {}).get("item", {}) or {}
-        created_item = create_response.get("data", {}).get("item", {}) or {}
+        item = _provider_item(retrieve_response)
+        created_item = _provider_item(create_response)
 
         payment_address = str(item.get("address") or created_item.get("address") or "")
         expected_amount = (
@@ -272,7 +290,7 @@ class CryptoCashProvider(PaymentProviderInterface):
         except CryptoCashProviderError:
             return None
 
-        items = response.get("data", {}).get("items", [])
+        items = _provider_items(response)
         for item in items:
             if str(item.get("currency") or "").upper() != normalized_currency:
                 continue

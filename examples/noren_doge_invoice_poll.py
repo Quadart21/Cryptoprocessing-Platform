@@ -41,7 +41,7 @@ Hosted checkout (docs): в ответе POST /invoices поле payment_page_url
   NOREN_RATES_TIMEOUT  — таймаут /rates в секундах (по умолчанию 15)
   NOREN_HTTP_TIMEOUT   — таймаут остальных запросов (по умолчанию 30)
   NOREN_SKIP_RATES     — 1 = не вызывать /rates, сразу DOGE/DOGE из env
-  NOREN_OPEN_BROWSER   — 1 = открыть payment_page_url в браузере (по умолчанию)
+  NOREN_API_ERROR_BACKOFF — пауза при 502/503/504 (по умолчанию 60)
   NOREN_PAYMENT_HTML   — путь к локальному HTML (по умолчанию last_payment.html)
   NOREN_USER_AGENT     — User-Agent для обхода WAF
   NOREN_SUCCESS_STATUSES — через запятую: статусы успеха (по умолчанию paid,confirmed)
@@ -61,7 +61,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-DEFAULT_AMOUNT_DOGE = "50"
+DEFAULT_AMOUNT_DOGE = "20"
 DEFAULT_POLL_INTERVAL_SEC = 10
 DEFAULT_CRYPTO_CURRENCY = "DOGE"
 DEFAULT_NETWORK = "DOGE"
@@ -70,6 +70,8 @@ DEFAULT_RATES_RETRY_DELAY_SEC = 2
 DEFAULT_RATES_TIMEOUT_SEC = 15
 DEFAULT_HTTP_TIMEOUT_SEC = 30
 CONFIRMING_STATUS = "confirming"
+RETRYABLE_HTTP_CODES = frozenset({502, 503, 504, 429})
+DEFAULT_API_ERROR_BACKOFF_SEC = 60
 DEFAULT_SUCCESS_STATUSES = frozenset({"paid", "confirmed"})
 TERMINAL_STATUSES = frozenset({"expired", "cancelled", "failed"})
 
@@ -154,6 +156,65 @@ def format_confirmations(invoice: dict[str, Any]) -> str | None:
     if actual_int is not None:
         return str(actual_int)
     return None
+
+
+def is_retryable_api_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    if "timeout" in text or "network error" in text:
+        return True
+    for code in RETRYABLE_HTTP_CODES:
+        if f"http {code}" in text or f'"status":{code}' in text or f'"status": {code}' in text:
+            return True
+    if "cloudflare" in text or "bad gateway" in text or "retryable" in text:
+        return True
+    return False
+
+
+def api_error_backoff_seconds(exc: Exception) -> int:
+    text = str(exc)
+    try:
+        payload = json.loads(text.split(": ", 1)[-1])
+        retry_after = payload.get("retry_after")
+        if isinstance(retry_after, (int, float)) and retry_after > 0:
+            return int(retry_after)
+    except (json.JSONDecodeError, ValueError, IndexError):
+        pass
+    return _env_int("NOREN_API_ERROR_BACKOFF", DEFAULT_API_ERROR_BACKOFF_SEC)
+
+
+def fetch_invoice_snapshot(
+    base: str,
+    public: str,
+    secret: str,
+    invoice_id: str,
+) -> tuple[dict[str, Any] | None, str | None, Exception | None]:
+    """sync, затем GET; при временной ошибке API возвращает (None, None, exc)."""
+    last_error: Exception | None = None
+    for source, fetcher in (
+        ("sync", lambda: sync_invoice(base, public, secret, invoice_id)),
+        ("get", lambda: get_invoice(base, public, secret, invoice_id)),
+    ):
+        try:
+            return fetcher(), source, None
+        except Exception as exc:
+            last_error = exc
+            log(f"    {source} ошибка: {short_api_error(exc)}")
+            if not is_retryable_api_error(exc):
+                break
+    return None, None, last_error
+
+
+def short_api_error(exc: Exception) -> str:
+    text = str(exc)
+    if "HTTP 502" in text or "502" in text:
+        return "HTTP 502 Bad Gateway (Cloudflare / origin перегружен) — повторим позже"
+    if "HTTP 503" in text:
+        return "HTTP 503 Service Unavailable — повторим позже"
+    if "HTTP 504" in text:
+        return "HTTP 504 Gateway Timeout — повторим позже"
+    if len(text) > 200:
+        return text[:200] + "..."
+    return text
 
 
 def describe_status(status: str, confirmations: str | None) -> str:
@@ -281,10 +342,11 @@ def explain_api_error(exc: Exception) -> str:
         )
     if isinstance(detail, str) and "Internal server error" in detail:
         return (
-            "Сервер noren.digital вернул 500 на GET /rates. "
-            "Обычно это означает сбой провайдера Crypto-Cash при загрузке списка валют. "
-            "Скрипт попробует fallback DOGE/DOGE из env, но создание инвойса тоже может упасть, "
-            "пока провайдер не починят."
+            "Сервер noren.digital вернул 500 (internal_error). "
+            "Это внутренняя ошибка платформы, а не ваших API-ключей. "
+            "Частые причины: сбой Crypto-Cash, ошибка деплоя или некорректный ответ провайдера. "
+            "Проверьте, что на сервере установлена последняя версия (v0.14.52+), "
+            "и обратитесь в поддержку Noren с временем запроса из лога."
         )
     return text
 
@@ -606,21 +668,33 @@ def poll_until_paid(
         f"Успех при status in {{{', '.join(sorted(success_statuses))}}}"
     )
     attempt = 0
+    consecutive_api_errors = 0
     last_status: str | None = None
     last_confirmations: str | None = None
+    last_snapshot: dict[str, Any] | None = None
 
     while True:
         attempt += 1
         log(f"--- Опрос #{attempt} ---")
 
-        try:
-            synced = sync_invoice(base, public, secret, invoice_id)
-            source = "sync"
-        except Exception as exc:
-            log(f"    sync ошибка: {exc}")
-            synced = get_invoice(base, public, secret, invoice_id)
-            source = "get"
+        synced, source, api_error = fetch_invoice_snapshot(base, public, secret, invoice_id)
+        if synced is None:
+            consecutive_api_errors += 1
+            backoff = api_error_backoff_seconds(api_error) if api_error else poll_interval
+            log(
+                f"    API временно недоступен ({consecutive_api_errors} подряд). "
+                f"Пауза {backoff} с, затем повтор (Ctrl+C для выхода)."
+            )
+            if last_snapshot is not None:
+                log(
+                    f"    последний известный статус: {last_snapshot.get('status')} "
+                    f"({describe_status(str(last_snapshot.get('status') or ''), format_confirmations(last_snapshot))})"
+                )
+            time.sleep(backoff)
+            continue
 
+        consecutive_api_errors = 0
+        last_snapshot = synced
         status = str(synced.get("status") or "").lower()
         confirmations = format_confirmations(synced)
         if status != last_status or confirmations != last_confirmations:

@@ -210,7 +210,7 @@ class RatesService:
         normalized_currency, normalized_network = self._normalize_pair(currency, network)
         self._assert_market_rate_catalog_currency(normalized_currency)
         response = get_payment_provider().list_currencies()
-        items = response.get("data", {}).get("items", [])
+        items = self._extract_provider_items(response)
         overrides = await self._load_platform_overrides()
 
         target_item = next(
@@ -266,7 +266,7 @@ class RatesService:
         normalized_currency, normalized_network = self._normalize_pair(currency, network)
         provider = get_payment_provider()
         response = await asyncio.to_thread(provider.list_currencies)
-        items = response.get("data", {}).get("items", [])
+        items = self._extract_provider_items(response)
         target_item = next(
             (
                 item
@@ -316,7 +316,7 @@ class RatesService:
     def _asset_exists_on_provider(self, currency: str, network: str) -> bool:
         provider = get_payment_provider()
         response = provider.list_currencies()
-        items = response.get("data", {}).get("items", [])
+        items = self._extract_provider_items(response)
         for item in items:
             item_currency = str(item.get("currency") or "").upper()
             if item_currency != currency:
