@@ -171,25 +171,13 @@ class InvoiceService:
             amount_fiat=amount_fiat,
             fiat_currency=payload.fiat_currency.upper(),
         )
-        resolved_amount_fiat = await self.resolve_accounting_gross_amount(
-            amount_crypto=resolved_amount_crypto,
-            crypto_currency=provider_response.crypto_currency,
-            fiat_currency=payload.fiat_currency,
-            exchange_rate_markup=exchange_rate_markup,
-        )
-        resolved_balance_gross = await self.resolve_accounting_gross_amount(
-            amount_crypto=resolved_amount_crypto,
-            crypto_currency=provider_response.crypto_currency,
-            fiat_currency=self.BALANCE_CURRENCY,
-            exchange_rate_markup=exchange_rate_markup,
-        )
 
         invoice = Invoice(
             tenant_id=tenant_id,
             project_id=project.id,
             merchant_order_id=payload.merchant_order_id,
             provider_order_id=provider_response.provider_order_id,
-            amount_fiat=resolved_amount_fiat,
+            amount_fiat=amount_fiat,
             fiat_currency=payload.fiat_currency.upper(),
             amount_crypto=resolved_amount_crypto,
             crypto_currency=provider_response.crypto_currency,
@@ -222,11 +210,11 @@ class InvoiceService:
             tenant_id=tenant_id,
             project_id=project.id,
             invoice_id=invoice.id,
-            gross_amount=resolved_balance_gross,
+            gross_amount=Decimal("0"),
             provider_fee=Decimal("0"),
             platform_fee=Decimal("0"),
             turnover_fee=Decimal("0"),
-            net_amount=resolved_balance_gross,
+            net_amount=Decimal("0"),
             currency=self.BALANCE_CURRENCY,
             status="pending",
         )
@@ -594,6 +582,7 @@ class InvoiceService:
         fiat_currency: str,
         exchange_rate_markup: Decimal | None = None,
     ) -> Decimal:
+        """Convert crypto to fiat using the exchange rate at call time (settlement uses this on payment)."""
         crypto_currency = crypto_currency.strip().upper()
         fiat_currency = fiat_currency.strip().upper()
         amount_crypto = Decimal(amount_crypto).quantize(self.AMOUNT_PRECISION)
@@ -633,14 +622,6 @@ class InvoiceService:
             crypto_currency=invoice.crypto_currency,
             fiat_currency=self.BALANCE_CURRENCY,
         )
-        if gross_amount != Decimal(invoice.amount_fiat) and invoice.fiat_currency.upper() in {
-            "USD",
-            "USDT",
-            "USDC",
-        }:
-            invoice.amount_fiat = gross_amount
-            invoice.fiat_currency = self.BALANCE_CURRENCY
-            self.db.add(invoice)
 
         provider_fee, platform_fee, turnover_fee, net_amount = await self._calculate_financials(
             tenant_id=invoice.tenant_id,

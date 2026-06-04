@@ -34,7 +34,7 @@ class TwoFactorService:
         await self.db.commit()
         await self.db.refresh(user)
 
-        issuer = (settings.app_name or "CryptoProcessing").strip()
+        issuer = (settings.app_name or "NorenDigital").strip()
         account_name = user.email.strip().lower()
         otpauth_url = TotpService.build_otpauth_url(
             secret=secret,

@@ -166,7 +166,7 @@ async def build_invoice_transaction_details(
             Decimal(transaction.platform_fee) + Decimal(transaction.turnover_fee)
         ).quantize(InvoiceService.AMOUNT_PRECISION)
         commission_currency = transaction.currency or commission_currency
-        is_estimate = invoice.status not in {"paid", "confirmed"}
+        is_estimate = False
     else:
         try:
             gross_amount = await invoice_service.resolve_accounting_gross_amount(

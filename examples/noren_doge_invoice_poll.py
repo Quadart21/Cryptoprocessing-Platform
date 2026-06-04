@@ -61,7 +61,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-DEFAULT_AMOUNT_DOGE = "15"
+DEFAULT_AMOUNT_DOGE = "50"
 DEFAULT_POLL_INTERVAL_SEC = 10
 DEFAULT_CRYPTO_CURRENCY = "DOGE"
 DEFAULT_NETWORK = "DOGE"

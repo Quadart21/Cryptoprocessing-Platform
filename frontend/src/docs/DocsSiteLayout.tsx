@@ -24,7 +24,7 @@ export function DocsSiteLayout() {
               <span />
             </span>
             <div>
-              <strong>NorenCash</strong>
+              <strong>NorenDigital</strong>
               <small>Developer Documentation</small>
             </div>
           </NavLink>
@@ -131,7 +131,7 @@ export function DocsSiteLayout() {
 
           {!isApiPage ? (
             <footer className="docs-site-footer">
-              <span>© NorenCash Developer Docs</span>
+              <span>© NorenDigital Developer Docs</span>
               <div className="docs-site-footer-links">
                 <a href={`${mainSite}/openapi.json`} target="_blank" rel="noreferrer">
                   openapi.json

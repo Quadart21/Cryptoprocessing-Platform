@@ -18,7 +18,7 @@ class SeoService:
             return self._get_default_settings()
         
         return {
-            "title": settings.seo_title or "Crypto Processing",
+            "title": settings.seo_title or "NorenDigital",
             "description": settings.seo_description or "Accept crypto payments",
             "keywords": settings.seo_keywords or "",
             "favicon_url": settings.seo_favicon_url,
@@ -30,7 +30,7 @@ class SeoService:
     @staticmethod
     def _get_default_settings() -> dict[str, Any]:
         return {
-            "title": "Crypto Processing",
+            "title": "NorenDigital",
             "description": "Accept crypto payments",
             "keywords": "",
             "favicon_url": None,

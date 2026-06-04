@@ -328,7 +328,7 @@ class NotificationService:
         smtp_bz_api_key: str | None,
         telegram_api_base_url: str,
         telegram_bot_token: str | None = None,
-        notification_brand_name: str = "NorenCash",
+        notification_brand_name: str = "NorenDigital",
         notification_logo_url: str | None = None,
         notification_primary_url: str | None = None,
         notification_templates: Iterable[Any] = (),
@@ -381,7 +381,7 @@ class NotificationService:
             smtp_bz_api_base_url
         )
         platform_settings.smtp_bz_sender_email = (smtp_bz_sender_email or "").strip()
-        platform_settings.smtp_bz_sender_name = (smtp_bz_sender_name or "").strip() or "NorenCash"
+        platform_settings.smtp_bz_sender_name = (smtp_bz_sender_name or "").strip() or "NorenDigital"
         normalized_reply_to = (smtp_bz_reply_to or "").strip()
         platform_settings.smtp_bz_reply_to = normalized_reply_to or None
         normalized_tag = (smtp_bz_tag or "").strip()
@@ -404,7 +404,7 @@ class NotificationService:
                 else None
             )
         platform_settings.notification_brand_name = (
-            (notification_brand_name or "").strip() or "NorenCash"
+            (notification_brand_name or "").strip() or "NorenDigital"
         )
         normalized_logo_url = (notification_logo_url or "").strip()
         platform_settings.notification_logo_url = normalized_logo_url or None
@@ -923,7 +923,7 @@ class NotificationService:
             "message_lines_html": message_lines_html,
             "user_email": (user.email or "").strip(),
             "user_full_name": (user.full_name or "").strip(),
-            "brand_name": (platform_settings.notification_brand_name or "").strip() or "NorenCash",
+            "brand_name": (platform_settings.notification_brand_name or "").strip() or "NorenDigital",
             "brand_url": (platform_settings.notification_primary_url or "").strip(),
             "notification_logo_url": (platform_settings.notification_logo_url or "").strip(),
             "utc_now": datetime.now(timezone.utc).isoformat(),
@@ -1021,7 +1021,7 @@ class NotificationService:
                 raise ValueError("Укажите API-ключ SMTP.bz для тестовой отправки шаблона.")
             request_parts: list[tuple[str, tuple[None, str]]] = [
                 ("from", (None, sender_email)),
-                ("name", (None, (platform_settings.smtp_bz_sender_name or "").strip() or "NorenCash")),
+                ("name", (None, (platform_settings.smtp_bz_sender_name or "").strip() or "NorenDigital")),
                 ("subject", (None, str(rendered["email_subject"]))),
                 ("to", (None, recipient)),
                 ("html", (None, str(rendered["email_html"]))),
@@ -1237,7 +1237,7 @@ class NotificationService:
         )
         text = "\n".join(
             [
-                "Тестовое Telegram-уведомление NorenCash.",
+                "Тестовое Telegram-уведомление NorenDigital.",
                 f"Время (UTC): {datetime.now(timezone.utc).isoformat()}",
                 initiated_line,
             ]
@@ -1318,7 +1318,7 @@ class NotificationService:
             (smtp_bz_sender_name or "").strip()
             if smtp_bz_sender_name is not None
             else (platform_settings.smtp_bz_sender_name or "").strip()
-        ) or "NorenCash"
+        ) or "NorenDigital"
         reply_to = (
             (smtp_bz_reply_to or "").strip()
             if smtp_bz_reply_to is not None
@@ -1341,10 +1341,10 @@ class NotificationService:
             if initiated_by_email and initiated_by_email.strip()
             else "Инициатор: system"
         )
-        subject = "NorenCash SMTP.bz test"
+        subject = "NorenDigital SMTP.bz test"
         text_body = "\n".join(
             [
-                "Тестовое сообщение SMTP.bz от NorenCash.",
+                "Тестовое сообщение SMTP.bz от NorenDigital.",
                 f"Время (UTC): {datetime.now(timezone.utc).isoformat()}",
                 initiated_line,
             ]
@@ -1429,7 +1429,7 @@ class NotificationService:
         if not normalized_to_email:
             return
 
-        sender_name = (platform_settings.smtp_bz_sender_name or "").strip() or "NorenCash"
+        sender_name = (platform_settings.smtp_bz_sender_name or "").strip() or "NorenDigital"
         reply_to = (platform_settings.smtp_bz_reply_to or "").strip()
         tag = (platform_settings.smtp_bz_tag or "").strip()
         try:

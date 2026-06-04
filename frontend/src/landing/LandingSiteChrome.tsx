@@ -273,7 +273,7 @@ export function LandingSiteChrome({
             <div className="lpx-logo-text">
 
               <span className="lpx-logo-title">
-                <span className="lpx-logo-title-lime">Crypto</span>Proc
+                <span className="lpx-logo-title-lime">Noren</span>Digital
                 <span className="lpx-logo-title-dot">.</span>
               </span>
 

@@ -36,10 +36,10 @@ export function PublicDocsPage({
             event.preventDefault();
             onBackToLanding();
           }}
-          aria-label="NorenCash"
+          aria-label="NorenDigital"
         >
           <span className="nc-brand-dot" />
-          <strong>NorenCash</strong>
+          <strong>NorenDigital</strong>
         </a>
         <div className="public-docs-actions">
           <button className="ghost-button" type="button" onClick={onBackToLanding}>
