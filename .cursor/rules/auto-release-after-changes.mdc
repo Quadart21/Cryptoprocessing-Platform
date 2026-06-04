@@ -1,5 +1,5 @@
 ---
-description: После каждого изменения кода — commit, semver release и push без напоминания пользователя
+description: После каждого изменения кода — commit, semver release, push и GitHub Release без напоминания пользователя
 alwaysApply: true
 ---
 
@@ -7,12 +7,20 @@ alwaysApply: true
 
 Когда в сессии были **законченные изменения кода** (не вопросы, не только review), **в конце задачи обязательно** выполни полный цикл — **без ожидания команды пользователя**:
 
-1. **Версия** — поднять patch (или minor/major по смысlu) в `frontend/package.json` относительно последнего тега/CHANGELOG.
+1. **Версия** — поднять patch (или minor/major по смыслу) в `frontend/package.json` относительно последнего тега/CHANGELOG.
 2. **CHANGELOG** — секция `[X.Y.Z] — YYYY-MM-DD` с *Добавлено* / *Изменено* / *Исправлено*.
 3. **Lock** — синхронизировать `frontend/package-lock.json` при необходимости.
 4. **Сборка** — `npm run build` из `frontend`; исправить ошибки до коммита.
 5. **Git** — `git add` затронутых файлов, коммит `Release vX.Y.Z: краткое описание`, аннотированный тег `vX.Y.Z`.
 6. **Push** — `git push origin <текущая-ветка>` и `git push origin vX.Y.Z`.
-7. **GitHub Release** — `gh release create vX.Y.Z --title vX.Y.Z --notes "<секция из CHANGELOG>" --latest` (или `python ops/scripts/publish_github_releases.py` для догонки пропущенных). Без этого на странице Releases на GitHub ничего не появится — одного git-тега недостаточно.
+7. **GitHub Release (обязательно)** — сразу после push:
+   ```bash
+   python ops/scripts/publish_github_releases.py --version X.Y.Z
+   ```
+   Появится запись на https://github.com/Quadart21/Cryptoprocessing-Platform/releases . **Git-тег без `gh release create` релизом не считается.**
 
-Не оставляй незакоммиченные изменения и не спрашивай «закоммитить?» — делай сразу. В ответе пользователю укажи версию, коммит и команду деплоя на сервер.
+Релиз **не завершён**, пока нет и тега, и GitHub Release.
+
+Не оставляй незакоммиченные изменения и не спрашивай «закоммитить?» — делай сразу. В ответе пользователю укажи: версию, коммит, ссылку на GitHub Release и команду деплоя на сервер.
+
+Догонка пропущенных релизов: `python ops/scripts/publish_github_releases.py --all`

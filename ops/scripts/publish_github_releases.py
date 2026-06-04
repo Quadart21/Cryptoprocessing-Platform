@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Create GitHub Releases for git tags that have CHANGELOG entries but no release yet."""
+"""Publish GitHub Releases from CHANGELOG (single version or backfill all missing)."""
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
@@ -10,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CHANGELOG = ROOT / "CHANGELOG.md"
+RELEASES_URL = "https://github.com/Quadart21/Cryptoprocessing-Platform/releases"
 
 
 def parse_changelog() -> dict[str, str]:
@@ -47,42 +49,79 @@ def git_tags() -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
-def create_release(tag: str, title: str, notes: str, latest: bool = False) -> None:
+def create_release(tag: str, title: str, notes: str, latest: bool = False) -> str:
     cmd = ["gh", "release", "create", tag, "--title", title, "--notes", notes]
     if latest:
         cmd.append("--latest")
-    subprocess.run(cmd, cwd=ROOT, check=True)
+    result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=True)
+    url = result.stdout.strip() or f"{RELEASES_URL}/tag/{tag}"
+    return url
 
 
-def main() -> int:
-    changelog_notes = parse_changelog()
-    released = existing_releases()
-    tags = git_tags()
+def publish_version(version: str, changelog_notes: dict[str, str], released: set[str]) -> str:
+    normalized = version.lstrip("v")
+    tag = f"v{normalized}"
+    if normalized not in changelog_notes:
+        raise SystemExit(f"No CHANGELOG section for [{normalized}]")
+    if tag in released:
+        print(f"GitHub Release already exists: {tag}")
+        return f"{RELEASES_URL}/tag/{tag}"
+    url = create_release(tag, tag, changelog_notes[normalized], latest=True)
+    print(f"GitHub Release: {url}")
+    return url
 
+
+def publish_all_missing(changelog_notes: dict[str, str], released: set[str]) -> list[str]:
     pending: list[str] = []
-    for tag in tags:
+    for tag in git_tags():
         version = tag.lstrip("v")
-        if tag in released:
-            continue
-        if version not in changelog_notes:
+        if tag in released or version not in changelog_notes:
             continue
         pending.append(tag)
 
     if not pending:
         print("No pending releases.")
-        return 0
+        return []
 
-    # Oldest first; mark only the newest semver as latest.
     pending.sort(key=lambda t: [int(x) for x in t.lstrip("v").split(".")])
     print(f"Creating {len(pending)} GitHub release(s): {', '.join(pending)}")
 
+    urls: list[str] = []
     for index, tag in enumerate(pending):
         version = tag.lstrip("v")
         is_latest = index == len(pending) - 1
-        create_release(tag, tag, changelog_notes[version], latest=is_latest)
-        print(f"  + {tag}{' (latest)' if is_latest else ''}")
+        url = create_release(tag, tag, changelog_notes[version], latest=is_latest)
+        urls.append(url)
+        print(f"  + {tag}{' (latest)' if is_latest else ''}: {url}")
+    return urls
 
-    return 0
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Publish GitHub Releases from CHANGELOG")
+    parser.add_argument(
+        "--version",
+        "-V",
+        help="Publish one release, e.g. 0.14.37 or v0.14.37 (used after every release)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Backfill all tags that have CHANGELOG entries but no GitHub Release",
+    )
+    args = parser.parse_args()
+
+    changelog_notes = parse_changelog()
+    released = existing_releases()
+
+    if args.version:
+        publish_version(args.version, changelog_notes, released)
+        return 0
+    if args.all:
+        publish_all_missing(changelog_notes, released)
+        return 0
+
+    parser.print_help()
+    return 1
 
 
 if __name__ == "__main__":

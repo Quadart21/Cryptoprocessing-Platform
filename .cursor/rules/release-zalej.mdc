@@ -1,5 +1,5 @@
 ---
-description: Слово «залей» = полный цикл релиза (версия, CHANGELOG, коммит, тег).
+description: Слово «залей» = полный цикл релиза (версия, CHANGELOG, коммит, тег, GitHub Release).
 alwaysApply: true
 ---
 
@@ -12,7 +12,11 @@ alwaysApply: true
 3. **Lock** — при необходимости синхронизируй поле `version` корневого пакета в `frontend/package-lock.json` с `package.json`.
 4. **Сборка** — из каталога `frontend` выполни `npm run build` и устрани ошибки до коммита.
 5. **Git** — `git add` по затронутым файлам, коммит `Release vX.Y.Z: краткое описание` (1–2 предложения или перечисление через запятую), аннотированный тег `vX.Y.Z` с тем же смыслом.
-6. **Публикация** — `git push origin <ветка>` и `git push origin vX.Y.Z`.
-7. **GitHub Release** — `gh release create vX.Y.Z --title vX.Y.Z --notes "<секция CHANGELOG>" --latest`. Тег ≠ Release на GitHub.
+6. **Push** — `git push origin <ветка>` и `git push origin vX.Y.Z`.
+7. **GitHub Release (обязательно)** — сразу после push:
+   ```bash
+   python ops/scripts/publish_github_releases.py --version X.Y.Z
+   ```
+   Страница: https://github.com/Quadart21/Cryptoprocessing-Platform/releases — там должна появиться новая версия с текстом из CHANGELOG.
 
-Не оставляй релиз «наполовину»: версия, CHANGELOG, коммит и тег должны соответствовать друг другу.
+Не оставляй релиз «наполовину»: версия, CHANGELOG, коммит, тег и GitHub Release должны соответствовать друг другу.
