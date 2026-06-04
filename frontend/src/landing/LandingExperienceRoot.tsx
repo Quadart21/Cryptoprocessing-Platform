@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 
+import { isAppSubdomain } from "../config/siteHost";
+import {
+  clearAuthQueryFromUrl,
+  readAuthModeFromQuery,
+  redirectMarketingAuthToApp,
+} from "../config/siteHostRedirect";
 import { LandingAuthLayer } from "./LandingAuthLayer";
 import { LandingSiteChrome } from "./LandingSiteChrome";
 import type { LandingPageProps } from "./types";
@@ -50,6 +56,17 @@ export function LandingExperienceRoot(props: LandingPageProps) {
   }, [loginStep]);
 
   useEffect(() => {
+    const authMode = readAuthModeFromQuery();
+    if (!authMode || !isAppSubdomain()) {
+      return;
+    }
+    onModeChange(authMode);
+    setRecoveryMode("login");
+    setAuthOpen(true);
+    clearAuthQueryFromUrl();
+  }, [onModeChange]);
+
+  useEffect(() => {
     if (!authOpen) {
       return;
     }
@@ -87,6 +104,9 @@ export function LandingExperienceRoot(props: LandingPageProps) {
   }, [authOpen, mobileMenuOpen]);
 
   const openAuth = (next: "login" | "register") => {
+    if (redirectMarketingAuthToApp(next)) {
+      return;
+    }
     onModeChange(next);
     setRecoveryMode("login");
     setMobileMenuOpen(false);

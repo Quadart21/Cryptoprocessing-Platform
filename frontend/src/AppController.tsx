@@ -132,11 +132,12 @@ import {
   updateTenantBillingPolicy,
   updateWebhookConfig,
 } from "./api";
+import { isAdminSubdomain, isAppSubdomain, resolveDocsSiteUrl } from "./config/siteHost";
 import {
-  isAdminSubdomain,
-  resolveAppSiteUrl,
-  resolveDocsSiteUrl,
-} from "./config/siteHost";
+  clearAuthQueryFromUrl,
+  readAuthModeFromQuery,
+} from "./config/siteHostRedirect";
+import { useDedicatedSiteRedirect } from "./hooks/useDedicatedSiteRedirect";
 import { AdminLoginShell } from "./admin/AdminLoginShell";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 
@@ -189,14 +190,22 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
   const { publicRoute, publicNavigationItems, publicPageDetail, openPublicPage } =
     usePublicSiteNavigation({ authenticated: Boolean(token) && !adminHost });
 
+  useDedicatedSiteRedirect({
+    userRole: user?.role ?? null,
+    adminHost,
+  });
+
   useEffect(() => {
-    if (!adminHost || !user) {
+    const authMode = readAuthModeFromQuery();
+    if (!authMode) {
       return;
     }
-    if (!isPlatformRole(user.role)) {
-      window.location.replace(resolveAppSiteUrl("/"));
+    if (isAppSubdomain() || adminHost) {
+      setMode(authMode);
+      clearAuthQueryFromUrl();
     }
-  }, [adminHost, user]);
+  }, [adminHost]);
+
   const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
