@@ -9,13 +9,13 @@ export const DOCS_PRIMARY_NAV: DocsNavItem[] = [
   {
     to: "/",
     label: "Overview",
-    description: "Обзор платформы и быстрый старт",
+    description: "Обзор и быстрый старт",
     icon: "◆",
   },
   {
     to: "/merchant-api",
     label: "Merchant API",
-    description: "Полный контракт и примеры",
+    description: "Контракт и примеры",
     icon: "⚡",
   },
   {
@@ -33,7 +33,7 @@ export const DOCS_PRIMARY_NAV: DocsNavItem[] = [
   {
     to: "/merchant-api#docs-faq",
     label: "FAQ",
-    description: "Ключи, ошибки, best practices",
+    description: "Ключи, ошибки, типовые кейсы",
     icon: "?",
   },
 ];
@@ -42,32 +42,32 @@ export const DOCS_QUICK_CARDS = [
   {
     to: "/merchant-api#docs-start",
     title: "Quickstart",
-    body: "Ключи, rates, первый инвойс и checkout_delivery за 7 шагов.",
+    body: "Ключи, rates, первый инвойс и checkout_delivery — 7 шагов.",
     icon: "01",
   },
   {
     to: "/merchant-api#docs-checkout-delivery",
     title: "Payment page",
-    body: "Hosted checkout /pay/{token} или H2H-реквизиты — выбор на уровне проекта.",
+    body: "Hosted checkout /pay/{token} или H2H-реквизиты — на уровне проекта.",
     icon: "02",
   },
   {
     to: "/merchant-api#docs-endpoints-table",
     title: "API Reference",
-    body: "Все endpoint'ы с методами, auth-схемой и живыми curl-примерами.",
+    body: "Endpoint'ы, auth-схема и curl-примеры.",
     icon: "03",
   },
   {
     to: "/merchant-api#docs-webhooks",
     title: "Webhooks",
-    body: "Invoice events, HMAC-подпись, checkout_delivery и тестовая доставка.",
+    body: "Invoice events, HMAC-подпись, checkout_delivery, тестовая доставка.",
     icon: "04",
   },
 ];
 
 export const DOCS_PIPELINE = [
-  { step: "01", title: "Keys", text: "Public + Secret только на backend" },
-  { step: "02", title: "Rates", text: "Проверка сети, лимитов и комиссий" },
+  { step: "01", title: "Keys", text: "Public + Secret — только на backend" },
+  { step: "02", title: "Rates", text: "Сеть, лимиты, комиссии" },
   { step: "03", title: "Checkout", text: "checkout_delivery: payment page или H2H" },
   { step: "04", title: "Invoice", text: "POST /invoices → ссылка или реквизиты" },
   { step: "05", title: "Webhook", text: "Подтверждение оплаты и sync" },

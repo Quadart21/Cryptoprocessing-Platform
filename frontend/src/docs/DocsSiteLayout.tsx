@@ -25,7 +25,7 @@ export function DocsSiteLayout() {
             </span>
             <div>
               <strong>NorenDigital</strong>
-              <small>Developer Documentation</small>
+              <small>Документация API</small>
             </div>
           </NavLink>
 
@@ -55,10 +55,10 @@ export function DocsSiteLayout() {
               OpenAPI
             </a>
             <a className="docs-site-button docs-site-button-ghost" href={`${mainSite}/?auth=login`}>
-              Sign in
+              Войти
             </a>
             <a className="docs-site-button docs-site-button-primary" href={`${mainSite}/?auth=register`}>
-              Get API keys
+              Получить ключи
             </a>
           </div>
         </div>
@@ -97,8 +97,8 @@ export function DocsSiteLayout() {
             </div>
 
             <div className="docs-site-sidebar-panel docs-site-sidebar-cta">
-              <p className="docs-site-sidebar-label">Need help?</p>
-              <p>Команда поддержки поможет с интеграцией и review payload&apos;ов.</p>
+              <p className="docs-site-sidebar-label">Поддержка</p>
+              <p>Поможем с интеграцией и разбором payload.</p>
               <a className="docs-site-button docs-site-button-primary docs-site-button-block" href={mainSite}>
                 Открыть платформу
               </a>
@@ -113,8 +113,7 @@ export function DocsSiteLayout() {
                 <p className="docs-api-banner-eyebrow">Reference</p>
                 <h1>Merchant API</h1>
                 <p>
-                  Контракт для приёма крипто-платежей: инвойсы, баланс, транзакции и webhook-события с
-                  copy-paste примерами.
+                  Контракт приёма криптовалюты: инвойсы, баланс, транзакции, webhook — с curl-примерами.
                 </p>
               </div>
               <div className="docs-api-banner-badges">
@@ -131,7 +130,7 @@ export function DocsSiteLayout() {
 
           {!isApiPage ? (
             <footer className="docs-site-footer">
-              <span>© NorenDigital Developer Docs</span>
+              <span>© {new Date().getFullYear()} NorenDigital</span>
               <div className="docs-site-footer-links">
                 <a href={`${mainSite}/openapi.json`} target="_blank" rel="noreferrer">
                   openapi.json

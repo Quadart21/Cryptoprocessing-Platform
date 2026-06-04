@@ -17,7 +17,7 @@ export function DocsCopyChip({ value, label }: { value: string; label?: string }
     <div className="docs-copy-chip">
       <code>{value}</code>
       <button type="button" onClick={() => void handleCopy()}>
-        {copied ? "Copied" : label ?? "Copy"}
+        {copied ? "Скопировано" : label ?? "Скопировать"}
       </button>
     </div>
   );

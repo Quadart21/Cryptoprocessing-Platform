@@ -15,29 +15,28 @@ export function DocsIntroductionPage() {
         <div className="docs-hero-copy">
           <p className="docs-hero-eyebrow">
             <span className="docs-hero-pulse" />
-            Merchant API · Production ready
+            NorenDigital · Merchant API
           </p>
           <h1>
-            Документация для
-            <span> premium crypto checkout</span>
+            Документация
+            <span> приёма криптовалюты</span>
           </h1>
           <p className="docs-hero-lead">
-            Интегрируйте приём USDT и других активов через REST API: инвойсы, hosted checkout на{" "}
-            <code>/pay/&#123;token&#125;</code>, H2H-реквизиты, баланс, транзакции и webhook — с выбором формата
-            ответа на уровне проекта.
+            REST API для инвойсов, hosted checkout на <code>/pay/&#123;token&#125;</code>, H2H-реквизитов,
+            баланса, транзакций и webhook. Формат ответа задаётся на уровне проекта.
           </p>
           <div className="docs-hero-actions">
             <Link className="docs-site-button docs-site-button-primary" to="/merchant-api">
-              Explore API Reference
+              API Reference
             </Link>
             <a className="docs-site-button docs-site-button-ghost" href={`${mainSite}/?auth=register`}>
-              Create merchant account
+              Создать аккаунт
             </a>
           </div>
         </div>
 
         <div className="docs-hero-panel">
-          <p className="docs-hero-panel-label">Integration flow</p>
+          <p className="docs-hero-panel-label">Сценарий интеграции</p>
           <div className="docs-pipeline">
             {DOCS_PIPELINE.map((item) => (
               <article className="docs-pipeline-step" key={item.step}>
@@ -64,8 +63,8 @@ export function DocsIntroductionPage() {
 
       <section className="docs-intro-section">
         <div className="docs-section-head">
-          <p>Explore</p>
-          <h2>Разделы документации</h2>
+          <p>Разделы</p>
+          <h2>Документация</h2>
         </div>
         <div className="docs-intro-cards">
           {DOCS_QUICK_CARDS.map((card) => (
@@ -73,7 +72,7 @@ export function DocsIntroductionPage() {
               <span className="docs-intro-card-icon">{card.icon}</span>
               <strong>{card.title}</strong>
               <span>{card.body}</span>
-              <em>Open section →</em>
+              <em>Открыть →</em>
             </Link>
           ))}
         </div>
@@ -81,23 +80,23 @@ export function DocsIntroductionPage() {
 
       <section className="docs-intro-section docs-endpoint-panel">
         <div className="docs-section-head">
-          <p>Environment</p>
-          <h2>Base URL & health</h2>
+          <p>Окружение</p>
+          <h2>Base URL и health</h2>
         </div>
-        <DocsCopyChip value={apiBaseUrl} label="Copy base URL" />
-        <DocsCopyChip value={`${apiBaseUrl}/health`} label="Copy health" />
+        <DocsCopyChip value={apiBaseUrl} label="Скопировать URL" />
+        <DocsCopyChip value={`${apiBaseUrl}/health`} label="Скопировать health" />
         <p className="docs-intro-muted">
-          Все merchant-методы живут под <code>/api/v1/client</code>. Health доступен без авторизации.
+          Merchant-методы — под <code>/api/v1/client</code>. Health доступен без авторизации.
         </p>
       </section>
 
       <section className="docs-intro-section docs-support-panel">
         <div>
-          <p className="docs-support-eyebrow">Premium support</p>
-          <h2>Нужна помощь с интеграцией?</h2>
+          <p className="docs-support-eyebrow">Поддержка</p>
+          <h2>Вопросы по интеграции</h2>
           <p>
-            Откройте кабинет мерчанта, выпустите ключи и используйте встроенный webhook test. Для
-            review payload'ов — свяжитесь с командой платформы.
+            Выпустите ключи в кабинете, проверьте webhook через встроенный тест. Для разбора payload — напишите
+            команде платформы.
           </p>
         </div>
         <a className="docs-site-button docs-site-button-primary" href={mainSite}>

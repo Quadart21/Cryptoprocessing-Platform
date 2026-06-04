@@ -26,24 +26,24 @@ type EndpointReference = {
 
 const FAQ_ITEMS = [
   {
-    title: "Где клиенту взять public и secret?",
+    title: "Где взять public и secret?",
     body:
-      "В клиентском кабинете откройте раздел API / API-ключи, создайте или перевыпустите активный ключ и сохраните пару значений: public key и secret key. Secret обычно показывается только в момент выпуска, поэтому его нужно сразу записать в backend или секрет-хранилище.",
+      "Кабинет → API-ключи. Secret показывается при создании или перевыпуске — сохраните сразу в backend или секрет-хранилище.",
   },
   {
-    title: "Куда сохранять ключи в проекте?",
+    title: "Куда сохранять ключи?",
     body:
-      "Храните public и secret только на backend стороне. Не вставляйте secret в frontend, браузерный код, мобильное приложение или публичные репозитории. Оптимально использовать env-переменные или менеджер секретов.",
+      "Только на backend. Не используйте secret во frontend, браузере, мобильном приложении или публичном репозитории.",
   },
   {
     title: "Payment page или H2H?",
     body:
-      "В кабинете (Интеграция → Webhook) выберите checkout_delivery для проекта: payment_page — только ссылка на hosted checkout (/pay/{token}); h2h — payment_address и qr_url; both — оба варианта. То же правило применяется к POST /invoices, GET /invoices и webhook payload.",
+      "checkout_delivery в настройках проекта: payment_page — только payment_page_url (/pay/{token}); h2h — payment_address и qr_url; both — оба. Правило одинаково для POST /invoices, GET /invoices и webhook.",
   },
   {
     title: "Что делать при 4xx и 5xx?",
     body:
-      "Ошибки 4xx обычно означают проблему в payload, ключах доступа или параметрах маршрута. Ошибки 5xx и 502/504 нужно обрабатывать через retry с backoff и логирование correlation/event identifiers.",
+      "4xx — ошибка в payload, ключах или параметрах. 5xx и 502/504 — retry с backoff, логируйте correlation/event id.",
   },
 ];
 
@@ -607,8 +607,7 @@ export function MerchantApiReference({
                 <p className="eyebrow">Environment</p>
                 <h3>Base URL и OpenAPI</h3>
                 <p className="muted-text">
-                  Все примеры ниже используют ваш production Base URL. Копируйте curl и JSON напрямую в
-                  backend.
+                  Примеры используют ваш Base URL. Копируйте curl и JSON в backend.
                 </p>
               </div>
               <div className="api-docs-docs-toolbar-actions">
@@ -619,7 +618,7 @@ export function MerchantApiReference({
                     onClick={() => void handleCopy(apiBaseUrl, "Base URL")}
                     type="button"
                   >
-                    Copy Base URL
+                    Скопировать Base URL
                   </button>
                   <a className="ghost-button" href={docsUrl} rel="noreferrer" target="_blank">
                     Swagger
@@ -783,7 +782,7 @@ export function MerchantApiReference({
               <article className="result-box api-docs-code-card">
                 <div className="api-docs-section-head">
                   <p className="eyebrow">payment_page</p>
-                  <h3>Hosted checkout (рекомендуется)</h3>
+                  <h3>Hosted checkout</h3>
                 </div>
                 <ul className="integration-list">
                   <li>В ответе API — только <code>payment_page_url</code> (поля payment_address и qr_url отсутствуют).</li>
@@ -1058,7 +1057,7 @@ export function MerchantApiReference({
           <section className="api-docs-section" id="docs-faq">
             <div className="api-docs-section-head">
               <p className="eyebrow">FAQ</p>
-              <h3>Частые вопросы команды интеграции</h3>
+              <h3>Частые вопросы</h3>
             </div>
             <div className="api-docs-faq">
               {FAQ_ITEMS.map((item) => (
