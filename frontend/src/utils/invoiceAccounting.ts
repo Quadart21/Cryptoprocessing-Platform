@@ -1,5 +1,15 @@
 import type { InvoiceDetail, InvoiceSettlement } from "../api";
 
+const STABLE_ASSETS = new Set(["USD", "USDT", "USDC"]);
+
+/** True when crypto/fiat are both stable — safe to show 1:1 fiat hint before settlement. */
+export function isStableCoinFiatPair(cryptoCurrency: string, fiatCurrency: string): boolean {
+  return (
+    STABLE_ASSETS.has(cryptoCurrency.trim().toUpperCase()) &&
+    STABLE_ASSETS.has(fiatCurrency.trim().toUpperCase())
+  );
+}
+
 type InvoiceWithStatus = {
   status: string;
   settlement?: InvoiceSettlement | null;

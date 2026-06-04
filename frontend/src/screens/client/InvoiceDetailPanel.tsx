@@ -1,5 +1,6 @@
 import type { InvoiceItem } from "../../api";
 import { formatDecimal } from "../../utils/format";
+import { isStableCoinFiatPair } from "../../utils/invoiceAccounting";
 
 type InvoiceDetailPanelProps = {
   selectedClientInvoiceDetail: InvoiceItem | null;
@@ -22,19 +23,24 @@ export function InvoiceDetailPanel({ selectedClientInvoiceDetail }: InvoiceDetai
               <strong>{selectedClientInvoiceDetail.status}</strong>
             </div>
             <div className="detail-chip">
-              <span>Сумма</span>
-              <strong>
-                {formatDecimal(selectedClientInvoiceDetail.amount_fiat)}{" "}
-                {selectedClientInvoiceDetail.fiat_currency}
-              </strong>
-            </div>
-            <div className="detail-chip">
-              <span>Крипта</span>
+              <span>Сумма к оплате</span>
               <strong>
                 {formatDecimal(selectedClientInvoiceDetail.amount_crypto)}{" "}
                 {selectedClientInvoiceDetail.crypto_currency}
               </strong>
             </div>
+            {isStableCoinFiatPair(
+              selectedClientInvoiceDetail.crypto_currency,
+              selectedClientInvoiceDetail.fiat_currency,
+            ) ? (
+              <div className="detail-chip">
+                <span>В валюте заказа</span>
+                <strong>
+                  {formatDecimal(selectedClientInvoiceDetail.amount_fiat)}{" "}
+                  {selectedClientInvoiceDetail.fiat_currency}
+                </strong>
+              </div>
+            ) : null}
             <div className="detail-chip">
               <span>Сеть</span>
               <strong>{selectedClientInvoiceDetail.network}</strong>

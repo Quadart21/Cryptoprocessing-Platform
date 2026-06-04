@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 
 import { formatDecimal } from "../utils/format";
 import { getInvoiceDetailStatusMeta, invoiceStatusTone } from "../utils/invoiceStatus";
+import { isStableCoinFiatPair } from "../utils/invoiceAccounting";
 import { PaymentConfirmationsProgress } from "./PaymentConfirmationsProgress";
 import {
   fetchPublicPayment,
@@ -378,9 +379,11 @@ export function PayPageRoot({ token }: PayPageRootProps) {
             <section className="pp-glass pp-hero">
               <p className="pp-hero-label">Сумма к оплате</p>
               <strong className="pp-hero-amount">{amountLine}</strong>
-              <span className="pp-hero-fiat">
-                ≈ {formatDecimal(payment.amount_fiat)} {payment.fiat_currency}
-              </span>
+              {isStableCoinFiatPair(payment.crypto_currency, payment.fiat_currency) ? (
+                <span className="pp-hero-fiat">
+                  ≈ {formatDecimal(payment.amount_fiat)} {payment.fiat_currency}
+                </span>
+              ) : null}
               <div className="pp-hero-pills">
                 <span className="pp-chip">{payment.network}</span>
                 <span className="pp-chip pp-chip--muted">Заказ {payment.merchant_order_id}</span>

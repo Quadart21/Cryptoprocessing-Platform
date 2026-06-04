@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { InvoiceItem, InvoiceWebhookTestResponse } from "../../api";
 import { formatDecimal } from "../../utils/format";
 import { invoiceMerchantBadgeClass, invoiceStatusLabelRu } from "../../utils/invoiceStatus";
+import { isStableCoinFiatPair } from "../../utils/invoiceAccounting";
 
 import { InvoiceWebhookTestDialog } from "./InvoiceWebhookTestDialog";
 
@@ -177,8 +178,10 @@ export function ReceivableList({
                     </time>
                   </div>
                   <p className="mc-row-sub">
-                    {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency} · учёт{" "}
-                    {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency}
+                    {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency}
+                    {isStableCoinFiatPair(invoice.crypto_currency, invoice.fiat_currency)
+                      ? ` · ${formatDecimal(invoice.amount_fiat)} ${invoice.fiat_currency}`
+                      : null}
                   </p>
                   {invoice.payment_page_url ? (
                     <p className="mc-row-sub mc-row-mono">{invoice.payment_page_url}</p>
