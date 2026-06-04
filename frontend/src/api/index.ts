@@ -138,6 +138,7 @@ export {
   fetchAdminUsers,
   createAdminUser,
   updateAdminUser,
+  deleteAdminUser,
   fetchAdminPublicPages,
   createAdminPublicPage,
   updateAdminPublicPage,

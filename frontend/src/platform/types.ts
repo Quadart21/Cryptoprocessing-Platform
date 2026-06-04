@@ -169,6 +169,7 @@ export type AdminDashboardProps = {
   onDeletePublicPage: (pageId: string) => void;
   onCreateAdminUser: (payload: AdminUserCreatePayload) => void;
   onUpdateAdminUser: (userId: string, payload: AdminUserUpdatePayload) => void;
+  onDeleteAdminUser: (userId: string) => void;
   onSetupTwoFactor: () => void;
   onEnableTwoFactor: (code: string) => void;
   onDisableTwoFactor: (payload: { password: string; code?: string }) => void;

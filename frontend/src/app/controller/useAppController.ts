@@ -4,6 +4,7 @@ import {
   approveTenant,
   changeClientPassword,
   createAdminUser,
+  deleteAdminUser,
   createClientPayout,
   createInvoice,
   createTenant,
@@ -372,7 +373,7 @@ export function useAppController() {
             fetchPlatformBillingSettings(accessToken),
             fetchAdminAssets(accessToken),
             fetchAdminRoles(accessToken),
-            fetchAdminUsers(accessToken),
+            fetchAdminUsers(accessToken, { scope: "platform" }),
           ]);
 
         setPlatformAccounting(platformSummary);
@@ -524,7 +525,7 @@ export function useAppController() {
       setLoading(true);
       clearRuntimeState();
       const result = await createAdminUser(token, payload);
-      setAdminUsers(await fetchAdminUsers(token));
+      setAdminUsers(await fetchAdminUsers(token, { scope: "platform" }));
       setSuccess(
         result.invite_token
           ? `Пользователь создан. Invite token: ${result.invite_token}`
@@ -544,10 +545,26 @@ export function useAppController() {
       setLoading(true);
       clearRuntimeState();
       await updateAdminUser(token, userId, payload);
-      setAdminUsers(await fetchAdminUsers(token));
+      setAdminUsers(await fetchAdminUsers(token, { scope: "platform" }));
       setSuccess("Пользователь обновлен.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось обновить пользователя.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteAdminUser(userId: string) {
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      clearRuntimeState();
+      await deleteAdminUser(token, userId);
+      setAdminUsers(await fetchAdminUsers(token, { scope: "platform" }));
+      setSuccess("Администратор удален.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось удалить администратора.");
     } finally {
       setLoading(false);
     }
@@ -1290,6 +1307,7 @@ export function useAppController() {
     handleCreateTenant,
     handleCreateAdminUser,
     handleUpdateAdminUser,
+    handleDeleteAdminUser,
     handleCreateInvoice,
     handleCreatePayout,
     handleSaveWebhook,

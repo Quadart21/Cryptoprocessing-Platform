@@ -1347,9 +1347,16 @@ export function fetchAdminRoles(token: string): Promise<UserRoleDefinition[]> {
 
 export function fetchAdminUsers(
   token: string,
-  tenantId?: string | null,
+  opts?: { tenantId?: string | null; scope?: "platform" | "tenant" },
 ): Promise<AdminUserItem[]> {
-  const query = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+  const params = new URLSearchParams();
+  if (opts?.tenantId) {
+    params.set("tenant_id", opts.tenantId);
+  }
+  if (opts?.scope) {
+    params.set("scope", opts.scope);
+  }
+  const query = params.toString() ? `?${params.toString()}` : "";
   return request<AdminUserItem[]>(`/admin/users${query}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -1381,6 +1388,15 @@ export function updateAdminUser(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAdminUser(token: string, userId: string): Promise<void> {
+  return request<void>(`/admin/users/${userId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }
 

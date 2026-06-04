@@ -2,6 +2,7 @@ import {
   approveTenant,
   changeClientPassword,
   createAdminUser,
+  deleteAdminUser,
   createClientPayout,
   createInvoice,
   createMerchantSandbox,
@@ -520,7 +521,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
               safeLoad(() => fetchAdminPublicPages(accessToken), []),
               safeLoad(() => fetchTenantBillingPolicy(accessToken, tenantId), null),
               safeLoad(() => fetchAdminRoles(accessToken), []),
-              safeLoad(() => fetchAdminUsers(accessToken), []),
+              safeLoad(() => fetchAdminUsers(accessToken, { scope: "platform" }), []),
             ]);
           setSelectedTenantDetail(detail);
           setSelectedTenantInvoices(tenantInvoices);
@@ -565,7 +566,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
               safeLoad(() => fetchAdminAssets(accessToken), { items: [] }),
               safeLoad(() => fetchAdminPublicPages(accessToken), []),
               safeLoad(() => fetchAdminRoles(accessToken), []),
-              safeLoad(() => fetchAdminUsers(accessToken), []),
+              safeLoad(() => fetchAdminUsers(accessToken, { scope: "platform" }), []),
             ]);
           setPlatformAccounting(platformSummary);
           setPlatformInvoices(allInvoices);
@@ -791,7 +792,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setError(null);
       setSuccess(null);
       const result = await createAdminUser(token, payload);
-      const userItems = await fetchAdminUsers(token);
+      const userItems = await fetchAdminUsers(token, { scope: "platform" });
       setAdminUsers(userItems);
       if (result.invite_token) {
         setSuccess(`Пользователь создан. Invite token: ${result.invite_token}`);
@@ -812,10 +813,26 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setError(null);
       setSuccess(null);
       await updateAdminUser(token, userId, payload);
-      setAdminUsers(await fetchAdminUsers(token));
+      setAdminUsers(await fetchAdminUsers(token, { scope: "platform" }));
       setSuccess("Пользователь обновлен.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось обновить пользователя.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteAdminUser(userId: string) {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      await deleteAdminUser(token, userId);
+      setAdminUsers(await fetchAdminUsers(token, { scope: "platform" }));
+      setSuccess("Администратор удален.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось удалить администратора.");
     } finally {
       setLoading(false);
     }
@@ -2154,6 +2171,7 @@ return (
           onDeletePublicPage={(pageId) => void handleDeletePublicPage(pageId)}
           onCreateAdminUser={(payload) => void handleCreateAdminUser(payload)}
           onUpdateAdminUser={(userId, payload) => void handleUpdateAdminUser(userId, payload)}
+          onDeleteAdminUser={(userId) => void handleDeleteAdminUser(userId)}
           onSetupTwoFactor={() => void handleSetupTwoFactor()}
           onEnableTwoFactor={(code) => void handleEnableTwoFactor(code)}
           onDisableTwoFactor={(payload) => void handleDisableTwoFactor(payload)}

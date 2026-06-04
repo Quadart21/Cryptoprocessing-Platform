@@ -227,12 +227,18 @@ async def list_roles(
 @router.get("/users", response_model=list[UserSummaryResponse])
 async def list_users(
     tenant_id: str | None = Query(default=None),
+    scope: str | None = Query(default=None, pattern="^(platform|tenant)$"),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
     _: User = Depends(require_platform_permission("admin.users.read")),
     db: AsyncSession = Depends(get_db),
 ) -> list[UserSummaryResponse]:
-    rows = await UserService(db).list_users(tenant_id=tenant_id, limit=limit, offset=offset)
+    rows = await UserService(db).list_users(
+        tenant_id=tenant_id,
+        scope=scope,
+        limit=limit,
+        offset=offset,
+    )
     return [_map_user_summary(user=user, tenant_name=tenant_name) for user, tenant_name in rows]
 
 
@@ -292,6 +298,20 @@ async def update_user(
 
     tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == user.tenant_id)) if user.tenant_id else None
     return _map_user_summary(user=user, tenant_name=tenant_name)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: str,
+    current_user: User = Depends(require_platform_permission("admin.users.write")),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    user_service = UserService(db)
+    try:
+        await user_service.delete_user(user_id, actor_id=current_user.id)
+    except ValueError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.post("/tenants/{tenant_id}/approve")

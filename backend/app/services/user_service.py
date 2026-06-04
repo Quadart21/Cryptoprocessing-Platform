@@ -3,19 +3,25 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from secrets import token_urlsafe
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.rbac import (
+    PLATFORM_ROLES,
     get_role_definition,
     is_platform_role,
     is_tenant_role,
     normalize_role,
 )
 from app.core.security import get_password_hash
+from app.models.invite_token import InviteToken
+from app.models.merchant_sandbox import MerchantSandbox
+from app.models.payout_request import PayoutRequest
+from app.models.sandbox_audit_log import SandboxAuditLog
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.models.user_session import UserSession
 
 
 class UserService:
@@ -30,7 +36,13 @@ class UserService:
     async def get_by_id(self, user_id: str) -> User | None:
         return await self.db.get(User, user_id)
 
-    async def list_users(self, tenant_id: str | None = None, limit: int = 50, offset: int = 0) -> list[tuple[User, str | None]]:
+    async def list_users(
+        self,
+        tenant_id: str | None = None,
+        scope: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[tuple[User, str | None]]:
         stmt = (
             select(User, Tenant.name)
             .outerjoin(Tenant, Tenant.id == User.tenant_id)
@@ -40,6 +52,11 @@ class UserService:
         )
         if tenant_id:
             stmt = stmt.where(User.tenant_id == tenant_id)
+        normalized_scope = (scope or "").strip().lower()
+        if normalized_scope == "platform":
+            stmt = stmt.where(User.role.in_(PLATFORM_ROLES))
+        elif normalized_scope == "tenant":
+            stmt = stmt.where(User.tenant_id.is_not(None))
         return list((await self.db.execute(stmt)).all())
 
     async def create_user(
@@ -119,6 +136,52 @@ class UserService:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def delete_user(self, user_id: str, *, actor_id: str) -> None:
+        user = await self.get_by_id(user_id)
+        if user is None:
+            raise ValueError("Пользователь не найден.")
+        if user.id == actor_id:
+            raise ValueError("Нельзя удалить собственную учётную запись.")
+
+        if not is_platform_role(user.role):
+            raise ValueError(
+                "Удаление пользователей клиента выполняется из карточки клиента."
+            )
+
+        if user.role == "superadmin":
+            superadmin_count = await self.db.scalar(
+                select(func.count())
+                .select_from(User)
+                .where(User.role == "superadmin")
+            )
+            if superadmin_count is not None and superadmin_count <= 1:
+                raise ValueError("Нельзя удалить последнего супер-админа.")
+
+        await self.db.execute(
+            update(PayoutRequest)
+            .where(PayoutRequest.requested_by_user_id == user.id)
+            .values(requested_by_user_id=None)
+        )
+        await self.db.execute(
+            update(PayoutRequest)
+            .where(PayoutRequest.reviewed_by_user_id == user.id)
+            .values(reviewed_by_user_id=None)
+        )
+        await self.db.execute(
+            update(MerchantSandbox)
+            .where(MerchantSandbox.created_by_user_id == user.id)
+            .values(created_by_user_id=None)
+        )
+        await self.db.execute(
+            update(SandboxAuditLog)
+            .where(SandboxAuditLog.admin_user_id == user.id)
+            .values(admin_user_id=None)
+        )
+        await self.db.execute(delete(UserSession).where(UserSession.user_id == user.id))
+        await self.db.execute(delete(InviteToken).where(InviteToken.user_id == user.id))
+        await self.db.execute(delete(User).where(User.id == user.id))
+        await self.db.commit()
 
     async def ensure_superadmin(self) -> User:
         normalized_email = settings.superadmin_email.strip().lower()

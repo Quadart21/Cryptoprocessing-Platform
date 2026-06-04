@@ -96,6 +96,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     onDeletePublicPage,
     onCreateAdminUser,
     onUpdateAdminUser,
+    onDeleteAdminUser,
     onSetupTwoFactor,
     onEnableTwoFactor,
     onDisableTwoFactor,
@@ -352,11 +353,16 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
               <div className="console-section-stack">
                 <section className="dashboard-grid client-grid">
                   <AdminUsersPanelLazy
+                    canManageUsers={
+                      user.permissions.includes("*") ||
+                      user.permissions.includes("admin.users.write")
+                    }
+                    currentUserId={user.id}
                     loading={loading}
                     roles={roleDefinitions}
-                    tenants={tenants}
                     users={adminUsers}
                     onCreate={onCreateAdminUser}
+                    onDelete={onDeleteAdminUser}
                     onUpdate={onUpdateAdminUser}
                   />
                 </section>
