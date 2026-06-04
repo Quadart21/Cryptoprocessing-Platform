@@ -13,5 +13,6 @@ alwaysApply: true
 4. **Сборка** — `npm run build` из `frontend`; исправить ошибки до коммита.
 5. **Git** — `git add` затронутых файлов, коммит `Release vX.Y.Z: краткое описание`, аннотированный тег `vX.Y.Z`.
 6. **Push** — `git push origin <текущая-ветка>` и `git push origin vX.Y.Z`.
+7. **GitHub Release** — `gh release create vX.Y.Z --title vX.Y.Z --notes "<секция из CHANGELOG>" --latest` (или `python ops/scripts/publish_github_releases.py` для догонки пропущенных). Без этого на странице Releases на GitHub ничего не появится — одного git-тега недостаточно.
 
 Не оставляй незакоммиченные изменения и не спрашивай «закоммитить?» — делай сразу. В ответе пользователю укажи версию, коммит и команду деплоя на сервер.
