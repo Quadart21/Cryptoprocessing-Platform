@@ -5,6 +5,14 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.44] — 2026-06-04
+
+### Исправлено
+
+- **DOGE / altcoin**: webhook `acquiring::completed` или `Paid` с `completedAt` от Crypto-Cash теперь переводит инвойс в `confirmed` и запускает settlement, даже если счётчик подтверждений в payload отстаёт (например 13/15); sync через retrieve API работает аналогично.
+
+---
+
 ## [0.14.43] — 2026-06-04
 
 ### Добавлено

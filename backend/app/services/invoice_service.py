@@ -25,9 +25,11 @@ from app.services.provider_webhook_log import ProviderWebhookLogService
 from app.services.invoice_confirmations import (
     apply_confirmations_to_stored_payload,
     confirmations_complete,
+    is_provider_deal_finalized,
     parse_confirmation_count,
     read_stored_confirmations,
     seed_required_confirmations,
+    snap_confirmations_to_required,
 )
 from app.services.payment_page_service import PaymentPageService
 from app.services.rates_service import RatesService
@@ -413,7 +415,15 @@ class InvoiceService:
         except ValueError:
             pass
 
-        effective_status = self._resolve_effective_status(raw_normalized, stored_payload)
+        provider_deal_finalized = is_provider_deal_finalized(raw_payload)
+        if provider_deal_finalized:
+            snap_confirmations_to_required(stored_payload)
+
+        effective_status = self._resolve_effective_status(
+            raw_normalized,
+            stored_payload,
+            provider_deal_finalized=provider_deal_finalized,
+        )
 
         if previous_status == effective_status and not self._provider_meta_changed(
             invoice,
@@ -872,10 +882,18 @@ class InvoiceService:
             )
 
     @staticmethod
-    def _resolve_effective_status(raw_normalized: str, stored_payload: dict) -> str:
+    def _resolve_effective_status(
+        raw_normalized: str,
+        stored_payload: dict,
+        *,
+        provider_deal_finalized: bool = False,
+    ) -> str:
         """Map provider paid-like statuses to confirming until block confirmations complete."""
         if raw_normalized in {"paid", "confirmed"}:
-            if confirmations_complete(stored_payload):
+            if confirmations_complete(
+                stored_payload,
+                provider_deal_finalized=provider_deal_finalized,
+            ):
                 return "confirmed"
             return "confirming"
         return raw_normalized
