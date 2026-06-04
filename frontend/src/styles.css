@@ -4,6 +4,8 @@
 @import "./styles/landing-new.css";
 @import "./styles/landing-lime.css";
 @import "./styles/landing-auth-shell.css";
+@import "./styles/admin-site-login.css";
+@import "./styles/pay-page-missing.css";
 @import "./styles/dashboard.css";
 @import "./styles/dashboard-toast.css";
 @import "./styles/integration.css";

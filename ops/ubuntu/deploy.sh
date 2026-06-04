@@ -6,6 +6,8 @@ export LC_ALL=C.UTF-8
 DOMAIN="${DOMAIN:-noren.digital}"
 DOMAIN_ALIASES="${DOMAIN_ALIASES:-www.${DOMAIN}}"
 DOCS_DOMAIN="${DOCS_DOMAIN:-docs.${DOMAIN}}"
+ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.${DOMAIN}}"
+PAY_DOMAIN="${PAY_DOMAIN:-pay.${DOMAIN}}"
 APP_DIR="${APP_DIR:-/opt/cryptoprocessing}"
 APP_USER="${APP_USER:-cryptoprocessing}"
 ENABLE_SSL="${ENABLE_SSL:-1}"
@@ -20,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/nginx-ddos-lib.sh"
 
 build_server_names() {
-  nginx_build_server_names "${DOMAIN}" "${DOCS_DOMAIN}" "${DOMAIN_ALIASES}"
+  nginx_build_server_names "${DOMAIN}" "${DOCS_DOMAIN}" "${DOMAIN_ALIASES}" "${ADMIN_DOMAIN}" "${PAY_DOMAIN}"
 }
 
 write_nginx_http_only_conf() {

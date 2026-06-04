@@ -1,0 +1,59 @@
+.admin-site-login {
+  min-height: 100vh;
+  background: #0a0e17;
+}
+
+.admin-site-login__top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  pointer-events: none;
+}
+
+.admin-site-login__top a,
+.admin-site-login__top span {
+  pointer-events: auto;
+}
+
+.admin-site-login__brand {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #f4f7ff;
+  text-decoration: none;
+}
+
+.admin-site-login__brand span {
+  color: #7ee787;
+}
+
+.admin-site-login__badge {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9aa8c7;
+  border: 1px solid rgba(154, 168, 199, 0.35);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+}
+
+.admin-site-login .lp-auth-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4.5rem 1rem 1rem;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(56, 120, 255, 0.12), transparent),
+    #0a0e17;
+}
+
+.admin-site-login .lp-auth-close {
+  display: none;
+}

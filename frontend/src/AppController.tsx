@@ -132,7 +132,12 @@ import {
   updateTenantBillingPolicy,
   updateWebhookConfig,
 } from "./api";
-import { resolveDocsSiteUrl } from "./config/siteHost";
+import {
+  isAdminSubdomain,
+  resolveAppSiteUrl,
+  resolveDocsSiteUrl,
+} from "./config/siteHost";
+import { AdminLoginShell } from "./admin/AdminLoginShell";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 
 import {
@@ -173,11 +178,25 @@ function isPlatformRole(role: string): boolean {
   return PLATFORM_ROLES.has(role);
 }
 
-export function AppController() {
+type AppControllerProps = {
+  siteScope?: "default" | "admin";
+};
+
+export function AppController({ siteScope = "default" }: AppControllerProps) {
+  const adminHost = siteScope === "admin" || isAdminSubdomain();
   const [mode, setMode] = useState<"login" | "register">("login");
   const { token, user, setUser, applyAccessToken, applyCsrfToken, clearSession } = useSession();
   const { publicRoute, publicNavigationItems, publicPageDetail, openPublicPage } =
-    usePublicSiteNavigation({ authenticated: Boolean(token) });
+    usePublicSiteNavigation({ authenticated: Boolean(token) && !adminHost });
+
+  useEffect(() => {
+    if (!adminHost || !user) {
+      return;
+    }
+    if (!isPlatformRole(user.role)) {
+      window.location.replace(resolveAppSiteUrl("/"));
+    }
+  }, [adminHost, user]);
   const [tenants, setTenants] = useState<TenantItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
@@ -1968,12 +1987,39 @@ export function AppController() {
       setAdminPublicPages,
     });
 
+  if (adminHost && user && !isPlatformRole(user.role)) {
+    return (
+      <>
+        <SeoHead settings={seoSettings} />
+        <AppRouteFallback />
+      </>
+    );
+  }
+
 return (
     <>
       <SeoHead settings={seoSettings} />
       <Suspense fallback={<AppRouteFallback />}>
       {!token || !user ? (
-        publicRoute.view === "docs" ? (
+        adminHost ? (
+          <AdminLoginShell
+            loading={loading}
+            success={success}
+            error={error}
+            loginForm={loginForm}
+            passwordRecoveryEmail={passwordRecoveryEmail}
+            passwordResetForm={passwordResetForm}
+            loginStep={loginStep}
+            onLoginFormChange={setLoginForm}
+            onPasswordRecoveryEmailChange={setPasswordRecoveryEmail}
+            onPasswordResetFormChange={setPasswordResetForm}
+            onLogin={handleLogin}
+            onLoginTwoFactor={handleLoginTwoFactor}
+            onBackToLoginCredentials={handleBackToLoginCredentials}
+            onRequestPasswordRecovery={(email) => void handleRequestPasswordRecovery(email)}
+            onSetRecoveredPassword={handleSetRecoveredPassword}
+          />
+        ) : publicRoute.view === "docs" ? (
           <PublicDocsPageLazy
             onBackToLanding={() => openPublicPage("landing")}
             onOpenLogin={() => {

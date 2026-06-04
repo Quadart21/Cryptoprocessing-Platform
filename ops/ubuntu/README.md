@@ -146,8 +146,23 @@ sudo bash /opt/cryptoprocessing/ops/ubuntu/apply-ddos-protection.sh
 | `POSTGRES_PASSWORD` | Пароль PostgreSQL |
 | `SUPERADMIN_EMAIL` | Email супер-админа |
 | `SUPERADMIN_PASSWORD` | Пароль супер-админа |
-| `BACKEND_CORS_ORIGINS` | `https://domain,https://www.domain` |
-| `PUBLIC_API_BASE_URL` | `https://domain` |
+| `BACKEND_CORS_ORIGINS` | `https://domain,https://docs.domain,https://admin.domain,...` |
+| `PUBLIC_API_BASE_URL` | `https://domain` или `https://api.domain` |
+| `PUBLIC_PAY_BASE_URL` | `https://pay.domain` (ссылки `payment_page_url` → `https://pay.domain/{token}`) |
+
+Поддомены (DNS + nginx `server_name`):
+
+| Host | Назначение |
+|------|------------|
+| `domain` | Лендинг |
+| `admin.domain` | Платформенная админка (отдельный вход) |
+| `pay.domain` | Платёжная страница (`/{token}`) |
+| `docs.domain` | Документация |
+| `app.domain` | Кабинет мерчанта (опционально, `VITE_APP_SITE_URL`) |
+| `api.domain` | API (опционально, `PUBLIC_API_BASE_URL` + `VITE_API_BASE_URL`) |
+
+При сборке frontend: `frontend/.env.production` — см. `frontend/.env.production.example`.
+Deploy: `ADMIN_DOMAIN=admin.your-domain.com` (по умолчанию `admin.$DOMAIN`).
 | `CRYPTO_CASH_PUBLIC_KEY` | Ключ провайдера (если не mock) |
 | `CRYPTO_CASH_SECRET_KEY` | Секрет провайдера |
 

@@ -100,7 +100,15 @@ nginx_build_server_names() {
   local domain="$1"
   local docs_domain="$2"
   local domain_aliases="$3"
+  local admin_domain="${4:-}"
+  local pay_domain="${5:-}"
   local names="${domain} ${docs_domain}"
+  if [[ -n "${admin_domain}" ]]; then
+    names="${names} ${admin_domain}"
+  fi
+  if [[ -n "${pay_domain}" ]]; then
+    names="${names} ${pay_domain}"
+  fi
   if [[ -n "${domain_aliases}" ]]; then
     IFS=',' read -ra aliases <<< "${domain_aliases}"
     for raw_alias in "${aliases[@]}"; do
@@ -181,7 +189,9 @@ nginx_regenerate_vhost() {
   local key_path="${6:-/etc/ssl/cloudflare/${domain}.key}"
 
   local server_names www_alias nginx_target
-  server_names="$(nginx_build_server_names "${domain}" "${docs_domain}" "${domain_aliases}")"
+  local admin_domain="${ADMIN_DOMAIN:-admin.${domain}}"
+  local pay_domain="${PAY_DOMAIN:-pay.${domain}}"
+  server_names="$(nginx_build_server_names "${domain}" "${docs_domain}" "${domain_aliases}" "${admin_domain}" "${pay_domain}")"
   www_alias=""
   if echo " ${server_names} " | grep -q " www.${domain} "; then
     www_alias="www.${domain}"

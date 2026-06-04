@@ -175,8 +175,12 @@ configure_env() {
   set_env_value "${env_file}" "SUPERADMIN_PASSWORD" "${admin_pass}"
   set_env_value "${env_file}" "SUPERADMIN_FULL_NAME" "${SUPERADMIN_FULL_NAME}"
   set_env_value "${env_file}" "PUBLIC_API_BASE_URL" "https://${DOMAIN}"
+  set_env_value "${env_file}" "PUBLIC_PAY_BASE_URL" "https://${pay_domain}"
 
-  local cors="https://${DOMAIN}"
+  local docs_domain="${DOCS_DOMAIN:-docs.${DOMAIN}}"
+  local admin_domain="${ADMIN_DOMAIN:-admin.${DOMAIN}}"
+  local pay_domain="${PAY_DOMAIN:-pay.${DOMAIN}}"
+  local cors="https://${DOMAIN},https://${docs_domain},https://${admin_domain},https://${pay_domain}"
   if [[ -n "${DOMAIN_ALIASES}" ]]; then
     IFS=',' read -ra aliases <<< "${DOMAIN_ALIASES}"
     for raw_alias in "${aliases[@]}"; do
@@ -233,6 +237,9 @@ run_deploy() {
   log "Running full deploy"
   DOMAIN="${DOMAIN}" \
     DOMAIN_ALIASES="${DOMAIN_ALIASES}" \
+    DOCS_DOMAIN="${DOCS_DOMAIN:-docs.${DOMAIN}}" \
+    ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.${DOMAIN}}" \
+    PAY_DOMAIN="${PAY_DOMAIN:-pay.${DOMAIN}}" \
     APP_DIR="${APP_DIR}" \
     APP_USER="${APP_USER}" \
     SSL_MODE="${SSL_MODE}" \

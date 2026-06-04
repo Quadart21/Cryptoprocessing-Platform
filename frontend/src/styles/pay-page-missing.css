@@ -1,0 +1,29 @@
+.pay-missing {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: #0a0e17;
+  color: #e8edf7;
+}
+
+.pay-missing__card {
+  max-width: 28rem;
+  text-align: center;
+}
+
+.pay-missing__card h1 {
+  font-size: 1.35rem;
+  margin: 0 0 0.75rem;
+}
+
+.pay-missing__card p {
+  margin: 0 0 1.25rem;
+  color: #9aa8c7;
+  line-height: 1.5;
+}
+
+.pay-missing__card a {
+  color: #7ee787;
+}

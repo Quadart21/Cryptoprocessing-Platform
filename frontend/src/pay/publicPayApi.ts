@@ -84,10 +84,25 @@ export async function refreshPublicPayment(token: string): Promise<PublicPayment
   return readPaymentResponse(response);
 }
 
+import { isPaySubdomain } from "../config/siteHost";
+
+const PAY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,}$/;
+
 export function resolvePayPageToken(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
-  const match = window.location.pathname.match(/^\/pay\/([^/]+)\/?$/);
-  return match?.[1] ? decodeURIComponent(match[1]) : null;
+  const pathname = window.location.pathname;
+  const legacyMatch = pathname.match(/^\/pay\/([^/]+)\/?$/);
+  if (legacyMatch?.[1]) {
+    return decodeURIComponent(legacyMatch[1]);
+  }
+  if (isPaySubdomain()) {
+    const shortMatch = pathname.match(/^\/([^/]+)\/?$/);
+    const candidate = shortMatch?.[1] ? decodeURIComponent(shortMatch[1]) : null;
+    if (candidate && PAY_TOKEN_PATTERN.test(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 }

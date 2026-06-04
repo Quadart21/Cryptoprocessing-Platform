@@ -23,10 +23,15 @@ class PaymentPageService:
     @staticmethod
     def build_page_url(payment_token: str | None) -> str | None:
         token = (payment_token or "").strip()
-        base = (settings.public_api_base_url or "").strip().rstrip("/")
-        if not token or not base:
+        if not token:
             return None
-        return f"{base}/pay/{token}"
+        pay_base = (settings.public_pay_base_url or "").strip().rstrip("/")
+        if pay_base:
+            return f"{pay_base}/{token}"
+        api_base = (settings.public_api_base_url or "").strip().rstrip("/")
+        if not api_base:
+            return None
+        return f"{api_base}/pay/{token}"
 
     @classmethod
     def payment_page_url_for(cls, invoice: Invoice) -> str | None:

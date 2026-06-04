@@ -5,6 +5,20 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
 
+## [0.14.30] — 2026-06-04
+
+### Добавлено
+
+- **Поддомены**: `admin.*` — отдельная админ-вход; `pay.*` — публичная страница оплаты по `/{token}`; `app.*` / `api.*` — кабинет и API через `siteHost`.
+- **Backend**: `PUBLIC_PAY_BASE_URL` — ссылки `payment_page_url` вида `https://pay.domain/{token}`.
+- **Ops**: nginx/deploy/setup — `ADMIN_DOMAIN`, `PAY_DOMAIN`, CORS и `.env` для pay/admin/docs.
+
+### Изменено
+
+- **`payment_page_service`**: при заданном `PUBLIC_PAY_BASE_URL` ссылка на оплату на поддомен pay, иначе через `PUBLIC_API_BASE_URL`.
+
+---
+
 ## [0.14.29] — 2026-06-03
 
 ### Изменено
