@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.invoice import Invoice
 from app.models.transaction import Transaction
+from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_confirmations import (
     confirmations_fields_for_invoice,
     read_stored_confirmations,
@@ -187,8 +188,24 @@ async def build_invoice_transaction_details(
         except ValueError:
             gross_amount = None
 
-    display_fiat = gross_amount if gross_amount is not None else Decimal(invoice.amount_fiat)
     display_fiat_currency = commission_currency if gross_amount is not None else invoice.fiat_currency
+    rate_service = get_exchange_rate_service()
+    crypto_upper = invoice.crypto_currency.strip().upper()
+    fiat_upper = invoice.fiat_currency.strip().upper()
+    stable_pair = (
+        crypto_upper in rate_service.STABLECOIN_EQUIVALENTS
+        and fiat_upper in rate_service.STABLECOIN_EQUIVALENTS
+    )
+    if gross_amount is not None:
+        display_fiat = gross_amount
+        display_fiat_currency = commission_currency
+    elif stable_pair:
+        display_fiat = Decimal(invoice.amount_fiat)
+        display_fiat_currency = invoice.fiat_currency
+    else:
+        display_fiat = Decimal(invoice.amount_fiat)
+        display_fiat_currency = invoice.fiat_currency
+        is_estimate = True
     exchange_rate = None
     if include_exchange_rate and gross_amount is not None and Decimal(invoice.amount_crypto) > Decimal("0"):
         provider_rate = extract_provider_rate(items)

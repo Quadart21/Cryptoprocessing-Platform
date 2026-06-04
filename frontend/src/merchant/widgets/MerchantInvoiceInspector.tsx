@@ -31,15 +31,40 @@ function formatDateTime(value: string | null | undefined): string {
   }).format(parsed);
 }
 
+function isStableAsset(currency: string): boolean {
+  const normalized = currency.trim().toUpperCase();
+  return normalized === "USD" || normalized === "USDT" || normalized === "USDC";
+}
+
+function resolveAccountingDisplay(invoice: InvoiceDetail): { label: string; value: string } {
+  const settled = invoice.settlement?.is_final && invoice.settlement.gross_amount;
+  if (settled) {
+    return {
+      label: "Зачёт USDT",
+      value: `${formatDecimal(invoice.settlement!.gross_amount)} ${invoice.settlement!.currency}`,
+    };
+  }
+  if (isStableAsset(invoice.crypto_currency) && isStableAsset(invoice.fiat_currency)) {
+    return {
+      label: "Учёт",
+      value: `${formatDecimal(invoice.amount_fiat)} ${invoice.fiat_currency}`,
+    };
+  }
+  return {
+    label: "Зачёт USDT",
+    value: "После подтверждения",
+  };
+}
+
 function formatCountdown(value: string | null | undefined, status: string): string {
   if (!value) {
     return "Не указано";
   }
-  if (status === "paid" || status === "confirmed") {
+  if (status === "paid" || status === "confirmed" || status === "confirming") {
+    if (status === "confirming") {
+      return "Подтверждение в сети";
+    }
     return "Оплачен";
-  }
-  if (status === "confirming") {
-    return "Подтверждение в сети";
   }
   if (status === "failed") {
     return "Платеж не завершен";
@@ -134,6 +159,7 @@ export function MerchantInvoiceInspector({
     invoice.network_confirmations_actual,
     invoice.network_confirmations_required,
   );
+  const accountingDisplay = resolveAccountingDisplay(invoice);
 
   return (
     <dialog className="mw-inspector-dialog invoice-modal" ref={ref}>
@@ -200,10 +226,8 @@ export function MerchantInvoiceInspector({
               </strong>
             </div>
             <div className="detail-chip">
-              <span>Учёт</span>
-              <strong>
-                {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency}
-              </strong>
+              <span>{accountingDisplay.label}</span>
+              <strong>{accountingDisplay.value}</strong>
             </div>
             <div className="detail-chip">
               <span>Сеть</span>

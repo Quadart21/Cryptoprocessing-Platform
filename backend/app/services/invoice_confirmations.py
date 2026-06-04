@@ -131,3 +131,28 @@ async def confirmations_fields_for_invoice(
         "network_confirmations_actual": actual,
         "network_confirmations_required": required,
     }
+
+
+def confirmations_complete(
+    stored_payload: dict | None,
+    *,
+    actual: int | None = None,
+    required: int | None = None,
+) -> bool:
+    """True when required confirmations are met (or network has no requirement)."""
+    if actual is None or required is None:
+        if stored_payload:
+            stored_actual, stored_required = read_stored_confirmations_from_payload(stored_payload)
+            actual = actual if actual is not None else stored_actual
+            required = required if required is not None else stored_required
+    if required is None or required <= 0:
+        return True
+    if actual is None:
+        return False
+    return actual >= required
+
+
+def read_stored_confirmations_from_payload(stored_payload: dict) -> tuple[int | None, int | None]:
+    actual = parse_confirmation_count(stored_payload.get(STORED_ACTUAL_KEY))
+    required = parse_confirmation_count(stored_payload.get(STORED_REQUIRED_KEY))
+    return actual, required

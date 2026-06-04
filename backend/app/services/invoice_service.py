@@ -23,6 +23,9 @@ from app.services.event_service import EventService
 from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_confirmations import (
     apply_confirmations_to_stored_payload,
+    confirmations_complete,
+    parse_confirmation_count,
+    read_stored_confirmations,
     seed_required_confirmations,
 )
 from app.services.payment_page_service import PaymentPageService
@@ -377,54 +380,57 @@ class InvoiceService:
                 return refreshed if refreshed is not None else invoice
 
         previous_status = invoice.status
-        normalized_status = self._normalize_provider_status(provider_status)
+        raw_normalized = self._normalize_provider_status(provider_status)
 
-        if previous_status == normalized_status:
-            stored_payload = dict(invoice.raw_provider_payload_json or {})
-            meta_changed = False
-            if tx_hash and stored_payload.get("tx_hash") != tx_hash:
-                stored_payload["tx_hash"] = tx_hash
-                meta_changed = True
-            if raw_payload is not None and stored_payload.get("last_webhook_payload") != raw_payload:
-                stored_payload["last_webhook_payload"] = raw_payload
-                meta_changed = True
-            if provider_status and stored_payload.get("last_webhook_status") != provider_status:
-                stored_payload["last_webhook_status"] = provider_status
-                meta_changed = True
-            if apply_confirmations_to_stored_payload(stored_payload, raw_payload):
-                meta_changed = True
-            if not meta_changed:
-                return invoice
+        stored_payload = dict(invoice.raw_provider_payload_json or {})
+        if tx_hash and stored_payload.get("tx_hash") != tx_hash:
+            stored_payload["tx_hash"] = tx_hash
+        if raw_payload is not None:
+            stored_payload["last_webhook_payload"] = raw_payload
+            if source == "sync":
+                stored_payload["retrieve_response"] = raw_payload
+        if provider_status and stored_payload.get("last_webhook_status") != provider_status:
+            stored_payload["last_webhook_status"] = provider_status
+        apply_confirmations_to_stored_payload(stored_payload, raw_payload)
+        try:
+            if parse_confirmation_count(stored_payload.get("network_confirmations_required")) in (None, 0):
+                required_confirmations = await RatesService(self.db).get_network_confirmations_required(
+                    currency=invoice.crypto_currency,
+                    network=invoice.network,
+                )
+                seed_required_confirmations(stored_payload, required_confirmations)
+        except ValueError:
+            pass
+
+        effective_status = self._resolve_effective_status(raw_normalized, stored_payload)
+
+        if previous_status == effective_status and not self._provider_meta_changed(
+            invoice,
+            stored_payload=stored_payload,
+            tx_hash=tx_hash,
+            raw_payload=raw_payload,
+            provider_status=provider_status,
+        ):
             invoice.raw_provider_payload_json = stored_payload
             self.db.add(invoice)
             await self.db.commit()
             refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=None)
             return refreshed if refreshed is not None else invoice
 
-        invoice.status = normalized_status
+        invoice.status = effective_status
 
         self._sync_invoice_crypto_from_provider_payload(invoice, raw_payload)
-
-        stored_payload = dict(invoice.raw_provider_payload_json or {})
-        stored_payload["last_webhook_status"] = provider_status
-        if tx_hash:
-            stored_payload["tx_hash"] = tx_hash
-        if raw_payload:
-            stored_payload["last_webhook_payload"] = raw_payload
-            if source == "sync":
-                stored_payload["retrieve_response"] = raw_payload
-        apply_confirmations_to_stored_payload(stored_payload, raw_payload)
         invoice.raw_provider_payload_json = stored_payload
 
-        transaction.status = normalized_status
+        transaction.status = effective_status
         await self._apply_financial_state_transition(
             invoice=invoice,
             transaction=transaction,
             previous_status=previous_status,
-            new_status=normalized_status,
+            new_status=effective_status,
         )
 
-        if normalized_status in {"paid", "confirmed"}:
+        if effective_status in {"confirming", "confirmed"}:
             transaction.paid_at = invoice.paid_at = transaction.paid_at or invoice.paid_at
             if transaction.paid_at is None:
                 from datetime import datetime, timezone
@@ -433,14 +439,14 @@ class InvoiceService:
                 transaction.paid_at = now
                 invoice.paid_at = now
 
-        if normalized_status == "confirmed":
+        if effective_status == "confirmed":
             from datetime import datetime, timezone
 
             invoice.confirmed_at = invoice.confirmed_at or datetime.now(timezone.utc)
 
         await event_service.create_event(
             invoice_id=invoice.id,
-            event_type=f"invoice.{normalized_status}",
+            event_type=f"invoice.{effective_status}",
             source=source,
             payload=stored_payload,
             provider_event_id=provider_event_id,
@@ -455,7 +461,7 @@ class InvoiceService:
             project,
             invoice,
             transaction,
-            event_name=f"invoice.{normalized_status}",
+            event_name=f"invoice.{effective_status}",
         )
         tenant_id = invoice.tenant_id
         invoice_id = invoice.id
@@ -472,7 +478,7 @@ class InvoiceService:
                 invoice_id,
                 tenant_id,
                 project_id,
-                normalized_status,
+                effective_status,
             )
             await self.db.rollback()
             raise
@@ -551,9 +557,6 @@ class InvoiceService:
         previous_status: str,
         new_status: str,
     ) -> None:
-        if previous_status == new_status:
-            return
-
         # Settlement and balance accrual only after full network confirmation.
         if new_status != "confirmed":
             return
@@ -830,6 +833,36 @@ class InvoiceService:
                 amount_fiat=amount_fiat,
                 fiat_currency=fiat_currency,
             )
+
+    @staticmethod
+    def _resolve_effective_status(raw_normalized: str, stored_payload: dict) -> str:
+        """Map provider paid-like statuses to confirming until block confirmations complete."""
+        if raw_normalized in {"paid", "confirmed"}:
+            if confirmations_complete(stored_payload):
+                return "confirmed"
+            return "confirming"
+        return raw_normalized
+
+    @staticmethod
+    def _provider_meta_changed(
+        invoice: Invoice,
+        *,
+        stored_payload: dict,
+        tx_hash: str | None,
+        raw_payload: dict | None,
+        provider_status: str | None,
+    ) -> bool:
+        old = dict(invoice.raw_provider_payload_json or {})
+        if tx_hash and old.get("tx_hash") != tx_hash:
+            return True
+        if provider_status and old.get("last_webhook_status") != provider_status:
+            return True
+        if raw_payload is not None and old.get("last_webhook_payload") != raw_payload:
+            return True
+        for key in ("network_confirmations_actual", "network_confirmations_required"):
+            if old.get(key) != stored_payload.get(key):
+                return True
+        return False
 
     @staticmethod
     def _normalize_provider_status(provider_status: str) -> str:
