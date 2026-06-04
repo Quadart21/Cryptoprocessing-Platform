@@ -161,10 +161,12 @@ export function InvoiceTransactionDetailsCard({
       </div>
 
       <div className="invoice-tx-fees">
-        <div className="invoice-tx-fee">
-          <span>Курс</span>
-          <strong>{formatRate(details.exchange_rate, details.exchange_rate_currency)}</strong>
-        </div>
+        {details.exchange_rate != null ? (
+          <div className="invoice-tx-fee">
+            <span>Курс settlement</span>
+            <strong>{formatRate(details.exchange_rate, details.exchange_rate_currency)}</strong>
+          </div>
+        ) : null}
         <div className="invoice-tx-fee">
           <span>Комиссия</span>
           <strong>{formatCommission(details.processing_commission, details.commission_currency)}</strong>
@@ -187,7 +189,12 @@ export function InvoiceTransactionDetailsCard({
 
       {details.is_estimate ? (
         <p className="muted-text invoice-tx-note">
-          Курс и комиссии рассчитаны по текущим настройкам платформы. После оплаты значения фиксируются в settlement.
+          Комиссии рассчитаны по текущим настройкам. Финальные суммы фиксируются после подтверждения сети.
+        </p>
+      ) : null}
+      {!details.is_estimate && details.processing_commission == null ? (
+        <p className="muted-text invoice-tx-note">
+          Курс и комиссии появятся после полного подтверждения платежа в сети.
         </p>
       ) : null}
     </section>

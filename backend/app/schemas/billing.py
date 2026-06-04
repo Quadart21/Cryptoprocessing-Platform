@@ -80,7 +80,7 @@ class PlatformBillingSettingsResponse(BaseModel):
     )
     platform_markup_min_usdt: Decimal = Field(
         default=Decimal("0.55"),
-        description="Минимум суммарной комиссии (провайдер + платформа) в USDT.",
+        description="Минимум комиссии провайдера в USDT (если % от gross меньше).",
     )
     platform_markup_min_band_usdt_low: Decimal = Field(
         default=Decimal("0"),
@@ -144,7 +144,7 @@ class PlatformBillingSettingsUpdateRequest(BaseModel):
     default_markup_percent: Decimal
     platform_markup_min_usdt: Decimal = Field(
         default=Decimal("0.55"),
-        description="Минимум суммарной комиссии (провайдер + платформа) в USDT.",
+        description="Минимум комиссии провайдера в USDT (если % от gross меньше).",
     )
     allow_tenant_markup_override: bool
     payouts_enabled: bool

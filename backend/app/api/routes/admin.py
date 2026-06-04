@@ -1567,7 +1567,12 @@ async def _map_invoice_admin_detail_response(
     invoice: Invoice,
 ) -> InvoiceAdminDetailResponse:
     transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
-    details_payload = await build_invoice_transaction_details(db, invoice, transaction)
+    details_payload = await build_invoice_transaction_details(
+        db,
+        invoice,
+        transaction,
+        include_exchange_rate=invoice.status == "confirmed",
+    )
     return InvoiceAdminDetailResponse(
         id=invoice.id,
         tenant_id=invoice.tenant_id,

@@ -144,6 +144,8 @@ async def build_invoice_transaction_details(
     db: AsyncSession,
     invoice: Invoice,
     transaction: Transaction | None,
+    *,
+    include_exchange_rate: bool = False,
 ) -> dict[str, Any]:
     stored_payload = invoice.raw_provider_payload_json or {}
     items = _payload_item_candidates(stored_payload)
@@ -167,12 +169,13 @@ async def build_invoice_transaction_details(
         ).quantize(InvoiceService.AMOUNT_PRECISION)
         commission_currency = transaction.currency or commission_currency
         is_estimate = False
-    else:
+    elif invoice.status == "confirmed":
         try:
             gross_amount = await invoice_service.resolve_accounting_gross_amount(
                 amount_crypto=Decimal(invoice.amount_crypto),
                 crypto_currency=invoice.crypto_currency,
                 fiat_currency=commission_currency,
+                exchange_rate_markup=Decimal("0"),
             )
             provider_fee, platform_fee, turnover_fee, _net = await invoice_service._calculate_financials(
                 tenant_id=invoice.tenant_id,
@@ -186,13 +189,15 @@ async def build_invoice_transaction_details(
 
     display_fiat = gross_amount if gross_amount is not None else Decimal(invoice.amount_fiat)
     display_fiat_currency = commission_currency if gross_amount is not None else invoice.fiat_currency
-    provider_rate = extract_provider_rate(items)
-    exchange_rate = resolve_exchange_rate(
-        amount_crypto=Decimal(invoice.amount_crypto),
-        gross_amount=gross_amount,
-        amount_fiat=Decimal(invoice.amount_fiat),
-        provider_rate=provider_rate,
-    )
+    exchange_rate = None
+    if include_exchange_rate and gross_amount is not None and Decimal(invoice.amount_crypto) > Decimal("0"):
+        provider_rate = extract_provider_rate(items)
+        exchange_rate = resolve_exchange_rate(
+            amount_crypto=Decimal(invoice.amount_crypto),
+            gross_amount=gross_amount,
+            amount_fiat=Decimal(invoice.amount_fiat),
+            provider_rate=provider_rate,
+        )
     network_commission, network_commission_currency = extract_network_commission(items)
     if network_commission_currency is None and network_commission is not None:
         network_commission_currency = invoice.crypto_currency

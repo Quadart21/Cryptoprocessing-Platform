@@ -13,6 +13,10 @@ function formatMoney(amount: string, currency: string): string {
   return `${formatDecimal(amount)} ${currency}`;
 }
 
+function isConfirmedStatus(status: string): boolean {
+  return status.trim().toLowerCase() === "confirmed";
+}
+
 function isPaidLikeStatus(status: string): boolean {
   const normalized = status.trim().toLowerCase();
   return normalized === "paid" || normalized === "confirmed";
@@ -28,7 +32,7 @@ export function InvoiceSettlementBreakdown({
   const currency = settlement?.currency ?? fallbackCurrency;
   const amountCrypto = settlement?.amount_crypto ?? fallbackAmountCrypto ?? "0";
   const cryptoCurrency = settlement?.crypto_currency ?? fallbackCryptoCurrency ?? "—";
-  const showFinal = settlement?.is_final ?? isPaidLikeStatus(invoiceStatus);
+  const showFinal = settlement?.is_final ?? isConfirmedStatus(invoiceStatus);
 
   if (!settlement) {
     return (
@@ -40,9 +44,9 @@ export function InvoiceSettlementBreakdown({
           </div>
         </div>
         <p className="muted-text">
-          {isPaidLikeStatus(invoiceStatus)
-            ? "Данные расчёта появятся после синхронизации статуса."
-            : "После оплаты здесь будет сумма клиента, комиссии и зачисление на баланс."}
+          {isPaidLikeStatus(invoiceStatus) && !isConfirmedStatus(invoiceStatus)
+            ? "Расчёт появится после полного подтверждения платежа в сети."
+            : "После подтверждения здесь будет сумма в USDT, комиссии и зачисление на баланс."}
         </p>
       </div>
     );
@@ -55,7 +59,11 @@ export function InvoiceSettlementBreakdown({
           <p className="eyebrow">Расчёт</p>
           <h3>Детализация платежа</h3>
         </div>
-        {!showFinal ? <span className="mc-badge mc-badge-neutral">Ожидает оплаты</span> : null}
+        {!showFinal ? (
+          <span className="mc-badge mc-badge-neutral">
+            {isPaidLikeStatus(invoiceStatus) ? "Ожидает подтверждения" : "Ожидает оплаты"}
+          </span>
+        ) : null}
       </div>
 
       <dl className="invoice-settlement-rows">
@@ -89,7 +97,7 @@ export function InvoiceSettlementBreakdown({
 
       {!showFinal ? (
         <p className="muted-text invoice-settlement-note">
-          Предварительный расчёт. Точные суммы фиксируются после подтверждения оплаты.
+          Точные суммы и курс фиксируются после полного подтверждения в сети.
         </p>
       ) : settlement.paid_at ? (
         <p className="muted-text invoice-settlement-note">

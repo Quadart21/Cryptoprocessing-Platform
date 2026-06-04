@@ -472,7 +472,7 @@ export function AdminPlatformSettingsSection({
             />
           </label>
           <label>
-            <span>Минимум комиссии (USDT)</span>
+            <span>Минимум комиссии провайдера (USDT)</span>
             <input
               type="number"
               step="0.01"

@@ -551,28 +551,27 @@ class InvoiceService:
         previous_status: str,
         new_status: str,
     ) -> None:
-        paid_like_statuses = {"paid", "confirmed"}
         if previous_status == new_status:
+            return
+
+        # Settlement and balance accrual only after full network confirmation.
+        if new_status != "confirmed":
             return
 
         balance_service = BalanceService(self.db)
         balance = await balance_service.get_or_create_balance(invoice.tenant_id, self.BALANCE_CURRENCY)
 
-        if previous_status not in paid_like_statuses and new_status in paid_like_statuses:
-            settlement_exists = await self.db.scalar(
-                select(LedgerEntry.id)
-                .where(
-                    LedgerEntry.invoice_id == invoice.id,
-                    LedgerEntry.entry_type == "invoice.gross_accrual",
-                )
-                .limit(1)
+        settlement_exists = await self.db.scalar(
+            select(LedgerEntry.id)
+            .where(
+                LedgerEntry.invoice_id == invoice.id,
+                LedgerEntry.entry_type == "invoice.gross_accrual",
             )
-            if settlement_exists is None:
-                await self._apply_initial_settlement(invoice, transaction, balance_service, balance)
-            await self._freeze_confirmed_settlement(invoice, transaction, balance_service, balance)
-
-        elif previous_status == "paid" and new_status == "confirmed":
-            await self._freeze_confirmed_settlement(invoice, transaction, balance_service, balance)
+            .limit(1)
+        )
+        if settlement_exists is None:
+            await self._apply_initial_settlement(invoice, transaction, balance_service, balance)
+        await self._freeze_confirmed_settlement(invoice, transaction, balance_service, balance)
 
     async def resolve_accounting_gross_amount(
         self,
@@ -582,7 +581,7 @@ class InvoiceService:
         fiat_currency: str,
         exchange_rate_markup: Decimal | None = None,
     ) -> Decimal:
-        """Convert crypto to fiat using the exchange rate at call time (settlement uses this on payment)."""
+        """Convert crypto to fiat using the exchange rate at call time (settlement: markup=0, rate from cache/JSON)."""
         crypto_currency = crypto_currency.strip().upper()
         fiat_currency = fiat_currency.strip().upper()
         amount_crypto = Decimal(amount_crypto).quantize(self.AMOUNT_PRECISION)
@@ -621,6 +620,7 @@ class InvoiceService:
             amount_crypto=Decimal(invoice.amount_crypto),
             crypto_currency=invoice.crypto_currency,
             fiat_currency=self.BALANCE_CURRENCY,
+            exchange_rate_markup=Decimal("0"),
         )
 
         provider_fee, platform_fee, turnover_fee, net_amount = await self._calculate_financials(
@@ -706,70 +706,57 @@ class InvoiceService:
         gross_amount: Decimal,
         fiat_currency: str,
     ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+        """Provider fee from gross (with USDT floor), platform fee from remainder."""
         billing_policy_service = BillingPolicyService(self.db)
         provider_fee_percent = await billing_policy_service.get_provider_fee_percent()
         markup_percent = await billing_policy_service.get_effective_markup_percent(tenant_id)
-        min_total_fee_usdt = await billing_policy_service.get_min_total_payment_fee_usdt()
+        provider_min_fee_usdt = await billing_policy_service.get_min_total_payment_fee_usdt()
 
         provider_fee = self._calculate_percent_amount(gross_amount, provider_fee_percent)
-        platform_fee = self._calculate_percent_amount(gross_amount, markup_percent)
-        provider_fee, platform_fee = await self._apply_min_total_fee_usdt(
+        provider_fee = await self._ensure_provider_minimum_fee(
             provider_fee=provider_fee,
-            platform_fee=platform_fee,
             gross_amount=gross_amount,
             fiat_currency=fiat_currency,
-            min_total_fee_usdt=min_total_fee_usdt,
+            min_fee_usdt=provider_min_fee_usdt,
         )
+        after_provider = (gross_amount - provider_fee).quantize(self.AMOUNT_PRECISION)
+        if after_provider < Decimal("0"):
+            raise ValueError("Комиссия провайдера не может превышать gross.")
+
+        platform_fee = self._calculate_percent_amount(after_provider, markup_percent)
         turnover_fee = Decimal("0")
-        total_fee = (provider_fee + platform_fee).quantize(self.AMOUNT_PRECISION)
-        net_amount = (gross_amount - total_fee).quantize(self.AMOUNT_PRECISION)
+        net_amount = (after_provider - platform_fee).quantize(self.AMOUNT_PRECISION)
         if net_amount < Decimal("0"):
             raise ValueError("Чистая сумма клиента не может быть отрицательной.")
         return provider_fee, platform_fee, turnover_fee, net_amount
 
-    async def _apply_min_total_fee_usdt(
+    async def _ensure_provider_minimum_fee(
         self,
         *,
         provider_fee: Decimal,
-        platform_fee: Decimal,
         gross_amount: Decimal,
         fiat_currency: str,
-        min_total_fee_usdt: Decimal,
-    ) -> tuple[Decimal, Decimal]:
-        """Если provider + platform < min USDT, итоговая комиссия = min (пропорционально)."""
-        raw_total = (provider_fee + platform_fee).quantize(self.AMOUNT_PRECISION)
-        if raw_total <= Decimal("0") or min_total_fee_usdt <= Decimal("0"):
-            return provider_fee, platform_fee
+        min_fee_usdt: Decimal,
+    ) -> Decimal:
+        """Floor for provider fee (platform_markup_min_usdt in admin settings)."""
+        if min_fee_usdt <= Decimal("0"):
+            return provider_fee
 
         fc = (fiat_currency or self.BALANCE_CURRENCY).strip().upper()
         rate_svc = get_exchange_rate_service()
-        zero_markup = Decimal("0")
-        total_usdt = await rate_svc.convert_to_fiat(raw_total, fc, "USDT", zero_markup)
-        if total_usdt is None:
-            logger.warning("Skipping min total fee USDT: no rate for %s/USDT", fc)
-            return provider_fee, platform_fee
-        if total_usdt >= min_total_fee_usdt:
-            return provider_fee, platform_fee
+        if fc in rate_svc.STABLECOIN_EQUIVALENTS:
+            minimum = min_fee_usdt
+        else:
+            converted = await rate_svc.convert_from_fiat(min_fee_usdt, fc, "USDT", Decimal("0"))
+            if converted is None:
+                logger.warning("Skipping provider min fee: cannot convert %s USDT to %s", min_fee_usdt, fc)
+                return provider_fee
+            minimum = converted
 
-        target_total = await rate_svc.convert_from_fiat(
-            min_total_fee_usdt,
-            fc,
-            "USDT",
-            zero_markup,
-        )
-        if target_total is None:
-            logger.warning(
-                "Skipping min total fee USDT: cannot convert %s USDT to %s",
-                min_total_fee_usdt,
-                fc,
-            )
-            return provider_fee, platform_fee
-
-        target_total = min(target_total.quantize(self.AMOUNT_PRECISION), gross_amount)
-        provider_share = provider_fee / raw_total
-        provider_fee = (target_total * provider_share).quantize(self.AMOUNT_PRECISION)
-        platform_fee = (target_total - provider_fee).quantize(self.AMOUNT_PRECISION)
-        return provider_fee, platform_fee
+        minimum = minimum.quantize(self.AMOUNT_PRECISION)
+        if provider_fee >= minimum:
+            return provider_fee
+        return min(minimum, gross_amount).quantize(self.AMOUNT_PRECISION)
 
     def _calculate_percent_amount(self, base_amount: Decimal, percent: Decimal) -> Decimal:
         return ((base_amount * percent) / Decimal("100")).quantize(self.AMOUNT_PRECISION)
@@ -911,6 +898,7 @@ class InvoiceService:
             amount_crypto=Decimal(invoice.amount_crypto),
             crypto_currency=invoice.crypto_currency,
             fiat_currency=self.BALANCE_CURRENCY,
+            exchange_rate_markup=Decimal("0"),
         )
         provider_fee, platform_fee, turnover_fee, new_net = await self._calculate_financials(
             tenant_id=invoice.tenant_id,

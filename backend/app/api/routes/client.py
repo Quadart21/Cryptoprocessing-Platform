@@ -1,4 +1,5 @@
-﻿from typing import Any, Literal
+﻿from decimal import Decimal
+from typing import Any, Literal
 
 import logging
 
@@ -1136,12 +1137,12 @@ def _map_invoice_settlement(
     invoice: Invoice,
     transaction,
 ) -> InvoiceSettlementResponse | None:
-    if transaction is None:
+    if transaction is None or Decimal(transaction.gross_amount) <= Decimal("0"):
         return None
     processing_fee = transaction.provider_fee
     platform_fee = transaction.platform_fee + transaction.turnover_fee
     total_fee = processing_fee + platform_fee
-    paid_like = invoice.status in {"paid", "confirmed"} or transaction.status in {"paid", "confirmed"}
+    is_final = invoice.status == "confirmed" or transaction.status == "confirmed"
     return InvoiceSettlementResponse(
         amount_crypto=invoice.amount_crypto,
         crypto_currency=invoice.crypto_currency,
@@ -1151,7 +1152,7 @@ def _map_invoice_settlement(
         total_fee=total_fee,
         net_amount=transaction.net_amount,
         currency=transaction.currency,
-        is_final=paid_like,
+        is_final=is_final,
         paid_at=transaction.paid_at,
     )
 
@@ -1164,7 +1165,12 @@ async def _map_invoice_detail_response(
     transaction=None,
 ) -> InvoiceDetailResponse:
     base = _map_invoice_response(invoice, checkout_delivery=checkout_delivery)
-    details_payload = await build_invoice_transaction_details(db, invoice, transaction)
+    details_payload = await build_invoice_transaction_details(
+        db,
+        invoice,
+        transaction,
+        include_exchange_rate=False,
+    )
     return InvoiceDetailResponse(
         **base.model_dump(),
         settlement=_map_invoice_settlement(invoice, transaction),
