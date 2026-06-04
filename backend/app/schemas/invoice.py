@@ -27,7 +27,7 @@ class InvoiceResponse(BaseModel):
     payment_address: str | None = None
     qr_url: str | None = None
     payment_page_url: str | None = None
-    checkout_delivery: str = "both"
+    checkout_delivery: str = "payment_page"
     status: str
     network_confirmations_actual: int | None = None
     network_confirmations_required: int | None = None

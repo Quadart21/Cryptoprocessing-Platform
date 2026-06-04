@@ -1280,7 +1280,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
         project_id: webhookForm.project_id,
         webhook_url: webhookForm.webhook_url.trim() || undefined,
         webhook_secret: webhookForm.webhook_secret.trim() || undefined,
-        checkout_delivery: webhookForm.checkout_delivery,
         return_url_success: webhookForm.return_url_success.trim() || null,
         return_url_failed: webhookForm.return_url_failed.trim() || null,
       });

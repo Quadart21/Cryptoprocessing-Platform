@@ -58,7 +58,8 @@ export function useWebhookFlow(token: string | null) {
         setLoading(true);
         setError(null);
         setSuccess(null);
-        const result = await updateWebhookConfig(token, webhookForm);
+        const { checkout_delivery: _checkoutDelivery, ...webhookPayload } = webhookForm;
+        const result = await updateWebhookConfig(token, webhookPayload);
         setWebhookConfigs(await fetchWebhookConfigs(token));
         setSuccess(
           `Webhook сохранен для проекта ${result.project_id}${result.has_secret ? " с секретом" : ""}.`,

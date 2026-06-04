@@ -316,6 +316,7 @@ export type ProjectAdminUpdatePayload = {
   domain: string;
   description: string | null;
   webhook_url: string | null;
+  checkout_delivery: CheckoutDeliveryMode;
   status: string;
 };
 
@@ -1243,7 +1244,6 @@ export function updateWebhookConfig(
     project_id: string;
     webhook_url?: string;
     webhook_secret?: string;
-    checkout_delivery?: CheckoutDeliveryMode;
     return_url_success?: string | null;
     return_url_failed?: string | null;
   },

@@ -732,7 +732,7 @@ export function MerchantApiReference({
                 <li>Сохраните оба значения только на backend стороне вашего проекта.</li>
                 <li>Вызовите GET /rates, чтобы выбрать доступный токен и сеть.</li>
                 <li>Создайте тестовый инвойс через POST /invoices.</li>
-                <li>Выберите checkout_delivery в webhook-настройках проекта: payment page или H2H.</li>
+                <li>Формат checkout (payment page или H2H) задаёт администратор платформы для вашего проекта.</li>
                 <li>Отправьте клиенту payment_page_url или покажите адрес/QR — в зависимости от режима.</li>
                 <li>Проверьте статус через GET /invoices/&lt;invoice_id&gt; и при необходимости POST /sync.</li>
                 <li>Настройте webhook (JWT) и проверьте доставку через POST /webhooks/test.</li>
@@ -780,8 +780,9 @@ export function MerchantApiReference({
               <h3>Платёжная страница или H2H-реквизиты</h3>
             </div>
             <p className="muted-text">
-              Для каждого проекта задаётся <code>checkout_delivery</code> — через POST /webhooks (JWT) или в кабинете
-              «Интеграция → Webhook». Поле влияет на ответ POST /invoices, GET /invoices и payload входящих webhook.
+              Для каждого проекта администратор платформы задаёт <code>checkout_delivery</code>. Мерчант видит текущий режим
+              в разделе «Интеграция → Webhook», но изменить его самостоятельно не может. Поле влияет на ответ POST /invoices,
+              GET /invoices и payload входящих webhook.
             </p>
             <div className="api-docs-grid">
               <article className="result-box api-docs-code-card">

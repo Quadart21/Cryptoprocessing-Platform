@@ -15,7 +15,7 @@ class ProjectSummary(BaseModel):
     description: str | None = None
     webhook_url: str | None = None
     has_webhook_secret: bool = False
-    checkout_delivery: CheckoutDeliveryMode = "both"
+    checkout_delivery: CheckoutDeliveryMode = "payment_page"
     status: str
 
 
@@ -49,6 +49,7 @@ class ProjectAdminUpdateRequest(BaseModel):
     domain: str = Field(min_length=3, max_length=255)
     description: str | None = Field(default=None, max_length=1000)
     webhook_url: str | None = Field(default=None, max_length=500)
+    checkout_delivery: CheckoutDeliveryMode = "payment_page"
     status: str = Field(min_length=2, max_length=50)
 
 
@@ -56,7 +57,6 @@ class WebhookConfigRequest(BaseModel):
     project_id: str
     webhook_url: str | None = Field(default=None, min_length=8, max_length=500)
     webhook_secret: str | None = Field(default=None, max_length=255)
-    checkout_delivery: CheckoutDeliveryMode | None = None
     return_url_success: str | None = Field(default=None, max_length=500)
     return_url_failed: str | None = Field(default=None, max_length=500)
 
@@ -65,7 +65,7 @@ class WebhookConfigResponse(BaseModel):
     project_id: str
     webhook_url: str | None
     has_secret: bool
-    checkout_delivery: CheckoutDeliveryMode = "both"
+    checkout_delivery: CheckoutDeliveryMode = "payment_page"
     return_url_success: str | None = None
     return_url_failed: str | None = None
 

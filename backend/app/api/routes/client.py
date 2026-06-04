@@ -645,7 +645,6 @@ async def configure_webhook(
             project_id=payload.project_id,
             webhook_url=payload.webhook_url,
             webhook_secret=payload.webhook_secret,
-            checkout_delivery=payload.checkout_delivery,
             return_url_success=payload.return_url_success,
             return_url_failed=payload.return_url_failed,
         )

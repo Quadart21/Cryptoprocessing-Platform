@@ -46,6 +46,7 @@ class ProjectService:
             name=payload.name,
             domain=normalized_domain,
             description=payload.description,
+            checkout_delivery="payment_page",
             status="pending_review",
         )
         self.db.add(project)
@@ -91,7 +92,6 @@ class ProjectService:
         project_id: str,
         webhook_url: str | None = None,
         webhook_secret: str | None = None,
-        checkout_delivery: str | None = None,
         return_url_success: str | None = None,
         return_url_failed: str | None = None,
     ) -> Project:
@@ -103,11 +103,6 @@ class ProjectService:
             trimmed = webhook_url.strip()
             if trimmed:
                 project.webhook_url = self._normalize_webhook_url(trimmed)
-
-        if checkout_delivery is not None:
-            from app.services.checkout_delivery_service import CheckoutDeliveryService
-
-            project.checkout_delivery = CheckoutDeliveryService.normalize(checkout_delivery)
 
         if return_url_success is not None:
             project.return_url_success = self._normalize_return_url(return_url_success)
@@ -123,12 +118,11 @@ class ProjectService:
         has_return_update = return_url_success is not None or return_url_failed is not None
         if (
             webhook_url is None
-            and checkout_delivery is None
             and not secret
             and not has_return_update
         ):
             raise ValueError(
-                "Укажите webhook URL, checkout_delivery, ссылки возврата в магазин или secret.",
+                "Укажите webhook URL, ссылки возврата в магазин или secret.",
             )
 
         self.db.add(project)

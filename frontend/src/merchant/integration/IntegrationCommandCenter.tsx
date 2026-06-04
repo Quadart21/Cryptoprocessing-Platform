@@ -424,22 +424,18 @@ export function IntegrationCommandCenter({
                   placeholder="merchant-webhook-secret"
                 />
               </label>
-              <label className="mc-field">
-                <span>Формат ответа API и webhook</span>
-                <select
-                  value={webhookForm.checkout_delivery}
-                  onChange={(event) =>
-                    onWebhookFormChange({
-                      ...webhookForm,
-                      checkout_delivery: event.target.value as WebhookFormState["checkout_delivery"],
-                    })
-                  }
-                >
-                  <option value="payment_page">Ссылка на платёжную страницу</option>
-                  <option value="h2h">H2H-реквизиты (адрес + QR)</option>
-                  <option value="both">Оба варианта</option>
-                </select>
-              </label>
+              <div className="integration-card-head" style={{ marginTop: "0.5rem" }}>
+                <strong>Формат checkout</strong>
+                <span>Задаётся администратором</span>
+              </div>
+              <p className="integration-inline-note">
+                {webhookForm.checkout_delivery === "h2h"
+                  ? "H2H: в ответе API и webhook приходят payment_address и qr_url."
+                  : webhookForm.checkout_delivery === "both"
+                    ? "Оба формата: payment_page_url, payment_address и qr_url."
+                    : "Платёжная ссылка: в ответе API и webhook приходит только payment_page_url (/pay/{token})."}
+                {" "}Для смены режима обратитесь в поддержку платформы.
+              </p>
 
               <div className="integration-card-head" style={{ marginTop: "1.25rem" }}>
                 <strong>Возврат в магазин</strong>
@@ -472,7 +468,7 @@ export function IntegrationCommandCenter({
               </label>
 
               <p className="integration-inline-note">
-                Настройка проекта: в ответе POST /invoices и в webhook приходит только выбранный формат.
+                В ответе POST /invoices и в webhook приходит формат, заданный администратором для вашего проекта.
                 Платёжная страница — `payment_page_url` (`/pay/&#123;token&#125;`). H2H — `payment_address` и `qr_url`.
               </p>
               <div className="action-row-inline">

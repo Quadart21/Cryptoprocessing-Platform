@@ -88,6 +88,7 @@ from app.schemas.user_management import (
 from app.services.auth_service import AuthService
 from app.services.accounting_service import AccountingService
 from app.services.billing_policy_service import BillingPolicyService
+from app.services.checkout_delivery_service import CheckoutDeliveryService
 from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_confirmations import confirmations_fields_from_stored
 from app.services.invoice_service import InvoiceService
@@ -517,6 +518,9 @@ async def list_tenant_projects(
             name=project.name,
             domain=project.domain,
             description=project.description,
+            webhook_url=project.webhook_url,
+            has_webhook_secret=ProjectService.has_webhook_secret(project),
+            checkout_delivery=CheckoutDeliveryService.normalize(project.checkout_delivery),
             status=project.status,
         )
         for project in await project_service.list_projects_by_tenant(tenant_id)
@@ -654,6 +658,7 @@ async def get_tenant_detail(
                 description=project.description,
                 webhook_url=project.webhook_url,
                 has_webhook_secret=ProjectService.has_webhook_secret(project),
+                checkout_delivery=CheckoutDeliveryService.normalize(project.checkout_delivery),
                 status=project.status,
             )
             for project in projects
@@ -739,6 +744,7 @@ async def update_admin_project(
     project.domain = payload.domain.strip()
     project.description = (payload.description or "").strip() or None
     project.webhook_url = (payload.webhook_url or "").strip() or None
+    project.checkout_delivery = CheckoutDeliveryService.normalize(payload.checkout_delivery)
     project.status = payload.status.strip()
     db.add(project)
     await db.commit()
@@ -751,6 +757,7 @@ async def update_admin_project(
         description=project.description,
         webhook_url=project.webhook_url,
         has_webhook_secret=ProjectService.has_webhook_secret(project),
+        checkout_delivery=CheckoutDeliveryService.normalize(project.checkout_delivery),
         status=project.status,
     )
 

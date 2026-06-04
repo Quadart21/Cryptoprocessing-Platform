@@ -74,7 +74,7 @@ DDL_PATCHES = [
     """,
     """
     ALTER TABLE projects
-    ADD COLUMN IF NOT EXISTS checkout_delivery VARCHAR(32) NOT NULL DEFAULT 'both'
+    ADD COLUMN IF NOT EXISTS checkout_delivery VARCHAR(32) NOT NULL DEFAULT 'payment_page'
     """,
     """
     ALTER TABLE projects

@@ -317,6 +317,7 @@ export type ProjectAdminUpdatePayload = {
   domain: string;
   description: string | null;
   webhook_url: string | null;
+  checkout_delivery: CheckoutDeliveryMode;
   status: string;
 };
 

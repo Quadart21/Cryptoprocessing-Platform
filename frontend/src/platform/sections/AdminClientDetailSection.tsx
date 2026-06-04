@@ -117,6 +117,7 @@ export function AdminClientDetailSection({
             domain: project.domain,
             description: project.description,
             webhook_url: project.webhook_url,
+            checkout_delivery: project.checkout_delivery === "h2h" ? "h2h" : "payment_page",
             status: project.status,
           },
         ]),
@@ -472,6 +473,27 @@ export function AdminClientDetailSection({
                                       })
                                     }
                                   />
+                                </label>
+                                <label>
+                                  <span>Формат checkout</span>
+                                  <span className="pw-field-hint">
+                                    Платёжная ссылка или H2H-реквизиты в API. Меняет только администратор.
+                                  </span>
+                                  <select
+                                    value={projectForms[project.id].checkout_delivery}
+                                    onChange={(event) =>
+                                      setProjectForms({
+                                        ...projectForms,
+                                        [project.id]: {
+                                          ...projectForms[project.id],
+                                          checkout_delivery: event.target.value as ProjectAdminUpdatePayload["checkout_delivery"],
+                                        },
+                                      })
+                                    }
+                                  >
+                                    <option value="payment_page">Платёжная ссылка (/pay/…)</option>
+                                    <option value="h2h">H2H (адрес + QR в API)</option>
+                                  </select>
                                 </label>
                                 <label>
                                   <span>Status</span>
