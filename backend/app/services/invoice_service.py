@@ -569,10 +569,9 @@ class InvoiceService:
             )
             if settlement_exists is None:
                 await self._apply_initial_settlement(invoice, transaction, balance_service, balance)
-
-        if previous_status == "paid" and new_status == "confirmed":
             await self._freeze_confirmed_settlement(invoice, transaction, balance_service, balance)
-        elif previous_status not in paid_like_statuses and new_status == "confirmed":
+
+        elif previous_status == "paid" and new_status == "confirmed":
             await self._freeze_confirmed_settlement(invoice, transaction, balance_service, balance)
 
     async def resolve_accounting_gross_amount(

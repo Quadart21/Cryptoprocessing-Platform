@@ -77,7 +77,7 @@ class BalanceHoldService:
             entry_type="invoice.pending_release",
             invoice_id=invoice.id,
             transaction_id=transaction.id,
-            description="Списание суммы из pending после подтверждения оплаты.",
+            description="Списание суммы из pending после успешной оплаты.",
         )
         await self.balance_service.add_ledger_entry(
             tenant_id=invoice.tenant_id,
@@ -182,3 +182,48 @@ class BalanceHoldService:
                 continue
             active.append((transaction, invoice))
         return active
+
+    async def reconcile_pending_settlements(self, tenant_id: str | None = None) -> int:
+        """Move legacy paid settlements from pending into the 24h hold bucket."""
+        query = (
+            select(Transaction, Invoice)
+            .join(Invoice, Invoice.id == Transaction.invoice_id)
+            .where(Transaction.status.in_(("paid", "confirmed")))
+            .order_by(Transaction.created_at.asc())
+        )
+        if tenant_id is not None:
+            query = query.where(Transaction.tenant_id == tenant_id)
+
+        rows = (await self.db.execute(query)).all()
+        reconciled_count = 0
+        for transaction, invoice in rows:
+            if await self.has_ledger_entry(transaction.id, self.FROZEN_CREDIT_ENTRY):
+                continue
+            if await self.has_ledger_entry(transaction.id, self.AVAILABLE_CREDIT_ENTRY):
+                continue
+            gross_exists = await self.db.scalar(
+                select(
+                    exists().where(
+                        LedgerEntry.invoice_id == invoice.id,
+                        LedgerEntry.entry_type == "invoice.gross_accrual",
+                    )
+                )
+            )
+            if not gross_exists:
+                continue
+
+            balance = await self.balance_service.get_or_create_balance(
+                invoice.tenant_id,
+                transaction.currency,
+            )
+            await self.freeze_confirmed_settlement(invoice, transaction, balance)
+            reconciled_count += 1
+
+        if reconciled_count:
+            await self.db.flush()
+        return reconciled_count
+
+    async def sync_tenant_balance_holds(self, tenant_id: str | None = None) -> dict[str, int]:
+        reconciled = await self.reconcile_pending_settlements(tenant_id)
+        released = await self.release_matured_holds(tenant_id)
+        return {"reconciled": reconciled, "released": released}

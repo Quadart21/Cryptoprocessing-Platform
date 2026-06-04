@@ -16,9 +16,9 @@ def release_matured_balance_holds() -> dict:
 async def _release_matured_balance_holds() -> dict:
     async with AsyncSessionLocal() as db:
         hold_service = BalanceHoldService(db)
-        released_count = await hold_service.release_matured_holds()
+        stats = await hold_service.sync_tenant_balance_holds()
         await db.commit()
-        result = {"released": released_count}
-        if released_count:
-            logger.info("Released matured balance holds: %s", released_count)
+        result = stats
+        if stats["released"] or stats["reconciled"]:
+            logger.info("Balance hold sync: %s", stats)
         return result

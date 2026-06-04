@@ -41,7 +41,7 @@ class PayoutService:
         available_amount = Decimal(balance.available_amount).quantize(self.AMOUNT_PRECISION)
         if normalized_amount > available_amount:
             raise ValueError(
-                f"Недостаточно доступного баланса. Доступно: {available_amount} {self.BALANCE_CURRENCY}."
+                f"Недостаточно доступного баланса. Доступно: {self._format_amount(available_amount)} {self.BALANCE_CURRENCY}."
             )
 
         await self.balance_service.apply_bucket_delta(balance, "available_amount", -normalized_amount)
@@ -242,4 +242,11 @@ class PayoutService:
 
     def _normalize_amount(self, amount: Decimal) -> Decimal:
         return Decimal(amount).quantize(self.AMOUNT_PRECISION)
+
+    @staticmethod
+    def _format_amount(amount: Decimal) -> str:
+        text = format(amount.quantize(PayoutService.AMOUNT_PRECISION), "f")
+        if "." in text:
+            text = text.rstrip("0").rstrip(".")
+        return text or "0"
 

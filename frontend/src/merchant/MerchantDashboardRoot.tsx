@@ -447,7 +447,7 @@ export function MerchantDashboardRoot({
                 </article>
                 {Number(balance?.pending_amount ?? 0) > 0 ? (
                   <article className="mc-stat">
-                    <span className="mc-stat-label">Ожидает подтверждения</span>
+                    <span className="mc-stat-label">В обработке</span>
                     <strong className="mc-stat-value">
                       {formatDecimal(balance?.pending_amount ?? "0")} {balance?.currency ?? "USDT"}
                     </strong>
