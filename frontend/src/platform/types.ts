@@ -84,6 +84,7 @@ export function isAdminSection(value: string): value is Exclude<AdminSection, "c
 
 /** Контракт консоли платформы (главный админ / platform roles). */
 export type AdminDashboardProps = {
+  adminToken: string | null;
   user: CurrentUser;
   loading: boolean;
   success: string | null;

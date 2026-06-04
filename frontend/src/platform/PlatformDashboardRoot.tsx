@@ -28,6 +28,7 @@ import { type AdminDashboardProps, type AdminSection, isAdminSection } from "./t
 
 export function PlatformDashboardRoot(props: AdminDashboardProps) {
   const {
+    adminToken,
     user,
     loading,
     success,
@@ -321,6 +322,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
             {section === "client-detail" ? (
               <div className="console-section-stack">
                 <AdminClientDetailSectionLazy
+                  adminToken={adminToken}
                   loading={loading}
                   selectedInvoiceDetail={selectedInvoiceDetail}
                   selectedInvoiceEvents={selectedInvoiceEvents}

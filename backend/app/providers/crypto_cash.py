@@ -14,7 +14,7 @@ from app.providers.base import (
     ProviderCreateInvoiceRequest,
     ProviderCreateInvoiceResponse,
 )
-from app.services.cache_service import get_cache_service
+from app.services.api_usage_service import get_api_usage_service
 
 
 class CryptoCashProviderError(Exception):
@@ -191,8 +191,10 @@ class CryptoCashProvider(PaymentProviderInterface):
             response.raise_for_status()
             parsed = response.json()
             self._ensure_success_response(path, parsed)
+            get_api_usage_service().record_provider_outbound(path=path, error=False)
             return parsed
         except requests.HTTPError as exc:
+            get_api_usage_service().record_provider_outbound(path=path, error=True)
             status_code = exc.response.status_code if exc.response is not None else None
             payload_json = self._safe_json(exc.response.text) if exc.response is not None else None
             provider_code, errors = self._extract_provider_error_fields(payload_json)
@@ -211,10 +213,14 @@ class CryptoCashProvider(PaymentProviderInterface):
                 http_status=status_code,
             ) from exc
         except requests.RequestException as exc:
+            get_api_usage_service().record_provider_outbound(path=path, error=True)
             raise CryptoCashProviderError(
                 f"Crypto-Cash request failed: {exc}",
                 path=path,
             ) from exc
+        except CryptoCashProviderError as exc:
+            get_api_usage_service().record_provider_outbound(path=path, error=True)
+            raise exc
 
     @staticmethod
     def _encode_payload(payload: dict) -> str:

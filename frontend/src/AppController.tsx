@@ -2105,6 +2105,7 @@ return (
         )
 ) : isPlatformRole(user.role) ? (
         <AdminDashboardLazy
+          adminToken={token}
           user={user}
           loading={loading}
           success={success}

@@ -17,6 +17,7 @@ from app.schemas.invoice import InvoiceCreateRequest
 from app.services.accounting_service import AccountingService
 from app.services.balance_hold_service import BalanceHoldService
 from app.services.balance_service import BalanceService
+from app.services.api_usage_context import provider_usage_scope
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
@@ -165,15 +166,16 @@ class InvoiceService:
         )
 
         provider = get_payment_provider()
-        provider_response = provider.create_invoice(
-            ProviderCreateInvoiceRequest(
-                merchant_order_id=payload.merchant_order_id,
-                amount_fiat=payload.amount_fiat,
-                fiat_currency=payload.fiat_currency.upper(),
-                crypto_currency=payload.crypto_currency.upper(),
-                network=payload.network.upper(),
+        with provider_usage_scope(tenant_id=tenant_id, project_id=payload.project_id):
+            provider_response = provider.create_invoice(
+                ProviderCreateInvoiceRequest(
+                    merchant_order_id=payload.merchant_order_id,
+                    amount_fiat=payload.amount_fiat,
+                    fiat_currency=payload.fiat_currency.upper(),
+                    crypto_currency=payload.crypto_currency.upper(),
+                    network=payload.network.upper(),
+                )
             )
-        )
         resolved_amount_crypto = provider_response.amount_crypto or estimated_crypto
         self._assert_amount_within_payin_limits(
             amount=resolved_amount_crypto,
@@ -614,7 +616,8 @@ class InvoiceService:
             raise ValueError("Инвойс не найден.")
 
         provider = get_payment_provider()
-        provider_response = provider.get_invoice_status(invoice.merchant_order_id)
+        with provider_usage_scope(tenant_id=tenant_id, project_id=invoice.project_id):
+            provider_response = provider.get_invoice_status(invoice.merchant_order_id)
         item = provider_response.get("data", {}).get("item", {})
         provider_status = str(item.get("status") or invoice.status)
         provider_order_id = str(item.get("id") or invoice.provider_order_id)

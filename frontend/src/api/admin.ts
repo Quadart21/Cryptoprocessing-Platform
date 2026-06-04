@@ -112,6 +112,34 @@ export function updateAdminTenant(
   });
 }
 
+export function fetchProjectApiUsage(
+  token: string,
+  projectId: string,
+  days = 30,
+): Promise<import("./base").ApiUsageResponse> {
+  const query = new URLSearchParams({ days: String(days) });
+  return request<import("./base").ApiUsageResponse>(
+    `/admin/projects/${projectId}/api-usage?${query.toString()}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function fetchTenantApiUsage(
+  token: string,
+  tenantId: string,
+  days = 30,
+): Promise<import("./base").ApiUsageResponse> {
+  const query = new URLSearchParams({ days: String(days) });
+  return request<import("./base").ApiUsageResponse>(
+    `/admin/tenants/${tenantId}/api-usage?${query.toString()}`,
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
 export function updateAdminProject(
   token: string,
   projectId: string,

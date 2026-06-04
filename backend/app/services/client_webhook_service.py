@@ -18,7 +18,7 @@ from app.models.transaction import Transaction
 from app.services.checkout_delivery_service import CheckoutDeliveryService
 from app.services.event_service import EventService
 from app.services.invoice_confirmations import confirmations_fields_from_stored
-from app.services.payment_page_service import PaymentPageService
+from app.services.api_usage_service import get_api_usage_service
 
 
 @dataclass
@@ -102,6 +102,13 @@ class ClientWebhookService:
             return
 
         result = self._post_with_retry(project.webhook_url, body, headers)
+        get_api_usage_service().record(
+            category="merchant_webhook_out",
+            route_key="POST merchant_webhook",
+            tenant_id=project.tenant_id,
+            project_id=project.id,
+            error=not result.ok,
+        )
 
         if result.ok:
             await self.event_service.create_event(

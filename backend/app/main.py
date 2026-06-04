@@ -19,6 +19,7 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.providers.crypto_cash import CryptoCashProviderError, provider_error_http_status
 from app.db.bootstrap import ensure_database_ready
+from app.middleware.api_usage import ApiUsageMiddleware
 from app.middleware.connection_limit import ConnectionLimitMiddleware
 from app.middleware.csrf import CsrfProtectionMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -77,6 +78,7 @@ def create_application() -> FastAPI:
     )
 
     app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(ApiUsageMiddleware)
     app.add_middleware(ConnectionLimitMiddleware)
     app.add_middleware(CsrfProtectionMiddleware)
 

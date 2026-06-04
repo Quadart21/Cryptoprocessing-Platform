@@ -6,6 +6,7 @@ from app.db.tenant import set_db_security_context
 from app.providers.crypto_cash import CryptoCashProviderError
 from app.schemas.invoice import PublicPaymentResponse
 from app.schemas.public_seo import PublicSeoResponse
+from app.services.api_usage_service import get_api_usage_service
 from app.services.invoice_service import InvoiceService
 from app.services.payment_page_service import PaymentPageService
 from app.services.seo_service import SeoService
@@ -35,6 +36,12 @@ async def get_public_payment(
     invoice = await payment_service.get_invoice_by_token(payment_token)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
+    get_api_usage_service().record(
+        category="public_pay",
+        route_key="GET /public/pay/{token}",
+        tenant_id=invoice.tenant_id,
+        project_id=invoice.project_id,
+    )
     return await payment_service.to_public_response(invoice)
 
 
@@ -62,4 +69,10 @@ async def refresh_public_payment(
             if refreshed is not None:
                 invoice = refreshed
 
+    get_api_usage_service().record(
+        category="public_pay",
+        route_key="POST /public/pay/{token}/refresh",
+        tenant_id=invoice.tenant_id,
+        project_id=invoice.project_id,
+    )
     return await payment_service.to_public_response(invoice)

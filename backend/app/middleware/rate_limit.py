@@ -9,7 +9,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from app.core.config import settings
+from app.services.api_key_context_cache import get_api_key_context_cache
 from app.services.api_key_tenant_cache import get_api_key_tenant_cache
+from app.services.api_usage_service import get_api_usage_service
 from app.services.rate_limit_burst import resolve_burst_limit
 from app.services.rate_limit_service import (
     RateLimitExceededError,
@@ -237,11 +239,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             try:
                 self._enforce_global_burst(request)
             except RateLimitExceededError as exc:
+                await self._record_rate_limit_hit(request, exc)
                 return self._rate_limit_response(exc)
 
         try:
             await self._enforce_api_key_account_limit(request)
         except RateLimitExceededError as exc:
+            await self._record_rate_limit_hit(request, exc)
             return self._rate_limit_response(exc)
 
         for rule in self.rules:
@@ -250,8 +254,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             try:
                 self._enforce_rule(request, rule)
             except RateLimitExceededError as exc:
+                await self._record_rate_limit_hit(request, exc)
                 return self._rate_limit_response(exc)
         return await call_next(request)
+
+    async def _record_rate_limit_hit(self, request: Request, exc: RateLimitExceededError) -> None:
+        tenant_id: str | None = None
+        project_id: str | None = None
+        public_key = (request.headers.get("x-api-key") or "").strip()
+        if public_key:
+            context = await get_api_key_context_cache().resolve(public_key)
+            if context is not None:
+                tenant_id = context.tenant_id
+                project_id = context.project_id
+        get_api_usage_service().record_rate_limit_hit(
+            scope=exc.scope,
+            tenant_id=tenant_id,
+            project_id=project_id,
+        )
 
     def _enforce_global_burst(self, request: Request) -> None:
         ip_key = self._extract_client_ip(request)

@@ -300,6 +300,32 @@ export type TenantOwnerItem = {
   status: string;
 };
 
+export type ApiUsageRouteItem = {
+  route_key: string;
+  label: string;
+  total: number;
+  errors: number;
+};
+
+export type ApiUsageCategoryItem = {
+  category: string;
+  label: string;
+  total: number;
+  errors: number;
+  routes: ApiUsageRouteItem[];
+};
+
+export type ApiUsageResponse = {
+  scope_type: string;
+  scope_id: string;
+  period_days: number;
+  period_start: string;
+  period_end: string;
+  total_requests: number;
+  total_errors: number;
+  categories: ApiUsageCategoryItem[];
+};
+
 export type TenantAdminUpdatePayload = {
   company_name: string;
   slug: string;

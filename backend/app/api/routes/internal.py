@@ -8,6 +8,7 @@ from app.api.deps import get_db
 from app.db.tenant import set_db_security_context
 from app.schemas.invoice import InvoiceResponse
 from app.schemas.webhook import CryptoCashWebhookPayload
+from app.services.api_usage_service import get_api_usage_service
 from app.services.invoice_service import InvoiceService
 from app.services.provider_webhook_log import ProviderWebhookLogService
 from app.services.webhook_security import (
@@ -91,6 +92,13 @@ async def crypto_cash_webhook(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
+    get_api_usage_service().record(
+        category="provider_inbound",
+        route_key="POST /internal/webhook/crypto-cash",
+        tenant_id=invoice.tenant_id,
+        project_id=invoice.project_id,
+    )
 
     return InvoiceResponse(
         id=invoice.id,

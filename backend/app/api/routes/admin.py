@@ -49,7 +49,7 @@ from app.schemas.billing import (
     TenantBillingPolicyResponse,
     TenantBillingPolicyUpdateRequest,
 )
-from app.schemas.admin import TenantDetailResponse, TenantOwnerSummary
+from app.schemas.api_usage import ApiUsageCategoryItem, ApiUsageResponse, ApiUsageRouteItem
 from app.schemas.invoice import (
     InvoiceAdminDetailResponse,
     InvoiceResponse,
@@ -88,6 +88,7 @@ from app.schemas.user_management import (
 from app.services.auth_service import AuthService
 from app.services.accounting_service import AccountingService
 from app.services.billing_policy_service import BillingPolicyService
+from app.services.api_usage_service import ApiUsageSummary, get_api_usage_service
 from app.services.checkout_delivery_service import CheckoutDeliveryService
 from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_confirmations import confirmations_fields_from_stored
@@ -760,6 +761,64 @@ async def update_admin_project(
         checkout_delivery=CheckoutDeliveryService.normalize(project.checkout_delivery),
         status=project.status,
     )
+
+
+def _map_api_usage(summary: ApiUsageSummary) -> ApiUsageResponse:
+    return ApiUsageResponse(
+        scope_type=summary.scope_type,
+        scope_id=summary.scope_id,
+        period_days=summary.period_days,
+        period_start=summary.period_start,
+        period_end=summary.period_end,
+        total_requests=summary.total_requests,
+        total_errors=summary.total_errors,
+        categories=[
+            ApiUsageCategoryItem(
+                category=category.category,
+                label=category.label,
+                total=category.total,
+                errors=category.errors,
+                routes=[
+                    ApiUsageRouteItem(
+                        route_key=route.route_key,
+                        label=route.label,
+                        total=route.total,
+                        errors=route.errors,
+                    )
+                    for route in category.routes
+                ],
+            )
+            for category in summary.categories
+        ],
+    )
+
+
+@router.get("/projects/{project_id}/api-usage", response_model=ApiUsageResponse)
+async def get_project_api_usage(
+    project_id: str,
+    days: int = Query(default=30, ge=1, le=45),
+    _: User = Depends(require_platform_permission("admin.tenants.read")),
+    db: AsyncSession = Depends(get_db),
+) -> ApiUsageResponse:
+    project = await db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Проект не найден.")
+    summary = get_api_usage_service().get_project_usage(project_id, days=days)
+    return _map_api_usage(summary)
+
+
+@router.get("/tenants/{tenant_id}/api-usage", response_model=ApiUsageResponse)
+async def get_tenant_api_usage(
+    tenant_id: str,
+    days: int = Query(default=30, ge=1, le=45),
+    _: User = Depends(require_platform_permission("admin.tenants.read")),
+    db: AsyncSession = Depends(get_db),
+) -> ApiUsageResponse:
+    tenant = await db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant не найден.")
+    summary = get_api_usage_service().get_tenant_usage(tenant_id, days=days)
+    return _map_api_usage(summary)
 
 
 @router.delete("/tenants/{tenant_id}", response_model=dict[str, str])

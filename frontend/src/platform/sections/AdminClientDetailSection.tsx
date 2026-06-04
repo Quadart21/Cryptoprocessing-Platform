@@ -21,10 +21,12 @@ import type {
 import { TenantPayoutsPanel } from "./TenantPayoutsPanel";
 import { InvoiceTransactionDetailsCard } from "../../merchant/widgets/InvoiceTransactionDetailsCard";
 import { ProviderEventList } from "../components/ProviderEventList";
+import { ProjectApiUsagePanel } from "../components/ProjectApiUsagePanel";
 
-type ClientDetailTab = "overview" | "profile" | "access" | "integration" | "ledger" | "invoice";
+type ClientDetailTab = "overview" | "profile" | "access" | "integration" | "traffic" | "ledger" | "invoice";
 
 type AdminClientDetailSectionProps = {
+  adminToken: string | null;
   loading: boolean;
   selectedTenantName: string;
   selectedTenantDetail: TenantDetailResponse | null;
@@ -56,11 +58,13 @@ const DETAIL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
   { id: "profile", label: "Профиль" },
   { id: "access", label: "Доступ" },
   { id: "integration", label: "Проекты и API" },
+  { id: "traffic", label: "Трафик API" },
   { id: "ledger", label: "Инвойсы и платежи" },
   { id: "invoice", label: "Карточка инвойса" },
 ];
 
 export function AdminClientDetailSection({
+  adminToken,
   loading,
   selectedTenantName,
   selectedTenantDetail,
@@ -595,6 +599,33 @@ export function AdminClientDetailSection({
                       )}
                     </div>
                   </div>
+                </div>
+              ) : null}
+
+              {detailTab === "traffic" ? (
+                <div aria-label="Трафик API" className="pw-console-tabpanel" role="tabpanel">
+                  <p className="muted-text pw-tabpanel-intro">
+                    Счётчики входящих запросов к Merchant API, платёжной странице, webhook Crypto-Cash,
+                    исходящих вызовов к Crypto-Cash и доставки webhook мерчанту. Данные хранятся до 45 дней.
+                  </p>
+                  {!adminToken ? (
+                    <p className="muted-text">Нет сессии администратора для загрузки статистики.</p>
+                  ) : (
+                    <div className="tenant-list pw-tenant-cards-spaced">
+                      {(selectedTenantDetail.projects ?? []).length === 0 ? (
+                        <p className="muted-text">У клиента пока нет проектов.</p>
+                      ) : (
+                        (selectedTenantDetail.projects ?? []).map((project) => (
+                          <ProjectApiUsagePanel
+                            key={project.id}
+                            projectId={project.id}
+                            projectName={project.name}
+                            token={adminToken}
+                          />
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : null}
 
