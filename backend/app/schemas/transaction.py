@@ -12,9 +12,10 @@ class TransactionResponse(BaseModel):
     amount_crypto: Decimal | None = None
     crypto_currency: str | None = None
     gross_amount: Decimal
-    provider_fee: Decimal
-    platform_fee: Decimal
-    turnover_fee: Decimal
+    provider_fee: Decimal | None = None
+    platform_fee: Decimal | None = None
+    turnover_fee: Decimal | None = None
+    total_fee: Decimal | None = None
     net_amount: Decimal
     currency: str
     status: str

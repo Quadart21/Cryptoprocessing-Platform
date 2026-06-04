@@ -4,6 +4,7 @@ import json
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from decimal import Decimal
 from secrets import token_hex
 
 import requests
@@ -60,9 +61,11 @@ class ClientWebhookService:
                 "id": transaction.id,
                 "status": transaction.status,
                 "gross_amount": str(transaction.gross_amount),
-                "provider_fee": str(transaction.provider_fee),
-                "platform_fee": str(transaction.platform_fee),
-                "turnover_fee": str(transaction.turnover_fee),
+                "total_fee": str(
+                    Decimal(transaction.provider_fee)
+                    + Decimal(transaction.platform_fee)
+                    + Decimal(transaction.turnover_fee)
+                ),
                 "net_amount": str(transaction.net_amount),
                 "currency": transaction.currency,
                 "paid_at": transaction.paid_at.isoformat() if transaction.paid_at else None,
@@ -194,9 +197,11 @@ class ClientWebhookService:
                 "id": transaction.id,
                 "status": transaction.status,
                 "gross_amount": str(transaction.gross_amount),
-                "provider_fee": str(transaction.provider_fee),
-                "platform_fee": str(transaction.platform_fee),
-                "turnover_fee": str(transaction.turnover_fee),
+                "total_fee": str(
+                    Decimal(transaction.provider_fee)
+                    + Decimal(transaction.platform_fee)
+                    + Decimal(transaction.turnover_fee)
+                ),
                 "net_amount": str(transaction.net_amount),
                 "currency": transaction.currency,
                 "paid_at": transaction.paid_at.isoformat() if transaction.paid_at else None,

@@ -89,9 +89,13 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         DateTime(timezone=True),
         nullable=True,
     )
-    # Минимум суммарной комиссии (провайдер + платформа) в USDT.
+    # Минимум комиссии провайдера в USDT (если % от gross меньше).
     platform_markup_min_usdt: Mapped[Decimal] = mapped_column(
         Numeric(18, 8), nullable=False, default=Decimal("0.55")
+    )
+    # Фикс комиссии платформы, когда у провайдера сработал минимум (не %).
+    platform_fee_min_usdt: Mapped[Decimal] = mapped_column(
+        Numeric(18, 8), nullable=False, default=Decimal("0.2")
     )
     platform_markup_min_band_usdt_low: Mapped[Decimal] = mapped_column(
         Numeric(18, 8), nullable=False, default=Decimal("10")

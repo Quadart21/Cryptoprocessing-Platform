@@ -95,6 +95,7 @@ class InvoiceAmountOutOfRangeError(ValueError):
 
 class InvoiceService:
     AMOUNT_PRECISION = Decimal("0.00000001")
+    SETTLEMENT_USDT_PRECISION = Decimal("0.0001")
     BALANCE_CURRENCY = "USDT"
 
     def __init__(self, db: AsyncSession):
@@ -764,57 +765,64 @@ class InvoiceService:
         gross_amount: Decimal,
         fiat_currency: str,
     ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
-        """Provider fee from gross (with USDT floor), platform fee from remainder."""
+        """Cascade: provider %/fix from gross, then platform % or fix from remainder."""
         billing_policy_service = BillingPolicyService(self.db)
         provider_fee_percent = await billing_policy_service.get_provider_fee_percent()
         markup_percent = await billing_policy_service.get_effective_markup_percent(tenant_id)
         provider_min_fee_usdt = await billing_policy_service.get_min_total_payment_fee_usdt()
+        platform_min_fee_usdt = await billing_policy_service.get_platform_fee_min_usdt()
 
-        provider_fee = self._calculate_percent_amount(gross_amount, provider_fee_percent)
-        provider_fee = await self._ensure_provider_minimum_fee(
-            provider_fee=provider_fee,
-            gross_amount=gross_amount,
-            fiat_currency=fiat_currency,
+        gross = gross_amount.quantize(self.SETTLEMENT_USDT_PRECISION)
+        provider_calc = self._calculate_settlement_percent_amount(gross, provider_fee_percent)
+        provider_fixed = await self._resolve_fixed_fee_usdt(
             min_fee_usdt=provider_min_fee_usdt,
+            fiat_currency=fiat_currency,
         )
-        after_provider = (gross_amount - provider_fee).quantize(self.AMOUNT_PRECISION)
+        provider_used_fix = provider_calc < provider_fixed
+        provider_fee = provider_fixed if provider_used_fix else provider_calc
+        provider_fee = min(provider_fee, gross).quantize(self.SETTLEMENT_USDT_PRECISION)
+
+        after_provider = (gross - provider_fee).quantize(self.SETTLEMENT_USDT_PRECISION)
         if after_provider < Decimal("0"):
             raise ValueError("Комиссия провайдера не может превышать gross.")
 
-        platform_fee = self._calculate_percent_amount(after_provider, markup_percent)
+        if provider_used_fix:
+            platform_fixed = await self._resolve_fixed_fee_usdt(
+                min_fee_usdt=platform_min_fee_usdt,
+                fiat_currency=fiat_currency,
+            )
+            platform_fee = min(platform_fixed, after_provider).quantize(self.SETTLEMENT_USDT_PRECISION)
+        else:
+            platform_fee = self._calculate_settlement_percent_amount(after_provider, markup_percent)
+
         turnover_fee = Decimal("0")
-        net_amount = (after_provider - platform_fee).quantize(self.AMOUNT_PRECISION)
+        net_amount = (after_provider - platform_fee).quantize(self.SETTLEMENT_USDT_PRECISION)
         if net_amount < Decimal("0"):
             raise ValueError("Чистая сумма клиента не может быть отрицательной.")
         return provider_fee, platform_fee, turnover_fee, net_amount
 
-    async def _ensure_provider_minimum_fee(
+    async def _resolve_fixed_fee_usdt(
         self,
         *,
-        provider_fee: Decimal,
-        gross_amount: Decimal,
-        fiat_currency: str,
         min_fee_usdt: Decimal,
+        fiat_currency: str,
     ) -> Decimal:
-        """Floor for provider fee (platform_markup_min_usdt in admin settings)."""
         if min_fee_usdt <= Decimal("0"):
-            return provider_fee
+            return Decimal("0")
 
         fc = (fiat_currency or self.BALANCE_CURRENCY).strip().upper()
         rate_svc = get_exchange_rate_service()
         if fc in rate_svc.STABLECOIN_EQUIVALENTS:
-            minimum = min_fee_usdt
-        else:
-            converted = await rate_svc.convert_from_fiat(min_fee_usdt, fc, "USDT", Decimal("0"))
-            if converted is None:
-                logger.warning("Skipping provider min fee: cannot convert %s USDT to %s", min_fee_usdt, fc)
-                return provider_fee
-            minimum = converted
+            return min_fee_usdt.quantize(self.SETTLEMENT_USDT_PRECISION)
 
-        minimum = minimum.quantize(self.AMOUNT_PRECISION)
-        if provider_fee >= minimum:
-            return provider_fee
-        return min(minimum, gross_amount).quantize(self.AMOUNT_PRECISION)
+        converted = await rate_svc.convert_from_fiat(min_fee_usdt, fc, "USDT", Decimal("0"))
+        if converted is None:
+            logger.warning("Skipping fixed fee conversion: cannot convert %s USDT to %s", min_fee_usdt, fc)
+            return Decimal("0")
+        return converted.quantize(self.SETTLEMENT_USDT_PRECISION)
+
+    def _calculate_settlement_percent_amount(self, base_amount: Decimal, percent: Decimal) -> Decimal:
+        return ((base_amount * percent) / Decimal("100")).quantize(self.SETTLEMENT_USDT_PRECISION)
 
     def _calculate_percent_amount(self, base_amount: Decimal, percent: Decimal) -> Decimal:
         return ((base_amount * percent) / Decimal("100")).quantize(self.AMOUNT_PRECISION)

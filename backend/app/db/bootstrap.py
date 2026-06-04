@@ -287,6 +287,10 @@ DDL_PATCHES = [
     """,
     """
     ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS platform_fee_min_usdt NUMERIC(18, 8) NOT NULL DEFAULT 0.2
+    """,
+    """
+    ALTER TABLE platform_settings
     ADD COLUMN IF NOT EXISTS platform_markup_min_band_usdt_low NUMERIC(18, 8) NOT NULL DEFAULT 10
     """,
     """

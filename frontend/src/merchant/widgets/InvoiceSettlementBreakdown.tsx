@@ -43,16 +43,8 @@ export function InvoiceSettlementBreakdown({
           <dt>Зачёт в {settlement.currency}</dt>
           <dd>{formatMoney(settlement.gross_amount, settlement.currency)}</dd>
         </div>
-        <div className="invoice-settlement-row">
-          <dt>Комиссия обработки</dt>
-          <dd>{formatMoney(settlement.processing_fee, settlement.currency)}</dd>
-        </div>
-        <div className="invoice-settlement-row">
-          <dt>Комиссия платформы</dt>
-          <dd>{formatMoney(settlement.platform_fee, settlement.currency)}</dd>
-        </div>
         <div className="invoice-settlement-row invoice-settlement-row--fee-total">
-          <dt>Итого комиссий</dt>
+          <dt>Комиссия</dt>
           <dd>{formatMoney(settlement.total_fee, settlement.currency)}</dd>
         </div>
         <div className="invoice-settlement-row invoice-settlement-row--net">

@@ -72,7 +72,7 @@ class PlatformBillingSettingsResponse(BaseModel):
         description="Комиссия провайдера (Crypto-Cash), % от gross.",
     )
     default_markup_percent: Decimal = Field(
-        description="Наценка платформы, % от gross.",
+        description="Наценка платформы, % от остатка после комиссии провайдера.",
     )
     default_turnover_fee_percent: Decimal = Field(
         default=Decimal("0"),
@@ -81,6 +81,10 @@ class PlatformBillingSettingsResponse(BaseModel):
     platform_markup_min_usdt: Decimal = Field(
         default=Decimal("0.55"),
         description="Минимум комиссии провайдера в USDT (если % от gross меньше).",
+    )
+    platform_fee_min_usdt: Decimal = Field(
+        default=Decimal("0.2"),
+        description="Фикс комиссии платформы в USDT, когда у провайдера сработал минимум.",
     )
     platform_markup_min_band_usdt_low: Decimal = Field(
         default=Decimal("0"),
@@ -145,6 +149,10 @@ class PlatformBillingSettingsUpdateRequest(BaseModel):
     platform_markup_min_usdt: Decimal = Field(
         default=Decimal("0.55"),
         description="Минимум комиссии провайдера в USDT (если % от gross меньше).",
+    )
+    platform_fee_min_usdt: Decimal = Field(
+        default=Decimal("0.2"),
+        description="Фикс комиссии платформы в USDT, когда у провайдера сработал минимум.",
     )
     allow_tenant_markup_override: bool
     payouts_enabled: bool

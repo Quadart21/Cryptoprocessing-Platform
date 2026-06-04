@@ -161,8 +161,6 @@ export type InvoiceSettlement = {
   amount_crypto: string;
   crypto_currency: string;
   gross_amount: string;
-  processing_fee: string;
-  platform_fee: string;
   total_fee: string;
   net_amount: string;
   currency: string;
@@ -188,6 +186,7 @@ export type InvoiceTransactionDetails = {
   exchange_rate_currency: string;
   processing_commission: string | null;
   platform_commission: string | null;
+  total_commission: string | null;
   network_commission: string | null;
   network_commission_currency: string | null;
   commission_currency: string;
@@ -249,9 +248,10 @@ export type TransactionItem = {
   amount_crypto: string | null;
   crypto_currency: string | null;
   gross_amount: string;
-  provider_fee: string;
-  platform_fee: string;
-  turnover_fee: string;
+  provider_fee?: string | null;
+  platform_fee?: string | null;
+  turnover_fee?: string | null;
+  total_fee?: string | null;
   net_amount: string;
   currency: string;
   status: string;
@@ -472,6 +472,7 @@ export type PlatformBillingSettings = {
   default_turnover_fee_percent: string;
   /** Мин. наценка в USDT при депозите в диапазоне USDT-эквивалента [low, high]. */
   platform_markup_min_usdt: string;
+  platform_fee_min_usdt: string;
   platform_markup_min_band_usdt_low: string;
   platform_markup_min_band_usdt_high: string;
   exchange_rate_markup_percent: string;

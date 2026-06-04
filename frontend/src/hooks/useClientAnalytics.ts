@@ -268,12 +268,13 @@ function buildSummary(
     }
     turnover += toAmount(transaction.gross_amount);
     net += toAmount(transaction.net_amount);
-    const platformPart = toAmount(transaction.platform_fee) + toAmount(transaction.turnover_fee);
-    pureProfit += toAmount(transaction.net_amount) + platformPart;
-    fee +=
-      toAmount(transaction.provider_fee) +
-      toAmount(transaction.platform_fee) +
-      toAmount(transaction.turnover_fee);
+    const totalFeeAmount = transaction.total_fee
+      ? toAmount(transaction.total_fee)
+      : toAmount(transaction.provider_fee ?? "0") +
+        toAmount(transaction.platform_fee ?? "0") +
+        toAmount(transaction.turnover_fee ?? "0");
+    pureProfit += toAmount(transaction.net_amount);
+    fee += totalFeeAmount;
     paidOrConfirmed += 1;
   }
 

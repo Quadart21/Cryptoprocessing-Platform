@@ -1,5 +1,6 @@
 import type { TransactionItem } from "../../api";
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
+import { transactionTotalFee } from "../../utils/invoiceAccounting";
 
 export type OutboundLedgerProps = {
   transactions: TransactionItem[];
@@ -46,9 +47,7 @@ export function OutboundLedger({
       "currency",
       "gross_amount",
       "net_amount",
-      "provider_fee",
-      "platform_fee",
-      "turnover_fee",
+      "total_fee",
       "invoice_id",
       "transaction_id",
     ];
@@ -58,9 +57,7 @@ export function OutboundLedger({
       escapeCsv(item.currency),
       escapeCsv(item.gross_amount),
       escapeCsv(item.net_amount),
-      escapeCsv(item.provider_fee),
-      escapeCsv(item.platform_fee),
-      escapeCsv(item.turnover_fee),
+      escapeCsv(transactionTotalFee(item)),
       escapeCsv(item.invoice_id),
       escapeCsv(item.id),
     ]);
@@ -142,10 +139,7 @@ export function OutboundLedger({
                 <span>Net: {formatMoneyAmount(transaction.net_amount, transaction.currency)}</span>
                 <span>
                   Комиссии:{" "}
-                  {formatMoneyAmount(
-                    sumFee(transaction.provider_fee, transaction.platform_fee, transaction.turnover_fee),
-                    transaction.currency,
-                  )}
+                  {formatMoneyAmount(transactionTotalFee(transaction), transaction.currency)}
                 </span>
                 <span className="mc-row-mono">{formatDate(transaction.created_at)}</span>
                 <span className="mc-row-mono">inv: {transaction.invoice_id}</span>
@@ -186,10 +180,7 @@ export function OutboundLedger({
                   <td>{formatMoneyAmount(transaction.gross_amount, transaction.currency)}</td>
                   <td>{formatMoneyAmount(transaction.net_amount, transaction.currency)}</td>
                   <td>
-                    {formatMoneyAmount(
-                      sumFee(transaction.provider_fee, transaction.platform_fee, transaction.turnover_fee),
-                      transaction.currency,
-                    )}
+                    {formatMoneyAmount(transactionTotalFee(transaction), transaction.currency)}
                   </td>
                   <td className="tx-id-cell">{transaction.invoice_id}</td>
                 </tr>
@@ -253,15 +244,4 @@ function formatDate(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function sumFee(providerFee: string, platformFee: string, turnoverFee: string): string {
-  const provider = Number(providerFee);
-  const platform = Number(platformFee);
-  const turnover = Number(turnoverFee);
-  const total =
-    (Number.isFinite(provider) ? provider : 0) +
-    (Number.isFinite(platform) ? platform : 0) +
-    (Number.isFinite(turnover) ? turnover : 0);
-  return formatDecimal(total, { minFractionDigits: 0, maxFractionDigits: 8 });
 }

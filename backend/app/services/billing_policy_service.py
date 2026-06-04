@@ -97,6 +97,9 @@ class BillingPolicyService:
     async def get_min_total_payment_fee_usdt(self) -> Decimal:
         return Decimal((await self.get_platform_settings()).platform_markup_min_usdt)
 
+    async def get_platform_fee_min_usdt(self) -> Decimal:
+        return Decimal((await self.get_platform_settings()).platform_fee_min_usdt)
+
     async def get_exchange_rate_markup_percent(self) -> Decimal:
         try:
             return Decimal((await self.get_platform_settings()).exchange_rate_markup_percent)
@@ -188,6 +191,7 @@ class BillingPolicyService:
         provider_fee_percent: Decimal,
         default_markup_percent: Decimal,
         platform_markup_min_usdt: Decimal,
+        platform_fee_min_usdt: Decimal,
         allow_tenant_markup_override: bool,
         payouts_enabled: bool,
         exchange_rate_markup_percent: Decimal = Decimal("0"),
@@ -209,6 +213,7 @@ class BillingPolicyService:
         self._validate_percent(provider_fee_percent, "provider_fee_percent")
         self._validate_percent(default_markup_percent, "default_markup_percent")
         self._validate_non_negative(platform_markup_min_usdt, "platform_markup_min_usdt")
+        self._validate_non_negative(platform_fee_min_usdt, "platform_fee_min_usdt")
         self._validate_rate_adjustment_percent(
             exchange_rate_markup_percent,
             "exchange_rate_markup_percent",
@@ -226,6 +231,7 @@ class BillingPolicyService:
         settings.provider_fee_percent = provider_fee_percent
         settings.default_markup_percent = default_markup_percent
         settings.platform_markup_min_usdt = platform_markup_min_usdt
+        settings.platform_fee_min_usdt = platform_fee_min_usdt
         settings.allow_tenant_markup_override = allow_tenant_markup_override
         settings.payouts_enabled = payouts_enabled
         settings.exchange_rate_markup_percent = exchange_rate_markup_percent

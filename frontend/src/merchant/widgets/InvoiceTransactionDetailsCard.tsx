@@ -167,14 +167,23 @@ export function InvoiceTransactionDetailsCard({
             <strong>{formatRate(details.exchange_rate, details.exchange_rate_currency)}</strong>
           </div>
         ) : null}
-        <div className="invoice-tx-fee">
-          <span>Комиссия</span>
-          <strong>{formatCommission(details.processing_commission, details.commission_currency)}</strong>
-        </div>
-        <div className="invoice-tx-fee">
-          <span>Комиссия платформы</span>
-          <strong>{formatCommission(details.platform_commission, details.commission_currency)}</strong>
-        </div>
+        {details.total_commission != null ? (
+          <div className="invoice-tx-fee">
+            <span>Комиссия</span>
+            <strong>{formatCommission(details.total_commission, details.commission_currency)}</strong>
+          </div>
+        ) : (
+          <>
+            <div className="invoice-tx-fee">
+              <span>Комиссия обработки</span>
+              <strong>{formatCommission(details.processing_commission, details.commission_currency)}</strong>
+            </div>
+            <div className="invoice-tx-fee">
+              <span>Комиссия платформы</span>
+              <strong>{formatCommission(details.platform_commission, details.commission_currency)}</strong>
+            </div>
+          </>
+        )}
         <div className="invoice-tx-fee">
           <span>Комиссия сети</span>
           <strong>

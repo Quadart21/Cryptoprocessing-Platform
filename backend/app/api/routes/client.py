@@ -1151,8 +1151,6 @@ def _map_invoice_settlement(
         amount_crypto=invoice.amount_crypto,
         crypto_currency=invoice.crypto_currency,
         gross_amount=transaction.gross_amount,
-        processing_fee=processing_fee,
-        platform_fee=platform_fee,
         total_fee=total_fee,
         net_amount=transaction.net_amount,
         currency=transaction.currency,
@@ -1174,6 +1172,7 @@ async def _map_invoice_detail_response(
         invoice,
         transaction,
         include_exchange_rate=False,
+        merchant_view=True,
     )
     return InvoiceDetailResponse(
         **base.model_dump(),
@@ -1201,6 +1200,8 @@ def _checkout_delivery_for_invoice(
 
 
 def _map_transaction_response(transaction, invoice: Invoice | None = None) -> TransactionResponse:
+    provider_fee = Decimal(transaction.provider_fee)
+    platform_fee = Decimal(transaction.platform_fee) + Decimal(transaction.turnover_fee)
     return TransactionResponse(
         id=transaction.id,
         tenant_id=transaction.tenant_id,
@@ -1209,9 +1210,7 @@ def _map_transaction_response(transaction, invoice: Invoice | None = None) -> Tr
         amount_crypto=invoice.amount_crypto if invoice is not None else None,
         crypto_currency=invoice.crypto_currency if invoice is not None else None,
         gross_amount=transaction.gross_amount,
-        provider_fee=transaction.provider_fee,
-        platform_fee=transaction.platform_fee,
-        turnover_fee=transaction.turnover_fee,
+        total_fee=(provider_fee + platform_fee).quantize(Decimal("0.0001")),
         net_amount=transaction.net_amount,
         currency=transaction.currency,
         status=transaction.status,

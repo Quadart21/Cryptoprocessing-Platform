@@ -36,13 +36,11 @@ class InvoiceResponse(BaseModel):
 
 
 class InvoiceSettlementResponse(BaseModel):
-    """Merchant-facing fee breakdown (neutral labels, no provider branding)."""
+    """Merchant-facing settlement; single fee line, no provider/platform split."""
 
     amount_crypto: Decimal
     crypto_currency: str
     gross_amount: Decimal
-    processing_fee: Decimal
-    platform_fee: Decimal
     total_fee: Decimal
     net_amount: Decimal
     currency: str
@@ -70,6 +68,7 @@ class InvoiceTransactionDetailsResponse(BaseModel):
     exchange_rate_currency: str
     processing_commission: Decimal | None = None
     platform_commission: Decimal | None = None
+    total_commission: Decimal | None = None
     network_commission: Decimal | None = None
     network_commission_currency: str | None = None
     commission_currency: str

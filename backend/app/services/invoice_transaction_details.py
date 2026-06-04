@@ -155,6 +155,7 @@ async def build_invoice_transaction_details(
     transaction: Transaction | None,
     *,
     include_exchange_rate: bool = False,
+    merchant_view: bool = False,
 ) -> dict[str, Any] | None:
     if not invoice_accounting_is_ready(invoice, transaction):
         return None
@@ -169,10 +170,13 @@ async def build_invoice_transaction_details(
 
     commission_currency = InvoiceService.BALANCE_CURRENCY
     gross_amount = Decimal(transaction.gross_amount).quantize(InvoiceService.AMOUNT_PRECISION)
-    processing_commission = Decimal(transaction.provider_fee).quantize(InvoiceService.AMOUNT_PRECISION)
+    processing_commission = Decimal(transaction.provider_fee).quantize(InvoiceService.SETTLEMENT_USDT_PRECISION)
     platform_commission = (
         Decimal(transaction.platform_fee) + Decimal(transaction.turnover_fee)
-    ).quantize(InvoiceService.AMOUNT_PRECISION)
+    ).quantize(InvoiceService.SETTLEMENT_USDT_PRECISION)
+    total_commission = (processing_commission + platform_commission).quantize(
+        InvoiceService.SETTLEMENT_USDT_PRECISION
+    )
     commission_currency = transaction.currency or commission_currency
 
     display_fiat = gross_amount
@@ -208,8 +212,9 @@ async def build_invoice_transaction_details(
         "tx_hash": extract_tx_hash(stored_payload, items),
         "exchange_rate": exchange_rate,
         "exchange_rate_currency": display_fiat_currency,
-        "processing_commission": processing_commission,
-        "platform_commission": platform_commission,
+        "processing_commission": None if merchant_view else processing_commission,
+        "platform_commission": None if merchant_view else platform_commission,
+        "total_commission": total_commission if merchant_view else None,
         "network_commission": network_commission,
         "network_commission_currency": network_commission_currency,
         "commission_currency": commission_currency,

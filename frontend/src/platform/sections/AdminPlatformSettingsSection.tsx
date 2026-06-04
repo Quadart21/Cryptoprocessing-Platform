@@ -484,6 +484,18 @@ export function AdminPlatformSettingsSection({
             />
           </label>
           <label>
+            <span>Фикс комиссии платформы (USDT)</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={platformSettingsForm.platform_fee_min_usdt}
+              onChange={(event) =>
+                updatePlatformSettings({ platform_fee_min_usdt: event.target.value })
+              }
+            />
+          </label>
+          <label>
             <span>Накрутка курса (%)</span>
             <input
               type="number"
@@ -496,9 +508,9 @@ export function AdminPlatformSettingsSection({
           </label>
         </FieldGrid>
         <p className="muted-text aps-field-span-2" style={{ gridColumn: "1 / -1", marginTop: "0.5rem" }}>
-          Комиссия с платежа = % провайдера + % платформы (оба от суммы зачёта). Если сумма комиссий
-          меньше минимума в USDT — взимается минимум. Наценку по клиентам можно переопределить в блоке
-          «Правила клиента».
+          Каскад: % провайдера от gross (минимум в USDT), затем % платформы от остатка. Если у провайдера
+          сработал минимум — платформа берёт свой фикс в USDT вместо процента. Мерчант видит одну строку
+          «Комиссия». Наценку по клиентам можно переопределить в блоке «Правила клиента».
         </p>
       </div>
     );
