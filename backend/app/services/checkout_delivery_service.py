@@ -25,6 +25,8 @@ class CheckoutDeliveryService:
     @staticmethod
     def normalize(mode: str | None) -> str:
         normalized = (mode or CHECKOUT_DELIVERY_PAYMENT_PAGE).strip().lower()
+        if normalized == CHECKOUT_DELIVERY_BOTH:
+            return CHECKOUT_DELIVERY_PAYMENT_PAGE
         if normalized not in CHECKOUT_DELIVERY_CHOICES:
             raise ValueError(
                 "checkout_delivery должен быть одним из: payment_page, h2h, both."

@@ -84,6 +84,11 @@ DDL_PATCHES = [
     ALTER TABLE projects
     ADD COLUMN IF NOT EXISTS return_url_failed VARCHAR(500)
     """,
+    """
+    UPDATE projects
+    SET checkout_delivery = 'payment_page'
+    WHERE checkout_delivery = 'both'
+    """,
     # api_keys
     """
     ALTER TABLE api_keys
