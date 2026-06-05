@@ -232,6 +232,8 @@ class PlatformOpsTelegramService:
             )
 
         await self.db.flush()
+        await self.db.commit()
+        await self.db.refresh(platform_settings)
         return platform_settings
 
     def _is_configured(self, platform_settings: PlatformSetting) -> bool:
@@ -380,12 +382,21 @@ class PlatformOpsTelegramService:
         self,
         *,
         initiated_by_email: str,
+        chat_id_override: str | None = None,
     ) -> dict[str, Any]:
         billing = BillingPolicyService(self.db)
         platform_settings = await billing.get_platform_settings()
+        if chat_id_override is not None:
+            normalized_override = chat_id_override.strip()
+            platform_settings.ops_telegram_chat_id = normalized_override or None
+            if normalized_override:
+                platform_settings.ops_telegram_enabled = True
         chat_id = (platform_settings.ops_telegram_chat_id or "").strip()
         if not chat_id:
-            raise ValueError("Укажите chat_id служебного форум-чата.")
+            raise ValueError(
+                "Укажите chat_id служебного форум-чата и сохраните настройки "
+                "(кнопка «Сохранить служебный чат»)."
+            )
         bot_token = self._notifications._get_telegram_bot_token(platform_settings)  # noqa: SLF001
         if not bot_token:
             raise ValueError("Токен Telegram-бота не настроен.")
@@ -431,7 +442,10 @@ class PlatformOpsTelegramService:
         if created:
             platform_settings.ops_telegram_topics_json = json.dumps(topics, ensure_ascii=False)
             platform_settings.ops_telegram_enabled = True
+
+        if chat_id_override is not None or created:
             await self.db.flush()
+            await self.db.commit()
 
         intro = (
             f"<b>Служебный чат платформы</b>\n"

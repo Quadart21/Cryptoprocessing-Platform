@@ -404,10 +404,12 @@ export function sendPlatformTelegramTest(
 
 export function provisionOpsTelegramTopics(
   token: string,
+  payload: { chat_id?: string | null } = {},
 ): Promise<OpsTelegramProvisionResponse> {
   return request<OpsTelegramProvisionResponse>("/admin/billing/ops-telegram/provision", {
     method: "POST",
     headers: authHeaders(token),
+    body: JSON.stringify(payload),
   });
 }
 

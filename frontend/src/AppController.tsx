@@ -1825,7 +1825,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     }
   }
 
-  async function handleProvisionOpsTelegramTopics(): Promise<OpsTelegramProvisionResponse> {
+  async function handleProvisionOpsTelegramTopics(
+    chatId: string | null,
+  ): Promise<OpsTelegramProvisionResponse> {
     if (!token || user?.role !== "superadmin") {
       throw new Error("Доступно только superadmin.");
     }
@@ -1833,7 +1835,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setLoading(true);
       setError(null);
       setSuccess(null);
-      const result = await provisionOpsTelegramTopics(token);
+      const result = await provisionOpsTelegramTopics(token, {
+        chat_id: chatId?.trim() || null,
+      });
       setSuccess("Топики служебного чата обновлены.");
       return result;
     } catch (err) {
@@ -2209,7 +2213,7 @@ return (
           onRefreshPlatformExchangeRate={handleRefreshPlatformExchangeRate}
           onInspectPlatformTelegramBot={(payload) => handleInspectPlatformTelegramBot(payload)}
           onSendPlatformTelegramTest={(payload) => handleSendPlatformTelegramTest(payload)}
-          onProvisionOpsTelegramTopics={() => handleProvisionOpsTelegramTopics()}
+          onProvisionOpsTelegramTopics={(chatId) => handleProvisionOpsTelegramTopics(chatId)}
           onSendOpsTelegramTopicTest={(topicKey) => handleSendOpsTelegramTopicTest(topicKey)}
           onSendPlatformSmtpBzTest={(payload) => handleSendPlatformSmtpBzTest(payload)}
           onPreviewNotificationTemplate={(payload) => handlePreviewNotificationTemplate(payload)}

@@ -62,7 +62,9 @@ type AdminPlatformSettingsSectionProps = {
   onSendPlatformTelegramTest: (
     payload: TelegramAdminTestPayload,
   ) => Promise<TelegramAdminTestResponse>;
-  onProvisionOpsTelegramTopics?: () => Promise<OpsTelegramProvisionResponse>;
+  onProvisionOpsTelegramTopics?: (
+    chatId: string | null,
+  ) => Promise<OpsTelegramProvisionResponse>;
   onSendOpsTelegramTopicTest?: (
     topicKey: string,
   ) => Promise<OpsTelegramTopicTestResponse>;
@@ -340,11 +342,15 @@ export function AdminPlatformSettingsSection({
 
   async function handleSavePlatformSettings() {
     if (!platformSettingsForm) return;
-    await onUpdatePlatformSettings({
+    const payload: PlatformBillingSettings = {
       ...platformSettingsForm,
       smtp_bz_api_key: smtpBzApiKey.trim() || null,
       telegram_bot_token: telegramBotToken.trim() || null,
-    });
+    };
+    if (isSuperadmin) {
+      payload.ops_telegram = ensureOpsTelegramSettings();
+    }
+    await onUpdatePlatformSettings(payload);
     setSmtpBzApiKey("");
     setTelegramBotToken("");
   }
@@ -1103,11 +1109,17 @@ export function AdminPlatformSettingsSection({
 
   async function handleProvisionOpsTopics() {
     if (!onProvisionOpsTelegramTopics) return;
+    const ops = ensureOpsTelegramSettings();
+    const chatId = (ops.chat_id ?? "").trim();
+    if (!chatId) {
+      setOpsChatError("Сначала укажите chat_id форум-чата.");
+      return;
+    }
     setProvisioningOpsTopics(true);
     setOpsChatError(null);
     setOpsChatMessage(null);
     try {
-      const result = await onProvisionOpsTelegramTopics();
+      const result = await onProvisionOpsTelegramTopics(chatId);
       await onReloadPlatformSettings();
       const createdCount = Object.keys(result.created_topics).length;
       setOpsChatMessage(
@@ -1158,8 +1170,8 @@ export function AdminPlatformSettingsSection({
           <ol className="muted-text aps-ops-setup-list">
             <li>Создайте супергруппу, включите Topics (форум).</li>
             <li>Добавьте бота админом, дайте can_manage_topics.</li>
-            <li>Узнайте chat_id (@userinfobot или getUpdates) и сохраните ниже.</li>
-            <li>Нажмите «Создать топики» — или укажите thread_id вручную.</li>
+            <li>Узнайте chat_id (@userinfobot или getUpdates) и введите ниже.</li>
+            <li>Нажмите «Создать топики» — chat_id сохранится автоматически.</li>
           </ol>
           <FieldGrid>
             <StatPill

@@ -494,6 +494,10 @@ export type OpsTelegramTopicTestResponse = {
   telegram_message_id: number | null;
 };
 
+export type OpsTelegramProvisionPayload = {
+  chat_id?: string | null;
+};
+
 export type OpsTelegramProvisionResponse = {
   ok: boolean;
   chat_id: string;
@@ -1725,12 +1729,14 @@ export function sendPlatformTelegramTest(
 
 export function provisionOpsTelegramTopics(
   token: string,
+  payload: OpsTelegramProvisionPayload = {},
 ): Promise<OpsTelegramProvisionResponse> {
   return request<OpsTelegramProvisionResponse>("/admin/billing/ops-telegram/provision", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    body: JSON.stringify(payload),
   });
 }
 

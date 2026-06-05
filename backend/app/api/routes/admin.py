@@ -40,6 +40,7 @@ from app.schemas.billing import (
     NotificationTemplateTestRequest,
     NotificationTemplateTestResponse,
     OpsTelegramProvisionResponse,
+    OpsTelegramProvisionRequest,
     OpsTelegramSettingsView,
     OpsTelegramTopicTestRequest,
     OpsTelegramTopicTestResponse,
@@ -1274,6 +1275,7 @@ async def send_platform_telegram_test(
 
 @router.post("/billing/ops-telegram/provision", response_model=OpsTelegramProvisionResponse)
 async def provision_ops_telegram_topics(
+    payload: OpsTelegramProvisionRequest = OpsTelegramProvisionRequest(),
     current_user: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> OpsTelegramProvisionResponse:
@@ -1281,6 +1283,7 @@ async def provision_ops_telegram_topics(
     try:
         result = await ops_service.provision_forum_topics(
             initiated_by_email=current_user.email,
+            chat_id_override=payload.chat_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

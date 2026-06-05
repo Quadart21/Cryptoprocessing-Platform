@@ -176,6 +176,14 @@ class OpsTelegramTopicTestRequest(BaseModel):
     topic_key: str = Field(min_length=1, max_length=64)
 
 
+class OpsTelegramProvisionRequest(BaseModel):
+    chat_id: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Chat ID из формы — сохраняется перед созданием топиков, если ещё не в БД.",
+    )
+
+
 class OpsTelegramTopicTestResponse(BaseModel):
     ok: bool
     topic_key: str
