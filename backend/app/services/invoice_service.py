@@ -12,6 +12,7 @@ from app.models.ledger_entry import LedgerEntry
 from app.models.project import Project
 from app.models.transaction import Transaction
 from app.providers.base import ProviderCreateInvoiceRequest
+from app.providers.crypto_cash import _provider_item
 from app.providers.factory import get_payment_provider
 from app.schemas.invoice import InvoiceCreateRequest
 from app.services.accounting_service import AccountingService
@@ -347,7 +348,7 @@ class InvoiceService:
             if isinstance(data, dict):
                 candidates.append(data)
 
-        item = raw_payload.get("data", {}).get("item", {}) or {}
+        item = _provider_item(raw_payload)
         if isinstance(item, dict):
             candidates.append(item)
 
@@ -618,7 +619,7 @@ class InvoiceService:
         provider = get_payment_provider()
         with provider_usage_scope(tenant_id=tenant_id, project_id=invoice.project_id):
             provider_response = provider.get_invoice_status(invoice.merchant_order_id)
-        item = provider_response.get("data", {}).get("item", {})
+        item = _provider_item(provider_response)
         provider_status = str(item.get("status") or invoice.status)
         provider_order_id = str(item.get("id") or invoice.provider_order_id)
         tx_hash = item.get("hash")
