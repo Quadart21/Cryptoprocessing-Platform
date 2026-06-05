@@ -9,7 +9,7 @@ import { DashboardStatusMessages } from "../components/layout/DashboardStatusMes
 import { SectionContextChips } from "../components/layout/SectionContextChips";
 import { ClientSectionHeader } from "../components/client/ClientSectionHeader";
 import { TwoFactorPanel } from "../components/security/TwoFactorPanel";
-import { ADMIN_SECTION_META, buildAdminMenuGroups } from "./config";
+import { ADMIN_SECTION_META, ADMIN_HUB_DEFAULT_SECTION, buildAdminMenuGroups, isAdminHub } from "./config";
 import {
   AdminClientDetailSectionLazy,
   AdminClientsSectionLazy,
@@ -26,6 +26,7 @@ import {
   PlatformTransactionsPanelLazy,
 } from "./lazySections";
 import { type AdminDashboardProps, type AdminSection, isAdminSection } from "./types";
+import { AdminSectionSubNav } from "./sections/AdminSectionSubNav";
 
 export function PlatformDashboardRoot(props: AdminDashboardProps) {
   const {
@@ -176,8 +177,13 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
       <DashboardRail
         activeKey={section}
         groups={adminMenuGroups}
+        navVariant="hubs"
         topbarSubtitle={sectionMeta.title}
         onSelect={(key) => {
+          if (isAdminHub(key)) {
+            setSection(ADMIN_HUB_DEFAULT_SECTION[key]);
+            return;
+          }
           if (key === "client-detail") {
             if (selectedTenantId) {
               setSection("client-detail");
@@ -208,6 +214,16 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
             description={sectionMeta.description}
             group={sectionMeta.group}
             title={sectionMeta.title}
+          />
+          <AdminSectionSubNav
+            groups={adminMenuGroups}
+            section={section}
+            onSectionChange={(next) => {
+              if (next === "client-detail" && !selectedTenantId) {
+                return;
+              }
+              setSection(next);
+            }}
           />
           <SectionContextChips items={contextChips} />
 

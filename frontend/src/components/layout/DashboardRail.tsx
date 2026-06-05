@@ -18,6 +18,8 @@ type DashboardRailProps = {
   role: "client" | "admin";
   items?: DashboardRailItem[];
   groups?: DashboardRailGroup[];
+  /** full — все пункты в доке; hubs — только группы (для админки). */
+  navVariant?: "full" | "hubs";
   activeKey?: string;
   topbarSubtitle?: string;
   onSelect?: (key: string) => void;
@@ -96,6 +98,7 @@ export function DashboardRail({
   role,
   items,
   groups,
+  navVariant = "full",
   activeKey,
   topbarSubtitle,
   onSelect,
@@ -123,13 +126,50 @@ export function DashboardRail({
     onSelect?.(key);
   };
 
+  const hubMode = navVariant === "hubs" && railGroups.length > 0;
+
   return (
     <>
-      <nav className="dashboard-dock" aria-label="Навигация по разделам">
+      <nav
+        aria-label="Навигация по разделам"
+        className={`dashboard-dock ${hubMode ? "dashboard-dock-hubs" : ""}`}
+      >
         <div className="dashboard-dock-surface">
           <div className="dashboard-dock-scroll">
             <div className="dashboard-dock-track">
-              {railGroups.map((group) => (
+              {hubMode
+                ? railGroups.map((group) => {
+                    const isActive = group.items.some((item) => item.key === resolvedActiveKey);
+                    const className = `dashboard-dock-item dashboard-dock-hub ${isActive ? "dashboard-dock-item-active" : ""}`;
+
+                    if (!onSelect) {
+                      return (
+                        <div className={className} key={group.key}>
+                          <span aria-hidden className="dashboard-dock-icon">
+                            <DashboardDockIcon itemKey={group.key} />
+                          </span>
+                          <span className="dashboard-dock-label">{group.label}</span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        aria-current={isActive ? "page" : undefined}
+                        className={className}
+                        key={group.key}
+                        onClick={() => handleSelect(group.key)}
+                        title={group.label}
+                        type="button"
+                      >
+                        <span aria-hidden className="dashboard-dock-icon">
+                          <DashboardDockIcon itemKey={group.key} />
+                        </span>
+                        <span className="dashboard-dock-label">{group.label}</span>
+                      </button>
+                    );
+                  })
+                : railGroups.map((group) => (
                 <div className="dashboard-dock-cluster" key={group.key}>
                   <span className="dashboard-dock-cluster-label">{group.label}</span>
                   <div className="dashboard-dock-cluster-items">

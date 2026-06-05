@@ -93,6 +93,25 @@ export function DashboardDockIcon({ itemKey }: { itemKey: string }) {
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" strokeLinejoin="round" />
         </svg>
       );
+    case "monitoring":
+      return (
+        <svg {...common} aria-hidden>
+          <path d="M4 20V10M12 20V4M20 20v-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case "management":
+      return (
+        <svg {...common} aria-hidden>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" strokeLinecap="round" />
+        </svg>
+      );
+    case "api-traffic":
+      return (
+        <svg {...common} aria-hidden>
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
     case "docs":
       return (
         <svg {...common} aria-hidden>

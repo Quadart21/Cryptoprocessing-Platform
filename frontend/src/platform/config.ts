@@ -2,6 +2,33 @@ import type { DashboardRailGroup } from "../components/layout/DashboardRail";
 
 import type { AdminSection } from "./types";
 
+export type AdminHub = "monitoring" | "clients" | "management";
+
+const ADMIN_HUB_SECTIONS: Record<AdminHub, AdminSection[]> = {
+  monitoring: ["overview", "invoices", "transactions", "payouts", "events", "api-traffic"],
+  clients: ["requests", "clients", "client-detail"],
+  management: ["platform-settings", "public-pages", "assets", "sandbox", "team", "security"],
+};
+
+export const ADMIN_HUB_DEFAULT_SECTION: Record<AdminHub, AdminSection> = {
+  monitoring: "overview",
+  clients: "clients",
+  management: "platform-settings",
+};
+
+export function adminSectionToHub(section: AdminSection): AdminHub {
+  for (const [hub, sections] of Object.entries(ADMIN_HUB_SECTIONS) as Array<[AdminHub, AdminSection[]]>) {
+    if (sections.includes(section)) {
+      return hub;
+    }
+  }
+  return "monitoring";
+}
+
+export function isAdminHub(value: string): value is AdminHub {
+  return value === "monitoring" || value === "clients" || value === "management";
+}
+
 /** Копирайт секций консоли платформы (навигация + шапка контента). */
 export const ADMIN_SECTION_META: Record<
   AdminSection,
@@ -103,7 +130,7 @@ export function buildAdminMenuGroups(
         { key: "transactions", label: "Транзакции" },
         { key: "payouts", label: "Выплаты" },
         { key: "events", label: "События" },
-        { key: "api-traffic", label: "Трафик API" },
+        { key: "api-traffic", label: "Трафик" },
       ],
     },
     {
@@ -125,7 +152,7 @@ export function buildAdminMenuGroups(
       items: [
         { key: "platform-settings", label: "Настройки" },
         { key: "public-pages", label: "Страницы" },
-        { key: "assets", label: "Токены и сети" },
+        { key: "assets", label: "Токены" },
         ...sandboxItem,
         { key: "team", label: "Команда" },
         { key: "security", label: "Безопасность" },

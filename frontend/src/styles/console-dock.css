@@ -185,3 +185,60 @@
     font-size: 8px;
   }
 }
+
+/* Админка: три хаба вместо длинного дока */
+.app-frame .dashboard-dock-hubs .dashboard-dock-surface {
+  max-width: min(380px, calc(100% - 16px));
+}
+
+.app-frame .dashboard-dock-hubs .dashboard-dock-track {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.app-frame .dashboard-dock-hubs .dashboard-dock-item {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 112px;
+}
+
+.app-frame .dashboard-dock-hubs .dashboard-dock-label {
+  font-size: 10px;
+  -webkit-line-clamp: 1;
+}
+
+.app-frame .admin-section-subnav {
+  margin: -0.35rem 0 0;
+}
+
+.app-frame .admin-section-subnav-scroll {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+
+.app-frame .admin-section-subnav-item {
+  padding: 7px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .app-frame .admin-section-subnav-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 4px;
+    margin-inline: calc(-1 * var(--console-content-pad-x, 12px));
+    padding-inline: var(--console-content-pad-x, 12px);
+  }
+
+  .app-frame .admin-section-subnav-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}
