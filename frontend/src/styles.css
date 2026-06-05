@@ -15,6 +15,7 @@
 @import "./styles/platform-workspace.css";
 @import "./styles/console-unified.css";
 @import "./styles/console-dock.css";
+@import "./styles/console-desktop.css";
 @import "./styles/console-sections.css";
 @import "./styles/landing-experience.css";
 @import "./styles/responsive.css";

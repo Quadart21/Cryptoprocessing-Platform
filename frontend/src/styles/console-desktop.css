@@ -1,0 +1,157 @@
+/* Десктоп: плотнее типографика и отступы; мобильная вёрстка без изменений */
+
+@media (min-width: 1024px) {
+  .app-frame {
+    --content-max: 1200px;
+    --console-content-pad-x: 18px;
+    --console-topbar-h: 50px;
+    --console-dock-h: 80px;
+    --console-workspace-gap: 0.95rem;
+    --console-section-stack-gap: 0.95rem;
+    --console-panel-pad-x: 0.95rem;
+    --console-panel-header-pad-y: 0.75rem;
+  }
+
+  .app-frame .dashboard-topbar {
+    padding-inline: 18px;
+  }
+
+  .app-frame .topbar-section {
+    font-size: 14px;
+  }
+
+  .app-frame .topbar-role {
+    font-size: 12px;
+  }
+
+  .app-frame .pw-console-workspace,
+  .app-frame .client-cabinet.mw-workspace {
+    width: min(var(--content-max), 100%);
+    margin-inline: auto;
+    gap: var(--console-workspace-gap);
+  }
+
+  .app-frame .pw-console-workspace > .stats-grid,
+  .app-frame .pw-console-workspace > .dashboard-grid,
+  .app-frame .pw-console-workspace > .section-context,
+  .app-frame .pw-console-workspace > .console-section-stack,
+  .app-frame .pw-console-workspace > .client-section-header,
+  .app-frame .pw-console-workspace > .admin-section-subnav,
+  .app-frame .client-cabinet.mw-workspace > .stats-grid,
+  .app-frame .client-cabinet.mw-workspace > .dashboard-grid,
+  .app-frame .client-cabinet.mw-workspace > .section-context,
+  .app-frame .client-cabinet.mw-workspace > .console-section-stack,
+  .app-frame .client-cabinet.mw-workspace > .client-section-header {
+    width: 100%;
+    max-width: var(--content-max);
+    margin-inline: auto;
+  }
+
+  .app-frame .client-section-header {
+    padding: 0.8rem 0.95rem 0.9rem;
+    border-radius: 12px;
+  }
+
+  .app-frame .client-section-header-title {
+    font-size: 1.2rem;
+    line-height: 1.2;
+  }
+
+  .app-frame .client-section-header-desc {
+    margin-top: 0.4rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  .app-frame .section-context {
+    gap: 8px;
+  }
+
+  .app-frame .section-context-chip {
+    min-height: 0;
+    padding: 9px 11px;
+    border-radius: 10px;
+  }
+
+  .app-frame .section-context-chip strong {
+    margin-top: 0.2rem;
+    font-size: 0.875rem;
+  }
+
+  .app-frame .dashboard-shell .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 8px;
+  }
+
+  .app-frame .stat-card {
+    padding: 11px 12px;
+    border-radius: 12px;
+  }
+
+  .app-frame .stat-card span {
+    font-size: 10px;
+  }
+
+  .app-frame .stat-card strong {
+    margin-top: 5px;
+    font-size: 1.25rem;
+    line-height: 1.1;
+  }
+
+  .app-frame .console-section-stack {
+    gap: var(--console-section-stack-gap);
+  }
+
+  .app-frame .dashboard-shell .dashboard-grid {
+    gap: 10px;
+  }
+
+  .app-frame .panel {
+    border-radius: 12px;
+  }
+
+  .app-frame .panel > .panel-header {
+    padding: var(--console-panel-header-pad-y) var(--console-panel-pad-x);
+  }
+
+  .app-frame .panel-header h2 {
+    font-size: 1rem;
+  }
+
+  .app-frame .panel > *:not(.panel-header) {
+    padding-inline: var(--console-panel-pad-x);
+  }
+
+  .app-frame .panel > .panel-header + * {
+    padding-top: 0.85rem;
+  }
+
+  .app-frame .panel > *:not(.panel-header):last-child {
+    padding-bottom: var(--console-panel-pad-x);
+  }
+
+  .app-frame .admin-section-subnav-item {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .app-frame :where(.primary-button, .ghost-button, .segment-button, .admin-nav-button) {
+    padding: 7px 12px;
+    font-size: 0.8125rem;
+    border-radius: 10px;
+  }
+
+  .app-frame .pw-fieldset-body {
+    padding: 0.85rem 0.95rem 1rem;
+  }
+
+  .app-frame .admin-grid {
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1440px) {
+  .app-frame {
+    --content-max: 1280px;
+  }
+}
