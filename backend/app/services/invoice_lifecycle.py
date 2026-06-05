@@ -3,8 +3,7 @@ from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 from app.models.invoice import Invoice
 from app.services.checkout_delivery_service import CheckoutDeliveryService, CheckoutPaymentFields
-
-PAYMENT_IN_FLIGHT_STATUSES = frozenset({"confirming", "paid", "confirmed"})
+from app.providers.crypto_cash_status import platform_status_indicates_payment
 
 
 def invoice_payment_ttl() -> timedelta:
@@ -38,7 +37,7 @@ def invoice_allows_payment_credentials(invoice: Invoice, *, now: datetime | None
 
 
 def provider_status_indicates_payment(raw_normalized: str) -> bool:
-    return raw_normalized in PAYMENT_IN_FLIGHT_STATUSES
+    return platform_status_indicates_payment(raw_normalized)
 
 
 def checkout_payment_fields(

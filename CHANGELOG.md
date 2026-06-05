@@ -10,6 +10,15 @@
 
 
 
+## [0.14.58] — 2026-06-05
+
+### Изменено
+
+- **Crypto-Cash**: официальный маппинг статусов Sale (`New`, `Waiting`, `Paid`, `Canceled`, `CanceledButPaid` и др.) и событий `acquiring::*` по [документации webhook](https://docs.crypto-cash.world/webhooks/structure).
+- **Webhook**: разбор `event.type` / `event.data.status`, `cancelReason`, пустой `hash` → null; ответ провайдерского webhook без реквизитов после отмены.
+
+---
+
 ## [0.14.57] — 2026-06-05
 
 ### Добавлено

@@ -140,7 +140,9 @@ def is_provider_deal_finalized(raw_payload: dict | None) -> bool:
 
     event = raw_payload.get("event")
     if isinstance(event, dict):
-        event_type = str(event.get("event_type") or "").strip().lower()
+        event_type = str(
+            event.get("type") or event.get("event_type") or event.get("eventType") or ""
+        ).strip().lower()
         if event_type == "acquiring::completed":
             return True
         data = event.get("data")
@@ -188,7 +190,15 @@ def resolve_provider_deal_finalized(
 def _is_paid_with_completed_at(data: dict) -> bool:
     status = str(data.get("status") or "").strip().lower()
     completed_at = data.get("completedAt")
-    return status in {"paid", "confirmed", "completed"} and completed_at not in (None, "")
+    paid_like = {
+        "paid",
+        "confirmed",
+        "completed",
+        "overpaid",
+        "canceledbutpaid",
+        "canceledbutoverpaid",
+    }
+    return status in paid_like and completed_at not in (None, "")
 
 
 def snap_confirmations_to_required(stored_payload: dict) -> bool:

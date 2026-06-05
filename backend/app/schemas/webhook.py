@@ -1,6 +1,12 @@
 from pydantic import BaseModel, Field, model_validator
 
 from app.core.config import settings
+from app.providers.crypto_cash_status import (
+    extract_event_data,
+    extract_event_type,
+    extract_tx_hash,
+    resolve_crypto_cash_status,
+)
 
 
 class CryptoCashWebhookPayload(BaseModel):
@@ -30,40 +36,81 @@ class CryptoCashWebhookPayload(BaseModel):
         return self.event is not None and self.id is not None and self.delivered_at is not None
 
     @property
+    def resolved_event_type(self) -> str | None:
+        if not isinstance(self.event, dict):
+            return None
+        for key in ("type", "event_type", "eventType"):
+            value = self.event.get(key)
+            if value not in (None, ""):
+                return str(value)
+        return None
+
+    @property
     def resolved_provider_order_id(self) -> str | None:
         if self.provider_order_id:
             return self.provider_order_id
-        event_data = self._event_data
-        value = event_data.get("id")
+        value = self._event_data.get("id")
         return str(value) if value else None
 
     @property
     def resolved_merchant_order_id(self) -> str | None:
-        event_data = self._event_data
-        value = event_data.get("externalId")
+        value = self._event_data.get("externalId")
         return str(value) if value else None
 
     @property
     def resolved_status(self) -> str | None:
         if self.status:
             return self.status
-        event_data = self._event_data
-        value = event_data.get("status")
+        value = self._event_data.get("status")
         return str(value) if value else None
 
     @property
     def resolved_tx_hash(self) -> str | None:
         if self.tx_hash:
             return self.tx_hash
-        event_data = self._event_data
-        value = event_data.get("hash")
-        return str(value) if value else None
+        value = self._event_data.get("hash")
+        if value in (None, ""):
+            return None
+        return str(value)
+
+    @property
+    def resolved_platform_status(self) -> str:
+        return resolve_crypto_cash_status(
+            status=self.resolved_status,
+            event_type=self.resolved_event_type,
+        )
+
+    @property
+    def cancel_reason(self) -> str | None:
+        value = self._event_data.get("cancelReason")
+        if value in (None, ""):
+            return None
+        return str(value)
 
     @property
     def _event_data(self) -> dict:
-        if not isinstance(self.event, dict):
-            return {}
-        data = self.event.get("data")
-        if isinstance(data, dict):
-            return data
+        if isinstance(self.event, dict):
+            data = self.event.get("data")
+            if isinstance(data, dict):
+                return data
         return {}
+
+    @classmethod
+    def parse_raw(cls, raw_payload: dict) -> "CryptoCashWebhookPayload":
+        return cls.model_validate(raw_payload)
+
+
+def webhook_context_from_raw(raw_payload: dict) -> dict:
+    """Extract CC webhook fields for logging / stored invoice payload."""
+    data = extract_event_data(raw_payload)
+    return {
+        "event_type": extract_event_type(raw_payload),
+        "provider_status": data.get("status"),
+        "tx_hash": extract_tx_hash(raw_payload),
+        "cancel_reason": data.get("cancelReason"),
+        "received_amount": data.get("receivedAmount"),
+        "received_currency": data.get("receivedCurrency"),
+        "amount": data.get("amount"),
+        "usdt_total": data.get("usdtTotal"),
+        "exchange_rate": data.get("exchangeRate"),
+    }

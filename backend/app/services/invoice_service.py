@@ -13,6 +13,12 @@ from app.models.project import Project
 from app.models.transaction import Transaction
 from app.providers.base import ProviderCreateInvoiceRequest
 from app.providers.crypto_cash import CryptoCashProviderError, _provider_item
+from app.providers.crypto_cash_status import (
+    extract_event_type,
+    normalize_crypto_cash_status,
+    platform_status_indicates_payment,
+    resolve_crypto_cash_status,
+)
 from app.providers.factory import get_payment_provider
 from app.schemas.invoice import InvoiceCreateRequest
 from app.services.accounting_service import AccountingService
@@ -41,7 +47,6 @@ from app.services.invoice_confirmations import (
 from app.services.invoice_lifecycle import (
     compute_invoice_expires_at,
     is_invoice_expired,
-    provider_status_indicates_payment,
 )
 from app.services.payment_page_service import PaymentPageService
 from app.services.rates_service import RatesService
@@ -419,9 +424,22 @@ class InvoiceService:
                 return refreshed if refreshed is not None else invoice
 
         previous_status = invoice.status
-        raw_normalized = self._normalize_provider_status(provider_status)
+        if source == "webhook" and raw_payload is not None:
+            try:
+                raw_normalized = resolve_crypto_cash_status(
+                    status=provider_status or None,
+                    event_type=extract_event_type(raw_payload),
+                )
+            except ValueError:
+                raw_normalized = normalize_crypto_cash_status(provider_status)
+        else:
+            raw_normalized = normalize_crypto_cash_status(provider_status)
 
-        if invoice.status in {"cancelled", "expired"} and raw_normalized in {"pending", "expired"}:
+        if invoice.status in {"cancelled", "expired"} and raw_normalized in {
+            "pending",
+            "expired",
+            "cancelled",
+        }:
             refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=None)
             return refreshed if refreshed is not None else invoice
 
@@ -658,11 +676,11 @@ class InvoiceService:
         item = _provider_item(provider_response)
         provider_status = str(item.get("status") or "pending")
         try:
-            raw_normalized = self._normalize_provider_status(provider_status)
+            raw_normalized = normalize_crypto_cash_status(provider_status)
         except ValueError:
             return await self._cancel_unpaid_invoice(invoice, source="expiry")
 
-        if provider_status_indicates_payment(raw_normalized):
+        if platform_status_indicates_payment(raw_normalized):
             provider_order_id = str(item.get("id") or invoice.provider_order_id)
             tx_hash = item.get("hash")
             return await self.apply_provider_status(
@@ -680,8 +698,8 @@ class InvoiceService:
             provider_response = await self._fetch_provider_status(invoice)
             item = _provider_item(provider_response)
             provider_status = str(item.get("status") or invoice.status)
-            raw_normalized = self._normalize_provider_status(provider_status)
-            if provider_status_indicates_payment(raw_normalized):
+            raw_normalized = normalize_crypto_cash_status(provider_status)
+            if platform_status_indicates_payment(raw_normalized):
                 provider_order_id = str(item.get("id") or invoice.provider_order_id)
                 tx_hash = item.get("hash")
                 return await self.apply_provider_status(
@@ -1142,36 +1160,6 @@ class InvoiceService:
             if old.get(key) != stored_payload.get(key):
                 return True
         return False
-
-    @staticmethod
-    def _normalize_provider_status(provider_status: str) -> str:
-        normalized = provider_status.strip().lower()
-        status_map = {
-            "pending": "pending",
-            "queued": "pending",
-            "new": "pending",
-            # Crypto-Cash Waiting = tx seen, network confirmations in progress (DOGE 15 blocks, etc.)
-            "waiting": "confirming",
-            "paid": "paid",
-            "underpaid": "failed",
-            "overpaid": "paid",
-            "confirmed": "confirmed",
-            "confirming": "confirming",
-            "expired": "expired",
-            "cancelled": "cancelled",
-            "canceled": "cancelled",
-            "currencymismatch": "failed",
-            "canceledbutpaid": "paid",
-            "canceledbutoverpaid": "paid",
-            "canceledbutunderpaid": "failed",
-            "failed": "failed",
-            "declined": "failed",
-            "completed": "confirmed",
-            "deposit_received": "paid",
-        }
-        if normalized not in status_map:
-            raise ValueError("Неизвестный статус провайдера.")
-        return status_map[normalized]
 
     def _has_misconverted_altcoin_settlement(
         self,

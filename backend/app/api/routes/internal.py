@@ -7,9 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db
 from app.db.tenant import set_db_security_context
 from app.schemas.invoice import InvoiceResponse
-from app.schemas.webhook import CryptoCashWebhookPayload
+from app.schemas.webhook import CryptoCashWebhookPayload, webhook_context_from_raw
 from app.services.api_usage_service import get_api_usage_service
+from app.services.checkout_delivery_service import CheckoutDeliveryService
+from app.services.invoice_lifecycle import checkout_payment_fields
 from app.services.invoice_service import InvoiceService
+from app.services.payment_page_service import PaymentPageService
+from app.services.project_service import ProjectService
 from app.services.provider_webhook_log import ProviderWebhookLogService
 from app.services.webhook_security import (
     CryptoCashWebhookSecurityError,
@@ -69,13 +73,17 @@ async def crypto_cash_webhook(
 
     invoice_service = InvoiceService(db)
     try:
+        cc_status = payload.resolved_status or ""
         invoice = await invoice_service.apply_provider_status(
             provider_order_id=payload.resolved_provider_order_id,
             merchant_order_id=payload.resolved_merchant_order_id,
-            provider_status=payload.resolved_status or "",
+            provider_status=cc_status,
             tx_hash=payload.resolved_tx_hash,
             source="webhook",
-            raw_payload=raw_payload,
+            raw_payload={
+                **raw_payload,
+                "_webhook_context": webhook_context_from_raw(raw_payload),
+            },
             provider_event_id=payload.id,
         )
     except ValueError as exc:
@@ -100,6 +108,17 @@ async def crypto_cash_webhook(
         project_id=invoice.project_id,
     )
 
+    project = await ProjectService(db).get_project(invoice.project_id)
+    checkout_delivery = (
+        CheckoutDeliveryService.normalize(project.checkout_delivery)
+        if project is not None
+        else CheckoutDeliveryService.normalize(None)
+    )
+    payment_fields = checkout_payment_fields(
+        invoice,
+        mode=checkout_delivery,
+        payment_page_url=PaymentPageService.payment_page_url_for(invoice),
+    )
     return InvoiceResponse(
         id=invoice.id,
         project_id=invoice.project_id,
@@ -110,8 +129,10 @@ async def crypto_cash_webhook(
         amount_crypto=invoice.amount_crypto,
         crypto_currency=invoice.crypto_currency,
         network=invoice.network,
-        payment_address=invoice.payment_address,
-        qr_url=invoice.qr_url,
+        payment_address=payment_fields.payment_address,
+        qr_url=payment_fields.qr_url,
+        payment_page_url=payment_fields.payment_page_url,
+        checkout_delivery=payment_fields.checkout_delivery,
         status=invoice.status,
         expires_at=invoice.expires_at,
         created_at=invoice.created_at,
