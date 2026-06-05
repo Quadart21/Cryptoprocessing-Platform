@@ -60,7 +60,9 @@ class AccountingService:
         invoices_paid = [invoice for invoice in invoices if invoice.status in {"paid", "confirmed"}]
         invoices_confirmed = [invoice for invoice in invoices if invoice.status == "confirmed"]
         invoices_failed = [invoice for invoice in invoices if invoice.status == "failed"]
-        invoices_expired = [invoice for invoice in invoices if invoice.status == "expired"]
+        invoices_expired = [
+            invoice for invoice in invoices if invoice.status in {"expired", "cancelled"}
+        ]
 
         invoices_total_amount = Decimal("0")
         invoices_paid_amount = Decimal("0")

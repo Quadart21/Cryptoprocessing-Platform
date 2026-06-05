@@ -36,6 +36,8 @@ async def get_public_payment(
     invoice = await payment_service.get_invoice_by_token(payment_token)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
+    invoice_service = InvoiceService(db)
+    invoice = await invoice_service.ensure_invoice_payment_state(invoice)
     get_api_usage_service().record(
         category="public_pay",
         route_key="GET /public/pay/{token}",
@@ -56,7 +58,7 @@ async def refresh_public_payment(
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
 
-    if invoice.status in {"pending", "confirming", "paid"}:
+    if invoice.status in {"pending", "confirming", "paid", "cancelled"}:
         invoice_service = InvoiceService(db)
         try:
             invoice = await invoice_service.sync_invoice_status(

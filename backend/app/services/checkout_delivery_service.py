@@ -63,3 +63,12 @@ class CheckoutDeliveryService:
             qr_url=qr_url,
             checkout_delivery=delivery,
         )
+
+    @classmethod
+    def mask_credentials(cls, fields: CheckoutPaymentFields) -> CheckoutPaymentFields:
+        return CheckoutPaymentFields(
+            payment_page_url=fields.payment_page_url,
+            payment_address=None,
+            qr_url=None,
+            checkout_delivery=fields.checkout_delivery,
+        )

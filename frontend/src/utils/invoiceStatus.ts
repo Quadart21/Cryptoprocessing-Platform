@@ -21,6 +21,7 @@ export function invoiceStatusLabelRu(status: string): string {
     paid: "Оплачен",
     confirmed: "Подтверждён",
     expired: "Истёк срок",
+    cancelled: "Отменён",
     failed: "Ошибка оплаты",
   };
   return map[s] ?? status;
@@ -41,6 +42,8 @@ export function invoiceDetailBadgeClass(status: string): string {
     case "failed":
       return "invoice-status-badge-failed";
     case "expired":
+      return "invoice-status-badge-expired";
+    case "cancelled":
       return "invoice-status-badge-expired";
     default:
       return "invoice-status-badge-neutral";

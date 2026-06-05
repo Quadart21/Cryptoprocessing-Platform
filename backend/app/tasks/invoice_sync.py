@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 
@@ -24,7 +25,7 @@ async def _sync_all_pending_invoices() -> dict:
     synced_count = 0
     failed_count = 0
     errors = []
-    
+
     async with AsyncSessionLocal() as db:
         pending_invoices = list(
             (
@@ -36,9 +37,9 @@ async def _sync_all_pending_invoices() -> dict:
                 )
             ).all()
         )
-        
-        logger.info(f"Found {len(pending_invoices)} pending/confirming/paid invoices to sync")
-        
+
+        logger.info("Found %s pending/confirming/paid invoices to sync", len(pending_invoices))
+
         for invoice in pending_invoices:
             try:
                 invoice_service = InvoiceService(db)
@@ -48,7 +49,7 @@ async def _sync_all_pending_invoices() -> dict:
                     project_id=invoice.project_id,
                 )
                 synced_count += 1
-                logger.info(f"Synced invoice {invoice.id}, status: {invoice.status}")
+                logger.info("Synced invoice %s, status: %s", invoice.id, invoice.status)
             except CryptoCashProviderError as exc:
                 failed_count += 1
                 error_msg = f"Invoice {invoice.id}: {exc.message}"
@@ -56,22 +57,73 @@ async def _sync_all_pending_invoices() -> dict:
                 logger.error(error_msg)
             except ValueError as exc:
                 failed_count += 1
-                error_msg = f"Invoice {invoice.id}: {str(exc)}"
+                error_msg = f"Invoice {invoice.id}: {exc}"
                 errors.append(error_msg)
                 logger.error(error_msg)
             except Exception as exc:
                 failed_count += 1
-                error_msg = f"Invoice {invoice.id}: Unexpected error: {str(exc)}"
+                error_msg = f"Invoice {invoice.id}: Unexpected error: {exc}"
                 errors.append(error_msg)
                 logger.exception(error_msg)
-        
+
         result = {
             "synced": synced_count,
             "failed": failed_count,
             "errors": errors[:10],
         }
-        logger.info(f"Sync completed: {result}")
+        logger.info("Sync completed: %s", result)
         return result
+
+
+@celery_app.task(name="app.tasks.invoice_sync.expire_unpaid_invoices")
+def expire_unpaid_invoices() -> dict:
+    return asyncio.run(_expire_unpaid_invoices())
+
+
+async def _expire_unpaid_invoices() -> dict:
+    cancelled_count = 0
+    failed_count = 0
+    now = datetime.now(timezone.utc)
+
+    async with AsyncSessionLocal() as db:
+        expired_pending = list(
+            (
+                await db.scalars(
+                    select(Invoice)
+                    .where(
+                        Invoice.status == "pending",
+                        Invoice.expires_at < now,
+                    )
+                    .order_by(Invoice.expires_at.asc())
+                    .limit(200)
+                )
+            ).all()
+        )
+
+        invoice_service = InvoiceService(db)
+        for invoice in expired_pending:
+            try:
+                updated = await invoice_service.sync_invoice_status(
+                    tenant_id=invoice.tenant_id,
+                    invoice_id=str(invoice.id),
+                    project_id=invoice.project_id,
+                )
+                if updated.status == "cancelled":
+                    cancelled_count += 1
+            except (CryptoCashProviderError, ValueError) as exc:
+                failed_count += 1
+                logger.warning("Expire invoice %s failed: %s", invoice.id, exc)
+            except Exception:
+                failed_count += 1
+                logger.exception("Expire invoice %s failed unexpectedly", invoice.id)
+
+    result = {
+        "candidates": len(expired_pending),
+        "cancelled": cancelled_count,
+        "failed": failed_count,
+    }
+    logger.info("Expire unpaid invoices completed: %s", result)
+    return result
 
 
 @celery_app.task(name="app.tasks.invoice_sync.sync_single_invoice")
@@ -85,14 +137,14 @@ async def _sync_single_invoice(invoice_id: str) -> dict:
             invoice = await db.scalar(select(Invoice).where(Invoice.id == invoice_id))
             if invoice is None:
                 return {"success": False, "error": "Invoice not found"}
-            
+
             invoice_service = InvoiceService(db)
             await invoice_service.sync_invoice_status(
                 tenant_id=invoice.tenant_id,
                 invoice_id=invoice.id,
                 project_id=invoice.project_id,
             )
-            
+
             return {
                 "success": True,
                 "invoice_id": invoice_id,
@@ -103,8 +155,8 @@ async def _sync_single_invoice(invoice_id: str) -> dict:
         except ValueError as exc:
             return {"success": False, "error": str(exc)}
         except Exception as exc:
-            logger.exception(f"Error syncing invoice {invoice_id}")
-            return {"success": False, "error": f"Unexpected error: {str(exc)}"}
+            logger.exception("Error syncing invoice %s", invoice_id)
+            return {"success": False, "error": f"Unexpected error: {exc}"}
 
 
 @celery_app.task(name="app.tasks.invoice_sync.refresh_exchange_rate_cache")

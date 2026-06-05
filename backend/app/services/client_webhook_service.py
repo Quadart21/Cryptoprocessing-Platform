@@ -15,9 +15,10 @@ from app.core.security import decrypt_value
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.transaction import Transaction
-from app.services.checkout_delivery_service import CheckoutDeliveryService
 from app.services.event_service import EventService
 from app.services.invoice_confirmations import confirmations_fields_from_stored
+from app.services.invoice_lifecycle import checkout_payment_fields
+from app.services.payment_page_service import PaymentPageService
 from app.services.api_usage_service import get_api_usage_service
 
 
@@ -238,11 +239,10 @@ class ClientWebhookService:
 
     @staticmethod
     def _build_invoice_payload(invoice: Invoice, project: Project | None) -> dict:
-        payment_fields = CheckoutDeliveryService.apply(
-            project.checkout_delivery if project is not None else None,
+        payment_fields = checkout_payment_fields(
+            invoice,
+            mode=project.checkout_delivery if project is not None else None,
             payment_page_url=PaymentPageService.payment_page_url_for(invoice),
-            payment_address=invoice.payment_address,
-            qr_url=invoice.qr_url,
         )
         return {
             "id": invoice.id,

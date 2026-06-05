@@ -12,7 +12,7 @@ from app.models.ledger_entry import LedgerEntry
 from app.models.project import Project
 from app.models.transaction import Transaction
 from app.providers.base import ProviderCreateInvoiceRequest
-from app.providers.crypto_cash import _provider_item
+from app.providers.crypto_cash import CryptoCashProviderError, _provider_item
 from app.providers.factory import get_payment_provider
 from app.schemas.invoice import InvoiceCreateRequest
 from app.services.accounting_service import AccountingService
@@ -37,6 +37,11 @@ from app.services.invoice_confirmations import (
     resolve_provider_deal_finalized,
     seed_required_confirmations,
     snap_confirmations_to_required,
+)
+from app.services.invoice_lifecycle import (
+    compute_invoice_expires_at,
+    is_invoice_expired,
+    provider_status_indicates_payment,
 )
 from app.services.payment_page_service import PaymentPageService
 from app.services.rates_service import RatesService
@@ -202,7 +207,7 @@ class InvoiceService:
             qr_url=provider_response.qr_url,
             payment_token=token_urlsafe(PaymentPageService.TOKEN_BYTES),
             status="pending",
-            expires_at=provider_response.expires_at,
+            expires_at=compute_invoice_expires_at(),
             metadata_json=payload.metadata,
             raw_provider_payload_json=provider_response.raw_payload,
         )
@@ -416,6 +421,10 @@ class InvoiceService:
         previous_status = invoice.status
         raw_normalized = self._normalize_provider_status(provider_status)
 
+        if invoice.status in {"cancelled", "expired"} and raw_normalized in {"pending", "expired"}:
+            refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=None)
+            return refreshed if refreshed is not None else invoice
+
         stored_payload = dict(invoice.raw_provider_payload_json or {})
         if tx_hash and stored_payload.get("tx_hash") != tx_hash:
             stored_payload["tx_hash"] = tx_hash
@@ -606,6 +615,11 @@ class InvoiceService:
             source="manual",
         )
 
+    async def ensure_invoice_payment_state(self, invoice: Invoice) -> Invoice:
+        if invoice.status != "pending" or not is_invoice_expired(invoice):
+            return invoice
+        return await self._cancel_unpaid_invoice(invoice, source="expiry")
+
     async def sync_invoice_status(
         self,
         tenant_id: str,
@@ -616,9 +630,16 @@ class InvoiceService:
         if invoice is None:
             raise ValueError("Инвойс не найден.")
 
-        provider = get_payment_provider()
-        with provider_usage_scope(tenant_id=tenant_id, project_id=invoice.project_id):
-            provider_response = provider.get_invoice_status(invoice.merchant_order_id)
+        if invoice.status == "pending" and is_invoice_expired(invoice):
+            return await self._sync_expired_pending(invoice)
+
+        if invoice.status == "cancelled":
+            return await self._sync_cancelled_for_late_payment(invoice)
+
+        return await self._sync_with_provider(invoice)
+
+    async def _sync_with_provider(self, invoice: Invoice) -> Invoice:
+        provider_response = await self._fetch_provider_status(invoice)
         item = _provider_item(provider_response)
         provider_status = str(item.get("status") or invoice.status)
         provider_order_id = str(item.get("id") or invoice.provider_order_id)
@@ -631,6 +652,94 @@ class InvoiceService:
             source="sync",
             raw_payload=provider_response,
         )
+
+    async def _sync_expired_pending(self, invoice: Invoice) -> Invoice:
+        provider_response = await self._fetch_provider_status(invoice)
+        item = _provider_item(provider_response)
+        provider_status = str(item.get("status") or "pending")
+        try:
+            raw_normalized = self._normalize_provider_status(provider_status)
+        except ValueError:
+            return await self._cancel_unpaid_invoice(invoice, source="expiry")
+
+        if provider_status_indicates_payment(raw_normalized):
+            provider_order_id = str(item.get("id") or invoice.provider_order_id)
+            tx_hash = item.get("hash")
+            return await self.apply_provider_status(
+                provider_order_id=provider_order_id,
+                merchant_order_id=invoice.merchant_order_id,
+                provider_status=provider_status,
+                tx_hash=str(tx_hash) if tx_hash else None,
+                source="sync",
+                raw_payload=provider_response,
+            )
+        return await self._cancel_unpaid_invoice(invoice, source="expiry")
+
+    async def _sync_cancelled_for_late_payment(self, invoice: Invoice) -> Invoice:
+        try:
+            provider_response = await self._fetch_provider_status(invoice)
+            item = _provider_item(provider_response)
+            provider_status = str(item.get("status") or invoice.status)
+            raw_normalized = self._normalize_provider_status(provider_status)
+            if provider_status_indicates_payment(raw_normalized):
+                provider_order_id = str(item.get("id") or invoice.provider_order_id)
+                tx_hash = item.get("hash")
+                return await self.apply_provider_status(
+                    provider_order_id=provider_order_id,
+                    merchant_order_id=invoice.merchant_order_id,
+                    provider_status=provider_status,
+                    tx_hash=str(tx_hash) if tx_hash else None,
+                    source="sync",
+                    raw_payload=provider_response,
+                )
+        except (CryptoCashProviderError, ValueError):
+            pass
+        refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=invoice.project_id)
+        return refreshed if refreshed is not None else invoice
+
+    async def _fetch_provider_status(self, invoice: Invoice) -> dict:
+        provider = get_payment_provider()
+        with provider_usage_scope(tenant_id=invoice.tenant_id, project_id=invoice.project_id):
+            return provider.get_invoice_status(invoice.merchant_order_id)
+
+    async def _cancel_unpaid_invoice(self, invoice: Invoice, *, source: str = "expiry") -> Invoice:
+        if invoice.status != "pending":
+            refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=invoice.project_id)
+            return refreshed if refreshed is not None else invoice
+
+        transaction = await self.db.scalar(
+            select(Transaction).where(Transaction.invoice_id == invoice.id)
+        )
+        if transaction is None:
+            raise ValueError("Транзакция для инвойса не найдена.")
+
+        invoice.status = "cancelled"
+        transaction.status = "cancelled"
+        event_service = EventService(self.db)
+        await event_service.create_event(
+            invoice_id=invoice.id,
+            event_type="invoice.cancelled",
+            source=source,
+            payload={
+                "reason": "payment_ttl_exceeded",
+                "expires_at": invoice.expires_at.isoformat(),
+            },
+        )
+        self.db.add_all([invoice, transaction])
+        await self.db.flush()
+        project = await self.db.get(Project, invoice.project_id)
+        await ClientWebhookService(event_service).deliver_invoice_update(
+            project,
+            invoice,
+            transaction,
+            event_name="invoice.cancelled",
+        )
+        tenant_id = invoice.tenant_id
+        invoice_id = invoice.id
+        project_id = invoice.project_id
+        await self.db.commit()
+        refreshed = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
+        return refreshed if refreshed is not None else invoice
 
     async def _apply_financial_state_transition(
         self,
@@ -1049,8 +1158,8 @@ class InvoiceService:
             "confirmed": "confirmed",
             "confirming": "confirming",
             "expired": "expired",
-            "cancelled": "failed",
-            "canceled": "failed",
+            "cancelled": "cancelled",
+            "canceled": "cancelled",
             "currencymismatch": "failed",
             "canceledbutpaid": "paid",
             "canceledbutoverpaid": "paid",

@@ -34,7 +34,7 @@ function formatCountdown(expiresAt: string): { label: string; progress: number }
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   const label = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  const progress = Math.min(1, diffMs / (30 * 60 * 1000));
+  const progress = Math.min(1, diffMs / (60 * 60 * 1000));
   return { label, progress };
 }
 
@@ -58,7 +58,7 @@ function isSuccessStatus(status: string): boolean {
 
 function isFailedStatus(status: string): boolean {
   const normalized = status.trim().toLowerCase();
-  return normalized === "failed" || normalized === "expired";
+  return normalized === "failed" || normalized === "expired" || normalized === "cancelled";
 }
 
 function chunkAddress(address: string, size = 8): string[] {
@@ -319,7 +319,8 @@ export function PayPageRoot({ token }: PayPageRootProps) {
   const awaitingPayment =
     payment &&
     normalizeStatus(payment.status) === "pending" &&
-    !isFailedStatus(payment.status);
+    !isFailedStatus(payment.status) &&
+    Boolean(payment.payment_address);
   const confirming = payment && isConfirmingStatus(payment.status);
 
   async function copyValue(label: string, value: string) {
@@ -436,7 +437,11 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                   !
                 </div>
                 <h2 className="pp-title">
-                  {payment.status === "expired" ? "Время оплаты истекло" : "Платёж не выполнен"}
+                  {payment.status === "expired"
+                    ? "Время оплаты истекло"
+                    : payment.status === "cancelled"
+                      ? "Счёт отменён"
+                      : "Платёж не выполнен"}
                 </h2>
                 <p className="pp-muted">Запросите новую ссылку у продавца или вернитесь в магазин.</p>
                 {payment.return_url_failed ? (
@@ -462,7 +467,11 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                   </button>
                   <button
                     className="pp-action"
-                    onClick={() => void copyValue("address", payment.payment_address)}
+                    onClick={() => {
+                      if (payment.payment_address) {
+                        void copyValue("address", payment.payment_address);
+                      }
+                    }}
                     type="button"
                   >
                     <span className="pp-action-icon" aria-hidden>
@@ -507,7 +516,11 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                       copied={copied === "address"}
                       cryptoCurrency={payment.crypto_currency}
                       network={payment.network}
-                      onCopy={() => void copyValue("address", payment.payment_address)}
+                      onCopy={() => {
+                        if (payment.payment_address) {
+                          void copyValue("address", payment.payment_address);
+                        }
+                      }}
                     />
                   ) : null}
 

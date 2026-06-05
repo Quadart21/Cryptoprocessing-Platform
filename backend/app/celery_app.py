@@ -40,6 +40,10 @@ def get_celery_app() -> Celery:
             "task": "app.tasks.balance_holds.release_matured_balance_holds",
             "schedule": crontab(minute="*"),
         },
+        "expire-unpaid-invoices-every-minute": {
+            "task": "app.tasks.invoice_sync.expire_unpaid_invoices",
+            "schedule": crontab(minute="*"),
+        },
     }
     return celery_app
 

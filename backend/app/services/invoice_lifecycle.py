@@ -1,0 +1,58 @@
+from datetime import datetime, timedelta, timezone
+
+from app.core.config import settings
+from app.models.invoice import Invoice
+from app.services.checkout_delivery_service import CheckoutDeliveryService, CheckoutPaymentFields
+
+PAYMENT_IN_FLIGHT_STATUSES = frozenset({"confirming", "paid", "confirmed"})
+
+
+def invoice_payment_ttl() -> timedelta:
+    return timedelta(minutes=settings.invoice_payment_ttl_minutes)
+
+
+def compute_invoice_expires_at(*, now: datetime | None = None) -> datetime:
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current + invoice_payment_ttl()
+
+
+def normalize_expires_at(expires_at: datetime) -> datetime:
+    if expires_at.tzinfo is None:
+        return expires_at.replace(tzinfo=timezone.utc)
+    return expires_at
+
+
+def is_invoice_expired(invoice: Invoice, *, now: datetime | None = None) -> bool:
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current > normalize_expires_at(invoice.expires_at)
+
+
+def invoice_allows_payment_credentials(invoice: Invoice, *, now: datetime | None = None) -> bool:
+    if invoice.status != "pending":
+        return False
+    return not is_invoice_expired(invoice, now=now)
+
+
+def provider_status_indicates_payment(raw_normalized: str) -> bool:
+    return raw_normalized in PAYMENT_IN_FLIGHT_STATUSES
+
+
+def checkout_payment_fields(
+    invoice: Invoice,
+    *,
+    mode: str | None,
+    payment_page_url: str | None,
+) -> CheckoutPaymentFields:
+    fields = CheckoutDeliveryService.apply(
+        mode,
+        payment_page_url=payment_page_url,
+        payment_address=invoice.payment_address,
+        qr_url=invoice.qr_url,
+    )
+    if invoice_allows_payment_credentials(invoice):
+        return fields
+    return CheckoutDeliveryService.mask_credentials(fields)

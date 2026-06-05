@@ -136,7 +136,9 @@ class CryptoCashProvider(PaymentProviderInterface):
         network = str(item.get("network") or payload.network).upper()
         memo = str(item.get("memo") or created_item.get("memo") or "")
         qr_data = f"{payment_address}?memo={memo}" if payment_address and memo else payment_address
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.invoice_payment_ttl_minutes,
+        )
 
         raw_payload = {
             "provider": "crypto-cash",

@@ -170,6 +170,10 @@ class Settings(BaseSettings):
         default=90,
         alias="RATE_LIMIT_INVOICE_AUTH_PER_MINUTE",
     )
+    invoice_payment_ttl_minutes: int = Field(
+        default=60,
+        alias="INVOICE_PAYMENT_TTL_MINUTES",
+    )
     rate_limit_read_ip_per_minute: int = Field(
         default=300,
         alias="RATE_LIMIT_READ_IP_PER_MINUTE",
@@ -365,6 +369,8 @@ class Settings(BaseSettings):
             errors.append("RATE_LIMIT_INVOICE_IP_PER_MINUTE must be > 0.")
         if self.rate_limit_invoice_auth_per_minute <= 0:
             errors.append("RATE_LIMIT_INVOICE_AUTH_PER_MINUTE must be > 0.")
+        if self.invoice_payment_ttl_minutes <= 0:
+            errors.append("INVOICE_PAYMENT_TTL_MINUTES must be > 0.")
         if self.rate_limit_read_ip_per_minute <= 0:
             errors.append("RATE_LIMIT_READ_IP_PER_MINUTE must be > 0.")
         if self.rate_limit_public_pay_refresh_ip_per_minute <= 0:

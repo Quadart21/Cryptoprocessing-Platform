@@ -85,6 +85,7 @@ from app.services.tenant_service import TenantService
 from app.services.two_factor_service import TwoFactorError, TwoFactorService
 from app.services.transaction_service import TransactionService
 from app.services.checkout_delivery_service import CheckoutDeliveryService
+from app.services.invoice_lifecycle import checkout_payment_fields
 from app.services.payment_page_service import PaymentPageService
 from app.services.public_page_service import PublicPageService
 
@@ -839,6 +840,7 @@ async def get_invoice(
     invoice = await invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+    invoice = await invoice_service.ensure_invoice_payment_state(invoice)
     try:
         project = await ProjectService(db).get_project(invoice.project_id)
         checkout_delivery = (
@@ -1105,11 +1107,10 @@ def _map_invoice_response(
     *,
     checkout_delivery: str | None = None,
 ) -> InvoiceResponse:
-    payment_fields = CheckoutDeliveryService.apply(
-        checkout_delivery,
+    payment_fields = checkout_payment_fields(
+        invoice,
+        mode=checkout_delivery,
         payment_page_url=PaymentPageService.payment_page_url_for(invoice),
-        payment_address=invoice.payment_address,
-        qr_url=invoice.qr_url,
     )
     return InvoiceResponse(
         id=invoice.id,

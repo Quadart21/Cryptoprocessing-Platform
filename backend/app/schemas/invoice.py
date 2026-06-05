@@ -89,8 +89,8 @@ class PublicPaymentResponse(BaseModel):
     network: str
     amount_fiat: Decimal
     fiat_currency: str
-    payment_address: str
-    qr_url: str | None
+    payment_address: str | None = None
+    qr_url: str | None = None
     network_confirmations_actual: int | None = None
     network_confirmations_required: int | None = None
     expires_at: datetime
