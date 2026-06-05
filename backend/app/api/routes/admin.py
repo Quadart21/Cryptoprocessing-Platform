@@ -11,6 +11,7 @@ from app.api.deps import (
     require_any_platform_permission,
     require_platform_permission,
     require_platform_user,
+    require_superadmin,
     user_permissions,
 )
 from app.core.rbac import list_role_definitions
@@ -38,6 +39,12 @@ from app.schemas.billing import (
     NotificationTemplatePreviewResponse,
     NotificationTemplateTestRequest,
     NotificationTemplateTestResponse,
+    OpsTelegramProvisionResponse,
+    OpsTelegramSettingsView,
+    OpsTelegramTopicTestRequest,
+    OpsTelegramTopicTestResponse,
+    OpsTelegramTopicView,
+    OpsTelegramEventView,
     PlatformBillingSettingsResponse,
     PlatformBillingSettingsUpdateRequest,
     SmtpBzTestRequest,
@@ -96,6 +103,8 @@ from app.services.invoice_confirmations import confirmations_fields_from_stored
 from app.services.invoice_service import InvoiceService
 from app.services.invoice_transaction_details import build_invoice_transaction_details
 from app.services.notification_service import NotificationService
+from app.services.platform_ops_notify import notify_platform_ops
+from app.services.platform_ops_telegram_service import PlatformOpsTelegramService
 from app.services.project_service import ProjectService
 from app.services.payout_service import PayoutService
 from app.services.rates_service import RatesService
@@ -346,6 +355,17 @@ async def approve_tenant(
         ],
         force_email=True,
     )
+    await notify_platform_ops(
+        db,
+        event_code="application_approved",
+        title="Мерчант одобрен",
+        lines=[
+            f"Проект: {tenant.name}",
+            f"Tenant ID: {tenant.id}",
+            f"Owner: {owner.email}",
+        ],
+        admin_url=f"/admin/clients/{tenant.id}",
+    )
     await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_PASSWORD_GENERATED,
@@ -411,6 +431,17 @@ async def reject_tenant(
             subject="Заявка на подключение проекта отклонена",
             lines=notification_lines,
         )
+    await notify_platform_ops(
+        db,
+        event_code="application_rejected",
+        title="Заявка отклонена",
+        lines=[
+            f"Проект: {tenant.name}",
+            f"Tenant ID: {tenant.id}",
+            f"Комментарий: {(payload.review_comment or '-').strip()}",
+        ],
+        admin_url=f"/admin/clients/{tenant.id}",
+    )
     return TenantSummary(
         id=tenant.id,
         name=tenant.name,
@@ -459,6 +490,17 @@ async def reset_tenant_owner_password(
         ],
         force_email=True,
     )
+    tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == tenant_id))
+    await notify_platform_ops(
+        db,
+        event_code="tenant_password_reset",
+        title="Сброс пароля мерчанта",
+        lines=[
+            f"Мерчант: {tenant_name or tenant_id}",
+            f"Owner: {owner.email}",
+        ],
+        admin_url=f"/admin/clients/{tenant_id}",
+    )
     return {
         "status": "ok",
         "tenant_id": tenant_id,
@@ -497,6 +539,16 @@ async def reset_tenant_owner_two_factor(
             "Если отключение было выполнено не по вашему запросу, срочно смените пароль.",
         ],
         force_email=True,
+    )
+    await notify_platform_ops(
+        db,
+        event_code="tenant_2fa_reset",
+        title="2FA мерчанта сброшена админом",
+        lines=[
+            f"Мерчант: {tenant.name}",
+            f"Owner: {owner.email}",
+        ],
+        admin_url=f"/admin/clients/{tenant_id}",
     )
     return TenantOwnerSummary(
         id=owner.id,
@@ -961,7 +1013,7 @@ async def get_platform_accounting_summary(
 
 @router.get("/billing/settings", response_model=PlatformBillingSettingsResponse)
 async def get_platform_billing_settings(
-    _: User = Depends(require_platform_permission("admin.billing.read")),
+    current_user: User = Depends(require_platform_permission("admin.billing.read")),
     db: AsyncSession = Depends(get_db),
 ) -> PlatformBillingSettingsResponse:
     platform_settings = await BillingPolicyService(db).get_platform_settings()
@@ -969,13 +1021,14 @@ async def get_platform_billing_settings(
     return await _map_platform_billing_settings_response(
         platform_settings=platform_settings,
         notification_service=notification_service,
+        include_ops_telegram=current_user.role == "superadmin",
     )
 
 
 @router.put("/billing/settings", response_model=PlatformBillingSettingsResponse)
 async def update_platform_billing_settings(
     payload: PlatformBillingSettingsUpdateRequest,
-    _: User = Depends(require_platform_permission("admin.billing.write")),
+    current_user: User = Depends(require_platform_permission("admin.billing.write")),
     db: AsyncSession = Depends(get_db),
 ) -> PlatformBillingSettingsResponse:
     billing_policy_service = BillingPolicyService(db)
@@ -1018,12 +1071,22 @@ async def update_platform_billing_settings(
             notification_primary_url=payload.notification_primary_url,
             notification_templates=payload.notification_templates,
         )
+        if current_user.role == "superadmin" and payload.ops_telegram is not None:
+            ops_service = PlatformOpsTelegramService(db)
+            platform_settings = await ops_service.update_settings(
+                platform_settings,
+                enabled=payload.ops_telegram.enabled,
+                chat_id=payload.ops_telegram.chat_id,
+                topics=payload.ops_telegram.topics,
+                event_toggles=payload.ops_telegram.events,
+            )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return await _map_platform_billing_settings_response(
         platform_settings=platform_settings,
         notification_service=NotificationService(db),
+        include_ops_telegram=current_user.role == "superadmin",
     )
 
 
@@ -1207,6 +1270,38 @@ async def send_platform_telegram_test(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return TelegramAdminTestResponse(**result)
+
+
+@router.post("/billing/ops-telegram/provision", response_model=OpsTelegramProvisionResponse)
+async def provision_ops_telegram_topics(
+    current_user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> OpsTelegramProvisionResponse:
+    ops_service = PlatformOpsTelegramService(db)
+    try:
+        result = await ops_service.provision_forum_topics(
+            initiated_by_email=current_user.email,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return OpsTelegramProvisionResponse(**result)
+
+
+@router.post("/billing/ops-telegram/test", response_model=OpsTelegramTopicTestResponse)
+async def send_ops_telegram_topic_test(
+    payload: OpsTelegramTopicTestRequest,
+    current_user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> OpsTelegramTopicTestResponse:
+    ops_service = PlatformOpsTelegramService(db)
+    try:
+        result = await ops_service.send_test_message(
+            topic_key=payload.topic_key,
+            initiated_by_email=current_user.email,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return OpsTelegramTopicTestResponse(**result)
 
 
 @router.get("/tenants/{tenant_id}/billing-policy", response_model=TenantBillingPolicyResponse)
@@ -1534,6 +1629,19 @@ async def review_payout_request(
     )
     tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == payout.tenant_id))
     project_name = await db.scalar(select(Project.name).where(Project.id == payout.project_id)) if payout.project_id else None
+    await notify_platform_ops(
+        db,
+        event_code="payout_approved" if is_approved else "payout_rejected",
+        title="Выплата одобрена" if is_approved else "Выплата отклонена",
+        lines=[
+            f"Мерчант: {tenant_name or payout.tenant_id}",
+            f"Payout ID: {payout.id}",
+            f"Сумма: {payout.amount_requested} {payout.currency}",
+            f"Ревьюер: {reviewer.email}",
+            f"Комментарий: {payload.review_comment or '-'}",
+        ],
+        admin_url="/admin/payouts",
+    )
     return _map_payout_response(payout, tenant_name=tenant_name, project_name=project_name)
 
 
@@ -1542,7 +1650,18 @@ async def _map_platform_billing_settings_response(
     platform_settings,
     notification_service: NotificationService,
     current_exchange_rates: dict[str, Decimal] | None = None,
+    include_ops_telegram: bool = False,
 ) -> PlatformBillingSettingsResponse:
+    ops_telegram: OpsTelegramSettingsView | None = None
+    if include_ops_telegram:
+        ops_service = PlatformOpsTelegramService(notification_service.db)
+        ops_telegram = OpsTelegramSettingsView(
+            enabled=bool(platform_settings.ops_telegram_enabled),
+            chat_id=platform_settings.ops_telegram_chat_id,
+            topics=[OpsTelegramTopicView(**item) for item in ops_service.get_topic_views(platform_settings)],
+            events=[OpsTelegramEventView(**item) for item in ops_service.get_event_views(platform_settings)],
+        )
+
     return PlatformBillingSettingsResponse(
         provider_fee_percent=platform_settings.provider_fee_percent,
         default_markup_percent=platform_settings.default_markup_percent,
@@ -1598,6 +1717,7 @@ async def _map_platform_billing_settings_response(
         ),
         manual_exchange_rates=await BillingPolicyService(notification_service.db).get_manual_exchange_rates(),
         current_exchange_rates=current_exchange_rates or {},
+        ops_telegram=ops_telegram,
     )
 
 

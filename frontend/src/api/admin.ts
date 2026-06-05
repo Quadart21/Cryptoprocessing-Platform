@@ -33,6 +33,9 @@ import type {
   TelegramBotInspectPayload,
   TelegramAdminTestPayload,
   TelegramAdminTestResponse,
+  OpsTelegramTopicTestPayload,
+  OpsTelegramTopicTestResponse,
+  OpsTelegramProvisionResponse,
   SmtpBzTestPayload,
   SmtpBzTestResponse,
   ExchangeRateLookup,
@@ -393,6 +396,26 @@ export function sendPlatformTelegramTest(
   payload: TelegramAdminTestPayload,
 ): Promise<TelegramAdminTestResponse> {
   return request<TelegramAdminTestResponse>("/admin/billing/telegram/test", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function provisionOpsTelegramTopics(
+  token: string,
+): Promise<OpsTelegramProvisionResponse> {
+  return request<OpsTelegramProvisionResponse>("/admin/billing/ops-telegram/provision", {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+export function sendOpsTelegramTopicTest(
+  token: string,
+  payload: OpsTelegramTopicTestPayload,
+): Promise<OpsTelegramTopicTestResponse> {
+  return request<OpsTelegramTopicTestResponse>("/admin/billing/ops-telegram/test", {
     method: "POST",
     headers: authHeaders(token),
     body: JSON.stringify(payload),

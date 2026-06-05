@@ -67,6 +67,8 @@ import {
   sendNotificationTemplateTest,
   sendPlatformSmtpBzTest,
   sendPlatformTelegramTest,
+  provisionOpsTelegramTopics,
+  sendOpsTelegramTopicTest,
   sendInvoiceWebhookTest,
   sendWebhookTest,
   setPasswordByRecoveryToken,
@@ -94,6 +96,8 @@ import {
   type NotificationTemplatePreviewPayload,
   type NotificationTemplateTestPayload,
   type NotificationTemplateTestResponse,
+  type OpsTelegramProvisionResponse,
+  type OpsTelegramTopicTestResponse,
   type OnboardingStatus,
   type PayoutRequestItem,
   type PlatformBillingSettings,
@@ -1821,6 +1825,50 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     }
   }
 
+  async function handleProvisionOpsTelegramTopics(): Promise<OpsTelegramProvisionResponse> {
+    if (!token || user?.role !== "superadmin") {
+      throw new Error("Доступно только superadmin.");
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const result = await provisionOpsTelegramTopics(token);
+      setSuccess("Топики служебного чата обновлены.");
+      return result;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Не удалось создать топики служебного чата.";
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSendOpsTelegramTopicTest(
+    topicKey: string,
+  ): Promise<OpsTelegramTopicTestResponse> {
+    if (!token || user?.role !== "superadmin") {
+      throw new Error("Доступно только superadmin.");
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const result = await sendOpsTelegramTopicTest(token, { topic_key: topicKey });
+      setSuccess(`Тест ops-чата отправлен в топик ${result.topic_key}.`);
+      return result;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Не удалось отправить тест в топик ops-чата.";
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSendPlatformSmtpBzTest(
     payload: SmtpBzTestPayload,
   ): Promise<SmtpBzTestResponse> {
@@ -2161,6 +2209,8 @@ return (
           onRefreshPlatformExchangeRate={handleRefreshPlatformExchangeRate}
           onInspectPlatformTelegramBot={(payload) => handleInspectPlatformTelegramBot(payload)}
           onSendPlatformTelegramTest={(payload) => handleSendPlatformTelegramTest(payload)}
+          onProvisionOpsTelegramTopics={() => handleProvisionOpsTelegramTopics()}
+          onSendOpsTelegramTopicTest={(topicKey) => handleSendOpsTelegramTopicTest(topicKey)}
           onSendPlatformSmtpBzTest={(payload) => handleSendPlatformSmtpBzTest(payload)}
           onPreviewNotificationTemplate={(payload) => handlePreviewNotificationTemplate(payload)}
           onSendNotificationTemplateTest={(payload) => handleSendNotificationTemplateTest(payload)}

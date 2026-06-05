@@ -10,6 +10,7 @@ from app.db.tenant import apply_db_security_context
 from app.models.invoice import Invoice
 from app.models.ledger_entry import LedgerEntry
 from app.models.project import Project
+from app.models.tenant import Tenant
 from app.models.transaction import Transaction
 from app.providers.base import ProviderCreateInvoiceRequest
 from app.providers.crypto_cash import CryptoCashProviderError, _provider_item
@@ -608,6 +609,31 @@ class InvoiceService:
                 "Invoice status updated but accounting cache invalidation failed for invoice_id=%s tenant_id=%s",
                 invoice_id,
                 tenant_id,
+            )
+        paid_statuses = {"paid", "confirmed"}
+        if previous_status not in paid_statuses and effective_status in paid_statuses:
+            from app.services.platform_ops_notify import notify_platform_ops
+
+            tenant_name = await self.db.scalar(select(Tenant.name).where(Tenant.id == tenant_id))
+            event_code = (
+                "invoice_confirmed" if effective_status == "confirmed" else "invoice_paid"
+            )
+            await notify_platform_ops(
+                self.db,
+                event_code=event_code,
+                title=(
+                    "Инвойс подтверждён"
+                    if event_code == "invoice_confirmed"
+                    else "Инвойс оплачен"
+                ),
+                lines=[
+                    f"Invoice ID: {invoice_id}",
+                    f"Мерчант: {tenant_name or tenant_id}",
+                    f"Сумма: {invoice.amount_fiat} {invoice.fiat_currency}",
+                    f"Crypto: {invoice.amount_crypto} {invoice.crypto_currency}",
+                    f"Статус: {effective_status}",
+                ],
+                admin_url=f"/admin/invoices/{invoice_id}",
             )
         refreshed_invoice = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
         if refreshed_invoice is not None:

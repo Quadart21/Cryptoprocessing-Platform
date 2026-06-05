@@ -8,6 +8,9 @@ import type {
   NotificationTemplatePreviewPayload,
   NotificationTemplateTestPayload,
   NotificationTemplateTestResponse,
+  OpsTelegramProvisionResponse,
+  OpsTelegramSettings,
+  OpsTelegramTopicTestResponse,
   PlatformBillingSettings,
   RateItem,
   SmtpBzTestPayload,
@@ -43,6 +46,7 @@ function formatExchangeRateSource(
 type AdminPlatformSettingsSectionProps = {
   adminAssetRates: RateItem[];
   loading: boolean;
+  isSuperadmin?: boolean;
   platformBillingSettings: PlatformBillingSettings | null;
   selectedTenantBillingPolicy: TenantBillingPolicy | null;
   selectedTenantId: string | null;
@@ -58,6 +62,10 @@ type AdminPlatformSettingsSectionProps = {
   onSendPlatformTelegramTest: (
     payload: TelegramAdminTestPayload,
   ) => Promise<TelegramAdminTestResponse>;
+  onProvisionOpsTelegramTopics?: () => Promise<OpsTelegramProvisionResponse>;
+  onSendOpsTelegramTopicTest?: (
+    topicKey: string,
+  ) => Promise<OpsTelegramTopicTestResponse>;
   onSendPlatformSmtpBzTest: (
     payload: SmtpBzTestPayload,
   ) => Promise<SmtpBzTestResponse>;
@@ -78,6 +86,7 @@ type SettingsSectionKey =
   | "seo"
   | "email"
   | "telegram"
+  | "ops-chat"
   | "templates"
   | "events"
   | "tenant";
@@ -98,6 +107,7 @@ const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { key: "seo", label: "SEO", eyebrow: "Мета-теги", description: "Заголовки, описания, favicon и Open Graph для поисковиков.", icon: "07" },
   { key: "email", label: "Email", eyebrow: "Канал", description: "SMTP.bz и тестовая отправка писем.", icon: "04" },
   { key: "telegram", label: "Telegram", eyebrow: "Канал", description: "Токен бота, проверка и тестовая доставка.", icon: "05" },
+  { key: "ops-chat", label: "Служебный чат", eyebrow: "Ops", description: "Форум-чат команды платформы с топиками (только superadmin).", icon: "10" },
   { key: "templates", label: "Шаблоны", eyebrow: "Контент", description: "Тексты email и Telegram для каждого события платформы.", icon: "06" },
   { key: "events", label: "События", eyebrow: "Матрица", description: "Какие каналы активны для каждого события.", icon: "07" },
   { key: "tenant", label: "Клиенты", eyebrow: "Индивидуально", description: "Переопределения правил для выбранного клиента.", icon: "08" },
@@ -152,6 +162,7 @@ function StatPill({
 export function AdminPlatformSettingsSection({
   adminAssetRates,
   loading,
+  isSuperadmin = false,
   platformBillingSettings,
   selectedTenantBillingPolicy,
   selectedTenantId,
@@ -163,6 +174,8 @@ export function AdminPlatformSettingsSection({
   onRefreshPlatformExchangeRate,
   onInspectPlatformTelegramBot,
   onSendPlatformTelegramTest,
+  onProvisionOpsTelegramTopics,
+  onSendOpsTelegramTopicTest,
   onSendPlatformSmtpBzTest,
   onPreviewNotificationTemplate,
   onSendNotificationTemplateTest,
@@ -179,6 +192,18 @@ export function AdminPlatformSettingsSection({
     useState<TelegramAdminTestResponse | null>(null);
   const [checkingTelegramBot, setCheckingTelegramBot] = useState(false);
   const [sendingTelegramTest, setSendingTelegramTest] = useState(false);
+  const [provisioningOpsTopics, setProvisioningOpsTopics] = useState(false);
+  const [opsTopicTestKey, setOpsTopicTestKey] = useState<string | null>(null);
+  const [opsChatError, setOpsChatError] = useState<string | null>(null);
+  const [opsChatMessage, setOpsChatMessage] = useState<string | null>(null);
+
+  const visibleSections = useMemo(
+    () =>
+      isSuperadmin
+        ? SETTINGS_SECTIONS
+        : SETTINGS_SECTIONS.filter((item) => item.key !== "ops-chat"),
+    [isSuperadmin],
+  );
   const [smtpTestRecipient, setSmtpTestRecipient] = useState("");
   const [smtpTestResult, setSmtpTestResult] = useState<SmtpBzTestResponse | null>(null);
   const [sendingSmtpTest, setSendingSmtpTest] = useState(false);
@@ -1033,6 +1058,221 @@ export function AdminPlatformSettingsSection({
     );
   }
 
+  function ensureOpsTelegramSettings(): OpsTelegramSettings {
+    return (
+      platformSettingsForm?.ops_telegram ?? {
+        enabled: false,
+        chat_id: null,
+        topics: [],
+        events: [],
+      }
+    );
+  }
+
+  function updateOpsTelegram(patch: Partial<OpsTelegramSettings>) {
+    if (!platformSettingsForm) return;
+    setPlatformSettingsForm({
+      ...platformSettingsForm,
+      ops_telegram: {
+        ...ensureOpsTelegramSettings(),
+        ...patch,
+      },
+    });
+  }
+
+  function updateOpsTopic(
+    key: string,
+    patch: { thread_id?: number | null; enabled?: boolean },
+  ) {
+    const ops = ensureOpsTelegramSettings();
+    updateOpsTelegram({
+      topics: ops.topics.map((item) =>
+        item.key === key ? { ...item, ...patch } : item,
+      ),
+    });
+  }
+
+  function toggleOpsEvent(code: string, enabled: boolean) {
+    const ops = ensureOpsTelegramSettings();
+    updateOpsTelegram({
+      events: ops.events.map((item) =>
+        item.code === code ? { ...item, enabled } : item,
+      ),
+    });
+  }
+
+  async function handleProvisionOpsTopics() {
+    if (!onProvisionOpsTelegramTopics) return;
+    setProvisioningOpsTopics(true);
+    setOpsChatError(null);
+    setOpsChatMessage(null);
+    try {
+      const result = await onProvisionOpsTelegramTopics();
+      await onReloadPlatformSettings();
+      const createdCount = Object.keys(result.created_topics).length;
+      setOpsChatMessage(
+        createdCount > 0
+          ? `Создано топиков: ${createdCount}. Thread ID сохранены в настройках.`
+          : "Все топики уже были созданы ранее.",
+      );
+    } catch (err) {
+      setOpsChatError(
+        err instanceof Error ? err.message : "Не удалось создать топики форума.",
+      );
+    } finally {
+      setProvisioningOpsTopics(false);
+    }
+  }
+
+  async function handleOpsTopicTest(topicKey: string) {
+    if (!onSendOpsTelegramTopicTest) return;
+    setOpsTopicTestKey(topicKey);
+    setOpsChatError(null);
+    setOpsChatMessage(null);
+    try {
+      await onSendOpsTelegramTopicTest(topicKey);
+      setOpsChatMessage(`Тест отправлен в топик «${topicKey}».`);
+    } catch (err) {
+      setOpsChatError(
+        err instanceof Error ? err.message : "Не удалось отправить тест в топик.",
+      );
+    } finally {
+      setOpsTopicTestKey(null);
+    }
+  }
+
+  function renderOpsChatSection() {
+    if (!platformSettingsForm || !isSuperadmin) return renderUnavailable();
+    const ops = ensureOpsTelegramSettings();
+    const meta = SETTINGS_SECTIONS.find((item) => item.key === "ops-chat");
+    if (!meta) return null;
+
+    return (
+      <SectionShell meta={meta}>
+        <div className="aps-field-stack">
+          <p className="muted-text">
+            Отдельный форум-чат для команды платформы. Мерчанты сюда не попадают — используется тот же
+            бот, что и для уведомлений, но другой chat_id и топики (Topics). Бот должен быть админом группы
+            с правом «Управление топиками».
+          </p>
+          <ol className="muted-text aps-ops-setup-list">
+            <li>Создайте супергруппу, включите Topics (форум).</li>
+            <li>Добавьте бота админом, дайте can_manage_topics.</li>
+            <li>Узнайте chat_id (@userinfobot или getUpdates) и сохраните ниже.</li>
+            <li>Нажмите «Создать топики» — или укажите thread_id вручную.</li>
+          </ol>
+          <FieldGrid>
+            <StatPill
+              label="Служебный чат"
+              value={ops.enabled ? "Вкл" : "Выкл"}
+              tone={ops.enabled ? "good" : "muted"}
+            />
+            <StatPill
+              label="Топиков"
+              value={String(ops.topics.filter((item) => item.thread_id != null).length)}
+              tone="default"
+            />
+          </FieldGrid>
+          <label className="aps-switch-inline">
+            <span>Служебные уведомления включены</span>
+            <input
+              type="checkbox"
+              checked={ops.enabled}
+              onChange={(event) => updateOpsTelegram({ enabled: event.target.checked })}
+            />
+          </label>
+          <label>
+            <span>Chat ID форум-чата</span>
+            <input
+              value={ops.chat_id ?? ""}
+              onChange={(event) => updateOpsTelegram({ chat_id: event.target.value.trim() || null })}
+              placeholder="-1001234567890"
+            />
+          </label>
+          <div className="aps-inline-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={provisioningOpsTopics || !onProvisionOpsTelegramTopics}
+              onClick={() => void handleProvisionOpsTopics()}
+            >
+              {provisioningOpsTopics ? "Создаём..." : "Создать топики через бота"}
+            </button>
+          </div>
+          <div className="aps-ops-topics-table">
+            {ops.topics.map((topic) => (
+              <div key={topic.key} className="aps-ops-topic-row">
+                <div className="aps-ops-topic-copy">
+                  <strong>{topic.title}</strong>
+                  <span className="muted-text">{topic.description}</span>
+                </div>
+                <label>
+                  <span className="muted-text">thread_id</span>
+                  <input
+                    type="number"
+                    value={topic.thread_id ?? ""}
+                    onChange={(event) => {
+                      const raw = event.target.value.trim();
+                      updateOpsTopic(topic.key, {
+                        thread_id: raw === "" ? null : Number(raw),
+                      });
+                    }}
+                    placeholder="auto"
+                  />
+                </label>
+                <label className="aps-switch-inline">
+                  <span>Вкл</span>
+                  <input
+                    type="checkbox"
+                    checked={topic.enabled}
+                    onChange={(event) =>
+                      updateOpsTopic(topic.key, { enabled: event.target.checked })
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={!onSendOpsTelegramTopicTest || opsTopicTestKey === topic.key}
+                  onClick={() => void handleOpsTopicTest(topic.key)}
+                >
+                  {opsTopicTestKey === topic.key ? "..." : "Тест"}
+                </button>
+              </div>
+            ))}
+          </div>
+          {ops.events.length > 0 ? (
+            <div className="aps-events-list">
+              <p className="eyebrow">События → топики</p>
+              {ops.events.map((item) => (
+                <div key={item.code} className="aps-event-row">
+                  <div className="aps-event-copy">
+                    <strong>{item.code}</strong>
+                    <span className="muted-text">{item.topic_title}</span>
+                  </div>
+                  <label className="aps-switch-inline">
+                    <span>В ops-чат</span>
+                    <input
+                      type="checkbox"
+                      checked={item.enabled}
+                      onChange={(event) => toggleOpsEvent(item.code, event.target.checked)}
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {opsChatError ? (
+            <p className="aps-telegram-check-error" role="alert">
+              {opsChatError}
+            </p>
+          ) : null}
+          {opsChatMessage ? <p className="muted-text">{opsChatMessage}</p> : null}
+        </div>
+      </SectionShell>
+    );
+  }
+
   function renderTemplatesSection() {
     if (!platformSettingsForm) return renderUnavailable();
     return (
@@ -1189,6 +1429,7 @@ export function AdminPlatformSettingsSection({
     seo: renderSeoSection,
     email: renderEmailSection,
     telegram: renderTelegramSection,
+    "ops-chat": renderOpsChatSection,
     templates: renderTemplatesSection,
     events: renderEventsSection,
     tenant: renderTenantSection,
@@ -1210,6 +1451,8 @@ export function AdminPlatformSettingsSection({
         return "Сохранить изменения";
       case "telegram":
         return "Сохранить изменения";
+      case "ops-chat":
+        return "Сохранить служебный чат";
       case "templates":
         return "Сохранить изменения";
       case "events":
@@ -1265,7 +1508,7 @@ export function AdminPlatformSettingsSection({
           <div className="aps-sidebar-card">
             <p className="eyebrow">Разделы</p>
             <nav className="aps-nav" aria-label="Навигация по настройкам">
-              {SETTINGS_SECTIONS.map((section) => (
+              {visibleSections.map((section) => (
                 <button
                   key={section.key}
                   type="button"
@@ -1288,7 +1531,7 @@ export function AdminPlatformSettingsSection({
 
         <div className="aps-main">
           <div className="aps-mobile-sections">
-            {SETTINGS_SECTIONS.map((section) => (
+            {visibleSections.map((section) => (
               <div key={section.key} className="aps-mobile-item">
                 <button
                   type="button"
@@ -1317,7 +1560,7 @@ export function AdminPlatformSettingsSection({
           </div>
 
           <div className="aps-desktop-sections">
-            {SETTINGS_SECTIONS.filter((section) => section.key === activeSection).map((section) => (
+            {visibleSections.filter((section) => section.key === activeSection).map((section) => (
               <SectionShell
                 key={section.key}
                 meta={section}

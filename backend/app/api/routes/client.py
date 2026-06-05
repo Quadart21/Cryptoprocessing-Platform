@@ -78,6 +78,7 @@ from app.services.invoice_confirmations import confirmations_fields_from_stored
 from app.services.invoice_service import InvoiceAmountOutOfRangeError, InvoiceService
 from app.services.invoice_transaction_details import build_invoice_transaction_details
 from app.services.notification_service import NotificationService
+from app.services.platform_ops_notify import notify_platform_ops
 from app.services.project_service import ProjectService
 from app.services.rates_service import RatesService
 from app.services.payout_service import PayoutService
@@ -283,6 +284,17 @@ async def register(
             f"Проект: {tenant.name}",
             "Заявка отправлена на модерацию.",
         ],
+    )
+    await notify_platform_ops(
+        db,
+        event_code="application_submitted",
+        title="Новая заявка на подключение",
+        lines=[
+            f"Проект: {tenant.name}",
+            f"Email: {user.email}",
+            f"Tenant ID: {tenant.id}",
+        ],
+        admin_url=f"/admin/clients/{tenant.id}",
     )
 
     return RegistrationResponse(
@@ -1061,6 +1073,20 @@ async def request_payout(
             f"Инициатор: {current_user.email}",
         ],
         owner_only=True,
+    )
+    tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == current_user.tenant_id))
+    await notify_platform_ops(
+        db,
+        event_code="payout_requested",
+        title="Новый запрос на выплату",
+        lines=[
+            f"Мерчант: {tenant_name or current_user.tenant_id}",
+            f"Payout ID: {payout.id}",
+            f"Сумма: {payout.amount_requested} {payout.currency}",
+            f"Адрес: {payout.destination_address}",
+            f"Инициатор: {current_user.email}",
+        ],
+        admin_url="/admin/payouts",
     )
     project_name = await db.scalar(select(Project.name).where(Project.id == payout.project_id)) if payout.project_id else None
     return _map_payout_response(payout, project_name=project_name)

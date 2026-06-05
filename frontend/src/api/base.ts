@@ -537,6 +537,50 @@ export type PlatformBillingSettings = {
   seo_og_image_url: string | null;
   seo_robots: string;
   seo_canonical_url: string | null;
+  ops_telegram?: OpsTelegramSettings | null;
+};
+
+export type OpsTelegramTopic = {
+  key: string;
+  title: string;
+  description: string;
+  thread_id: number | null;
+  enabled: boolean;
+  event_codes: string[];
+  events_enabled_count: number;
+};
+
+export type OpsTelegramEvent = {
+  code: string;
+  topic_key: string;
+  topic_title: string;
+  enabled: boolean;
+};
+
+export type OpsTelegramSettings = {
+  enabled: boolean;
+  chat_id: string | null;
+  topics: OpsTelegramTopic[];
+  events: OpsTelegramEvent[];
+};
+
+export type OpsTelegramTopicTestPayload = {
+  topic_key: string;
+};
+
+export type OpsTelegramTopicTestResponse = {
+  ok: boolean;
+  topic_key: string;
+  chat_id: string | null;
+  thread_id: number | null;
+  telegram_message_id: number | null;
+};
+
+export type OpsTelegramProvisionResponse = {
+  ok: boolean;
+  chat_id: string;
+  created_topics: Record<string, number>;
+  topics: Record<string, { thread_id?: number | null; enabled?: boolean }>;
 };
 
 export type ExchangeRateLookup = {

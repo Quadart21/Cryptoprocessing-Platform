@@ -13,7 +13,7 @@ def get_celery_app() -> Celery:
         "cryptorocessing",
         broker=settings.redis_url,
         backend=settings.redis_url,
-        include=["app.tasks.invoice_sync", "app.tasks.balance_holds"],
+        include=["app.tasks.invoice_sync", "app.tasks.balance_holds", "app.tasks.ops_telegram"],
     )
     celery_app.conf.update(
         task_serializer="json",
@@ -43,6 +43,10 @@ def get_celery_app() -> Celery:
         "expire-unpaid-invoices-every-minute": {
             "task": "app.tasks.invoice_sync.expire_unpaid_invoices",
             "schedule": crontab(minute="*"),
+        },
+        "ops-telegram-daily-report": {
+            "task": "app.tasks.ops_telegram.send_ops_daily_report",
+            "schedule": crontab(hour=6, minute=0),
         },
     }
     return celery_app

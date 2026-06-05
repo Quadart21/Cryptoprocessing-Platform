@@ -127,6 +127,68 @@ class PlatformBillingSettingsResponse(BaseModel):
     exchange_rate_price_field: ExchangeRatePriceField = "last"
     manual_exchange_rates: dict[str, Decimal] = Field(default_factory=dict)
     current_exchange_rates: dict[str, Decimal] = Field(default_factory=dict)
+    ops_telegram: "OpsTelegramSettingsView | None" = None
+
+
+class OpsTelegramTopicUpdate(BaseModel):
+    key: str = Field(min_length=1, max_length=64)
+    thread_id: int | None = None
+    enabled: bool = True
+
+
+class OpsTelegramEventToggle(BaseModel):
+    code: str
+    enabled: bool
+
+
+class OpsTelegramTopicView(BaseModel):
+    key: str
+    title: str
+    description: str
+    thread_id: int | None = None
+    enabled: bool = True
+    event_codes: list[str] = Field(default_factory=list)
+    events_enabled_count: int = 0
+
+
+class OpsTelegramEventView(BaseModel):
+    code: str
+    topic_key: str
+    topic_title: str
+    enabled: bool
+
+
+class OpsTelegramSettingsView(BaseModel):
+    enabled: bool = False
+    chat_id: str | None = None
+    topics: list[OpsTelegramTopicView] = Field(default_factory=list)
+    events: list[OpsTelegramEventView] = Field(default_factory=list)
+
+
+class OpsTelegramSettingsUpdate(BaseModel):
+    enabled: bool = False
+    chat_id: str | None = None
+    topics: list[OpsTelegramTopicUpdate] = Field(default_factory=list)
+    events: list[OpsTelegramEventToggle] = Field(default_factory=list)
+
+
+class OpsTelegramTopicTestRequest(BaseModel):
+    topic_key: str = Field(min_length=1, max_length=64)
+
+
+class OpsTelegramTopicTestResponse(BaseModel):
+    ok: bool
+    topic_key: str
+    chat_id: str | None = None
+    thread_id: int | None = None
+    telegram_message_id: int | None = None
+
+
+class OpsTelegramProvisionResponse(BaseModel):
+    ok: bool
+    chat_id: str
+    created_topics: dict[str, int] = Field(default_factory=dict)
+    topics: dict[str, dict[str, int | bool | None]] = Field(default_factory=dict)
 
 
 class ExchangeRateLookupResponse(BaseModel):
@@ -186,6 +248,7 @@ class PlatformBillingSettingsUpdateRequest(BaseModel):
     exchange_rate_markup_percent: Decimal = Decimal("0")
     exchange_rate_price_field: ExchangeRatePriceField = "last"
     manual_exchange_rates: dict[str, Decimal] = Field(default_factory=dict)
+    ops_telegram: OpsTelegramSettingsUpdate | None = None
 
 
 class TelegramBotInspectRequest(BaseModel):

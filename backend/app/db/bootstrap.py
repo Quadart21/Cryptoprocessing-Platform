@@ -307,6 +307,22 @@ DDL_PATCHES = [
     ADD COLUMN IF NOT EXISTS sandbox_cloudflare_api_token_encrypted VARCHAR(2048)
     """,
     """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS ops_telegram_enabled BOOLEAN NOT NULL DEFAULT false
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS ops_telegram_chat_id VARCHAR(64)
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS ops_telegram_topics_json TEXT NOT NULL DEFAULT '{}'
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS ops_telegram_events_json TEXT NOT NULL DEFAULT '[]'
+    """,
+    """
     ALTER TABLE tenant_fee_policies
     ADD COLUMN IF NOT EXISTS custom_turnover_fee_percent NUMERIC(10, 4)
     """,

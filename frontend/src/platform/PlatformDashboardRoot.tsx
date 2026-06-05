@@ -89,6 +89,8 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     onRefreshPlatformExchangeRate,
     onInspectPlatformTelegramBot,
     onSendPlatformTelegramTest,
+    onProvisionOpsTelegramTopics,
+    onSendOpsTelegramTopicTest,
     onSendPlatformSmtpBzTest,
     onPreviewNotificationTemplate,
     onSendNotificationTemplateTest,
@@ -413,6 +415,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
               <div className="console-section-stack">
                 <AdminPlatformSettingsSectionLazy
                   adminAssetRates={adminAssetRates}
+                  isSuperadmin={user.role === "superadmin"}
                   loading={loading}
                   platformBillingSettings={platformBillingSettings}
                   selectedTenantBillingPolicy={selectedTenantBillingPolicy}
@@ -423,6 +426,8 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                   onRefreshPlatformExchangeRate={onRefreshPlatformExchangeRate}
                   onInspectPlatformTelegramBot={onInspectPlatformTelegramBot}
                   onSendPlatformTelegramTest={onSendPlatformTelegramTest}
+                  onProvisionOpsTelegramTopics={onProvisionOpsTelegramTopics}
+                  onSendOpsTelegramTopicTest={onSendOpsTelegramTopicTest}
                   onSendPlatformSmtpBzTest={onSendPlatformSmtpBzTest}
                   onPreviewNotificationTemplate={onPreviewNotificationTemplate}
                   onSendNotificationTemplateTest={onSendNotificationTemplateTest}

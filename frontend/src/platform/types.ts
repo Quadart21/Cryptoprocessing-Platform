@@ -153,6 +153,10 @@ export type AdminDashboardProps = {
   onSendPlatformTelegramTest: (
     payload: TelegramAdminTestPayload,
   ) => Promise<TelegramAdminTestResponse>;
+  onProvisionOpsTelegramTopics?: () => Promise<import("../api").OpsTelegramProvisionResponse>;
+  onSendOpsTelegramTopicTest?: (
+    topicKey: string,
+  ) => Promise<import("../api").OpsTelegramTopicTestResponse>;
   onSendPlatformSmtpBzTest: (payload: SmtpBzTestPayload) => Promise<SmtpBzTestResponse>;
   onPreviewNotificationTemplate: (
     payload: NotificationTemplatePreviewPayload,

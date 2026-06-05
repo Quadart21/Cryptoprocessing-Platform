@@ -107,3 +107,11 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         String(2048),
         nullable=True,
     )
+    ops_telegram_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ops_telegram_chat_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    ops_telegram_topics_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    ops_telegram_events_json: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default='["application_submitted","application_approved","application_rejected","payout_requested","payout_approved","payout_rejected","invoice_paid","invoice_confirmed","provider_alert","tenant_password_reset","tenant_2fa_reset","sandbox_created","sandbox_ready","daily_report"]',
+    )

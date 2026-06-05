@@ -1,0 +1,519 @@
+"""Служебный Telegram-чат платформы (forum/supergroup с топиками). Только для команды ops, не мерчантов."""
+
+from __future__ import annotations
+
+import json
+import logging
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any, Iterable
+
+import requests
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.invoice import Invoice
+from app.models.payout_request import PayoutRequest
+from app.models.platform_setting import PlatformSetting
+from app.models.tenant import Tenant
+from app.services.billing_policy_service import BillingPolicyService
+from app.services.notification_service import NotificationService
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class OpsTopicDefinition:
+    key: str
+    title: str
+    description: str
+
+
+OPS_TOPIC_DEFINITIONS: tuple[OpsTopicDefinition, ...] = (
+    OpsTopicDefinition(
+        key="onboarding",
+        title="📋 Заявки",
+        description="Новые заявки на подключение, ожидают модерации.",
+    ),
+    OpsTopicDefinition(
+        key="payouts",
+        title="💸 Выплаты",
+        description="Запросы, одобрения и отклонения выплат мерчантов.",
+    ),
+    OpsTopicDefinition(
+        key="finance",
+        title="💰 Платежи",
+        description="Оплаченные и подтверждённые инвойсы, аномалии сумм.",
+    ),
+    OpsTopicDefinition(
+        key="clients",
+        title="👥 Клиенты",
+        description="Одобрение/отклонение мерчантов, блокировки, сброс доступа.",
+    ),
+    OpsTopicDefinition(
+        key="alerts",
+        title="⚠️ Алерты",
+        description="Ошибки провайдера, webhook, sync и rate-limit.",
+    ),
+    OpsTopicDefinition(
+        key="security",
+        title="🔐 Безопасность",
+        description="2FA, сброс паролей админом, подозрительная активность.",
+    ),
+    OpsTopicDefinition(
+        key="reports",
+        title="📊 Отчёты",
+        description="Ежедневные и еженедельные дайджесты по платформе.",
+    ),
+    OpsTopicDefinition(
+        key="sandbox",
+        title="🧪 Sandbox",
+        description="Создание и жизненный цикл песочниц.",
+    ),
+)
+
+OPS_TOPIC_BY_KEY = {item.key: item for item in OPS_TOPIC_DEFINITIONS}
+
+# Событие платформы → ключ топика.
+EVENT_TOPIC_MAP: dict[str, str] = {
+    "application_submitted": "onboarding",
+    "application_approved": "clients",
+    "application_rejected": "clients",
+    "payout_requested": "payouts",
+    "payout_approved": "payouts",
+    "payout_rejected": "payouts",
+    "invoice_paid": "finance",
+    "invoice_confirmed": "finance",
+    "provider_alert": "alerts",
+    "tenant_password_reset": "security",
+    "tenant_2fa_reset": "security",
+    "sandbox_created": "sandbox",
+    "sandbox_ready": "sandbox",
+    "daily_report": "reports",
+}
+
+
+class PlatformOpsTelegramService:
+    DEFAULT_EVENTS_JSON = json.dumps(sorted(EVENT_TOPIC_MAP.keys()), ensure_ascii=False)
+
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+        self._notifications = NotificationService(db)
+
+    @classmethod
+    def topic_definitions(cls) -> list[OpsTopicDefinition]:
+        return list(OPS_TOPIC_DEFINITIONS)
+
+    def parse_topics(self, platform_settings: PlatformSetting) -> dict[str, dict[str, Any]]:
+        raw = platform_settings.ops_telegram_topics_json or "{}"
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, ValueError):
+            parsed = {}
+        if not isinstance(parsed, dict):
+            return {}
+        normalized: dict[str, dict[str, Any]] = {}
+        for definition in OPS_TOPIC_DEFINITIONS:
+            entry = parsed.get(definition.key)
+            if isinstance(entry, dict):
+                thread_id = entry.get("thread_id")
+                enabled = bool(entry.get("enabled", True))
+            elif isinstance(entry, int):
+                thread_id = entry
+                enabled = True
+            else:
+                thread_id = None
+                enabled = True
+            normalized[definition.key] = {
+                "thread_id": int(thread_id) if thread_id is not None else None,
+                "enabled": enabled,
+            }
+        return normalized
+
+    def parse_enabled_events(self, platform_settings: PlatformSetting) -> set[str]:
+        raw = platform_settings.ops_telegram_events_json or self.DEFAULT_EVENTS_JSON
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, ValueError):
+            parsed = []
+        if not isinstance(parsed, list):
+            return set(EVENT_TOPIC_MAP.keys())
+        codes = {str(item).strip() for item in parsed if str(item).strip() in EVENT_TOPIC_MAP}
+        return codes or set(EVENT_TOPIC_MAP.keys())
+
+    def get_topic_views(self, platform_settings: PlatformSetting) -> list[dict[str, Any]]:
+        topics = self.parse_topics(platform_settings)
+        enabled_events = self.parse_enabled_events(platform_settings)
+        views: list[dict[str, Any]] = []
+        for definition in OPS_TOPIC_DEFINITIONS:
+            topic_state = topics.get(definition.key, {})
+            event_codes = [
+                code for code, topic_key in EVENT_TOPIC_MAP.items() if topic_key == definition.key
+            ]
+            views.append(
+                {
+                    "key": definition.key,
+                    "title": definition.title,
+                    "description": definition.description,
+                    "thread_id": topic_state.get("thread_id"),
+                    "enabled": bool(topic_state.get("enabled", True)),
+                    "event_codes": event_codes,
+                    "events_enabled_count": sum(
+                        1 for code in event_codes if code in enabled_events
+                    ),
+                }
+            )
+        return views
+
+    def get_event_views(self, platform_settings: PlatformSetting) -> list[dict[str, Any]]:
+        enabled_events = self.parse_enabled_events(platform_settings)
+        views: list[dict[str, Any]] = []
+        for code, topic_key in EVENT_TOPIC_MAP.items():
+            topic = OPS_TOPIC_BY_KEY.get(topic_key)
+            views.append(
+                {
+                    "code": code,
+                    "topic_key": topic_key,
+                    "topic_title": topic.title if topic else topic_key,
+                    "enabled": code in enabled_events,
+                }
+            )
+        return views
+
+    async def update_settings(
+        self,
+        platform_settings: PlatformSetting,
+        *,
+        enabled: bool,
+        chat_id: str | None,
+        topics: Iterable[Any],
+        event_toggles: Iterable[Any] | None = None,
+    ) -> PlatformSetting:
+        normalized_topics = self.parse_topics(platform_settings)
+        for item in topics:
+            key = str(getattr(item, "key", "") or "").strip()
+            if key not in OPS_TOPIC_BY_KEY:
+                continue
+            thread_raw = getattr(item, "thread_id", None)
+            thread_id: int | None
+            if thread_raw is None or thread_raw == "":
+                thread_id = None
+            else:
+                thread_id = int(thread_raw)
+            topic_enabled = bool(getattr(item, "enabled", True))
+            normalized_topics[key] = {"thread_id": thread_id, "enabled": topic_enabled}
+
+        platform_settings.ops_telegram_enabled = bool(enabled)
+        normalized_chat_id = (chat_id or "").strip()
+        platform_settings.ops_telegram_chat_id = normalized_chat_id or None
+        platform_settings.ops_telegram_topics_json = json.dumps(
+            normalized_topics,
+            ensure_ascii=False,
+        )
+
+        current_events = self.parse_enabled_events(platform_settings)
+        if event_toggles is not None:
+            next_events: set[str] = set()
+            for item in event_toggles:
+                code = str(getattr(item, "code", "") or "").strip()
+                if code not in EVENT_TOPIC_MAP:
+                    continue
+                if bool(getattr(item, "enabled", False)):
+                    next_events.add(code)
+            platform_settings.ops_telegram_events_json = json.dumps(
+                sorted(next_events),
+                ensure_ascii=False,
+            )
+        else:
+            platform_settings.ops_telegram_events_json = json.dumps(
+                sorted(current_events),
+                ensure_ascii=False,
+            )
+
+        await self.db.flush()
+        return platform_settings
+
+    def _is_configured(self, platform_settings: PlatformSetting) -> bool:
+        return bool(
+            platform_settings.ops_telegram_enabled
+            and (platform_settings.ops_telegram_chat_id or "").strip()
+            and self._notifications.is_telegram_bot_token_configured(platform_settings)
+        )
+
+    def _resolve_thread_id(
+        self,
+        platform_settings: PlatformSetting,
+        topic_key: str,
+    ) -> int | None:
+        topics = self.parse_topics(platform_settings)
+        state = topics.get(topic_key) or {}
+        if not state.get("enabled", True):
+            return None
+        thread_id = state.get("thread_id")
+        return int(thread_id) if thread_id is not None else None
+
+    def send_to_topic(
+        self,
+        platform_settings: PlatformSetting,
+        topic_key: str,
+        message_text: str,
+        *,
+        disable_notification: bool = False,
+    ) -> int | None:
+        if not self._is_configured():
+            return None
+        if topic_key not in OPS_TOPIC_BY_KEY:
+            logger.warning("Unknown ops telegram topic: %s", topic_key)
+            return None
+
+        thread_id = self._resolve_thread_id(platform_settings, topic_key)
+        chat_id = (platform_settings.ops_telegram_chat_id or "").strip()
+        bot_token = self._notifications._get_telegram_bot_token(platform_settings)  # noqa: SLF001
+        if not bot_token or not chat_id:
+            return None
+
+        try:
+            base_url = self._notifications._normalize_telegram_api_base_url(  # noqa: SLF001
+                platform_settings.telegram_api_base_url
+            )
+        except ValueError:
+            logger.warning("Invalid Telegram API base URL for ops chat.")
+            return None
+
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "text": message_text[:4096],
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+            "disable_notification": disable_notification,
+        }
+        if thread_id is not None:
+            payload["message_thread_id"] = thread_id
+
+        url = f"{base_url}/bot{bot_token}/sendMessage"
+        try:
+            response = requests.post(url, json=payload, timeout=10)
+            if response.status_code >= 400:
+                logger.warning(
+                    "Ops Telegram send failed %s: %s",
+                    response.status_code,
+                    response.text[:240],
+                )
+                return None
+            body = response.json()
+            if not isinstance(body, dict) or body.get("ok") is not True:
+                logger.warning("Ops Telegram rejected message: %s", str(body)[:240])
+                return None
+            result = body.get("result")
+            if isinstance(result, dict):
+                message_id = result.get("message_id")
+                return int(message_id) if message_id is not None else None
+        except Exception:
+            logger.exception("Failed to send ops telegram message to topic %s", topic_key)
+        return None
+
+    async def notify_event(
+        self,
+        *,
+        event_code: str,
+        title: str,
+        lines: list[str],
+        admin_url: str | None = None,
+    ) -> None:
+        billing = BillingPolicyService(self.db)
+        platform_settings = await billing.get_platform_settings()
+        if not self._is_configured():
+            return
+        if event_code not in EVENT_TOPIC_MAP:
+            return
+        if event_code not in self.parse_enabled_events(platform_settings):
+            return
+
+        topic_key = EVENT_TOPIC_MAP[event_code]
+        body_lines = [f"<b>{self._escape_html(title)}</b>"]
+        body_lines.extend(self._escape_html(line) for line in lines if line.strip())
+        link = admin_url
+        if link:
+            base = (platform_settings.notification_primary_url or "").strip().rstrip("/")
+            if base and link.startswith("/"):
+                link = f"{base}{link}"
+            safe_url = self._escape_html(link)
+            body_lines.append(f'<a href="{safe_url}">Открыть в админке</a>')
+        message = "\n".join(body_lines)
+        self.send_to_topic(platform_settings, topic_key, message)
+
+    async def send_test_message(
+        self,
+        *,
+        topic_key: str,
+        initiated_by_email: str,
+    ) -> dict[str, Any]:
+        billing = BillingPolicyService(self.db)
+        platform_settings = await billing.get_platform_settings()
+        if not self._is_configured():
+            raise ValueError("Служебный чат не настроен: включите его, укажите chat_id и токен бота.")
+        if topic_key not in OPS_TOPIC_BY_KEY:
+            raise ValueError(f"Неизвестный топик: {topic_key}")
+
+        definition = OPS_TOPIC_BY_KEY[topic_key]
+        thread_id = self._resolve_thread_id(platform_settings, topic_key)
+        text = (
+            f"<b>Тест · {self._escape_html(definition.title)}</b>\n"
+            f"Инициатор: {self._escape_html(initiated_by_email)}\n"
+            f"UTC: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
+        )
+        message_id = self.send_to_topic(platform_settings, topic_key, text)
+        if message_id is None:
+            raise ValueError(
+                "Не удалось отправить тест. Проверьте chat_id, thread_id и права бота в форум-чате."
+            )
+        return {
+            "ok": True,
+            "topic_key": topic_key,
+            "chat_id": platform_settings.ops_telegram_chat_id,
+            "thread_id": thread_id,
+            "telegram_message_id": message_id,
+        }
+
+    async def provision_forum_topics(
+        self,
+        *,
+        initiated_by_email: str,
+    ) -> dict[str, Any]:
+        billing = BillingPolicyService(self.db)
+        platform_settings = await billing.get_platform_settings()
+        chat_id = (platform_settings.ops_telegram_chat_id or "").strip()
+        if not chat_id:
+            raise ValueError("Укажите chat_id служебного форум-чата.")
+        bot_token = self._notifications._get_telegram_bot_token(platform_settings)  # noqa: SLF001
+        if not bot_token:
+            raise ValueError("Токен Telegram-бота не настроен.")
+
+        try:
+            base_url = self._notifications._normalize_telegram_api_base_url(  # noqa: SLF001
+                platform_settings.telegram_api_base_url
+            )
+        except ValueError as exc:
+            raise ValueError("Некорректный Telegram API URL.") from exc
+
+        topics = self.parse_topics(platform_settings)
+        created: dict[str, int] = {}
+        for definition in OPS_TOPIC_DEFINITIONS:
+            if topics.get(definition.key, {}).get("thread_id") is not None:
+                continue
+            url = f"{base_url}/bot{bot_token}/createForumTopic"
+            response = requests.post(
+                url,
+                json={
+                    "chat_id": chat_id,
+                    "name": definition.title[:128],
+                },
+                timeout=12,
+            )
+            if response.status_code >= 400:
+                raise ValueError(
+                    f"createForumTopic ({definition.key}): HTTP {response.status_code} — "
+                    f"{response.text[:200]}"
+                )
+            body = response.json()
+            if not isinstance(body, dict) or body.get("ok") is not True:
+                raise ValueError(
+                    f"createForumTopic ({definition.key}): {json.dumps(body, ensure_ascii=False)[:200]}"
+                )
+            result = body.get("result") or {}
+            thread_id = result.get("message_thread_id")
+            if thread_id is None:
+                raise ValueError(f"createForumTopic ({definition.key}): нет message_thread_id в ответе.")
+            created[definition.key] = int(thread_id)
+            topics[definition.key] = {"thread_id": int(thread_id), "enabled": True}
+
+        if created:
+            platform_settings.ops_telegram_topics_json = json.dumps(topics, ensure_ascii=False)
+            platform_settings.ops_telegram_enabled = True
+            await self.db.flush()
+
+        intro = (
+            f"<b>Служебный чат платформы</b>\n"
+            f"Топики созданы: {self._escape_html(initiated_by_email)}\n"
+            f"UTC: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
+        )
+        self.send_to_topic(platform_settings, "reports", intro)
+
+        return {
+            "ok": True,
+            "chat_id": chat_id,
+            "created_topics": created,
+            "topics": topics,
+        }
+
+    async def build_and_send_daily_report(self) -> bool:
+        billing = BillingPolicyService(self.db)
+        platform_settings = await billing.get_platform_settings()
+        if not self._is_configured():
+            return False
+        if "daily_report" not in self.parse_enabled_events(platform_settings):
+            return False
+
+        now = datetime.now(timezone.utc)
+        since = now - timedelta(hours=24)
+
+        pending_apps = await self.db.scalar(
+            select(func.count()).select_from(Tenant).where(Tenant.status == "pending_review")
+        )
+        pending_payouts = await self.db.scalar(
+            select(func.count())
+            .select_from(PayoutRequest)
+            .where(PayoutRequest.status == "pending_review")
+        )
+        paid_count = await self.db.scalar(
+            select(func.count())
+            .select_from(Invoice)
+            .where(
+                Invoice.status.in_(("paid", "confirmed")),
+                Invoice.updated_at >= since,
+            )
+        )
+        expired_count = await self.db.scalar(
+            select(func.count())
+            .select_from(Invoice)
+            .where(
+                Invoice.status == "cancelled",
+                Invoice.updated_at >= since,
+            )
+        )
+        confirmed_volume = await self.db.scalar(
+            select(func.coalesce(func.sum(Invoice.amount_fiat), 0)).where(
+                Invoice.status == "confirmed",
+                Invoice.confirmed_at >= since,
+            )
+        )
+
+        volume_text = self._format_decimal(confirmed_volume or Decimal("0"))
+        lines = [
+            f"Период: последние 24ч (до {now.strftime('%Y-%m-%d %H:%M')} UTC)",
+            f"Заявок на модерации: {pending_apps or 0}",
+            f"Выплат на проверке: {pending_payouts or 0}",
+            f"Оплачено инвойсов: {paid_count or 0}",
+            f"Истекло (cancelled): {expired_count or 0}",
+            f"Подтверждённый оборот (fiat): {volume_text}",
+        ]
+        await self.notify_event(
+            event_code="daily_report",
+            title="📊 Ежедневный дайджест платформы",
+            lines=lines,
+        )
+        return True
+
+    @staticmethod
+    def _escape_html(value: str) -> str:
+        return (
+            value.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+
+    @staticmethod
+    def _format_decimal(value: Decimal) -> str:
+        normalized = value.quantize(Decimal("0.01"))
+        return f"{normalized:f}"
