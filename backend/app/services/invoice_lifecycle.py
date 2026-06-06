@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from app.core.config import settings
 from app.models.invoice import Invoice
 from app.services.checkout_delivery_service import CheckoutDeliveryService, CheckoutPaymentFields
+from app.services.payment_memo import read_stored_payment_memo
 from app.providers.crypto_cash_status import platform_status_indicates_payment
 
 
@@ -53,5 +54,12 @@ def checkout_payment_fields(
         qr_url=invoice.qr_url,
     )
     if invoice_allows_payment_credentials(invoice):
-        return fields
+        memo = read_stored_payment_memo(invoice.raw_provider_payload_json)
+        return CheckoutPaymentFields(
+            payment_page_url=fields.payment_page_url,
+            payment_address=fields.payment_address,
+            qr_url=fields.qr_url,
+            payment_memo=memo,
+            checkout_delivery=fields.checkout_delivery,
+        )
     return CheckoutDeliveryService.mask_credentials(fields)

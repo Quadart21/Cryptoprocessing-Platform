@@ -49,6 +49,7 @@ from app.services.invoice_lifecycle import (
     compute_invoice_expires_at,
     is_invoice_expired,
 )
+from app.services.payment_memo import apply_memo_to_stored_payload, sync_invoice_qr_with_memo
 from app.services.payment_page_service import PaymentPageService
 from app.services.rates_service import RatesService
 from app.services.statistics_exclusion_service import StatisticsExclusionService
@@ -219,6 +220,7 @@ class InvoiceService:
         )
         stored_payload = dict(invoice.raw_provider_payload_json or {})
         apply_confirmations_to_stored_payload(stored_payload, provider_response.raw_payload)
+        apply_memo_to_stored_payload(stored_payload, provider_response.raw_payload)
         try:
             required_confirmations = await rates_service.get_network_confirmations_required(
                 currency=provider_response.crypto_currency,
@@ -508,6 +510,8 @@ class InvoiceService:
         if provider_status and stored_payload.get("last_webhook_status") != provider_status:
             stored_payload["last_webhook_status"] = provider_status
         apply_confirmations_to_stored_payload(stored_payload, raw_payload)
+        if apply_memo_to_stored_payload(stored_payload, raw_payload):
+            sync_invoice_qr_with_memo(invoice, stored_payload)
         apply_settlement_fields_to_stored(
             stored_payload,
             raw_payload,

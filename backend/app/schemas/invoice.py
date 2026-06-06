@@ -25,6 +25,7 @@ class InvoiceResponse(BaseModel):
     crypto_currency: str
     network: str
     payment_address: str | None = None
+    payment_memo: str | None = None
     qr_url: str | None = None
     payment_page_url: str | None = None
     checkout_delivery: str = "payment_page"
@@ -63,6 +64,7 @@ class InvoiceTransactionDetailsResponse(BaseModel):
     status: str
     exchange_id: str
     wallet_address: str | None = None
+    payment_memo: str | None = None
     tx_hash: str | None = None
     exchange_rate: Decimal | None = None
     exchange_rate_currency: str
@@ -90,6 +92,7 @@ class PublicPaymentResponse(BaseModel):
     amount_fiat: Decimal
     fiat_currency: str
     payment_address: str | None = None
+    payment_memo: str | None = None
     qr_url: str | None = None
     network_confirmations_actual: int | None = None
     network_confirmations_required: int | None = None

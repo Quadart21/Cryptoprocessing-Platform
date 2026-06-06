@@ -107,6 +107,8 @@ from app.services.api_usage_service import ApiUsageSummary, get_api_usage_servic
 from app.services.checkout_delivery_service import CheckoutDeliveryService
 from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_confirmations import confirmations_fields_from_stored
+from app.services.payment_memo import read_stored_payment_memo
+from app.services.payment_memo import read_stored_payment_memo
 from app.services.invoice_service import InvoiceService
 from app.services.invoice_transaction_details import build_invoice_transaction_details
 from app.services.notification_service import NotificationService
@@ -1965,6 +1967,7 @@ def _map_invoice_response(invoice: Invoice) -> InvoiceResponse:
         crypto_currency=invoice.crypto_currency,
         network=invoice.network,
         payment_address=invoice.payment_address,
+        payment_memo=read_stored_payment_memo(invoice.raw_provider_payload_json),
         qr_url=invoice.qr_url,
         payment_page_url=PaymentPageService.payment_page_url_for(invoice),
         status=invoice.status,

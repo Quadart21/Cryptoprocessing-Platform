@@ -151,6 +151,9 @@ export function InvoiceTransactionDetailsCard({
         </div>
         <CopyableValue label="ID обмена" value={details.exchange_id} />
         <CopyableValue label="Адрес кошелька" value={details.wallet_address} />
+        {details.payment_memo ? (
+          <CopyableValue label="Memo / Tag" value={details.payment_memo} />
+        ) : null}
         <CopyableValue label="HASH" value={details.tx_hash} />
         {confirmationProgress ? (
           <div className="invoice-tx-meta-item">

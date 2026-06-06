@@ -12,6 +12,7 @@ from app.services.invoice_confirmations import (
     confirmations_fields_for_invoice,
     read_stored_confirmations,
 )
+from app.services.payment_memo import read_stored_payment_memo
 from app.services.invoice_service import InvoiceService
 from app.services.provider_settlement_rate import extract_settlement_rate_from_stored
 
@@ -214,6 +215,7 @@ async def build_invoice_transaction_details(
         "status": invoice.status,
         "exchange_id": invoice.provider_order_id,
         "wallet_address": invoice.payment_address or None,
+        "payment_memo": read_stored_payment_memo(invoice.raw_provider_payload_json),
         "tx_hash": extract_tx_hash(stored_payload, items),
         "exchange_rate": exchange_rate,
         "exchange_rate_currency": display_fiat_currency,

@@ -1222,6 +1222,7 @@ def _map_invoice_response(
         crypto_currency=invoice.crypto_currency,
         network=invoice.network,
         payment_address=payment_fields.payment_address,
+        payment_memo=payment_fields.payment_memo,
         qr_url=payment_fields.qr_url,
         payment_page_url=payment_fields.payment_page_url,
         checkout_delivery=payment_fields.checkout_delivery,

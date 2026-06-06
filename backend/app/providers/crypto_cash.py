@@ -14,7 +14,11 @@ from app.providers.base import (
     ProviderCreateInvoiceRequest,
     ProviderCreateInvoiceResponse,
 )
-from app.services.api_usage_service import get_api_usage_service
+from app.services.payment_memo import (
+    apply_memo_to_stored_payload,
+    build_payment_qr_url,
+    extract_memo_from_provider_payload,
+)
 from app.services.cache_service import get_cache_service
 
 
@@ -134,8 +138,9 @@ class CryptoCashProvider(PaymentProviderInterface):
         amount_crypto = self._to_decimal(expected_amount)
         crypto_currency = str(payload.crypto_currency).upper()
         network = str(item.get("network") or payload.network).upper()
-        memo = str(item.get("memo") or created_item.get("memo") or "")
-        qr_data = f"{payment_address}?memo={memo}" if payment_address and memo else payment_address
+        memo = extract_memo_from_provider_payload(retrieve_response) or extract_memo_from_provider_payload(
+            create_response,
+        )
         expires_at = datetime.now(timezone.utc) + timedelta(
             minutes=settings.invoice_payment_ttl_minutes,
         )
@@ -144,7 +149,7 @@ class CryptoCashProvider(PaymentProviderInterface):
             "provider": "crypto-cash",
             "create_response": create_response,
             "retrieve_response": retrieve_response,
-            "memo": memo or None,
+            "payment_memo": memo,
             "signature_mode": self.signature_mode,
         }
         return ProviderCreateInvoiceResponse(
@@ -153,11 +158,7 @@ class CryptoCashProvider(PaymentProviderInterface):
             crypto_currency=crypto_currency,
             network=network,
             payment_address=payment_address,
-            qr_url=(
-                f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={qr_data}"
-                if qr_data
-                else None
-            ),
+            qr_url=build_payment_qr_url(payment_address, memo, size=200),
             expires_at=expires_at,
             raw_payload=raw_payload,
         )

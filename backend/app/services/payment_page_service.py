@@ -9,6 +9,7 @@ from app.models.project import Project
 from app.schemas.invoice import PublicPaymentResponse
 from app.services.invoice_confirmations import confirmations_fields_for_invoice
 from app.services.invoice_lifecycle import invoice_allows_payment_credentials
+from app.services.payment_memo import read_stored_payment_memo
 
 
 class PaymentPageService:
@@ -61,6 +62,9 @@ class PaymentPageService:
         return_url_failed = project.return_url_failed if project is not None else None
         confirmations = await confirmations_fields_for_invoice(self.db, invoice)
         allow_credentials = invoice_allows_payment_credentials(invoice)
+        payment_memo = (
+            read_stored_payment_memo(invoice.raw_provider_payload_json) if allow_credentials else None
+        )
         return PublicPaymentResponse(
             status=invoice.status,
             amount_crypto=invoice.amount_crypto,
@@ -69,6 +73,7 @@ class PaymentPageService:
             amount_fiat=invoice.amount_fiat,
             fiat_currency=invoice.fiat_currency,
             payment_address=invoice.payment_address if allow_credentials else None,
+            payment_memo=payment_memo,
             qr_url=invoice.qr_url if allow_credentials else None,
             expires_at=invoice.expires_at,
             merchant_order_id=invoice.merchant_order_id,

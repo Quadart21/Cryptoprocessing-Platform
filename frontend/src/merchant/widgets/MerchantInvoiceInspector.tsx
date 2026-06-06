@@ -266,6 +266,22 @@ export function MerchantInvoiceInspector({
                   Копировать адрес
                 </button>
                 <code className="detail-tech-value">{invoice.payment_address}</code>
+                {invoice.payment_memo ? (
+                  <>
+                    <p className="muted-text" style={{ marginTop: "0.75rem" }}>
+                      Memo / Tag (обязательно для некоторых сетей)
+                    </p>
+                    <button
+                      className="ghost-button"
+                      onClick={() => void copyValue(invoice.payment_memo)}
+                      style={{ marginBottom: "0.5rem" }}
+                      type="button"
+                    >
+                      Копировать memo
+                    </button>
+                    <code className="detail-tech-value">{invoice.payment_memo}</code>
+                  </>
+                ) : null}
               </>
             ) : (
               <p className="muted-text">Адрес и provider ID — для прямых интеграций без checkout-страницы.</p>

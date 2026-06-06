@@ -92,20 +92,27 @@ type ReturnBannerProps = {
 
 type PaymentDepositAddressProps = {
   address: string;
+  memo?: string | null;
   cryptoCurrency: string;
   network: string;
   copied: boolean;
+  memoCopied: boolean;
   onCopy: () => void;
+  onCopyMemo?: () => void;
 };
 
 function PaymentDepositAddress({
   address,
+  memo,
   cryptoCurrency,
   network,
   copied,
+  memoCopied,
   onCopy,
+  onCopyMemo,
 }: PaymentDepositAddressProps) {
   const chunks = chunkAddress(address);
+  const normalizedMemo = memo?.trim() ?? "";
 
   return (
     <section className="pp-deposit" aria-labelledby="pp-deposit-title">
@@ -163,6 +170,31 @@ function PaymentDepositAddress({
           ))}
         </p>
       </div>
+
+      {normalizedMemo ? (
+        <div className="pp-deposit-field pp-deposit-field--memo">
+          <div className="pp-deposit-header">
+            <div>
+              <p className="pp-deposit-label">Memo / Tag / Comment</p>
+              <p className="pp-deposit-chunks" translate="no">
+                <span className="pp-deposit-chunk">{normalizedMemo}</span>
+              </p>
+            </div>
+            {onCopyMemo ? (
+              <button
+                className={`pp-deposit-copy${memoCopied ? " pp-deposit-copy--done" : ""}`}
+                onClick={onCopyMemo}
+                type="button"
+              >
+                {memoCopied ? "Скопировано" : "Копировать memo"}
+              </button>
+            ) : null}
+          </div>
+          <p className="pp-deposit-note">
+            Без memo платёж может не зачислиться. Укажите его в кошельке при переводе.
+          </p>
+        </div>
+      ) : null}
 
       <p className="pp-deposit-note">
         Отправляйте только <strong>{cryptoCurrency}</strong> в сети <strong>{network}</strong>. Другая
@@ -481,6 +513,20 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                       {copied === "address" ? "Скопировано" : "Адрес"}
                     </span>
                   </button>
+                  {payment.payment_memo ? (
+                    <button
+                      className="pp-action"
+                      onClick={() => void copyValue("memo", payment.payment_memo ?? "")}
+                      type="button"
+                    >
+                      <span className="pp-action-icon" aria-hidden>
+                        #
+                      </span>
+                      <span className="pp-action-label">
+                        {copied === "memo" ? "Скопировано" : "Memo"}
+                      </span>
+                    </button>
+                  ) : null}
                   <button
                     className="pp-action"
                     onClick={() => void loadPayment(true, { silent: false })}
@@ -515,12 +561,19 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                       address={payment.payment_address}
                       copied={copied === "address"}
                       cryptoCurrency={payment.crypto_currency}
+                      memo={payment.payment_memo}
+                      memoCopied={copied === "memo"}
                       network={payment.network}
                       onCopy={() => {
                         if (payment.payment_address) {
                           void copyValue("address", payment.payment_address);
                         }
                       }}
+                      onCopyMemo={
+                        payment.payment_memo
+                          ? () => void copyValue("memo", payment.payment_memo ?? "")
+                          : undefined
+                      }
                     />
                   ) : null}
 

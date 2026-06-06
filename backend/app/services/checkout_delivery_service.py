@@ -18,6 +18,7 @@ class CheckoutPaymentFields:
     payment_page_url: str | None
     payment_address: str | None
     qr_url: str | None
+    payment_memo: str | None
     checkout_delivery: str
 
 
@@ -48,6 +49,7 @@ class CheckoutDeliveryService:
                 payment_page_url=payment_page_url,
                 payment_address=None,
                 qr_url=None,
+                payment_memo=None,
                 checkout_delivery=delivery,
             )
         if delivery == CHECKOUT_DELIVERY_H2H:
@@ -55,12 +57,14 @@ class CheckoutDeliveryService:
                 payment_page_url=None,
                 payment_address=payment_address,
                 qr_url=qr_url,
+                payment_memo=None,
                 checkout_delivery=delivery,
             )
         return CheckoutPaymentFields(
             payment_page_url=payment_page_url,
             payment_address=payment_address,
             qr_url=qr_url,
+            payment_memo=None,
             checkout_delivery=delivery,
         )
 
@@ -70,5 +74,6 @@ class CheckoutDeliveryService:
             payment_page_url=fields.payment_page_url,
             payment_address=None,
             qr_url=None,
+            payment_memo=None,
             checkout_delivery=fields.checkout_delivery,
         )

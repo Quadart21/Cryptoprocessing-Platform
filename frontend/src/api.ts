@@ -138,6 +138,7 @@ export type InvoiceItem = {
   crypto_currency: string;
   network: string;
   payment_address: string | null;
+  payment_memo: string | null;
   qr_url: string | null;
   payment_page_url: string | null;
   checkout_delivery: CheckoutDeliveryMode;
@@ -172,6 +173,7 @@ export type InvoiceTransactionDetails = {
   status: string;
   exchange_id: string;
   wallet_address: string | null;
+  payment_memo: string | null;
   tx_hash: string | null;
   exchange_rate: string | null;
   exchange_rate_currency: string;
