@@ -97,6 +97,7 @@ import {
   type NotificationTemplateTestPayload,
   type NotificationTemplateTestResponse,
   type OpsTelegramProvisionResponse,
+  type OpsTelegramTopicTestPayload,
   type OpsTelegramTopicTestResponse,
   type OnboardingStatus,
   type PayoutRequestItem,
@@ -1851,7 +1852,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
   }
 
   async function handleSendOpsTelegramTopicTest(
-    topicKey: string,
+    payload: OpsTelegramTopicTestPayload,
   ): Promise<OpsTelegramTopicTestResponse> {
     if (!token || user?.role !== "superadmin") {
       throw new Error("Доступно только superadmin.");
@@ -1860,7 +1861,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setLoading(true);
       setError(null);
       setSuccess(null);
-      const result = await sendOpsTelegramTopicTest(token, { topic_key: topicKey });
+      const result = await sendOpsTelegramTopicTest(token, payload);
       setSuccess(`Тест ops-чата отправлен в топик ${result.topic_key}.`);
       return result;
     } catch (err) {
@@ -2214,7 +2215,7 @@ return (
           onInspectPlatformTelegramBot={(payload) => handleInspectPlatformTelegramBot(payload)}
           onSendPlatformTelegramTest={(payload) => handleSendPlatformTelegramTest(payload)}
           onProvisionOpsTelegramTopics={(chatId) => handleProvisionOpsTelegramTopics(chatId)}
-          onSendOpsTelegramTopicTest={(topicKey) => handleSendOpsTelegramTopicTest(topicKey)}
+          onSendOpsTelegramTopicTest={(payload) => handleSendOpsTelegramTopicTest(payload)}
           onSendPlatformSmtpBzTest={(payload) => handleSendPlatformSmtpBzTest(payload)}
           onPreviewNotificationTemplate={(payload) => handlePreviewNotificationTemplate(payload)}
           onSendNotificationTemplateTest={(payload) => handleSendNotificationTemplateTest(payload)}

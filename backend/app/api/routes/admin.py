@@ -1301,6 +1301,8 @@ async def send_ops_telegram_topic_test(
         result = await ops_service.send_test_message(
             topic_key=payload.topic_key,
             initiated_by_email=current_user.email,
+            chat_id_override=payload.chat_id,
+            thread_id_override=payload.thread_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

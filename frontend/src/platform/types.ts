@@ -157,7 +157,7 @@ export type AdminDashboardProps = {
     chatId: string | null,
   ) => Promise<import("../api").OpsTelegramProvisionResponse>;
   onSendOpsTelegramTopicTest?: (
-    topicKey: string,
+    payload: import("../api").OpsTelegramTopicTestPayload,
   ) => Promise<import("../api").OpsTelegramTopicTestResponse>;
   onSendPlatformSmtpBzTest: (payload: SmtpBzTestPayload) => Promise<SmtpBzTestResponse>;
   onPreviewNotificationTemplate: (

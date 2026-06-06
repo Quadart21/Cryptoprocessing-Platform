@@ -237,17 +237,46 @@ class PlatformOpsTelegramService:
         return platform_settings
 
     def _is_configured(self, platform_settings: PlatformSetting) -> bool:
-        return bool(
-            platform_settings.ops_telegram_enabled
-            and (platform_settings.ops_telegram_chat_id or "").strip()
-            and self._notifications.is_telegram_bot_token_configured(platform_settings)
-        )
+        return self._delivery_error(platform_settings, require_enabled=True) is None
+
+    def _delivery_error(
+        self,
+        platform_settings: PlatformSetting,
+        *,
+        require_enabled: bool = True,
+    ) -> str | None:
+        if not self._notifications.is_telegram_bot_token_configured(platform_settings):
+            return "Токен Telegram-бота не настроен (раздел «Telegram» в настройках платформы)."
+        if not (platform_settings.ops_telegram_chat_id or "").strip():
+            return "Укажите chat_id служебного форум-чата."
+        if require_enabled and not platform_settings.ops_telegram_enabled:
+            return "Включите переключатель «Служебные уведомления включены»."
+        return None
+
+    @staticmethod
+    def _parse_telegram_error(response: requests.Response) -> str:
+        try:
+            body = response.json()
+            if isinstance(body, dict):
+                description = body.get("description")
+                if isinstance(description, str) and description.strip():
+                    return description.strip()
+        except ValueError:
+            pass
+        text = (response.text or "").strip()
+        if text:
+            return text[:240]
+        return f"HTTP {response.status_code}"
 
     def _resolve_thread_id(
         self,
         platform_settings: PlatformSetting,
         topic_key: str,
+        *,
+        thread_id_override: int | None = None,
     ) -> int | None:
+        if thread_id_override is not None:
+            return thread_id_override
         topics = self.parse_topics(platform_settings)
         state = topics.get(topic_key) or {}
         if not state.get("enabled", True):
@@ -262,18 +291,26 @@ class PlatformOpsTelegramService:
         message_text: str,
         *,
         disable_notification: bool = False,
-    ) -> int | None:
-        if not self._is_configured():
-            return None
+        chat_id_override: str | None = None,
+        thread_id_override: int | None = None,
+        require_enabled: bool = True,
+    ) -> tuple[int | None, str | None]:
+        delivery_error = self._delivery_error(platform_settings, require_enabled=require_enabled)
+        if delivery_error:
+            return None, delivery_error
         if topic_key not in OPS_TOPIC_BY_KEY:
             logger.warning("Unknown ops telegram topic: %s", topic_key)
-            return None
+            return None, f"Неизвестный топик: {topic_key}"
 
-        thread_id = self._resolve_thread_id(platform_settings, topic_key)
-        chat_id = (platform_settings.ops_telegram_chat_id or "").strip()
+        thread_id = self._resolve_thread_id(
+            platform_settings,
+            topic_key,
+            thread_id_override=thread_id_override,
+        )
+        chat_id = (chat_id_override or platform_settings.ops_telegram_chat_id or "").strip()
         bot_token = self._notifications._get_telegram_bot_token(platform_settings)  # noqa: SLF001
         if not bot_token or not chat_id:
-            return None
+            return None, "Не задан chat_id или токен бота."
 
         try:
             base_url = self._notifications._normalize_telegram_api_base_url(  # noqa: SLF001
@@ -281,7 +318,7 @@ class PlatformOpsTelegramService:
             )
         except ValueError:
             logger.warning("Invalid Telegram API base URL for ops chat.")
-            return None
+            return None, "Некорректный Telegram API URL."
 
         payload: dict[str, Any] = {
             "chat_id": chat_id,
@@ -297,23 +334,26 @@ class PlatformOpsTelegramService:
         try:
             response = requests.post(url, json=payload, timeout=10)
             if response.status_code >= 400:
+                error_text = self._parse_telegram_error(response)
                 logger.warning(
                     "Ops Telegram send failed %s: %s",
                     response.status_code,
-                    response.text[:240],
+                    error_text,
                 )
-                return None
+                return None, error_text
             body = response.json()
             if not isinstance(body, dict) or body.get("ok") is not True:
-                logger.warning("Ops Telegram rejected message: %s", str(body)[:240])
-                return None
+                error_text = self._parse_telegram_error(response)
+                logger.warning("Ops Telegram rejected message: %s", error_text)
+                return None, error_text
             result = body.get("result")
             if isinstance(result, dict):
                 message_id = result.get("message_id")
-                return int(message_id) if message_id is not None else None
+                return (int(message_id) if message_id is not None else None), None
         except Exception:
             logger.exception("Failed to send ops telegram message to topic %s", topic_key)
-        return None
+            return None, "Сетевая ошибка при обращении к Telegram API."
+        return None, "Telegram не вернул message_id."
 
     async def notify_event(
         self,
@@ -325,7 +365,7 @@ class PlatformOpsTelegramService:
     ) -> None:
         billing = BillingPolicyService(self.db)
         platform_settings = await billing.get_platform_settings()
-        if not self._is_configured():
+        if not self._is_configured(platform_settings):
             return
         if event_code not in EVENT_TOPIC_MAP:
             return
@@ -350,26 +390,69 @@ class PlatformOpsTelegramService:
         *,
         topic_key: str,
         initiated_by_email: str,
+        chat_id_override: str | None = None,
+        thread_id_override: int | None = None,
     ) -> dict[str, Any]:
         billing = BillingPolicyService(self.db)
         platform_settings = await billing.get_platform_settings()
-        if not self._is_configured():
-            raise ValueError("Служебный чат не настроен: включите его, укажите chat_id и токен бота.")
+        settings_dirty = False
+        if chat_id_override is not None:
+            normalized_chat_id = chat_id_override.strip()
+            platform_settings.ops_telegram_chat_id = normalized_chat_id or None
+            if normalized_chat_id:
+                platform_settings.ops_telegram_enabled = True
+            settings_dirty = True
+        if thread_id_override is not None and topic_key in OPS_TOPIC_BY_KEY:
+            topics = self.parse_topics(platform_settings)
+            topic_state = topics.get(topic_key, {})
+            topics[topic_key] = {
+                "thread_id": int(thread_id_override),
+                "enabled": bool(topic_state.get("enabled", True)),
+            }
+            platform_settings.ops_telegram_topics_json = json.dumps(
+                topics,
+                ensure_ascii=False,
+            )
+            settings_dirty = True
+        if settings_dirty:
+            await self.db.flush()
+            await self.db.commit()
+            await self.db.refresh(platform_settings)
+
+        delivery_error = self._delivery_error(platform_settings, require_enabled=False)
+        if delivery_error:
+            raise ValueError(delivery_error)
         if topic_key not in OPS_TOPIC_BY_KEY:
             raise ValueError(f"Неизвестный топик: {topic_key}")
 
         definition = OPS_TOPIC_BY_KEY[topic_key]
-        thread_id = self._resolve_thread_id(platform_settings, topic_key)
+        thread_id = self._resolve_thread_id(
+            platform_settings,
+            topic_key,
+            thread_id_override=thread_id_override,
+        )
+        if thread_id is None:
+            raise ValueError(
+                f"Для топика «{definition.title}» не задан thread_id. "
+                "Создайте топики через бота или укажите thread_id вручную."
+            )
+
         text = (
             f"<b>Тест · {self._escape_html(definition.title)}</b>\n"
             f"Инициатор: {self._escape_html(initiated_by_email)}\n"
             f"UTC: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
         )
-        message_id = self.send_to_topic(platform_settings, topic_key, text)
+        message_id, send_error = self.send_to_topic(
+            platform_settings,
+            topic_key,
+            text,
+            require_enabled=False,
+            chat_id_override=chat_id_override,
+            thread_id_override=thread_id_override,
+        )
         if message_id is None:
-            raise ValueError(
-                "Не удалось отправить тест. Проверьте chat_id, thread_id и права бота в форум-чате."
-            )
+            hint = send_error or "Проверьте chat_id, thread_id и права бота в форум-чате."
+            raise ValueError(f"Не удалось отправить тест: {hint}")
         return {
             "ok": True,
             "topic_key": topic_key,
@@ -464,7 +547,7 @@ class PlatformOpsTelegramService:
     async def build_and_send_daily_report(self) -> bool:
         billing = BillingPolicyService(self.db)
         platform_settings = await billing.get_platform_settings()
-        if not self._is_configured():
+        if not self._is_configured(platform_settings):
             return False
         if "daily_report" not in self.parse_enabled_events(platform_settings):
             return False

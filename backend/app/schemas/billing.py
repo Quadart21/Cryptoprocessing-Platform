@@ -174,6 +174,8 @@ class OpsTelegramSettingsUpdate(BaseModel):
 
 class OpsTelegramTopicTestRequest(BaseModel):
     topic_key: str = Field(min_length=1, max_length=64)
+    chat_id: str | None = Field(default=None, max_length=64)
+    thread_id: int | None = None
 
 
 class OpsTelegramProvisionRequest(BaseModel):

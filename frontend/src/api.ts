@@ -484,6 +484,8 @@ export type OpsTelegramSettings = {
 
 export type OpsTelegramTopicTestPayload = {
   topic_key: string;
+  chat_id?: string | null;
+  thread_id?: number | null;
 };
 
 export type OpsTelegramTopicTestResponse = {

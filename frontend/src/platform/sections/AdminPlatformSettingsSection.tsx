@@ -66,7 +66,7 @@ type AdminPlatformSettingsSectionProps = {
     chatId: string | null,
   ) => Promise<OpsTelegramProvisionResponse>;
   onSendOpsTelegramTopicTest?: (
-    topicKey: string,
+    payload: import("../../api").OpsTelegramTopicTestPayload,
   ) => Promise<OpsTelegramTopicTestResponse>;
   onSendPlatformSmtpBzTest: (
     payload: SmtpBzTestPayload,
@@ -1138,11 +1138,30 @@ export function AdminPlatformSettingsSection({
 
   async function handleOpsTopicTest(topicKey: string) {
     if (!onSendOpsTelegramTopicTest) return;
+    const ops = ensureOpsTelegramSettings();
+    const chatId = (ops.chat_id ?? "").trim();
+    const topic = ops.topics.find((item) => item.key === topicKey);
+    const threadId = topic?.thread_id ?? null;
+    if (!chatId) {
+      setOpsChatError("Сначала укажите chat_id форум-чата.");
+      return;
+    }
+    if (threadId == null) {
+      setOpsChatError(
+        `Для топика «${topicKey}» не задан thread_id. Создайте топики через бота или укажите thread_id вручную.`,
+      );
+      return;
+    }
     setOpsTopicTestKey(topicKey);
     setOpsChatError(null);
     setOpsChatMessage(null);
     try {
-      await onSendOpsTelegramTopicTest(topicKey);
+      await onSendOpsTelegramTopicTest({
+        topic_key: topicKey,
+        chat_id: chatId,
+        thread_id: threadId,
+      });
+      await onReloadPlatformSettings();
       setOpsChatMessage(`Тест отправлен в топик «${topicKey}».`);
     } catch (err) {
       setOpsChatError(
