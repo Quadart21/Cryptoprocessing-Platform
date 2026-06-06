@@ -263,7 +263,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
   );
 
   useEffect(() => {
-    void loadPayment(false);
+    void loadPayment(true);
   }, [loadPayment]);
 
   useEffect(() => {

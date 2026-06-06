@@ -66,7 +66,9 @@ async def get_public_payment(
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
     invoice_service = InvoiceService(db)
-    if sync:
+    initial_status = invoice.status
+    did_sync = sync or initial_status in {"pending", "confirming", "cancelled"}
+    if did_sync:
         invoice = await _sync_public_invoice(
             invoice_service=invoice_service,
             payment_service=payment_service,
@@ -75,7 +77,7 @@ async def get_public_payment(
         )
     else:
         invoice = await invoice_service.ensure_invoice_payment_state(invoice)
-    route_key = "GET /public/pay/{token}?sync=1" if sync else "GET /public/pay/{token}"
+    route_key = "GET /public/pay/{token}?sync=1" if did_sync else "GET /public/pay/{token}"
     get_api_usage_service().record(
         category="public_pay",
         route_key=route_key,
