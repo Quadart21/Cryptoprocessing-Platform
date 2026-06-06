@@ -1,4 +1,5 @@
 ﻿from decimal import Decimal
+import logging
 from secrets import choice
 from string import ascii_letters, digits
 
@@ -112,6 +113,8 @@ from app.services.notification_service import NotificationService
 from app.services.platform_ops_notify import notify_platform_ops
 from app.services.platform_earnings_service import PlatformEarningsService
 from app.services.platform_ops_telegram_service import PlatformOpsTelegramService
+
+logger = logging.getLogger(__name__)
 from app.services.project_service import ProjectService
 from app.services.payout_service import PayoutService
 from app.services.rates_service import RatesService
@@ -1121,14 +1124,29 @@ async def update_platform_billing_settings(
             notification_templates=payload.notification_templates,
         )
         if current_user.role == "superadmin" and payload.ops_telegram is not None:
-            ops_service = PlatformOpsTelegramService(db)
-            platform_settings = await ops_service.update_settings(
-                platform_settings,
-                enabled=payload.ops_telegram.enabled,
-                chat_id=payload.ops_telegram.chat_id,
-                topics=payload.ops_telegram.topics,
-                event_toggles=payload.ops_telegram.events,
+            ops_payload = payload.ops_telegram
+            existing_chat_id = (platform_settings.ops_telegram_chat_id or "").strip()
+            incoming_chat_id = (ops_payload.chat_id or "").strip()
+            incoming_wipe = (
+                not ops_payload.enabled
+                and not incoming_chat_id
+                and not ops_payload.topics
             )
+            if existing_chat_id and incoming_wipe:
+                logger.info(
+                    "Skipping ops_telegram wipe on billing settings update "
+                    "(chat_id=%s preserved)",
+                    existing_chat_id,
+                )
+            else:
+                ops_service = PlatformOpsTelegramService(db)
+                platform_settings = await ops_service.update_settings(
+                    platform_settings,
+                    enabled=ops_payload.enabled,
+                    chat_id=ops_payload.chat_id,
+                    topics=ops_payload.topics,
+                    event_toggles=ops_payload.events,
+                )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

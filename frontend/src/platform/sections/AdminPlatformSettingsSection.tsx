@@ -347,7 +347,7 @@ export function AdminPlatformSettingsSection({
       smtp_bz_api_key: smtpBzApiKey.trim() || null,
       telegram_bot_token: telegramBotToken.trim() || null,
     };
-    if (isSuperadmin) {
+    if (isSuperadmin && activeSection === "ops-chat") {
       payload.ops_telegram = ensureOpsTelegramSettings();
     }
     await onUpdatePlatformSettings(payload);

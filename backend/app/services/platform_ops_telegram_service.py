@@ -75,6 +75,9 @@ OPS_TOPIC_DEFINITIONS: tuple[OpsTopicDefinition, ...] = (
 
 OPS_TOPIC_BY_KEY = {item.key: item for item in OPS_TOPIC_DEFINITIONS}
 
+# General topic in Telegram forum supergroups (fallback when thread_id not configured).
+FORUM_GENERAL_TOPIC_ID = 1
+
 # Событие платформы → ключ топика.
 EVENT_TOPIC_MAP: dict[str, str] = {
     "application_submitted": "onboarding",
@@ -282,7 +285,20 @@ class PlatformOpsTelegramService:
         if not state.get("enabled", True):
             return None
         thread_id = state.get("thread_id")
-        return int(thread_id) if thread_id is not None else None
+        if thread_id is not None:
+            return int(thread_id)
+        return FORUM_GENERAL_TOPIC_ID
+
+    def _topic_delivery_blocked(
+        self,
+        platform_settings: PlatformSetting,
+        topic_key: str,
+    ) -> str | None:
+        topics = self.parse_topics(platform_settings)
+        state = topics.get(topic_key) or {}
+        if not state.get("enabled", True):
+            return f"Топик «{topic_key}» отключён в настройках служебного чата."
+        return None
 
     def send_to_topic(
         self,
@@ -366,13 +382,26 @@ class PlatformOpsTelegramService:
         billing = BillingPolicyService(self.db)
         platform_settings = await billing.get_platform_settings()
         if not self._is_configured(platform_settings):
+            delivery_error = self._delivery_error(platform_settings, require_enabled=True)
+            logger.info(
+                "Ops Telegram skip %s: %s",
+                event_code,
+                delivery_error or "not configured",
+            )
             return
         if event_code not in EVENT_TOPIC_MAP:
+            logger.warning("Ops Telegram skip unknown event: %s", event_code)
             return
         if event_code not in self.parse_enabled_events(platform_settings):
+            logger.info("Ops Telegram skip %s: event disabled in settings", event_code)
             return
 
         topic_key = EVENT_TOPIC_MAP[event_code]
+        topic_block = self._topic_delivery_blocked(platform_settings, topic_key)
+        if topic_block:
+            logger.info("Ops Telegram skip %s: %s", event_code, topic_block)
+            return
+
         body_lines = [f"<b>{self._escape_html(title)}</b>"]
         body_lines.extend(self._escape_html(line) for line in lines if line.strip())
         link = admin_url
@@ -383,7 +412,14 @@ class PlatformOpsTelegramService:
             safe_url = self._escape_html(link)
             body_lines.append(f'<a href="{safe_url}">Открыть в админке</a>')
         message = "\n".join(body_lines)
-        self.send_to_topic(platform_settings, topic_key, message)
+        message_id, send_error = self.send_to_topic(platform_settings, topic_key, message)
+        if message_id is None:
+            logger.warning(
+                "Ops Telegram failed to deliver %s to topic %s: %s",
+                event_code,
+                topic_key,
+                send_error or "unknown error",
+            )
 
     async def send_test_message(
         self,
