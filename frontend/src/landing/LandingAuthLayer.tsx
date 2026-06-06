@@ -1,6 +1,8 @@
 import type { LandingPageProps } from "./types";
-import { PlatformBrandMark, PlatformBrandText } from "../brand/PlatformBrandLogo";
 import { usePlatformBrand } from "../brand/PlatformBrandContext";
+import { AUTH_REGISTRATION_STEPS } from "./authBrandContent";
+import { LandingAuthBrandPanel } from "./LandingAuthBrandPanel";
+import { LandingAuthTrustStrip } from "./LandingAuthTrustStrip";
 
 export type LandingAuthLayerProps = Pick<
   LandingPageProps,
@@ -59,7 +61,7 @@ export function LandingAuthLayer({
   onRegister,
   onSetRecoveredPassword,
 }: LandingAuthLayerProps) {
-  const { logoUrl } = usePlatformBrand();
+  const { brandName } = usePlatformBrand();
 
   if (!authOpen) {
     return null;
@@ -97,27 +99,18 @@ export function LandingAuthLayer({
         </button>
 
         <div className="lp-auth-layout">
-          <aside className="lp-auth-aside" aria-hidden="true">
-            <div className="lp-auth-brand">
-              {!logoUrl ? (
-                <div className="lp-auth-brand-mark">
-                  <PlatformBrandMark />
-                </div>
-              ) : null}
-              <h2>
-                {logoUrl ? (
-                  <PlatformBrandMark imgClassName="lp-auth-brand-logo-img" />
-                ) : (
-                  <PlatformBrandText split />
-                )}
-              </h2>
-              <p>Приём крипто-платежей, инвойсы и сводки — в одном тенанте. Без лишних экранов.</p>
-              <div className="lp-auth-brand-footer">Merchant · Platform · API</div>
-            </div>
+          <aside className="lp-auth-aside">
+            <div className="lp-auth-aside-orb lp-auth-aside-orb--one" aria-hidden />
+            <div className="lp-auth-aside-orb lp-auth-aside-orb--two" aria-hidden />
+            <LandingAuthBrandPanel registrationEnabled={registrationEnabled} />
           </aside>
 
           <div className="lp-auth-main">
-            <p className="lp-auth-kicker">Кабинет</p>
+            <div className="lp-auth-brand-mobile">
+              <LandingAuthBrandPanel compact registrationEnabled={registrationEnabled} />
+            </div>
+
+            <p className="lp-auth-kicker">{brandName}</p>
             <h3 className="lp-auth-title">{mainHeadline}</h3>
             <p className="lp-auth-lede">{mainSub}</p>
 
@@ -138,6 +131,20 @@ export function LandingAuthLayer({
                 Новый проект
               </button>
             </div>
+
+            {mode === "register" && registrationEnabled ? (
+              <ol className="lp-auth-reg-steps" aria-label="Этапы подключения">
+                {AUTH_REGISTRATION_STEPS.map((step, index) => (
+                  <li
+                    className={`lp-auth-reg-step${index === 0 ? " lp-auth-reg-step--active" : ""}`}
+                    key={step.id}
+                  >
+                    <span className="lp-auth-reg-step-num">{index + 1}</span>
+                    <span>{step.label}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
 
             {mode === "login" || !registrationEnabled ? (
               recoveryMode === "login" && loginStep === "credentials" ? (
@@ -352,6 +359,8 @@ export function LandingAuthLayer({
 
             {success ? <p className="nc-success">{success}</p> : null}
             {error ? <p className="nc-error">{error}</p> : null}
+
+            <LandingAuthTrustStrip />
           </div>
         </div>
       </div>
