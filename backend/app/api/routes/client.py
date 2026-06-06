@@ -841,35 +841,102 @@ async def list_invoices(
         raise
 
 
-@router.get("/invoices/{invoice_id}", response_model=InvoiceDetailResponse)
-async def get_invoice(
-    invoice_id: str,
-    auth: ClientAuthContext = Depends(get_client_auth_context),
-    db: AsyncSession = Depends(get_db),
+async def _build_client_invoice_detail_response(
+    db: AsyncSession,
+    invoice: Invoice,
 ) -> InvoiceDetailResponse:
-    _ensure_client_api_permission(auth, "client.invoices.read")
+    project = await ProjectService(db).get_project(invoice.project_id)
+    checkout_delivery = (
+        CheckoutDeliveryService.normalize(project.checkout_delivery)
+        if project is not None
+        else CheckoutDeliveryService.normalize(None)
+    )
+    transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
+    return await _map_invoice_detail_response(
+        db,
+        invoice,
+        checkout_delivery=checkout_delivery,
+        transaction=transaction,
+    )
+
+
+async def _maybe_sync_client_invoice(
+    invoice_service: InvoiceService,
+    invoice: Invoice,
+    *,
+    tenant_id: str,
+    project_id: str | None,
+) -> Invoice:
+    try:
+        return await invoice_service.sync_invoice_status(
+            tenant_id=tenant_id,
+            invoice_id=str(invoice.id),
+            project_id=project_id,
+        )
+    except CryptoCashProviderError:
+        raise
+    except ValueError:
+        raise
+    except Exception:
+        logger.exception("Client invoice sync failed for invoice_id=%s", invoice.id)
+        refreshed = await invoice_service.get_invoice(tenant_id, str(invoice.id), project_id=project_id)
+        return refreshed if refreshed is not None else invoice
+
+
+async def _get_client_invoice_detail(
+    *,
+    auth: ClientAuthContext,
+    db: AsyncSession,
+    invoice_id: str,
+    sync: bool,
+) -> InvoiceDetailResponse:
     invoice_service = InvoiceService(db)
     invoice = await invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
-    invoice = await invoice_service.ensure_invoice_payment_state(invoice)
+    if auth.project_id is not None and invoice.project_id != auth.project_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+
+    if sync:
+        try:
+            invoice = await _maybe_sync_client_invoice(
+                invoice_service,
+                invoice,
+                tenant_id=auth.tenant_id,
+                project_id=auth.project_id,
+            )
+        except CryptoCashProviderError as exc:
+            raise HTTPException(
+                status_code=_map_provider_error_status_code(exc),
+                detail=exc.to_public_detail(),
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    else:
+        invoice = await invoice_service.ensure_invoice_payment_state(invoice)
+
     try:
-        project = await ProjectService(db).get_project(invoice.project_id)
-        checkout_delivery = (
-            CheckoutDeliveryService.normalize(project.checkout_delivery)
-            if project is not None
-            else CheckoutDeliveryService.normalize(None)
-        )
-        transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
-        return await _map_invoice_detail_response(
-            db,
-            invoice,
-            checkout_delivery=checkout_delivery,
-            transaction=transaction,
-        )
+        return await _build_client_invoice_detail_response(db, invoice)
     except Exception:
         logger.exception("Unexpected invoice detail error for invoice_id=%s", invoice_id)
         raise
+
+
+@router.get("/invoices/{invoice_id}", response_model=InvoiceDetailResponse)
+async def get_invoice(
+    invoice_id: str,
+    sync: bool = Query(default=False, description="Синхронизировать статус с провайдером"),
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: AsyncSession = Depends(get_db),
+) -> InvoiceDetailResponse:
+    permission = "client.invoices.write" if sync else "client.invoices.read"
+    _ensure_client_api_permission(auth, permission)
+    return await _get_client_invoice_detail(
+        auth=auth,
+        db=db,
+        invoice_id=invoice_id,
+        sync=sync,
+    )
 
 
 @router.post("/invoices/{invoice_id}/sync", response_model=InvoiceDetailResponse)
@@ -879,42 +946,12 @@ async def sync_invoice(
     db: AsyncSession = Depends(get_db),
 ) -> InvoiceDetailResponse:
     _ensure_client_api_permission(auth, "client.invoices.write")
-    invoice_service = InvoiceService(db)
-    invoice = await invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
-    if invoice is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
-    if auth.project_id is not None and invoice.project_id != auth.project_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
-    try:
-        invoice = await invoice_service.sync_invoice_status(
-            tenant_id=auth.tenant_id,
-            invoice_id=invoice_id,
-            project_id=auth.project_id,
-        )
-    except CryptoCashProviderError as exc:
-        raise HTTPException(
-            status_code=_map_provider_error_status_code(exc),
-            detail=exc.to_public_detail(),
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    try:
-        project = await ProjectService(db).get_project(invoice.project_id)
-        checkout_delivery = (
-            CheckoutDeliveryService.normalize(project.checkout_delivery)
-            if project is not None
-            else CheckoutDeliveryService.normalize(None)
-        )
-        transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
-        return await _map_invoice_detail_response(
-            db,
-            invoice,
-            checkout_delivery=checkout_delivery,
-            transaction=transaction,
-        )
-    except Exception:
-        logger.exception("Unexpected invoice sync response mapping error for invoice_id=%s", invoice_id)
-        raise
+    return await _get_client_invoice_detail(
+        auth=auth,
+        db=db,
+        invoice_id=invoice_id,
+        sync=True,
+    )
 
 
 @router.get("/balance", response_model=BalanceResponse)

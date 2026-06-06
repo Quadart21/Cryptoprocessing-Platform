@@ -162,9 +162,10 @@ export function sendInvoiceWebhookTest(
   });
 }
 
+/** GET ?sync=1 — синхронизация с провайдером без CORS preflight (POST /sync устарел). */
 export function syncClientInvoice(token: string, invoiceId: string): Promise<InvoiceDetail> {
-  return request<InvoiceDetail>(`/client/invoices/${invoiceId}/sync`, {
-    method: "POST",
+  const path = `/client/invoices/${encodeURIComponent(invoiceId)}?sync=1`;
+  return request<InvoiceDetail>(path, {
     headers: authHeaders(token),
   });
 }
