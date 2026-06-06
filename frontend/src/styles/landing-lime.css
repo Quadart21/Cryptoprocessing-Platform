@@ -42,14 +42,6 @@
   color: #fff;
 }
 
-.lp-theme-lime .lpx-logo-title-lime {
-  color: var(--lp-lime);
-}
-
-.lp-theme-lime .lpx-logo-title-dot {
-  color: var(--lp-lime);
-}
-
 .lp-theme-lime .lpx-logo-mark {
   border-radius: 14px;
   background: linear-gradient(145deg, var(--lp-accent), var(--lp-accent-deep));

@@ -186,10 +186,6 @@
   line-height: 1.1;
 }
 
-.lp-auth-brand-title span {
-  color: #00a3ff;
-}
-
 .lp-auth-brand-tagline {
   margin: 0;
   font-size: 0.84rem;
@@ -375,10 +371,6 @@
   letter-spacing: -0.03em;
   color: #fafafa;
   line-height: 1.15;
-}
-
-.lp-auth-brand h2 span {
-  color: #00a3ff;
 }
 
 .lp-auth-brand p {

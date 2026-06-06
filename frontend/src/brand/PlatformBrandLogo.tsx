@@ -35,12 +35,7 @@ export function PlatformBrandTitle({ className, landing = false }: PlatformBrand
   const brand = usePlatformBrand();
 
   if (landing && usesDefaultLandingWordmark(brand)) {
-    return (
-      <span className={className ?? "lpx-logo-title"}>
-        <span className="lpx-logo-title-lime">Noren</span>Digital
-        <span className="lpx-logo-title-dot">.</span>
-      </span>
-    );
+    return <PlatformBrandSplitWordmark className={className ?? "lpx-logo-title"} />;
   }
 
   return <span className={className}>{brand.brandName}</span>;
@@ -54,12 +49,23 @@ type PlatformBrandTextProps = {
   withLogo?: boolean;
 };
 
-function renderSplitWordmark(className?: string) {
+type PlatformBrandSplitWordmarkProps = {
+  className?: string;
+};
+
+/** Default split title: Noren.Digital — accent on Noren and dot, white Digital. */
+export function PlatformBrandSplitWordmark({ className }: PlatformBrandSplitWordmarkProps) {
   return (
-    <span className={className}>
-      Noren<span>Digital</span>
+    <span className={["platform-brand-wordmark", className].filter(Boolean).join(" ")}>
+      <span className="platform-brand-wordmark-accent">Noren</span>
+      <span className="platform-brand-wordmark-dot">.</span>
+      <span className="platform-brand-wordmark-tail">Digital</span>
     </span>
   );
+}
+
+function renderSplitWordmark(className?: string) {
+  return <PlatformBrandSplitWordmark className={className} />;
 }
 
 export function PlatformBrandText({ className, split = false, withLogo = false }: PlatformBrandTextProps) {

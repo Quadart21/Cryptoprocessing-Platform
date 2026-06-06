@@ -1,3 +1,48 @@
+/* Split wordmark: Noren.Digital */
+
+.platform-brand-wordmark-accent,
+.platform-brand-wordmark-dot {
+  color: #00a3ff;
+}
+
+.platform-brand-wordmark-tail {
+  color: #fafafa;
+}
+
+.lp-theme-lime .platform-brand-wordmark-accent,
+.lp-theme-lime .platform-brand-wordmark-dot {
+  color: var(--lp-lime, #00a3ff);
+}
+
+.lp-theme-lime .platform-brand-wordmark-tail {
+  color: #fff;
+}
+
+.pp-brand-wordmark .platform-brand-wordmark-accent,
+.pp-brand-wordmark .platform-brand-wordmark-dot,
+.pp-brand-foot .platform-brand-wordmark-accent,
+.pp-brand-foot .platform-brand-wordmark-dot {
+  color: var(--pp-accent, #00a3ff);
+}
+
+.pp-brand-wordmark .platform-brand-wordmark-tail,
+.pp-brand-foot .platform-brand-wordmark-tail {
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.pp-brand-foot .platform-brand-wordmark-tail {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.admin-site-login__brand .platform-brand-wordmark-accent,
+.admin-site-login__brand .platform-brand-wordmark-dot {
+  color: #00a3ff;
+}
+
+.admin-site-login__brand .platform-brand-wordmark-tail {
+  color: #f4f7ff;
+}
+
 /* Custom uploaded logos — no decorative mark background (transparent PNG/SVG). */
 
 .platform-brand-mark-img {

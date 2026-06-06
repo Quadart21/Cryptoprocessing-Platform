@@ -29,10 +29,6 @@
   text-decoration: none;
 }
 
-.admin-site-login__brand span {
-  color: #7ee787;
-}
-
 .admin-site-login__badge {
   font-size: 0.75rem;
   letter-spacing: 0.06em;
