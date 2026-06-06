@@ -19,6 +19,9 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.providers.crypto_cash import CryptoCashProviderError, provider_error_http_status
 from app.db.bootstrap import ensure_database_ready
+from app.db.session import AsyncSessionLocal
+from app.services.seo_service import SeoService
+from app.services.spa_seo_html import load_index_template, render_spa_index_html
 from app.middleware.api_usage import ApiUsageMiddleware
 from app.middleware.connection_limit import ConnectionLimitMiddleware
 from app.middleware.csrf import CsrfProtectionMiddleware
@@ -222,15 +225,24 @@ def _register_frontend_routes(app: FastAPI) -> None:
     if assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="frontend-assets")
 
+    index_template_path = str(FRONTEND_INDEX_FILE.resolve())
+
+    async def spa_index_html_response() -> HTMLResponse:
+        template = load_index_template(index_template_path)
+        async with AsyncSessionLocal() as session:
+            seo = await SeoService(session).get_public_settings()
+        body = render_spa_index_html(template, seo)
+        return HTMLResponse(content=body, media_type="text/html")
+
     @app.get("/", include_in_schema=False)
-    async def spa_root() -> FileResponse:
-        return FileResponse(FRONTEND_INDEX_FILE)
+    async def spa_root() -> HTMLResponse:
+        return await spa_index_html_response()
 
     @app.get("/{full_path:path}", include_in_schema=False)
-    async def spa_fallback(full_path: str, request: Request) -> FileResponse:
+    async def spa_fallback(full_path: str, request: Request) -> FileResponse | HTMLResponse:
         normalized = full_path.strip("/")
         if not normalized:
-            return FileResponse(FRONTEND_INDEX_FILE)
+            return await spa_index_html_response()
 
         if any(
             normalized == prefix or normalized.startswith(f"{prefix}/")
@@ -244,7 +256,7 @@ def _register_frontend_routes(app: FastAPI) -> None:
 
         # Vite SPA: every unknown path should resolve to index.html
         if "text/html" in (request.headers.get("accept") or ""):
-            return FileResponse(FRONTEND_INDEX_FILE)
+            return await spa_index_html_response()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
 
 

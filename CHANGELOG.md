@@ -10,6 +10,15 @@
 
 
 
+## [0.14.62] — 2026-06-05
+
+### Исправлено
+
+- **SEO из БД**: при отдаче SPA (`index.html`) бэкенд подставляет title, description, keywords, favicon, OG-теги и canonical из `platform_settings` — больше не статический заголовок из Vite.
+- **SeoHead на всех поддоменах**: landing, admin, docs и pay подтягивают SEO через `/public/seo`.
+
+---
+
 ## [0.14.61] — 2026-06-05
 
 ### Исправлено

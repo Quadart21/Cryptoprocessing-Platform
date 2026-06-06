@@ -41,7 +41,6 @@ import {
   refreshPlatformExchangeRate,
   fetchProjects,
   fetchRates,
-  fetchSeoSettings,
   fetchTenantBillingPolicy,
   fetchTenantAccountingSummary,
   fetchTenantDetail,
@@ -109,7 +108,6 @@ import {
   type RateItem,
   type SandboxPlatformSettings,
   type RegistrationPayload,
-  type SeoSettings,
   type SmtpBzTestPayload,
   type SmtpBzTestResponse,
   type TelegramAdminTestPayload,
@@ -170,7 +168,6 @@ import { useClientDashboard } from "./hooks/useClientDashboard";
 import { usePublicSiteNavigation } from "./hooks/usePublicSiteNavigation";
 import { useSession } from "./hooks/useSession";
 import { AppRouteFallback } from "./components/AppRouteFallback";
-import { SeoHead } from "./components/SeoHead";
 import { safeLoad } from "./utils/async";
 import { invoiceStatusLabelRu } from "./utils/invoiceStatus";
 
@@ -266,7 +263,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     null,
   );
   const [selectedInvoiceEvents, setSelectedInvoiceEvents] = useState<ProviderEventItem[]>([]);
-  const [seoSettings, setSeoSettings] = useState<SeoSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -326,7 +322,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSelectedClientInvoiceDetail(null);
       setIsClientInvoiceModalOpen(false);
       setPayoutForm(initialPayoutForm);
-      setSeoSettings(null);
       return;
     }
     void loadSession(token);
@@ -361,12 +356,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setInvoiceForm((current) => ({ ...current, project_id: projects[0].id }));
     }
   }, [projects, invoiceForm.project_id]);
-
-  useEffect(() => {
-    if (!seoSettings) {
-      fetchSeoSettings().then(setSeoSettings).catch(console.error);
-    }
-  }, [seoSettings]);
 
   useEffect(() => {
     if (projects.length > 0 && !webhookForm.project_id) {
@@ -2077,17 +2066,11 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     });
 
   if (adminHost && user && !isPlatformRole(user.role)) {
-    return (
-      <>
-        <SeoHead settings={seoSettings} />
-        <AppRouteFallback />
-      </>
-    );
+    return <AppRouteFallback />;
   }
 
 return (
     <>
-      <SeoHead settings={seoSettings} />
       <Suspense fallback={<AppRouteFallback />}>
       {!token || !user ? (
         adminHost ? (
