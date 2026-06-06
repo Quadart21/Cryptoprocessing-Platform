@@ -191,6 +191,8 @@ export type AdminDashboardProps = {
   onRecordPlatformWithdrawal?: (
     payload: import("../api").PlatformEarningsWithdrawalPayload,
   ) => Promise<void>;
+  onLoadPlatformInvoices: () => Promise<void>;
+  onLoadPlatformTransactions: () => Promise<void>;
   onCloseSecretModal: () => void;
   onRefreshMerchantSandboxes: () => void;
   onCreateMerchantSandbox: (payload: MerchantSandboxCreatePayload) => void;

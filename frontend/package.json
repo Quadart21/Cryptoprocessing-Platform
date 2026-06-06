@@ -1,7 +1,7 @@
 {
   "name": "cryptoprocessing-frontend",
   "private": true,
-  "version": "0.14.71",
+  "version": "0.14.72",
   "type": "module",
   "scripts": {
     "dev": "vite",

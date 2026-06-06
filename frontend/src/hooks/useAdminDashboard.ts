@@ -1,24 +1,14 @@
-import type {
-  InvoiceItem,
-  PlatformAccountingOverview,
-  ProviderEventItem,
-  TenantItem,
-  TransactionItem,
-} from "../api";
+import type { PlatformAccountingOverview, ProviderEventItem, TenantItem } from "../api";
 import { formatDecimal } from "../utils/format";
 
 type UseAdminDashboardParams = {
   tenants: TenantItem[];
-  platformInvoices: InvoiceItem[];
-  platformTransactions: TransactionItem[];
   platformEvents: ProviderEventItem[];
   platformAccountingOverview: PlatformAccountingOverview | null;
 };
 
 export function useAdminDashboard({
   tenants,
-  platformInvoices,
-  platformTransactions,
   platformEvents,
   platformAccountingOverview,
 }: UseAdminDashboardParams) {
@@ -26,8 +16,6 @@ export function useAdminDashboard({
 
   const heroRows = [
     { label: "Клиентов", value: String(tenants.length) },
-    { label: "Инвойсы", value: String(platformInvoices.length) },
-    { label: "Транзакции", value: String(platformTransactions.length) },
     { label: "События", value: String(platformEvents.length) },
   ];
 

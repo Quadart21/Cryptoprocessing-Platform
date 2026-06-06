@@ -111,6 +111,8 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     onApprovePayout,
     onRejectPayout,
     onRecordPlatformWithdrawal,
+    onLoadPlatformInvoices,
+    onLoadPlatformTransactions,
     onCloseSecretModal,
     sandboxConsoleEnabled,
     merchantSandboxes,
@@ -125,6 +127,18 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
   } = props;
 
   const [section, setSection] = useState<AdminSection>("overview");
+
+  useEffect(() => {
+    if (section === "invoices") {
+      void onLoadPlatformInvoices();
+    }
+  }, [section, onLoadPlatformInvoices]);
+
+  useEffect(() => {
+    if (section === "transactions") {
+      void onLoadPlatformTransactions();
+    }
+  }, [section, onLoadPlatformTransactions]);
 
   useEffect(() => {
     if (section === "client-detail" && !selectedTenantId) {
@@ -257,12 +271,9 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
 
                 <AdminOverviewSectionLazy
                   platformAccountingOverview={platformAccountingOverview}
-                  platformInvoices={platformInvoices}
-                  platformTransactions={platformTransactions}
                   isSuperadmin={user.role === "superadmin"}
                   loading={loading}
                   onRecordPlatformWithdrawal={onRecordPlatformWithdrawal}
-                  onSyncInvoice={onSyncInvoice}
                 />
               </div>
             ) : null}

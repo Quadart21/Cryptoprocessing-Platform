@@ -146,7 +146,7 @@ import {
 } from "./config/siteHostRedirect";
 import { useDedicatedSiteRedirect } from "./hooks/useDedicatedSiteRedirect";
 import { AdminLoginShell } from "./admin/AdminLoginShell";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 
 import {
   AdminDashboardLazy,
@@ -417,9 +417,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
 
     async function refreshPlatformDashboard(sessionToken: string) {
       try {
-        const [invoiceItems, transactionItems, eventItems, accountingOverview] = await Promise.all([
-          fetchAdminInvoices(sessionToken),
-          fetchAdminTransactions(sessionToken),
+        const [eventItems, accountingOverview] = await Promise.all([
           safeLoad(() => fetchAdminEvents(sessionToken), []),
           fetchPlatformAccountingOverview(sessionToken),
         ]);
@@ -428,8 +426,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
           return;
         }
 
-        setPlatformInvoices(invoiceItems);
-        setPlatformTransactions(transactionItems);
         setPlatformEvents(eventItems);
         setPlatformAccounting(accountingOverview.summary);
         setPlatformAccountingOverview(accountingOverview);
@@ -496,8 +492,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
             tenantPayoutItems,
             tenantSummary,
             accountingOverview,
-            allInvoices,
-            allTransactions,
             allPayouts,
             allEvents,
             billingSettings,
@@ -514,8 +508,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
               fetchTenantPayouts(accessToken, tenantId),
               fetchTenantAccountingSummary(accessToken, tenantId),
               fetchPlatformAccountingOverview(accessToken),
-              fetchAdminInvoices(accessToken),
-              fetchAdminTransactions(accessToken),
               fetchAdminPayouts(accessToken),
               safeLoad(() => fetchAdminEvents(accessToken), []),
               safeLoad(() => fetchPlatformBillingSettings(accessToken), null),
@@ -532,8 +524,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
           setSelectedTenantAccounting(tenantSummary);
           setPlatformAccounting(accountingOverview.summary);
           setPlatformAccountingOverview(accountingOverview);
-          setPlatformInvoices(allInvoices);
-          setPlatformTransactions(allTransactions);
           setPlatformPayouts(allPayouts);
           setPlatformEvents(allEvents);
           setPlatformBillingSettings(billingSettings);
@@ -558,11 +548,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
           setSelectedTenantTransactions([]);
           setSelectedTenantPayouts([]);
           setSelectedTenantAccounting(null);
-          const [accountingOverview, allInvoices, allTransactions, allPayouts, allEvents, billingSettings, assetRatesResponse, publicPagesResponse, roleItems, userItems] =
+          const [accountingOverview, allPayouts, allEvents, billingSettings, assetRatesResponse, publicPagesResponse, roleItems, userItems] =
             await Promise.all([
               fetchPlatformAccountingOverview(accessToken),
-              fetchAdminInvoices(accessToken),
-              fetchAdminTransactions(accessToken),
               fetchAdminPayouts(accessToken),
               safeLoad(() => fetchAdminEvents(accessToken), []),
               safeLoad(() => fetchPlatformBillingSettings(accessToken), null),
@@ -573,8 +561,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
             ]);
           setPlatformAccounting(accountingOverview.summary);
           setPlatformAccountingOverview(accountingOverview);
-          setPlatformInvoices(allInvoices);
-          setPlatformTransactions(allTransactions);
           setPlatformPayouts(allPayouts);
           setPlatformEvents(allEvents);
           setPlatformBillingSettings(billingSettings);
@@ -1380,8 +1366,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
         tenantTransactions,
         tenantPayoutItems,
         tenantSummary,
-        allInvoices,
-        allTransactions,
         allEvents,
         tenantPolicy,
       ] =
@@ -1391,8 +1375,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
           fetchTenantTransactions(token, tenantId),
           fetchTenantPayouts(token, tenantId),
           fetchTenantAccountingSummary(token, tenantId),
-          fetchAdminInvoices(token),
-          fetchAdminTransactions(token),
           safeLoad(() => fetchAdminEvents(token), []),
           fetchTenantBillingPolicy(token, tenantId),
         ]);
@@ -1402,8 +1384,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSelectedTenantPayouts(tenantPayoutItems);
       setSelectedTenantAccounting(tenantSummary);
       setSelectedTenantBillingPolicy(tenantPolicy);
-      setPlatformInvoices(allInvoices);
-      setPlatformTransactions(allTransactions);
       setPlatformEvents(allEvents);
       if (tenantInvoices.length > 0) {
         setSelectedInvoiceId(tenantInvoices[0].id);
@@ -2084,10 +2064,24 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     }
   }
 
+  const loadPlatformInvoices = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+    const invoiceItems = await fetchAdminInvoices(token);
+    setPlatformInvoices(invoiceItems);
+  }, [token]);
+
+  const loadPlatformTransactions = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+    const transactionItems = await fetchAdminTransactions(token);
+    setPlatformTransactions(transactionItems);
+  }, [token]);
+
   const adminDerived = useAdminDashboard({
     tenants,
-    platformInvoices,
-    platformTransactions,
     platformEvents,
     platformAccountingOverview,
   });
@@ -2262,6 +2256,8 @@ return (
           onDestroyMerchantSandbox={(id) => void handleDestroyMerchantSandbox(id)}
           onDismissMerchantSandboxCreate={handleDismissMerchantSandboxCreate}
           onRecordPlatformWithdrawal={(payload) => handleRecordPlatformWithdrawal(payload)}
+          onLoadPlatformInvoices={loadPlatformInvoices}
+          onLoadPlatformTransactions={loadPlatformTransactions}
           {...adminDerived}
         />
       ) : onboarding?.tenant_status !== "approved" ? (

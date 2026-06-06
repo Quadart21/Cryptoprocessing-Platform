@@ -1231,8 +1231,6 @@ export function useAppController() {
 
   const adminDerived = useAdminDashboard({
     tenants,
-    platformInvoices,
-    platformTransactions,
     platformEvents,
     platformAccountingOverview: null,
   });
