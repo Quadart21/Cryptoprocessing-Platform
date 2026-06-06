@@ -38,8 +38,22 @@ build_frontend() {
 }
 
 check_backend_syntax() {
-  log "Checking backend imports"
+  log "Checking backend syntax (compileall)"
   sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}/backend' && ./.venv/bin/python -m compileall app"
+}
+
+check_backend_boot() {
+  log "Checking backend application import (production .env)"
+  local env_file="${APP_DIR}/.env"
+  [[ -f "${env_file}" ]] || { echo "Missing ${env_file}"; exit 1; }
+  sudo -u "${APP_USER}" bash -lc "
+    set -euo pipefail
+    cd '${APP_DIR}/backend'
+    set -a
+    source '${env_file}'
+    set +a
+    ./.venv/bin/python -c 'from app.main import app; print(\"backend import ok\")'
+  "
 }
 
 run_migrations() {
@@ -105,7 +119,7 @@ install_systemd_units() {
 restart_backend() {
   log "Restarting backend service ${BACKEND_SERVICE}"
   systemctl restart "${BACKEND_SERVICE}"
-  sleep 3
+  sleep 5
   systemctl status "${BACKEND_SERVICE}" --no-pager -l
 }
 
@@ -149,7 +163,8 @@ smoke_check() {
   local attempts=20
   local delay=2
   for ((attempt = 1; attempt <= attempts; attempt++)); do
-    if curl -fsS "${url}"; then
+    if curl -fsS "${url}" >/dev/null 2>&1; then
+      curl -fsS "${url}"
       printf '\n'
       return 0
     fi
@@ -188,6 +203,7 @@ require_root
 require_paths
 build_frontend
 check_backend_syntax
+check_backend_boot
 run_migrations
 sync_missing_tables
 ensure_cors_origins

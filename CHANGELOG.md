@@ -10,6 +10,15 @@
 
 
 
+## [0.14.65] — 2026-06-06
+
+### Исправлено
+
+- **Circular import (полностью)**: `PlatformEarningsService` и `AccountingService` больше не импортируют друг друга на уровне модулей.
+- **Деплой**: перед рестартом проверяется `from app.main import app` с production `.env`; добавлен `ops/ubuntu/check-backend.sh`.
+
+---
+
 ## [0.14.64] — 2026-06-06
 
 ### Исправлено

@@ -18,7 +18,6 @@ from app.schemas.accounting import (
     PlatformEarningsWithdrawalView,
     TenantBalanceSnapshot,
 )
-from app.services.platform_earnings_service import PlatformEarningsService
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.cache_service import get_cache_service
 from app.services.exchange_rate_service import get_exchange_rate_service
@@ -297,6 +296,8 @@ class AccountingService:
         tenants_with_balance_count = sum(
             1 for item in tenant_snapshots if Decimal(item.on_accounts) > Decimal("0")
         )
+
+        from app.services.platform_earnings_service import PlatformEarningsService
 
         earnings_service = PlatformEarningsService(self.db)
         platform_earnings_accrued = Decimal(summary.total_platform_revenue_amount)
