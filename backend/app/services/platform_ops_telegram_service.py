@@ -17,6 +17,7 @@ from app.models.invoice import Invoice
 from app.models.payout_request import PayoutRequest
 from app.models.platform_setting import PlatformSetting
 from app.models.tenant import Tenant
+from app.core.config import settings
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.notification_service import NotificationService
 
@@ -404,11 +405,8 @@ class PlatformOpsTelegramService:
 
         body_lines = [f"<b>{self._escape_html(title)}</b>"]
         body_lines.extend(self._escape_html(line) for line in lines if line.strip())
-        link = admin_url
+        link = self._resolve_admin_link(platform_settings, admin_url)
         if link:
-            base = (platform_settings.notification_primary_url or "").strip().rstrip("/")
-            if base and link.startswith("/"):
-                link = f"{base}{link}"
             safe_url = self._escape_html(link)
             body_lines.append(f'<a href="{safe_url}">Открыть в админке</a>')
         message = "\n".join(body_lines)
@@ -637,6 +635,23 @@ class PlatformOpsTelegramService:
             lines=lines,
         )
         return True
+
+    @staticmethod
+    def _resolve_admin_link(
+        platform_settings: PlatformSetting,
+        admin_url: str | None,
+    ) -> str | None:
+        if not admin_url:
+            return None
+        if admin_url.startswith("http://") or admin_url.startswith("https://"):
+            return admin_url
+        base = settings.resolve_admin_console_base_url()
+        if not base:
+            base = (platform_settings.notification_primary_url or "").strip().rstrip("/")
+        if not base:
+            return None
+        path = admin_url if admin_url.startswith("/") else f"/{admin_url}"
+        return f"{base.rstrip('/')}{path}"
 
     @staticmethod
     def _escape_html(value: str) -> str:

@@ -300,6 +300,13 @@ class Settings(BaseSettings):
         host = (parsed.hostname or "").strip().lower()
         return host or None
 
+    def resolve_admin_console_base_url(self) -> str:
+        """Base URL for platform admin SPA (admin.{domain})."""
+        base_domain = self._public_site_base_domain()
+        if base_domain:
+            return f"https://admin.{base_domain}"
+        return ""
+
     @property
     def sqlalchemy_database_uri(self) -> str:
         return (

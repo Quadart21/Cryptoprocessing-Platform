@@ -72,6 +72,20 @@ async def _sync_all_pending_invoices() -> dict:
             "errors": errors[:10],
         }
         logger.info("Sync completed: %s", result)
+        if failed_count > 0:
+            from app.services.platform_ops_notify import notify_provider_alert
+
+            summary_lines = errors[:5]
+            if len(errors) > 5:
+                summary_lines.append(f"… и ещё {len(errors) - 5} ошибок")
+            await notify_provider_alert(
+                db,
+                title="⚠️ Ошибки синхронизации Crypto-Cash",
+                lines=[
+                    f"Успешно: {synced_count}, ошибок: {failed_count}",
+                    *summary_lines,
+                ],
+            )
         return result
 
 

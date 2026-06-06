@@ -199,6 +199,22 @@ class SandboxService:
 
         AccountingService.invalidate_cache()
 
+        from app.services.platform_ops_notify import notify_platform_ops
+
+        fqdn = f"{sub}.{zone}"
+        await notify_platform_ops(
+            self.db,
+            event_code="sandbox_created",
+            title="Создана песочница",
+            lines=[
+                f"Label: {label_n}",
+                f"Sandbox ID: {sandbox.id}",
+                f"FQDN: {fqdn}",
+                f"Tenant: {tenant.name}",
+            ],
+            admin_url="/admin/sandbox",
+        )
+
         return SandboxCreateOutcome(
             sandbox=sandbox,
             enrollment_token=enrollment_token,
@@ -250,6 +266,20 @@ class SandboxService:
 
         await self.db.commit()
         await self.db.refresh(sandbox)
+
+        from app.services.platform_ops_notify import notify_platform_ops
+
+        await notify_platform_ops(
+            self.db,
+            event_code="sandbox_ready",
+            title="Песочница готова (агент подключён)",
+            lines=[
+                f"Sandbox ID: {sandbox.id}",
+                f"URL: {sandbox.public_base_url or fqdn}",
+                f"Agent: {sandbox.agent_instance_id or sandbox.agent_public_id or '—'}",
+            ],
+            admin_url="/admin/sandbox",
+        )
 
         meta = {
             "public_api_base_url": (settings.public_api_base_url or "").rstrip("/")
