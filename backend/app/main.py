@@ -20,6 +20,7 @@ from app.core.config import settings
 from app.providers.crypto_cash import CryptoCashProviderError, provider_error_http_status
 from app.db.bootstrap import ensure_database_ready
 from app.db.session import AsyncSessionLocal
+from app.services.brand_logo_service import BrandLogoService
 from app.services.seo_service import SeoService
 from app.services.spa_seo_html import load_index_template, render_spa_index_html
 from app.middleware.api_usage import ApiUsageMiddleware
@@ -32,11 +33,13 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIST_DIR = PROJECT_ROOT / "frontend" / "dist"
 FRONTEND_INDEX_FILE = FRONTEND_DIST_DIR / "index.html"
+UPLOADS_DIR = PROJECT_ROOT / "data" / "uploads"
 SPA_RESERVED_PREFIXES = (
     settings.api_v1_prefix.lstrip("/"),
     "internal",
     "docs",
     "openapi.json",
+    "uploads",
 )
 MERCHANT_OPENAPI_ALLOWLIST: set[tuple[str, str]] = {
     ("GET", f"{settings.api_v1_prefix}/client/health"),
@@ -55,6 +58,7 @@ MERCHANT_OPENAPI_ALLOWLIST: set[tuple[str, str]] = {
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_database_ready()
+    BrandLogoService.ensure_upload_dir()
     from app.db.session import AsyncSessionLocal
     from app.services.billing_policy_service import BillingPolicyService
     from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
@@ -223,6 +227,10 @@ def _register_admin_docs_routes(app: FastAPI) -> None:
 
 
 def _register_frontend_routes(app: FastAPI) -> None:
+    BrandLogoService.ensure_upload_dir()
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="platform-uploads")
+
     if not FRONTEND_INDEX_FILE.exists():
         return
 

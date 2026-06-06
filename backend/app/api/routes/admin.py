@@ -3,7 +3,7 @@ import logging
 from secrets import choice
 from string import ascii_letters, digits
 
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -103,6 +103,7 @@ from app.schemas.user_management import (
 from app.services.auth_service import AuthService
 from app.services.accounting_service import AccountingService
 from app.services.billing_policy_service import BillingPolicyService
+from app.services.brand_logo_service import BrandLogoService
 from app.services.api_usage_service import ApiUsageSummary, get_api_usage_service
 from app.services.checkout_delivery_service import CheckoutDeliveryService
 from app.services.exchange_rate_service import get_exchange_rate_service
@@ -1312,6 +1313,38 @@ async def update_platform_billing_settings(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
+    return await _map_platform_billing_settings_response(
+        platform_settings=platform_settings,
+        notification_service=NotificationService(db),
+        include_ops_telegram=current_user.role == "superadmin",
+    )
+
+
+@router.post("/billing/settings/brand-logo", response_model=PlatformBillingSettingsResponse)
+async def upload_platform_brand_logo(
+    file: UploadFile = File(...),
+    _: User = Depends(require_platform_permission("admin.billing.write")),
+    db: AsyncSession = Depends(get_db),
+) -> PlatformBillingSettingsResponse:
+    service = BrandLogoService(db)
+    try:
+        platform_settings, _public_url = await service.upload_logo(file)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+    return await _map_platform_billing_settings_response(
+        platform_settings=platform_settings,
+        notification_service=NotificationService(db),
+        include_ops_telegram=False,
+    )
+
+
+@router.delete("/billing/settings/brand-logo", response_model=PlatformBillingSettingsResponse)
+async def delete_platform_brand_logo(
+    current_user: User = Depends(require_platform_permission("admin.billing.write")),
+    db: AsyncSession = Depends(get_db),
+) -> PlatformBillingSettingsResponse:
+    platform_settings = await BrandLogoService(db).remove_uploaded_logo()
     return await _map_platform_billing_settings_response(
         platform_settings=platform_settings,
         notification_service=NotificationService(db),

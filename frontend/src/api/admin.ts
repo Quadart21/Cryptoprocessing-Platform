@@ -1,4 +1,4 @@
-import { request, authHeaders } from "./base";
+import { request, requestMultipart, authHeaders } from "./base";
 import type {
   TenantItem,
   TenantCreateResponse,
@@ -382,6 +382,26 @@ export function updatePlatformBillingSettings(
     method: "PUT",
     headers: authHeaders(token),
     body: JSON.stringify(payload),
+  });
+}
+
+export function uploadPlatformBrandLogo(
+  token: string,
+  file: File,
+): Promise<PlatformBillingSettings> {
+  const form = new FormData();
+  form.append("file", file);
+  return requestMultipart<PlatformBillingSettings>("/admin/billing/settings/brand-logo", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: form,
+  });
+}
+
+export function deletePlatformBrandLogo(token: string): Promise<PlatformBillingSettings> {
+  return requestMultipart<PlatformBillingSettings>("/admin/billing/settings/brand-logo", {
+    method: "DELETE",
+    headers: authHeaders(token),
   });
 }
 

@@ -1029,6 +1029,33 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
+async function requestMultipart<T>(path: string, init?: RequestInit): Promise<T> {
+  const csrfToken = getCsrfToken();
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  const csrfHeader = response.headers.get("X-CSRF-Token");
+  if (csrfHeader) {
+    setCsrfToken(csrfHeader);
+  }
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? `Ошибка запроса (HTTP ${response.status}).`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
 export function login(
   email: string,
   password: string,
@@ -1761,6 +1788,30 @@ export function updatePlatformBillingSettings(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export function uploadPlatformBrandLogo(
+  token: string,
+  file: File,
+): Promise<PlatformBillingSettings> {
+  const form = new FormData();
+  form.append("file", file);
+  return requestMultipart<PlatformBillingSettings>("/admin/billing/settings/brand-logo", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: form,
+  });
+}
+
+export function deletePlatformBrandLogo(token: string): Promise<PlatformBillingSettings> {
+  return requestMultipart<PlatformBillingSettings>("/admin/billing/settings/brand-logo", {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }
 

@@ -23,6 +23,7 @@ import type {
   TenantItem,
 } from "../../api";
 import { NotificationTemplatesWorkspace } from "../components/NotificationTemplatesWorkspace";
+import { BrandLogoUploader } from "../components/BrandLogoUploader";
 
 const EXCHANGE_RATE_PRICE_FIELD_LABELS: Record<ExchangeRatePriceField, string> = {
   last: "Last",
@@ -54,6 +55,8 @@ type AdminPlatformSettingsSectionProps = {
   onSelectTenant: (tenantId: string) => void;
   onUpdatePlatformSettings: (payload: PlatformBillingSettings) => Promise<void>;
   onReloadPlatformSettings: () => Promise<void>;
+  onUploadBrandLogo: (file: File) => Promise<void>;
+  onRemoveBrandLogo: () => Promise<void>;
   onFetchPlatformExchangeRate: (currency: string) => Promise<ExchangeRateLookup>;
   onRefreshPlatformExchangeRate: () => Promise<ExchangeRateRefresh>;
   onInspectPlatformTelegramBot: (
@@ -172,6 +175,8 @@ export function AdminPlatformSettingsSection({
   onSelectTenant,
   onUpdatePlatformSettings,
   onReloadPlatformSettings,
+  onUploadBrandLogo,
+  onRemoveBrandLogo,
   onFetchPlatformExchangeRate,
   onRefreshPlatformExchangeRate,
   onInspectPlatformTelegramBot,
@@ -711,8 +716,17 @@ export function AdminPlatformSettingsSection({
             }
           />
         </label>
-        <label>
-          <span>URL логотипа</span>
+        <label className="aps-field-span-2">
+          <span>Файл логотипа</span>
+          <BrandLogoUploader
+            disabled={loading}
+            logoUrl={platformSettingsForm.notification_logo_url}
+            onRemoveUploaded={onRemoveBrandLogo}
+            onUpload={onUploadBrandLogo}
+          />
+        </label>
+        <label className="aps-field-span-2">
+          <span>URL логотипа (вручную)</span>
           <input
             value={platformSettingsForm.notification_logo_url ?? ""}
             onChange={(event) =>
@@ -720,10 +734,10 @@ export function AdminPlatformSettingsSection({
                 notification_logo_url: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
-            placeholder="https://example.com/logo.svg"
+            placeholder="https://example.com/logo.svg или /uploads/brand/logo.svg"
           />
           <p className="muted-text aps-field-hint">
-            Публичный URL SVG или PNG: лендинг, pay-страница, docs, вход и письма. Если не задан — стандартная иконка и название бренда.
+            Загрузите файл выше или укажите внешний URL. SVG/PNG используются на лендинге, pay-странице, docs и в письмах.
           </p>
         </label>
         <label className="aps-field-span-2">

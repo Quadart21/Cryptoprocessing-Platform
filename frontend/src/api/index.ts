@@ -138,6 +138,8 @@ export {
   fetchPlatformExchangeRate,
   refreshPlatformExchangeRate,
   updatePlatformBillingSettings,
+  uploadPlatformBrandLogo,
+  deletePlatformBrandLogo,
   previewNotificationTemplate,
   sendNotificationTemplateTest,
   sendPlatformSmtpBzTest,

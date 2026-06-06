@@ -146,6 +146,8 @@ export type AdminDashboardProps = {
   onRepairInvoiceSettlement: (invoiceId: string) => void;
   onUpdatePlatformSettings: (payload: PlatformBillingSettings) => Promise<void>;
   onReloadPlatformSettings: () => Promise<void>;
+  onUploadBrandLogo: (file: File) => Promise<void>;
+  onRemoveBrandLogo: () => Promise<void>;
   onFetchPlatformExchangeRate: (currency: string) => Promise<ExchangeRateLookup>;
   onRefreshPlatformExchangeRate: () => Promise<ExchangeRateRefresh>;
   onInspectPlatformTelegramBot: (

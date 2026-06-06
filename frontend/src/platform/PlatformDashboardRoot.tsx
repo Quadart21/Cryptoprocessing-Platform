@@ -88,6 +88,8 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     onRepairInvoiceSettlement,
     onUpdatePlatformSettings,
     onReloadPlatformSettings,
+    onUploadBrandLogo,
+    onRemoveBrandLogo,
     onFetchPlatformExchangeRate,
     onRefreshPlatformExchangeRate,
     onInspectPlatformTelegramBot,
@@ -456,6 +458,8 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                   onSendNotificationTemplateTest={onSendNotificationTemplateTest}
                   onUpdatePlatformSettings={onUpdatePlatformSettings}
                   onReloadPlatformSettings={onReloadPlatformSettings}
+                  onUploadBrandLogo={onUploadBrandLogo}
+                  onRemoveBrandLogo={onRemoveBrandLogo}
                   onUpdateTenantPolicy={onUpdateTenantPolicy}
                 />
               </div>

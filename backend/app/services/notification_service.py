@@ -9,6 +9,8 @@ import re
 from typing import Any, Iterable
 from urllib.parse import urlparse
 
+from app.core.public_urls import is_allowed_brand_logo_reference, resolve_public_asset_url
+
 import requests
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -418,10 +420,8 @@ class NotificationService:
         if platform_settings.smtp_bz_reply_to and "@" not in platform_settings.smtp_bz_reply_to:
             raise ValueError("SMTP.bz reply-to email указан некорректно.")
         if platform_settings.notification_logo_url:
-            self._validate_public_url(
-                platform_settings.notification_logo_url,
-                "Notification logo URL is invalid.",
-            )
+            if not is_allowed_brand_logo_reference(platform_settings.notification_logo_url):
+                raise ValueError("Notification logo URL is invalid.")
         if platform_settings.notification_primary_url:
             self._validate_public_url(
                 platform_settings.notification_primary_url,
@@ -785,7 +785,9 @@ class NotificationService:
             context,
         )
 
-        logo_url = (platform_settings.notification_logo_url or "").strip() or None
+        logo_url = resolve_public_asset_url(
+            (platform_settings.notification_logo_url or "").strip() or None
+        )
         safe_email_html = self._resolve_final_email_html(
             email_body_template=email_body_template,
             rendered_email_body=rendered_email_body,
@@ -925,7 +927,10 @@ class NotificationService:
             "user_full_name": (user.full_name or "").strip(),
             "brand_name": (platform_settings.notification_brand_name or "").strip() or "NorenDigital",
             "brand_url": (platform_settings.notification_primary_url or "").strip(),
-            "notification_logo_url": (platform_settings.notification_logo_url or "").strip(),
+            "notification_logo_url": resolve_public_asset_url(
+                (platform_settings.notification_logo_url or "").strip() or None
+            )
+            or "",
             "utc_now": datetime.now(timezone.utc).isoformat(),
         }
         context.update(self._infer_template_context_from_lines(message_lines))

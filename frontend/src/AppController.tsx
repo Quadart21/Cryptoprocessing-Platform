@@ -136,6 +136,8 @@ import {
   updateClientNotificationSettings,
   updateSandboxPlatformSettings,
   updatePlatformBillingSettings,
+  uploadPlatformBrandLogo,
+  deletePlatformBrandLogo,
   updateTenantBillingPolicy,
   updateWebhookConfig,
 } from "./api";
@@ -1662,6 +1664,40 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     }
   }
 
+  async function handleUploadBrandLogo(file: File) {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const updated = await uploadPlatformBrandLogo(token, file);
+      setPlatformBillingSettings(updated);
+      setSuccess("Логотип загружен.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось загрузить логотип.");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRemoveBrandLogo() {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const updated = await deletePlatformBrandLogo(token);
+      setPlatformBillingSettings(updated);
+      setSuccess("Загруженный логотип удалён.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось удалить логотип.");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleRefreshMerchantSandboxes() {
     if (!token || user?.role !== "superadmin") return;
     try {
@@ -2276,6 +2312,8 @@ return (
           onRepairInvoiceSettlement={(invoiceId) => void handleRepairInvoiceSettlement(invoiceId)}
           onUpdatePlatformSettings={handleUpdatePlatformSettings}
           onReloadPlatformSettings={handleReloadPlatformSettings}
+          onUploadBrandLogo={handleUploadBrandLogo}
+          onRemoveBrandLogo={handleRemoveBrandLogo}
           onFetchPlatformExchangeRate={handleFetchPlatformExchangeRate}
           onRefreshPlatformExchangeRate={handleRefreshPlatformExchangeRate}
           onInspectPlatformTelegramBot={(payload) => handleInspectPlatformTelegramBot(payload)}

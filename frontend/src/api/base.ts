@@ -1008,6 +1008,45 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
+export async function requestMultipart<T>(path: string, init?: RequestInit): Promise<T> {
+  const csrfToken = getCsrfToken();
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  const csrfHeader = response.headers.get("X-CSRF-Token");
+  if (csrfHeader) {
+    setCsrfToken(csrfHeader);
+  }
+
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    let parsedPayload: unknown = null;
+    let rawText: string | null = null;
+
+    if (contentType.includes("application/json")) {
+      parsedPayload = await response.json().catch(() => null);
+    } else {
+      rawText = await response.text().catch(() => null);
+    }
+
+    const extracted = extractErrorMessage(parsedPayload);
+    const resolvedMessage =
+      extracted.message ?? rawText?.trim().slice(0, 240) ?? `Ошибка запроса (HTTP ${response.status}).`;
+    throw new Error(resolvedMessage);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
 export function authHeaders(token: string): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }

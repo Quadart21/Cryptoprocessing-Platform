@@ -27,3 +27,4 @@ log.txt
 *.tsbuildinfo
 backend/logs/
 frontend/dist/
+data/uploads/

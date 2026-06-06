@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     app_debug: bool = Field(default=False, alias="APP_DEBUG")
     public_api_base_url: str = Field(default="", alias="PUBLIC_API_BASE_URL")
     public_pay_base_url: str = Field(default="", alias="PUBLIC_PAY_BASE_URL")
+    public_site_base_url: str = Field(default="", alias="PUBLIC_SITE_BASE_URL")
+    brand_uploads_dir: str = Field(default="", alias="BRAND_UPLOADS_DIR")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")
 
     security_fail_fast: bool = Field(default=True, alias="SECURITY_FAIL_FAST")
