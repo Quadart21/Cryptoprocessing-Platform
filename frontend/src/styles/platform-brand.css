@@ -69,18 +69,6 @@
   height: auto;
 }
 
-img.pp-avatar.pp-avatar--logo {
-  display: block;
-  background: transparent !important;
-  box-shadow: none !important;
-  border-radius: 0;
-  width: auto;
-  height: auto;
-  max-height: 2.75rem;
-  max-width: 5.5rem;
-  object-fit: contain;
-}
-
 /* Legacy: logo still inside default mark container */
 .lpx-logo-mark:has(.platform-brand-mark-img) {
   width: auto;

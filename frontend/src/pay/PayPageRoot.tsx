@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { formatDecimal } from "../utils/format";
 import { getInvoiceDetailStatusMeta, invoiceStatusTone } from "../utils/invoiceStatus";
 import { isStableCoinFiatPair } from "../utils/invoiceAccounting";
-import { PlatformBrandAvatar, PlatformBrandText, usePlatformBrand } from "../brand/PlatformBrandLogo";
+import { PlatformBrandMark, PlatformBrandText, usePlatformBrand } from "../brand/PlatformBrandLogo";
+import { brandInitials } from "../brand/platformBrand";
 import { PaymentConfirmationsProgress } from "./PaymentConfirmationsProgress";
 import {
   fetchPublicPayment,
@@ -371,16 +372,28 @@ export function PayPageRoot({ token }: PayPageRootProps) {
 
       <main className="pp-shell">
         <header className="pp-header">
-          <div className="pp-header-user">
-            <PlatformBrandAvatar className={`pp-avatar${logoUrl ? " pp-avatar--logo" : ""}`} />
-            <div>
-              <p className="pp-greeting">Безопасная оплата</p>
-              <h1 className="pp-header-title">{headerTitle}</h1>
-            </div>
-          </div>
           {statusMeta ? (
-            <span className={`pp-pill pp-pill--${tone}`}>{statusMeta.label}</span>
+            <div className="pp-header-status">
+              <span className={`pp-pill pp-pill--${tone}`}>{statusMeta.label}</span>
+            </div>
           ) : null}
+
+          <div className="pp-brand-stack">
+            {logoUrl ? (
+              <PlatformBrandMark imgClassName="pp-brand-hero-logo" />
+            ) : (
+              <span className="pp-avatar pp-avatar--fallback" aria-hidden>
+                {brandInitials(brandName)}
+              </span>
+            )}
+            <p className="pp-brand-wordmark">
+              <PlatformBrandText split withLogo />
+            </p>
+            <p className="pp-greeting">Безопасная оплата</p>
+            {payment?.merchant_name ? (
+              <h1 className="pp-header-title">{headerTitle}</h1>
+            ) : null}
+          </div>
         </header>
 
         {pollHint ? (
@@ -598,9 +611,9 @@ export function PayPageRoot({ token }: PayPageRootProps) {
         ) : null}
 
         <footer className="pp-footer">
-          <p>Защищённое соединение</p>
+          <p className="pp-footer-secure">Защищённое соединение</p>
           <p className="pp-brand-foot">
-            <PlatformBrandText split />
+            <PlatformBrandText split withLogo />
           </p>
         </footer>
       </main>

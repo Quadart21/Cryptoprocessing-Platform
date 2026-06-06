@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 
 import { DefaultBrandMark } from "./DefaultBrandMark";
-import { brandInitials, usesDefaultLandingWordmark } from "./platformBrand";
+import { brandInitials, DEFAULT_PLATFORM_BRAND_NAME, usesDefaultLandingWordmark } from "./platformBrand";
 import { usePlatformBrand } from "./PlatformBrandContext";
 
 type PlatformBrandMarkProps = {
@@ -50,21 +50,27 @@ type PlatformBrandTextProps = {
   className?: string;
   /** Highlight second half like admin login shell. */
   split?: boolean;
+  /** Render wordmark even when a custom logo URL is configured. */
+  withLogo?: boolean;
 };
 
-export function PlatformBrandText({ className, split = false }: PlatformBrandTextProps) {
+function renderSplitWordmark(className?: string) {
+  return (
+    <span className={className}>
+      Noren<span>Digital</span>
+    </span>
+  );
+}
+
+export function PlatformBrandText({ className, split = false, withLogo = false }: PlatformBrandTextProps) {
   const { brandName, logoUrl } = usePlatformBrand();
 
-  if (logoUrl) {
+  if (logoUrl && !withLogo) {
     return <PlatformBrandMark className={className} imgClassName={className} />;
   }
 
-  if (split && usesDefaultLandingWordmark({ brandName, logoUrl, loaded: true })) {
-    return (
-      <span className={className}>
-        Noren<span>Digital</span>
-      </span>
-    );
+  if (split && brandName === DEFAULT_PLATFORM_BRAND_NAME) {
+    return renderSplitWordmark(className);
   }
 
   return <span className={className}>{brandName}</span>;
