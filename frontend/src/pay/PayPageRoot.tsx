@@ -245,7 +245,7 @@ function ReturnToShopBanner({ href, tone, autoRedirect = false }: ReturnBannerPr
 }
 
 export function PayPageRoot({ token }: PayPageRootProps) {
-  const { brandName } = usePlatformBrand();
+  const { brandName, logoUrl } = usePlatformBrand();
   const [payment, setPayment] = useState<PublicPayment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -372,7 +372,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
       <main className="pp-shell">
         <header className="pp-header">
           <div className="pp-header-user">
-            <PlatformBrandAvatar className="pp-avatar" />
+            <PlatformBrandAvatar className={`pp-avatar${logoUrl ? " pp-avatar--logo" : ""}`} />
             <div>
               <p className="pp-greeting">Безопасная оплата</p>
               <h1 className="pp-header-title">{headerTitle}</h1>

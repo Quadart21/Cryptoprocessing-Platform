@@ -228,11 +228,13 @@ export function LandingSiteChrome({
 
           <a className="lpx-logo" href="#">
 
-            <div className="lpx-logo-mark">
-
-              <PlatformBrandMark />
-
-            </div>
+            {logoUrl ? (
+              <PlatformBrandMark imgClassName="lpx-logo-custom-img" />
+            ) : (
+              <div className="lpx-logo-mark">
+                <PlatformBrandMark />
+              </div>
+            )}
 
             {!logoUrl ? (
               <div className="lpx-logo-text">
@@ -1142,11 +1144,13 @@ export function LandingSiteChrome({
 
           <div className="lpx-footer-brand-block">
 
-            <div className="lpx-logo-mark lpx-logo-mark--footer">
-
-              <PlatformBrandMark />
-
-            </div>
+            {logoUrl ? (
+              <PlatformBrandMark imgClassName="lpx-logo-custom-img lpx-logo-custom-img--footer" />
+            ) : (
+              <div className="lpx-logo-mark lpx-logo-mark--footer">
+                <PlatformBrandMark />
+              </div>
+            )}
 
             <p className="lpx-footer-tagline">
               {brandName} — приём криптовалюты и стейблкоинов для e-commerce и SaaS.
