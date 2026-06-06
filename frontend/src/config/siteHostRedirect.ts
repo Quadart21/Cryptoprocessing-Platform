@@ -9,6 +9,7 @@ import {
   resolveDocsSiteUrl,
   resolvePaySiteUrl,
 } from "./siteHost";
+import { buildAuthHandoffUrl, isCrossOriginUrl } from "./authHandoff";
 
 type ViteImportMeta = ImportMeta & {
   env?: Record<string, string | undefined>;
@@ -124,6 +125,8 @@ export function redirectApiRootToDocs(): boolean {
 export function redirectAuthenticatedUserToDedicatedHost(
   role: string,
   adminHost: boolean,
+  accessToken: string | null,
+  csrfToken?: string | null,
 ): boolean {
   if (!dedicatedSiteHostsEnabled()) {
     return false;
@@ -140,11 +143,21 @@ export function redirectAuthenticatedUserToDedicatedHost(
     if (adminHost && isAdminSubdomain()) {
       return false;
     }
-    return redirectToUrlIfNeeded(resolveAdminSiteUrl(currentPathAndSearch()));
+    const target = resolveAdminSiteUrl(currentPathAndSearch());
+    const finalTarget =
+      accessToken && isCrossOriginUrl(target)
+        ? buildAuthHandoffUrl(target, accessToken, csrfToken)
+        : target;
+    return redirectToUrlIfNeeded(finalTarget);
   }
 
   if (!isAppSubdomain()) {
-    return redirectToUrlIfNeeded(resolveAppSiteUrl(currentPathAndSearch()));
+    const target = resolveAppSiteUrl(currentPathAndSearch());
+    const finalTarget =
+      accessToken && isCrossOriginUrl(target)
+        ? buildAuthHandoffUrl(target, accessToken, csrfToken)
+        : target;
+    return redirectToUrlIfNeeded(finalTarget);
   }
 
   return false;
@@ -152,6 +165,10 @@ export function redirectAuthenticatedUserToDedicatedHost(
 
 export function redirectMarketingAuthToApp(mode: "login" | "register"): boolean {
   if (!dedicatedSiteHostsEnabled() || !isMarketingHost() || isAppSubdomain()) {
+    return false;
+  }
+  // Login/register on marketing host; after auth useDedicatedSiteRedirect handoffs the token.
+  if (mode === "login") {
     return false;
   }
   return redirectToUrlIfNeeded(buildAppAuthUrl(mode));

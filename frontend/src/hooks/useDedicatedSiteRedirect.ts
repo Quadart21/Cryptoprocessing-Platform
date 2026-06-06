@@ -8,17 +8,24 @@ import {
 type UseDedicatedSiteRedirectParams = {
   userRole: string | null;
   adminHost: boolean;
+  accessToken: string | null;
+  csrfToken?: string | null;
 };
 
-export function useDedicatedSiteRedirect({ userRole, adminHost }: UseDedicatedSiteRedirectParams) {
+export function useDedicatedSiteRedirect({
+  userRole,
+  adminHost,
+  accessToken,
+  csrfToken,
+}: UseDedicatedSiteRedirectParams) {
   useEffect(() => {
     redirectApiRootToDocs();
   }, []);
 
   useEffect(() => {
-    if (!userRole) {
+    if (!userRole || !accessToken) {
       return;
     }
-    redirectAuthenticatedUserToDedicatedHost(userRole, adminHost);
-  }, [userRole, adminHost]);
+    redirectAuthenticatedUserToDedicatedHost(userRole, adminHost, accessToken, csrfToken);
+  }, [userRole, adminHost, accessToken, csrfToken]);
 }

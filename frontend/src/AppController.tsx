@@ -192,13 +192,15 @@ type AppControllerProps = {
 export function AppController({ siteScope = "default" }: AppControllerProps) {
   const adminHost = siteScope === "admin" || isAdminSubdomain();
   const [mode, setMode] = useState<"login" | "register">("login");
-  const { token, user, setUser, applyAccessToken, applyCsrfToken, clearSession } = useSession();
+  const { token, user, setUser, applyAccessToken, applyCsrfToken, clearSession, csrfToken } = useSession();
   const { publicRoute, publicNavigationItems, publicPageDetail, openPublicPage } =
     usePublicSiteNavigation({ authenticated: Boolean(token) && !adminHost });
 
   useDedicatedSiteRedirect({
     userRole: user?.role ?? null,
     adminHost,
+    accessToken: token,
+    csrfToken,
   });
 
   useEffect(() => {
