@@ -74,13 +74,13 @@ export async function fetchPublicPayment(token: string): Promise<PublicPayment> 
 }
 
 export async function refreshPublicPayment(token: string): Promise<PublicPayment> {
-  const response = await fetch(
-    `${resolveApiBaseUrl()}/public/pay/${encodeURIComponent(token)}/refresh`,
-    {
-      method: "POST",
-      headers: { Accept: "application/json" },
-    },
+  const url = new URL(
+    `${resolveApiBaseUrl()}/public/pay/${encodeURIComponent(token)}`,
   );
+  url.searchParams.set("sync", "1");
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+  });
   return readPaymentResponse(response);
 }
 

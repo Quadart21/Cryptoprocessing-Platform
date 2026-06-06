@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
@@ -10,6 +12,8 @@ from app.services.api_usage_service import get_api_usage_service
 from app.services.invoice_service import InvoiceService
 from app.services.payment_page_service import PaymentPageService
 from app.services.seo_service import SeoService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -26,9 +30,34 @@ async def _bind_public_payment_context(db: AsyncSession) -> None:
     await set_db_security_context(db, tenant_id=None, is_superadmin=True)
 
 
+async def _sync_public_invoice(
+    *,
+    invoice_service: InvoiceService,
+    payment_service: PaymentPageService,
+    payment_token: str,
+    invoice,
+):
+    if invoice.status not in {"pending", "confirming", "paid", "cancelled"}:
+        return invoice
+    try:
+        return await invoice_service.sync_invoice_status(
+            tenant_id=invoice.tenant_id,
+            invoice_id=str(invoice.id),
+            project_id=invoice.project_id,
+        )
+    except (CryptoCashProviderError, ValueError):
+        refreshed = await payment_service.get_invoice_by_token(payment_token)
+        return refreshed if refreshed is not None else invoice
+    except Exception:
+        logger.exception("Public pay sync failed for token prefix %s", payment_token[:8])
+        refreshed = await payment_service.get_invoice_by_token(payment_token)
+        return refreshed if refreshed is not None else invoice
+
+
 @router.get("/pay/{payment_token}", response_model=PublicPaymentResponse)
 async def get_public_payment(
     payment_token: str,
+    sync: bool = Query(default=False, description="Синхронизировать статус с провайдером"),
     db: AsyncSession = Depends(get_db),
 ) -> PublicPaymentResponse:
     await _bind_public_payment_context(db)
@@ -37,10 +66,19 @@ async def get_public_payment(
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
     invoice_service = InvoiceService(db)
-    invoice = await invoice_service.ensure_invoice_payment_state(invoice)
+    if sync:
+        invoice = await _sync_public_invoice(
+            invoice_service=invoice_service,
+            payment_service=payment_service,
+            payment_token=payment_token,
+            invoice=invoice,
+        )
+    else:
+        invoice = await invoice_service.ensure_invoice_payment_state(invoice)
+    route_key = "GET /public/pay/{token}?sync=1" if sync else "GET /public/pay/{token}"
     get_api_usage_service().record(
         category="public_pay",
-        route_key="GET /public/pay/{token}",
+        route_key=route_key,
         tenant_id=invoice.tenant_id,
         project_id=invoice.project_id,
     )
@@ -58,18 +96,13 @@ async def refresh_public_payment(
     if invoice is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
 
-    if invoice.status in {"pending", "confirming", "paid", "cancelled"}:
-        invoice_service = InvoiceService(db)
-        try:
-            invoice = await invoice_service.sync_invoice_status(
-                tenant_id=invoice.tenant_id,
-                invoice_id=str(invoice.id),
-                project_id=invoice.project_id,
-            )
-        except (CryptoCashProviderError, ValueError):
-            refreshed = await payment_service.get_invoice_by_token(payment_token)
-            if refreshed is not None:
-                invoice = refreshed
+    invoice_service = InvoiceService(db)
+    invoice = await _sync_public_invoice(
+        invoice_service=invoice_service,
+        payment_service=payment_service,
+        payment_token=payment_token,
+        invoice=invoice,
+    )
 
     get_api_usage_service().record(
         category="public_pay",

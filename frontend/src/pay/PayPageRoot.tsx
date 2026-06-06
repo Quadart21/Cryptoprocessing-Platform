@@ -16,7 +16,7 @@ type PayPageRootProps = {
 };
 
 const REDIRECT_DELAY_SEC = 6;
-/** POST /refresh — синхронизация с провайдером; не чаще лимита на бэкенде. */
+/** GET ?sync=1 — синхронизация с провайдером без CORS preflight (POST /refresh устарел). */
 const POLL_PENDING_REFRESH_MS = 30_000;
 /** GET — только чтение статуса после оплаты (paid → confirmed). */
 const POLL_PAID_READ_MS = 20_000;
