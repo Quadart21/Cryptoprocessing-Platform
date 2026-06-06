@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -246,11 +247,58 @@ class Settings(BaseSettings):
 
     @property
     def backend_cors_origins(self) -> list[str]:
-        return [
+        configured = [
             item.strip()
             for item in self.backend_cors_origins_raw.split(",")
             if item.strip()
         ]
+        merged = configured + self._derived_platform_cors_origins()
+        seen: set[str] = set()
+        unique: list[str] = []
+        for origin in merged:
+            if origin in seen:
+                continue
+            seen.add(origin)
+            unique.append(origin)
+        return unique
+
+    def _derived_platform_cors_origins(self) -> list[str]:
+        """SPA subdomains that call api.* cross-origin (admin, app, pay, docs)."""
+        if self.is_local_env:
+            return []
+
+        base_domain = self._public_site_base_domain()
+        if not base_domain:
+            return []
+
+        origins = [
+            f"https://{base_domain}",
+            f"https://www.{base_domain}",
+            f"https://admin.{base_domain}",
+            f"https://app.{base_domain}",
+            f"https://pay.{base_domain}",
+            f"https://docs.{base_domain}",
+        ]
+        api_host = self._public_api_hostname()
+        if api_host and api_host != base_domain:
+            origins.append(f"https://{api_host}")
+        return origins
+
+    def _public_site_base_domain(self) -> str | None:
+        host = self._public_api_hostname()
+        if not host:
+            return None
+        if host.startswith("api."):
+            return host[4:]
+        return host
+
+    def _public_api_hostname(self) -> str | None:
+        raw = (self.public_api_base_url or "").strip().rstrip("/")
+        if not raw:
+            return None
+        parsed = urlparse(raw if "://" in raw else f"https://{raw}")
+        host = (parsed.hostname or "").strip().lower()
+        return host or None
 
     @property
     def sqlalchemy_database_uri(self) -> str:

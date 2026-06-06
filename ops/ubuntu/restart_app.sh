@@ -87,20 +87,40 @@ ensure_cors_origins() {
     base_domain="${host}"
   fi
 
-  local app_origin="https://app.${base_domain}"
+  local origins=(
+    "https://${base_domain}"
+    "https://www.${base_domain}"
+    "https://admin.${base_domain}"
+    "https://app.${base_domain}"
+    "https://pay.${base_domain}"
+    "https://docs.${base_domain}"
+  )
+  if [[ "${host}" != "${base_domain}" ]]; then
+    origins+=("https://${host}")
+  fi
+
   local current
   current="$(grep -E '^BACKEND_CORS_ORIGINS=' "${env_file}" | tail -n1 | cut -d= -f2- | tr -d '\r' || true)"
   if [[ -z "${current}" ]]; then
     return 0
   fi
-  if [[ ",${current}," == *",${app_origin},"* ]]; then
-    log "CORS already includes ${app_origin}"
-    return 0
-  fi
 
-  local updated="${current},${app_origin}"
-  log "Patching BACKEND_CORS_ORIGINS to include ${app_origin}"
-  sed -i "s#^BACKEND_CORS_ORIGINS=.*#BACKEND_CORS_ORIGINS=${updated}#" "${env_file}"
+  local updated="${current}"
+  local added=0
+  local origin
+  for origin in "${origins[@]}"; do
+    if [[ ",${updated}," != *",${origin},"* ]]; then
+      updated="${updated},${origin}"
+      added=1
+    fi
+  done
+
+  if [[ "${added}" -eq 1 ]]; then
+    log "Patching BACKEND_CORS_ORIGINS (admin/app/pay/docs for ${base_domain})"
+    sed -i "s#^BACKEND_CORS_ORIGINS=.*#BACKEND_CORS_ORIGINS=${updated}#" "${env_file}"
+  else
+    log "CORS already includes platform subdomains for ${base_domain}"
+  fi
 }
 
 install_systemd_units() {
