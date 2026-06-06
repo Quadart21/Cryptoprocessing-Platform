@@ -14,6 +14,7 @@ import {
   AdminClientDetailSectionLazy,
   AdminClientsSectionLazy,
   AdminOverviewSectionLazy,
+  AdminAccountingSectionLazy,
   AdminPlatformApiUsageSectionLazy,
   AdminPlatformPayoutsPanelLazy,
   AdminPlatformSettingsSectionLazy,
@@ -64,11 +65,9 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     selectedInvoiceId,
     selectedInvoiceDetail,
     selectedInvoiceEvents,
-    heroRows,
-    heroPrimaryValue,
-    heroPrimaryLabel,
-    heroSecondaryValue,
-    heroSecondaryLabel,
+    onLoadPlatformAccounting,
+    onLoadPlatformInvoices,
+    onLoadPlatformTransactions,
     onLogout,
     onCreateTenant,
     onTenantFormChange,
@@ -111,8 +110,6 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     onApprovePayout,
     onRejectPayout,
     onRecordPlatformWithdrawal,
-    onLoadPlatformInvoices,
-    onLoadPlatformTransactions,
     onCloseSecretModal,
     sandboxConsoleEnabled,
     merchantSandboxes,
@@ -127,6 +124,12 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
   } = props;
 
   const [section, setSection] = useState<AdminSection>("overview");
+
+  useEffect(() => {
+    if (section === "accounting") {
+      void onLoadPlatformAccounting();
+    }
+  }, [section, onLoadPlatformAccounting]);
 
   useEffect(() => {
     if (section === "invoices") {
@@ -250,26 +253,23 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
           <Suspense fallback={<AppRouteFallback />}>
             {section === "overview" ? (
               <div className="console-section-stack">
-                <section className="stats-grid pw-console-stats">
-                  <article className="stat-card">
-                    <span>{heroPrimaryLabel ?? "Ваша комиссия (остаток)"}</span>
-                    <strong>{heroPrimaryValue}</strong>
-                  </article>
-                  <article className="stat-card">
-                    <span>{heroSecondaryLabel ?? "На счетах мерчантов"}</span>
-                    <strong>{heroSecondaryValue}</strong>
-                  </article>
-                  <article className="stat-card">
-                    <span>Клиентов</span>
-                    <strong>{tenants.length}</strong>
-                  </article>
-                  <article className="stat-card">
-                    <span>Заявок на вывод</span>
-                    <strong>{platformAccountingOverview?.payouts_pending_count ?? 0}</strong>
-                  </article>
-                </section>
-
                 <AdminOverviewSectionLazy
+                  tenants={tenants}
+                  platformPayouts={platformPayouts}
+                  platformEvents={platformEvents}
+                  loading={loading}
+                  onOpenSection={setSection}
+                  onApproveTenant={onApproveTenant}
+                  onRejectTenant={onRejectTenant}
+                  onApprovePayout={onApprovePayout}
+                  onRejectPayout={onRejectPayout}
+                />
+              </div>
+            ) : null}
+
+            {section === "accounting" ? (
+              <div className="console-section-stack">
+                <AdminAccountingSectionLazy
                   platformAccountingOverview={platformAccountingOverview}
                   isSuperadmin={user.role === "superadmin"}
                   loading={loading}

@@ -26,6 +26,99 @@
   }
 }
 
+.pw-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pw-overview-kpis {
+  margin-bottom: 0;
+}
+
+.pw-overview-kpi strong {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+}
+
+.pw-overview-kpi p {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+
+.pw-overview-kpi--attention strong {
+  color: var(--accent, #6ee7b7);
+}
+
+.pw-overview-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+}
+
+.pw-overview-link-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--line-soft, #2a3344) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-raised, #151b26) 90%, transparent);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.pw-overview-link-card:hover {
+  border-color: color-mix(in srgb, var(--accent, #6ee7b7) 45%, transparent);
+  transform: translateY(-1px);
+}
+
+.pw-overview-link-card strong {
+  font-size: 1rem;
+}
+
+.pw-overview-clear {
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+
+.pw-overview-clear h2 {
+  margin: 0.35rem 0 0.5rem;
+}
+
+.pw-overview-event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.pw-overview-event-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15rem 1rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line-soft, #2a3344) 55%, transparent);
+}
+
+.pw-overview-event-list li:last-child {
+  border-bottom: none;
+}
+
+.pw-overview-event-type {
+  font-weight: 600;
+  grid-column: 1;
+}
+
+.pw-overview-event-list p {
+  margin: 0;
+  grid-column: 1 / -1;
+  font-size: 0.9rem;
+}
+
 /* --------- Навигация по вкладкам внутри платформы --------- */
 .pw-console-tabs {
   display: flex;

@@ -5,7 +5,7 @@ import type { AdminSection } from "./types";
 export type AdminHub = "monitoring" | "clients" | "management";
 
 const ADMIN_HUB_SECTIONS: Record<AdminHub, AdminSection[]> = {
-  monitoring: ["overview", "invoices", "transactions", "payouts", "events", "api-traffic"],
+  monitoring: ["overview", "accounting", "invoices", "transactions", "payouts", "events", "api-traffic"],
   clients: ["requests", "clients", "client-detail"],
   management: ["platform-settings", "public-pages", "assets", "sandbox", "team", "security"],
 };
@@ -37,7 +37,12 @@ export const ADMIN_SECTION_META: Record<
   overview: {
     group: "Мониторинг",
     title: "Пульт платформы",
-    description: "Бухгалтерия: ваша комиссия, балансы мерчантов, поток платежей. Ниже — последние инвойсы и транзакции.",
+    description: "Что требует решения прямо сейчас: заявки, выплаты и быстрый переход в ключевые разделы.",
+  },
+  accounting: {
+    group: "Мониторинг",
+    title: "Бухгалтерия платформы",
+    description: "Ваша комиссия, оборот, балансы мерчантов и история выводов markup.",
   },
   invoices: {
     group: "Мониторинг",
@@ -126,6 +131,7 @@ export function buildAdminMenuGroups(
       label: "Мониторинг",
       items: [
         { key: "overview", label: "Обзор" },
+        { key: "accounting", label: "Бухгалтерия" },
         { key: "invoices", label: "Инвойсы" },
         { key: "transactions", label: "Транзакции" },
         { key: "payouts", label: "Выплаты" },

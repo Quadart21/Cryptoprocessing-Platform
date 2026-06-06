@@ -5,6 +5,11 @@ export const AdminOverviewSectionLazy = lazy(async () => {
   return { default: m.AdminOverviewSection };
 });
 
+export const AdminAccountingSectionLazy = lazy(async () => {
+  const m = await import("./sections/AdminAccountingSection");
+  return { default: m.AdminAccountingSection };
+});
+
 export const AdminClientsSectionLazy = lazy(async () => {
   const m = await import("./sections/AdminClientsSection");
   return { default: m.AdminClientsSection };

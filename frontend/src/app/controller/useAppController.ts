@@ -112,7 +112,6 @@ import {
   initialTenantForm,
   initialWebhookForm,
 } from "../../constants/forms";
-import { useAdminDashboard } from "../../hooks/useAdminDashboard";
 import { useClientDashboard } from "../../hooks/useClientDashboard";
 import { useSession } from "../../hooks/useSession";
 import { safeLoad } from "../../utils/async";
@@ -1229,11 +1228,6 @@ export function useAppController() {
     webhookProjectId: webhookForm.project_id,
   });
 
-  const adminDerived = useAdminDashboard({
-    tenants,
-    platformEvents,
-    platformAccountingOverview: null,
-  });
 
   function openPublicPage(nextPage: PublicPage) {
     setPublicPage(nextPage);
@@ -1297,7 +1291,6 @@ export function useAppController() {
     selectedInvoiceDetail,
     selectedInvoiceEvents,
     clientDerived,
-    adminDerived,
     openPublicPage,
     handleLogin,
     handleRegister,

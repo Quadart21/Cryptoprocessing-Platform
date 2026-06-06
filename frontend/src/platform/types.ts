@@ -47,6 +47,7 @@ import type { DashboardRailItem } from "../components/layout/DashboardRail";
 
 export type AdminSection =
   | "overview"
+  | "accounting"
   | "requests"
   | "clients"
   | "invoices"
@@ -64,6 +65,7 @@ export type AdminSection =
 
 export const ADMIN_MENU_ITEMS: DashboardRailItem[] = [
   { key: "overview", label: "Обзор" },
+  { key: "accounting", label: "Бухгалтерия" },
   { key: "requests", label: "Заявки" },
   { key: "clients", label: "Клиенты" },
   { key: "invoices", label: "Инвойсы" },
@@ -79,7 +81,7 @@ export const ADMIN_MENU_ITEMS: DashboardRailItem[] = [
 ];
 
 export function isAdminSection(value: string): value is Exclude<AdminSection, "client-detail"> {
-  if (value === "sandbox") {
+  if (value === "sandbox" || value === "accounting") {
     return true;
   }
   return ADMIN_MENU_ITEMS.some((item) => item.key === value);
@@ -121,11 +123,6 @@ export type AdminDashboardProps = {
   selectedInvoiceId: string | null;
   selectedInvoiceDetail: InvoiceAdminDetail | null;
   selectedInvoiceEvents: ProviderEventItem[];
-  heroRows: Array<{ label: string; value: string }>;
-  heroPrimaryValue: string;
-  heroPrimaryLabel: string;
-  heroSecondaryValue: string;
-  heroSecondaryLabel: string;
   sandboxConsoleEnabled: boolean;
   merchantSandboxes: MerchantSandboxSummary[];
   sandboxPlatformSettings: SandboxPlatformSettings | null;
@@ -191,6 +188,7 @@ export type AdminDashboardProps = {
   onRecordPlatformWithdrawal?: (
     payload: import("../api").PlatformEarningsWithdrawalPayload,
   ) => Promise<void>;
+  onLoadPlatformAccounting: () => Promise<void>;
   onLoadPlatformInvoices: () => Promise<void>;
   onLoadPlatformTransactions: () => Promise<void>;
   onCloseSecretModal: () => void;
