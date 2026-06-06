@@ -290,6 +290,11 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                     className="panel panel-span-2"
                     invoices={platformInvoices}
                     onSyncInvoice={onSyncInvoice}
+                    onRefreshInvoices={() => void onLoadPlatformInvoices()}
+                    canSyncInvoices={
+                      user.permissions.includes("*") ||
+                      user.permissions.includes("admin.invoices.write")
+                    }
                   />
                 </section>
               </div>

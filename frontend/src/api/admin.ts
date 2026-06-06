@@ -175,8 +175,15 @@ export function deleteAdminTenant(token: string, tenantId: string): Promise<{ st
   });
 }
 
-export function fetchTenantInvoices(token: string, tenantId: string): Promise<InvoiceItem[]> {
-  return request<InvoiceItem[]>(`/admin/tenants/${tenantId}/invoices`, {
+export function fetchTenantInvoices(
+  token: string,
+  tenantId: string,
+  options?: { sync?: boolean },
+): Promise<InvoiceItem[]> {
+  const path = options?.sync
+    ? `/admin/tenants/${tenantId}/invoices?sync=1`
+    : `/admin/tenants/${tenantId}/invoices`;
+  return request<InvoiceItem[]>(path, {
     headers: authHeaders(token),
   });
 }
@@ -220,8 +227,9 @@ export function reviewAdminPayout(
   });
 }
 
-export function fetchAdminInvoices(token: string): Promise<InvoiceItem[]> {
-  return request<InvoiceItem[]>("/admin/invoices", {
+export function fetchAdminInvoices(token: string, options?: { sync?: boolean }): Promise<InvoiceItem[]> {
+  const path = options?.sync ? "/admin/invoices?sync=1" : "/admin/invoices";
+  return request<InvoiceItem[]>(path, {
     headers: authHeaders(token),
   });
 }
@@ -229,8 +237,11 @@ export function fetchAdminInvoices(token: string): Promise<InvoiceItem[]> {
 export function fetchAdminInvoiceDetail(
   token: string,
   invoiceId: string,
+  options?: { sync?: boolean },
 ): Promise<InvoiceAdminDetail> {
-  return request<InvoiceAdminDetail>(`/admin/invoices/${invoiceId}`, {
+  const base = `/admin/invoices/${encodeURIComponent(invoiceId)}`;
+  const path = options?.sync ? `${base}?sync=1` : base;
+  return request<InvoiceAdminDetail>(path, {
     headers: authHeaders(token),
   });
 }
@@ -248,9 +259,10 @@ export function updateAdminInvoiceStatus(
   });
 }
 
+/** GET ?sync=1 — синхронизация с провайдером без CORS preflight (POST /sync устарел). */
 export function syncAdminInvoice(token: string, invoiceId: string): Promise<InvoiceAdminDetail> {
-  return request<InvoiceAdminDetail>(`/admin/invoices/${invoiceId}/sync`, {
-    method: "POST",
+  const path = `/admin/invoices/${encodeURIComponent(invoiceId)}?sync=1`;
+  return request<InvoiceAdminDetail>(path, {
     headers: authHeaders(token),
   });
 }

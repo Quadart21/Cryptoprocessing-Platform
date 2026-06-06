@@ -1396,11 +1396,15 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
 
   async function handleSelectInvoice(invoiceId: string) {
     if (!token) return;
+    const canSync =
+      user?.permissions.includes("*") || user?.permissions.includes("admin.invoices.write");
     try {
       setLoading(true);
       setError(null);
       setSelectedInvoiceId(invoiceId);
-      setSelectedInvoiceDetail(await fetchAdminInvoiceDetail(token, invoiceId));
+      setSelectedInvoiceDetail(
+        await fetchAdminInvoiceDetail(token, invoiceId, { sync: canSync }),
+      );
       setSelectedInvoiceEvents(await safeLoad(() => fetchInvoiceEvents(token, invoiceId), []));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось загрузить инвойс.");
@@ -1437,8 +1441,11 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setError(null);
       setSuccess(null);
       const invoice = await syncAdminInvoice(token, invoiceId);
+      setPlatformInvoices((current) =>
+        current.map((item) => (item.id === invoice.id ? invoice : item)),
+      );
       const [invoiceItems, transactionItems, eventItems] = await Promise.all([
-        fetchAdminInvoices(token),
+        fetchAdminInvoices(token, { sync: true }),
         fetchAdminTransactions(token),
         fetchAdminEvents(token),
       ]);
@@ -1450,7 +1457,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
         setSelectedInvoiceEvents(await safeLoad(() => fetchInvoiceEvents(token, invoiceId), []));
       }
       if (selectedTenantId) {
-        const tenantInvoices = await fetchTenantInvoices(token, selectedTenantId);
+        const tenantInvoices = await fetchTenantInvoices(token, selectedTenantId, { sync: true });
         setSelectedTenantInvoices(tenantInvoices);
         setSelectedTenantTransactions(await fetchTenantTransactions(token, selectedTenantId));
       }
@@ -2075,9 +2082,23 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     if (!token) {
       return;
     }
-    const invoiceItems = await fetchAdminInvoices(token);
-    setPlatformInvoices(invoiceItems);
-  }, [token]);
+    const canSync =
+      user?.permissions.includes("*") || user?.permissions.includes("admin.invoices.write");
+    try {
+      const invoiceItems = await fetchAdminInvoices(token, { sync: canSync });
+      setPlatformInvoices(invoiceItems);
+    } catch {
+      if (!canSync) {
+        return;
+      }
+      try {
+        const invoiceItems = await fetchAdminInvoices(token);
+        setPlatformInvoices(invoiceItems);
+      } catch {
+        // Тихий фоновый poll.
+      }
+    }
+  }, [token, user]);
 
   const loadPlatformTransactions = useCallback(async () => {
     if (!token) {

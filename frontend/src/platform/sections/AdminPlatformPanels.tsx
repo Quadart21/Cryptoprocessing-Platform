@@ -58,7 +58,18 @@ type PlatformInvoicesPanelProps = {
   invoices: InvoiceItem[];
   className?: string;
   onSyncInvoice?: (invoiceId: string) => void;
+  onRefreshInvoices?: () => void;
+  canSyncInvoices?: boolean;
 };
+
+const POLL_ACTIVE_INVOICES_MS = 30_000;
+
+function hasActiveInvoiceStatus(invoices: InvoiceItem[]): boolean {
+  return invoices.some((invoice) => {
+    const status = invoice.status.trim().toLowerCase();
+    return status === "pending" || status === "confirming" || status === "paid";
+  });
+}
 
 type PlatformTransactionsPanelProps = {
   transactions: TransactionItem[];
@@ -74,6 +85,8 @@ export function PlatformInvoicesPanel({
   invoices,
   className = "panel",
   onSyncInvoice,
+  onRefreshInvoices,
+  canSyncInvoices = false,
 }: PlatformInvoicesPanelProps) {
   const [page, setPage] = useState(1);
   const totalCount = invoices.length;
@@ -84,6 +97,15 @@ export function PlatformInvoicesPanel({
       setPage(totalPages);
     }
   }, [page, totalPages]);
+
+  useEffect(() => {
+    if (!canSyncInvoices || !onRefreshInvoices || !hasActiveInvoiceStatus(invoices)) {
+      return;
+    }
+    onRefreshInvoices();
+    const timer = window.setInterval(onRefreshInvoices, POLL_ACTIVE_INVOICES_MS);
+    return () => window.clearInterval(timer);
+  }, [canSyncInvoices, onRefreshInvoices, invoices]);
 
   const pageInvoices = useMemo(() => {
     const start = (page - 1) * PLATFORM_PANEL_PAGE_SIZE;
@@ -121,7 +143,7 @@ export function PlatformInvoicesPanel({
                   <span className={invoiceCompactPillClass(invoice.status)}>
                     {invoiceStatusLabelRu(invoice.status)}
                   </span>
-                  {onSyncInvoice ? (
+                  {onSyncInvoice && canSyncInvoices ? (
                     <button className="ghost-button" onClick={() => onSyncInvoice(invoice.id)} type="button">
                       Синхронизировать
                     </button>

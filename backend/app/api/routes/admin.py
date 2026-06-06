@@ -15,7 +15,7 @@ from app.api.deps import (
     require_superadmin,
     user_permissions,
 )
-from app.core.rbac import list_role_definitions
+from app.core.rbac import has_permission, list_role_definitions
 from app.models.invoice import Invoice
 from app.models.invite_token import InviteToken
 from app.models.api_key import ApiKey
@@ -945,16 +945,86 @@ async def delete_tenant(
     return {"status": "deleted", "tenant_id": tenant_id}
 
 
+async def _maybe_sync_admin_invoice(
+    invoice_service: InvoiceService,
+    invoice: Invoice,
+) -> Invoice:
+    from app.providers.crypto_cash import CryptoCashProviderError
+
+    try:
+        return await invoice_service.sync_invoice_status(
+            tenant_id=invoice.tenant_id,
+            invoice_id=str(invoice.id),
+            project_id=invoice.project_id,
+        )
+    except CryptoCashProviderError:
+        raise
+    except ValueError:
+        raise
+    except Exception:
+        logger.exception("Admin invoice sync failed for invoice_id=%s", invoice.id)
+        refreshed = await invoice_service.get_invoice_by_id(str(invoice.id))
+        return refreshed if refreshed is not None else invoice
+
+
+async def _sync_active_admin_invoices(
+    invoice_service: InvoiceService,
+    invoices: list[Invoice],
+) -> list[Invoice]:
+    synced: list[Invoice] = []
+    for invoice in invoices:
+        if invoice.status in {"pending", "confirming", "cancelled"}:
+            try:
+                invoice = await _maybe_sync_admin_invoice(invoice_service, invoice)
+            except (CryptoCashProviderError, ValueError):
+                pass
+        synced.append(invoice)
+    return synced
+
+
+async def _get_admin_invoice_detail(
+    db: AsyncSession,
+    invoice_id: str,
+    *,
+    sync: bool,
+) -> InvoiceAdminDetailResponse:
+    from app.providers.crypto_cash import CryptoCashProviderError
+
+    invoice_service = InvoiceService(db)
+    invoice = await invoice_service.get_invoice_by_id(invoice_id)
+    if invoice is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+    if sync:
+        try:
+            invoice = await _maybe_sync_admin_invoice(invoice_service, invoice)
+        except CryptoCashProviderError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=exc.to_public_detail(),
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return await _map_invoice_admin_detail_response(db, invoice)
+
+
 @router.get("/tenants/{tenant_id}/invoices", response_model=list[InvoiceResponse])
 async def list_tenant_invoices(
     tenant_id: str,
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
-    _: User = Depends(require_platform_permission("admin.invoices.read")),
+    sync: bool = Query(default=False, description="Синхронизировать активные инвойсы с провайдером"),
+    current_user: User = Depends(require_platform_permission("admin.invoices.read")),
     db: AsyncSession = Depends(get_db),
 ) -> list[InvoiceResponse]:
+    if sync and not has_permission(current_user.role, "admin.invoices.write"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав: admin.invoices.write.",
+        )
     invoice_service = InvoiceService(db)
     invoices = await invoice_service.list_invoices_by_tenant(tenant_id, limit=limit, offset=offset)
+    if sync:
+        invoices = await _sync_active_admin_invoices(invoice_service, invoices)
     return [_map_invoice_response(invoice) for invoice in invoices]
 
 
@@ -962,11 +1032,19 @@ async def list_tenant_invoices(
 async def list_all_invoices(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
-    _: User = Depends(require_platform_permission("admin.invoices.read")),
+    sync: bool = Query(default=False, description="Синхронизировать активные инвойсы с провайдером"),
+    current_user: User = Depends(require_platform_permission("admin.invoices.read")),
     db: AsyncSession = Depends(get_db),
 ) -> list[InvoiceResponse]:
+    if sync and not has_permission(current_user.role, "admin.invoices.write"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав: admin.invoices.write.",
+        )
     invoice_service = InvoiceService(db)
     invoices = await invoice_service.list_all_invoices(limit=limit, offset=offset)
+    if sync:
+        invoices = await _sync_active_admin_invoices(invoice_service, invoices)
     return [_map_invoice_response(invoice) for invoice in invoices]
 
 
@@ -1531,14 +1609,16 @@ async def get_admin_transaction(
 @router.get("/invoices/{invoice_id}", response_model=InvoiceAdminDetailResponse)
 async def get_invoice_detail(
     invoice_id: str,
-    _: User = Depends(require_platform_permission("admin.invoices.read")),
+    sync: bool = Query(default=False, description="Синхронизировать статус с провайдером"),
+    current_user: User = Depends(require_platform_permission("admin.invoices.read")),
     db: AsyncSession = Depends(get_db),
 ) -> InvoiceAdminDetailResponse:
-    invoice_service = InvoiceService(db)
-    invoice = await invoice_service.get_invoice_by_id(invoice_id)
-    if invoice is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
-    return await _map_invoice_admin_detail_response(db, invoice)
+    if sync and not has_permission(current_user.role, "admin.invoices.write"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав: admin.invoices.write.",
+        )
+    return await _get_admin_invoice_detail(db, invoice_id, sync=sync)
 
 
 @router.post("/invoices/{invoice_id}/status", response_model=InvoiceAdminDetailResponse)
@@ -1586,26 +1666,7 @@ async def sync_invoice_status(
     _: User = Depends(require_platform_permission("admin.invoices.write")),
     db: AsyncSession = Depends(get_db),
 ) -> InvoiceAdminDetailResponse:
-    from app.providers.crypto_cash import CryptoCashProviderError
-    
-    invoice_service = InvoiceService(db)
-    invoice = await invoice_service.get_invoice_by_id(invoice_id)
-    if invoice is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
-    try:
-        invoice = await invoice_service.sync_invoice_status(
-            tenant_id=invoice.tenant_id,
-            invoice_id=invoice_id,
-            project_id=invoice.project_id,
-        )
-    except CryptoCashProviderError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=exc.to_public_detail(),
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return await _map_invoice_admin_detail_response(db, invoice)
+    return await _get_admin_invoice_detail(db, invoice_id, sync=True)
 
 
 @router.get("/payouts", response_model=list[PayoutRequestResponse])
