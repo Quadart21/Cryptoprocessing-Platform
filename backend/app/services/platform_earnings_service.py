@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.platform_earnings_withdrawal import PlatformEarningsWithdrawal
 from app.models.user import User
-from app.services.accounting_service import AccountingService
 
 
 class PlatformEarningsService:
@@ -62,6 +61,8 @@ class PlatformEarningsService:
         normalized_amount = Decimal(amount)
         if normalized_amount <= Decimal("0"):
             raise ValueError("Сумма вывода должна быть больше нуля.")
+
+        from app.services.accounting_service import AccountingService
 
         summary = await AccountingService(self.db).build_summary(tenant_id=None)
         accrued = Decimal(summary.total_platform_revenue_amount)
