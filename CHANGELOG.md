@@ -10,6 +10,14 @@
 
 
 
+## [0.14.66] — 2026-06-06
+
+### Исправлено
+
+- **Старт backend (Python 3.10)**: у SPA fallback-маршрута `response_model=None` — FastAPI не падал на аннотации `FileResponse | HTMLResponse`.
+
+---
+
 ## [0.14.65] — 2026-06-06
 
 ### Исправлено

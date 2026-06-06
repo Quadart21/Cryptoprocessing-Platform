@@ -238,7 +238,7 @@ def _register_frontend_routes(app: FastAPI) -> None:
     async def spa_root() -> HTMLResponse:
         return await spa_index_html_response()
 
-    @app.get("/{full_path:path}", include_in_schema=False)
+    @app.get("/{full_path:path}", include_in_schema=False, response_model=None)
     async def spa_fallback(full_path: str, request: Request) -> FileResponse | HTMLResponse:
         normalized = full_path.strip("/")
         if not normalized:
