@@ -27,7 +27,12 @@ from app.models.tenant_fee_policy import TenantFeePolicy
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.user_session import UserSession
-from app.schemas.accounting import AccountingSummaryResponse
+from app.schemas.accounting import (
+    AccountingSummaryResponse,
+    PlatformAccountingOverviewResponse,
+    PlatformEarningsWithdrawalCreate,
+    PlatformEarningsWithdrawalView,
+)
 from app.schemas.assets import (
     AssetAvailabilityUpdateRequest,
     AssetAvailabilityUpdateResponse,
@@ -105,6 +110,7 @@ from app.services.invoice_service import InvoiceService
 from app.services.invoice_transaction_details import build_invoice_transaction_details
 from app.services.notification_service import NotificationService
 from app.services.platform_ops_notify import notify_platform_ops
+from app.services.platform_earnings_service import PlatformEarningsService
 from app.services.platform_ops_telegram_service import PlatformOpsTelegramService
 from app.services.project_service import ProjectService
 from app.services.payout_service import PayoutService
@@ -1010,6 +1016,48 @@ async def get_platform_accounting_summary(
 ) -> AccountingSummaryResponse:
     accounting_service = AccountingService(db)
     return await accounting_service.build_summary()
+
+
+@router.get("/accounting/overview", response_model=PlatformAccountingOverviewResponse)
+async def get_platform_accounting_overview(
+    _: User = Depends(require_platform_permission("admin.overview.read")),
+    db: AsyncSession = Depends(get_db),
+) -> PlatformAccountingOverviewResponse:
+    accounting_service = AccountingService(db)
+    return await accounting_service.build_platform_overview()
+
+
+@router.post(
+    "/accounting/platform-withdrawals",
+    response_model=PlatformEarningsWithdrawalView,
+    status_code=status.HTTP_201_CREATED,
+)
+async def record_platform_earnings_withdrawal(
+    payload: PlatformEarningsWithdrawalCreate,
+    current_user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> PlatformEarningsWithdrawalView:
+    service = PlatformEarningsService(db)
+    try:
+        entry = await service.record_withdrawal(
+            amount=payload.amount,
+            recorded_by_user_id=current_user.id,
+            note=payload.note,
+            external_reference=payload.external_reference,
+            withdrawn_at=payload.withdrawn_at,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return PlatformEarningsWithdrawalView(
+        id=str(entry.id),
+        amount=entry.amount,
+        currency=entry.currency,
+        note=entry.note,
+        external_reference=entry.external_reference,
+        recorded_by_email=current_user.email,
+        withdrawn_at=entry.withdrawn_at,
+        created_at=entry.created_at,
+    )
 
 
 @router.get("/billing/settings", response_model=PlatformBillingSettingsResponse)

@@ -7,6 +7,7 @@ from app.models.merchant_sandbox import MerchantSandbox
 from app.models.ledger_entry import LedgerEntry
 from app.models.mixins import TimestampMixin, TenantBoundMixin
 from app.models.payout_request import PayoutRequest
+from app.models.platform_earnings_withdrawal import PlatformEarningsWithdrawal
 from app.models.platform_setting import PlatformSetting
 from app.models.public_page import PublicPage
 from app.models.provider_event import ProviderEvent
@@ -30,6 +31,7 @@ __all__ = [
     "LedgerEntry",
     "PayoutRequest",
     "PlatformSetting",
+    "PlatformEarningsWithdrawal",
     "PublicPage",
     "ProviderEvent",
     "SandboxAuditLog",

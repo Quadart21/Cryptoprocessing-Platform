@@ -6,8 +6,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.invoice import Invoice
+from app.models.payout_request import PayoutRequest
+from app.models.tenant import Tenant
+from app.models.tenant_balance import TenantBalance
 from app.models.transaction import Transaction
-from app.schemas.accounting import AccountingSummaryResponse, CryptoAmount
+from app.schemas.accounting import (
+    AccountingSummaryResponse,
+    CryptoAmount,
+    MerchantBalanceTotals,
+    PlatformAccountingOverviewResponse,
+    PlatformEarningsWithdrawalView,
+    TenantBalanceSnapshot,
+)
+from app.services.platform_earnings_service import PlatformEarningsService
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.cache_service import get_cache_service
 from app.services.exchange_rate_service import get_exchange_rate_service
@@ -16,6 +27,8 @@ from app.services.statistics_exclusion_service import StatisticsExclusionService
 
 class AccountingService:
     CACHE_PREFIX = "accounting:summary:"
+    OVERVIEW_CACHE_PREFIX = "accounting:platform_overview:"
+    BALANCE_CURRENCY = "USDT"
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -178,6 +191,145 @@ class AccountingService:
         )
         return payload
 
+    async def build_platform_overview(self) -> PlatformAccountingOverviewResponse:
+        cache = get_cache_service()
+        cache_key = self.OVERVIEW_CACHE_PREFIX
+        cached = cache.get_json(cache_key)
+        if isinstance(cached, dict):
+            try:
+                return PlatformAccountingOverviewResponse.model_validate(cached)
+            except Exception:
+                cache.delete(cache_key)
+
+        summary = await self.build_summary(tenant_id=None)
+        excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
+
+        balance_filters = [TenantBalance.currency.in_((self.BALANCE_CURRENCY, "USD"))]
+        if excluded:
+            balance_filters.append(TenantBalance.tenant_id.not_in(excluded))
+
+        balance_rows = list(
+            (
+                await self.db.scalars(
+                    select(TenantBalance).where(*balance_filters)
+                )
+            ).all()
+        )
+
+        totals = MerchantBalanceTotals(currency=self.BALANCE_CURRENCY)
+        per_tenant: dict[str, dict[str, Decimal | str]] = {}
+        for row in balance_rows:
+            tenant_key = row.tenant_id
+            bucket = per_tenant.setdefault(
+                tenant_key,
+                {
+                    "available": Decimal("0"),
+                    "pending": Decimal("0"),
+                    "frozen": Decimal("0"),
+                    "locked": Decimal("0"),
+                    "withdrawn": Decimal("0"),
+                },
+            )
+            bucket["available"] = Decimal(bucket["available"]) + Decimal(row.available_amount)
+            bucket["pending"] = Decimal(bucket["pending"]) + Decimal(row.pending_amount)
+            bucket["frozen"] = Decimal(bucket["frozen"]) + Decimal(row.frozen_amount)
+            bucket["locked"] = Decimal(bucket["locked"]) + Decimal(row.locked_amount)
+            bucket["withdrawn"] = Decimal(bucket["withdrawn"]) + Decimal(row.withdrawn_amount)
+
+            totals.available += Decimal(row.available_amount)
+            totals.pending += Decimal(row.pending_amount)
+            totals.frozen += Decimal(row.frozen_amount)
+            totals.locked += Decimal(row.locked_amount)
+            totals.withdrawn += Decimal(row.withdrawn_amount)
+
+        totals.on_accounts = (
+            totals.available + totals.pending + totals.frozen + totals.locked
+        )
+
+        payout_stmt = select(PayoutRequest).where(PayoutRequest.status == "pending_review")
+        if excluded:
+            payout_stmt = payout_stmt.where(PayoutRequest.tenant_id.not_in(excluded))
+        pending_payouts = list((await self.db.scalars(payout_stmt)).all())
+        payouts_pending_amount = sum(
+            (Decimal(item.amount_requested) for item in pending_payouts),
+            Decimal("0"),
+        )
+
+        tenant_stmt = select(Tenant)
+        if excluded:
+            tenant_stmt = tenant_stmt.where(Tenant.id.not_in(excluded))
+        tenants = list((await self.db.scalars(tenant_stmt)).all())
+        tenants_by_id = {item.id: item for item in tenants}
+
+        tenant_snapshots: list[TenantBalanceSnapshot] = []
+        for tenant_id, amounts in per_tenant.items():
+            tenant = tenants_by_id.get(tenant_id)
+            if tenant is None:
+                continue
+            on_accounts = (
+                Decimal(amounts["available"])
+                + Decimal(amounts["pending"])
+                + Decimal(amounts["frozen"])
+                + Decimal(amounts["locked"])
+            )
+            tenant_snapshots.append(
+                TenantBalanceSnapshot(
+                    tenant_id=tenant_id,
+                    tenant_name=tenant.name,
+                    tenant_slug=tenant.slug,
+                    tenant_status=tenant.status,
+                    available=Decimal(amounts["available"]),
+                    pending=Decimal(amounts["pending"]),
+                    frozen=Decimal(amounts["frozen"]),
+                    locked=Decimal(amounts["locked"]),
+                    withdrawn=Decimal(amounts["withdrawn"]),
+                    on_accounts=on_accounts,
+                )
+            )
+        tenant_snapshots.sort(
+            key=lambda item: Decimal(item.on_accounts),
+            reverse=True,
+        )
+
+        active_tenants_count = sum(
+            1 for tenant in tenants if tenant.status in {"approved", "active"}
+        )
+        tenants_with_balance_count = sum(
+            1 for item in tenant_snapshots if Decimal(item.on_accounts) > Decimal("0")
+        )
+
+        earnings_service = PlatformEarningsService(self.db)
+        platform_earnings_accrued = Decimal(summary.total_platform_revenue_amount)
+        platform_earnings_withdrawn = await earnings_service.total_withdrawn()
+        platform_earnings_outstanding = platform_earnings_accrued - platform_earnings_withdrawn
+        withdrawal_rows = await earnings_service.list_withdrawals(limit=100)
+        platform_withdrawals = [PlatformEarningsWithdrawalView(**item) for item in withdrawal_rows]
+
+        payload = PlatformAccountingOverviewResponse(
+            currency=self.BALANCE_CURRENCY,
+            summary=summary,
+            gross_turnover=summary.gross_amount,
+            provider_fees=summary.provider_fee_amount,
+            platform_earnings=platform_earnings_accrued,
+            platform_earnings_accrued=platform_earnings_accrued,
+            platform_earnings_withdrawn=platform_earnings_withdrawn,
+            platform_earnings_outstanding=platform_earnings_outstanding,
+            merchant_net_credited=summary.net_amount,
+            merchant_balances=totals,
+            payouts_pending_count=len(pending_payouts),
+            payouts_pending_amount=payouts_pending_amount,
+            active_tenants_count=active_tenants_count,
+            tenants_with_balance_count=tenants_with_balance_count,
+            tenant_balances=tenant_snapshots,
+            platform_withdrawals=platform_withdrawals,
+        )
+        cache.set_json(
+            cache_key,
+            payload.model_dump(mode="json"),
+            ttl_seconds=settings.cache_accounting_summary_ttl_seconds,
+        )
+        return payload
+
     async def _calculate_crypto_amounts(
         self,
         invoices: list[Invoice],
@@ -213,6 +365,7 @@ class AccountingService:
     def invalidate_cache(cls, tenant_id: str | None = None) -> None:
         cache = get_cache_service()
         cache.delete_by_prefix(cls.CACHE_PREFIX)
+        cache.delete_by_prefix(cls.OVERVIEW_CACHE_PREFIX)
 
     @classmethod
     def _build_cache_key(cls, tenant_id: str | None, exchange_rate_markup: Decimal = Decimal("0")) -> str:

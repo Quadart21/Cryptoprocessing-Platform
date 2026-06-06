@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 
 import type {
   AccountingSummary,
+  PlatformAccountingOverview,
   AdminUserCreatePayload,
   AdminUserItem,
   AdminUserUpdatePayload,
@@ -104,6 +105,7 @@ export type AdminDashboardProps = {
   selectedTenantPayouts: PayoutRequestItem[];
   selectedTenantAccounting: AccountingSummary | null;
   platformAccounting: AccountingSummary | null;
+  platformAccountingOverview: PlatformAccountingOverview | null;
   platformInvoices: InvoiceItem[];
   platformTransactions: TransactionItem[];
   platformPayouts: PayoutRequestItem[];
@@ -121,7 +123,9 @@ export type AdminDashboardProps = {
   selectedInvoiceEvents: ProviderEventItem[];
   heroRows: Array<{ label: string; value: string }>;
   heroPrimaryValue: string;
+  heroPrimaryLabel: string;
   heroSecondaryValue: string;
+  heroSecondaryLabel: string;
   sandboxConsoleEnabled: boolean;
   merchantSandboxes: MerchantSandboxSummary[];
   sandboxPlatformSettings: SandboxPlatformSettings | null;
@@ -184,6 +188,9 @@ export type AdminDashboardProps = {
   onDisableTwoFactor: (payload: { password: string; code?: string }) => void;
   onApprovePayout: (payoutId: string) => void;
   onRejectPayout: (payoutId: string) => void;
+  onRecordPlatformWithdrawal?: (
+    payload: import("../api").PlatformEarningsWithdrawalPayload,
+  ) => Promise<void>;
   onCloseSecretModal: () => void;
   onRefreshMerchantSandboxes: () => void;
   onCreateMerchantSandbox: (payload: MerchantSandboxCreatePayload) => void;

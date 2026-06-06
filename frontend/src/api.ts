@@ -410,6 +410,66 @@ export type AccountingSummary = {
   average_invoice_amount: string;
 };
 
+export type MerchantBalanceTotals = {
+  currency: string;
+  available: string;
+  pending: string;
+  frozen: string;
+  locked: string;
+  withdrawn: string;
+  on_accounts: string;
+};
+
+export type TenantBalanceSnapshot = {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_slug: string;
+  tenant_status: string;
+  available: string;
+  pending: string;
+  frozen: string;
+  locked: string;
+  withdrawn: string;
+  on_accounts: string;
+};
+
+export type PlatformAccountingOverview = {
+  currency: string;
+  summary: AccountingSummary;
+  gross_turnover: string;
+  provider_fees: string;
+  platform_earnings: string;
+  platform_earnings_accrued: string;
+  platform_earnings_withdrawn: string;
+  platform_earnings_outstanding: string;
+  merchant_net_credited: string;
+  merchant_balances: MerchantBalanceTotals;
+  payouts_pending_count: number;
+  payouts_pending_amount: string;
+  active_tenants_count: number;
+  tenants_with_balance_count: number;
+  tenant_balances: TenantBalanceSnapshot[];
+  platform_withdrawals: PlatformEarningsWithdrawalItem[];
+};
+
+export type PlatformEarningsWithdrawalItem = {
+  id: string;
+  amount: string;
+  currency: string;
+  note: string | null;
+  external_reference: string | null;
+  recorded_by_email: string | null;
+  withdrawn_at: string;
+  created_at: string;
+};
+
+export type PlatformEarningsWithdrawalPayload = {
+  amount: number;
+  note?: string | null;
+  external_reference?: string | null;
+  withdrawn_at?: string | null;
+};
+
 export type ExchangeRatePriceField = "last" | "buy" | "sell";
 
 export type PlatformBillingSettings = {
@@ -1612,6 +1672,29 @@ export function fetchPlatformAccountingSummary(token: string): Promise<Accountin
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  });
+}
+
+export function fetchPlatformAccountingOverview(
+  token: string,
+): Promise<PlatformAccountingOverview> {
+  return request<PlatformAccountingOverview>("/admin/accounting/overview", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function recordPlatformEarningsWithdrawal(
+  token: string,
+  payload: PlatformEarningsWithdrawalPayload,
+): Promise<PlatformEarningsWithdrawalItem> {
+  return request<PlatformEarningsWithdrawalItem>("/admin/accounting/platform-withdrawals", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
   });
 }
 

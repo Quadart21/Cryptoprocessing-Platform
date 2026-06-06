@@ -1,6 +1,6 @@
 import type {
-  AccountingSummary,
   InvoiceItem,
+  PlatformAccountingOverview,
   ProviderEventItem,
   TenantItem,
   TransactionItem,
@@ -12,7 +12,7 @@ type UseAdminDashboardParams = {
   platformInvoices: InvoiceItem[];
   platformTransactions: TransactionItem[];
   platformEvents: ProviderEventItem[];
-  platformAccounting: AccountingSummary | null;
+  platformAccountingOverview: PlatformAccountingOverview | null;
 };
 
 export function useAdminDashboard({
@@ -20,10 +20,12 @@ export function useAdminDashboard({
   platformInvoices,
   platformTransactions,
   platformEvents,
-  platformAccounting,
+  platformAccountingOverview,
 }: UseAdminDashboardParams) {
+  const currency = platformAccountingOverview?.currency ?? "USDT";
+
   const heroRows = [
-    { label: "Tenants", value: String(tenants.length) },
+    { label: "Клиентов", value: String(tenants.length) },
     { label: "Инвойсы", value: String(platformInvoices.length) },
     { label: "Транзакции", value: String(platformTransactions.length) },
     { label: "События", value: String(platformEvents.length) },
@@ -31,7 +33,13 @@ export function useAdminDashboard({
 
   return {
     heroRows,
-    heroPrimaryValue: formatDecimal(platformAccounting?.invoices_paid_amount),
-    heroSecondaryValue: formatDecimal(platformAccounting?.net_amount),
+    heroPrimaryValue: platformAccountingOverview
+      ? `${formatDecimal(platformAccountingOverview.platform_earnings_outstanding)} ${currency}`
+      : "—",
+    heroPrimaryLabel: "Ваша комиссия (остаток)",
+    heroSecondaryValue: platformAccountingOverview
+      ? `${formatDecimal(platformAccountingOverview.merchant_balances.on_accounts)} ${currency}`
+      : "—",
+    heroSecondaryLabel: "На счетах мерчантов",
   };
 }

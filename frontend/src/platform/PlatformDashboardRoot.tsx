@@ -48,6 +48,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     selectedTenantPayouts,
     selectedTenantAccounting,
     platformAccounting,
+    platformAccountingOverview,
     platformInvoices,
     platformTransactions,
     platformPayouts,
@@ -65,7 +66,9 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     selectedInvoiceEvents,
     heroRows,
     heroPrimaryValue,
+    heroPrimaryLabel,
     heroSecondaryValue,
+    heroSecondaryLabel,
     onLogout,
     onCreateTenant,
     onTenantFormChange,
@@ -107,6 +110,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     onDisableTwoFactor,
     onApprovePayout,
     onRejectPayout,
+    onRecordPlatformWithdrawal,
     onCloseSecretModal,
     sandboxConsoleEnabled,
     merchantSandboxes,
@@ -234,37 +238,30 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
               <div className="console-section-stack">
                 <section className="stats-grid pw-console-stats">
                   <article className="stat-card">
-                    <span>Роль</span>
-                    <strong>{user.role}</strong>
+                    <span>{heroPrimaryLabel ?? "Ваша комиссия (остаток)"}</span>
+                    <strong>{heroPrimaryValue}</strong>
                   </article>
                   <article className="stat-card">
-                    <span>Статус</span>
-                    <strong>{user.status}</strong>
+                    <span>{heroSecondaryLabel ?? "На счетах мерчантов"}</span>
+                    <strong>{heroSecondaryValue}</strong>
                   </article>
                   <article className="stat-card">
                     <span>Клиентов</span>
                     <strong>{tenants.length}</strong>
                   </article>
                   <article className="stat-card">
-                    <span>Оборот (оплач.)</span>
-                    <strong>{heroPrimaryValue}</strong>
+                    <span>Заявок на вывод</span>
+                    <strong>{platformAccountingOverview?.payouts_pending_count ?? 0}</strong>
                   </article>
-                  <article className="stat-card">
-                    <span>К зачислению</span>
-                    <strong>{heroSecondaryValue}</strong>
-                  </article>
-                  {heroRows.slice(0, 1).map((row) => (
-                    <article className="stat-card" key={row.label}>
-                      <span>{row.label}</span>
-                      <strong>{row.value}</strong>
-                    </article>
-                  ))}
                 </section>
 
                 <AdminOverviewSectionLazy
-                  platformAccounting={platformAccounting}
+                  platformAccountingOverview={platformAccountingOverview}
                   platformInvoices={platformInvoices}
                   platformTransactions={platformTransactions}
+                  isSuperadmin={user.role === "superadmin"}
+                  loading={loading}
+                  onRecordPlatformWithdrawal={onRecordPlatformWithdrawal}
                   onSyncInvoice={onSyncInvoice}
                 />
               </div>

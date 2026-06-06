@@ -33,7 +33,8 @@ import {
   fetchMerchantSandboxes,
   fetchInvoices,
   fetchOnboardingStatus,
-  fetchPlatformAccountingSummary,
+  fetchPlatformAccountingOverview,
+  recordPlatformEarningsWithdrawal,
   fetchSandboxPlatformSettings,
   fetchPlatformBillingSettings,
   fetchPlatformExchangeRate,
@@ -100,6 +101,8 @@ import {
   type OpsTelegramTopicTestResponse,
   type OnboardingStatus,
   type PayoutRequestItem,
+  type PlatformAccountingOverview,
+  type PlatformEarningsWithdrawalPayload,
   type PlatformBillingSettings,
   type ProjectAdminUpdatePayload,
   type ProjectItem,
@@ -237,6 +240,8 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     null,
   );
   const [platformAccounting, setPlatformAccounting] = useState<AccountingSummary | null>(null);
+  const [platformAccountingOverview, setPlatformAccountingOverview] =
+    useState<PlatformAccountingOverview | null>(null);
   const [platformInvoices, setPlatformInvoices] = useState<InvoiceItem[]>([]);
   const [platformTransactions, setPlatformTransactions] = useState<TransactionItem[]>([]);
   const [platformPayouts, setPlatformPayouts] = useState<PayoutRequestItem[]>([]);
@@ -410,11 +415,11 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
 
     async function refreshPlatformDashboard(sessionToken: string) {
       try {
-        const [invoiceItems, transactionItems, eventItems, accountingSummary] = await Promise.all([
+        const [invoiceItems, transactionItems, eventItems, accountingOverview] = await Promise.all([
           fetchAdminInvoices(sessionToken),
           fetchAdminTransactions(sessionToken),
           safeLoad(() => fetchAdminEvents(sessionToken), []),
-          fetchPlatformAccountingSummary(sessionToken),
+          fetchPlatformAccountingOverview(sessionToken),
         ]);
 
         if (cancelled) {
@@ -424,7 +429,8 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
         setPlatformInvoices(invoiceItems);
         setPlatformTransactions(transactionItems);
         setPlatformEvents(eventItems);
-        setPlatformAccounting(accountingSummary);
+        setPlatformAccounting(accountingOverview.summary);
+        setPlatformAccountingOverview(accountingOverview);
 
         if (selectedTenantId) {
           const tenantInvoices = await safeLoad(
@@ -487,7 +493,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
             tenantTransactions,
             tenantPayoutItems,
             tenantSummary,
-            platformSummary,
+            accountingOverview,
             allInvoices,
             allTransactions,
             allPayouts,
@@ -505,7 +511,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
               fetchTenantTransactions(accessToken, tenantId),
               fetchTenantPayouts(accessToken, tenantId),
               fetchTenantAccountingSummary(accessToken, tenantId),
-              fetchPlatformAccountingSummary(accessToken),
+              fetchPlatformAccountingOverview(accessToken),
               fetchAdminInvoices(accessToken),
               fetchAdminTransactions(accessToken),
               fetchAdminPayouts(accessToken),
@@ -522,7 +528,8 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
           setSelectedTenantTransactions(tenantTransactions);
           setSelectedTenantPayouts(tenantPayoutItems);
           setSelectedTenantAccounting(tenantSummary);
-          setPlatformAccounting(platformSummary);
+          setPlatformAccounting(accountingOverview.summary);
+          setPlatformAccountingOverview(accountingOverview);
           setPlatformInvoices(allInvoices);
           setPlatformTransactions(allTransactions);
           setPlatformPayouts(allPayouts);
@@ -549,9 +556,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
           setSelectedTenantTransactions([]);
           setSelectedTenantPayouts([]);
           setSelectedTenantAccounting(null);
-          const [platformSummary, allInvoices, allTransactions, allPayouts, allEvents, billingSettings, assetRatesResponse, publicPagesResponse, roleItems, userItems] =
+          const [accountingOverview, allInvoices, allTransactions, allPayouts, allEvents, billingSettings, assetRatesResponse, publicPagesResponse, roleItems, userItems] =
             await Promise.all([
-              fetchPlatformAccountingSummary(accessToken),
+              fetchPlatformAccountingOverview(accessToken),
               fetchAdminInvoices(accessToken),
               fetchAdminTransactions(accessToken),
               fetchAdminPayouts(accessToken),
@@ -562,7 +569,8 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
               safeLoad(() => fetchAdminRoles(accessToken), []),
               safeLoad(() => fetchAdminUsers(accessToken, { scope: "platform" }), []),
             ]);
-          setPlatformAccounting(platformSummary);
+          setPlatformAccounting(accountingOverview.summary);
+          setPlatformAccountingOverview(accountingOverview);
           setPlatformInvoices(allInvoices);
           setPlatformTransactions(allTransactions);
           setPlatformPayouts(allPayouts);
@@ -612,6 +620,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSelectedTenantPayouts([]);
       setSelectedTenantAccounting(null);
       setPlatformAccounting(null);
+      setPlatformAccountingOverview(null);
       setPlatformInvoices([]);
       setPlatformTransactions([]);
       setPlatformEvents([]);
@@ -1331,6 +1340,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     setSelectedTenantPayouts([]);
     setSelectedTenantAccounting(null);
     setPlatformAccounting(null);
+    setPlatformAccountingOverview(null);
     setPlatformInvoices([]);
     setPlatformTransactions([]);
     setPlatformEvents([]);
@@ -2050,12 +2060,34 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     webhookProjectId: webhookForm.project_id,
   });
 
+  async function handleRecordPlatformWithdrawal(payload: PlatformEarningsWithdrawalPayload) {
+    if (!token || user?.role !== "superadmin") {
+      throw new Error("Доступно только superadmin.");
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      await recordPlatformEarningsWithdrawal(token, payload);
+      const accountingOverview = await fetchPlatformAccountingOverview(token);
+      setPlatformAccounting(accountingOverview.summary);
+      setPlatformAccountingOverview(accountingOverview);
+      setSuccess("Вывод вашей комиссии зафиксирован.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Не удалось зафиксировать вывод комиссии.";
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const adminDerived = useAdminDashboard({
     tenants,
     platformInvoices,
     platformTransactions,
     platformEvents,
-    platformAccounting,
+    platformAccountingOverview,
   });
   const { handleCreatePublicPage, handleUpdatePublicPage, handleDeletePublicPage } =
     useAdminPublicPagesCrud(token, {
@@ -2159,6 +2191,7 @@ return (
           selectedTenantPayouts={selectedTenantPayouts}
           selectedTenantAccounting={selectedTenantAccounting}
           platformAccounting={platformAccounting}
+          platformAccountingOverview={platformAccountingOverview}
           platformInvoices={platformInvoices}
           platformTransactions={platformTransactions}
           platformPayouts={platformPayouts}
@@ -2226,6 +2259,7 @@ return (
           onProvisionMerchantSandboxDns={(id, ip) => void handleProvisionMerchantSandboxDns(id, ip)}
           onDestroyMerchantSandbox={(id) => void handleDestroyMerchantSandbox(id)}
           onDismissMerchantSandboxCreate={handleDismissMerchantSandboxCreate}
+          onRecordPlatformWithdrawal={(payload) => handleRecordPlatformWithdrawal(payload)}
           {...adminDerived}
         />
       ) : onboarding?.tenant_status !== "approved" ? (

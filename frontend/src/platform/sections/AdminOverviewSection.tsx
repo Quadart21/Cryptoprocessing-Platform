@@ -1,42 +1,47 @@
-import { formatDecimal } from "../../utils/format";
-import type { AccountingSummary, InvoiceItem, TransactionItem } from "../../api";
+import type {
+  InvoiceItem,
+  PlatformAccountingOverview,
+  PlatformEarningsWithdrawalPayload,
+  TransactionItem,
+} from "../../api";
 import { PlatformInvoicesPanel, PlatformTransactionsPanel } from "./AdminPlatformPanels";
+import { PlatformAccountingPanel } from "./PlatformAccountingPanel";
 
 type AdminOverviewSectionProps = {
-  platformAccounting: AccountingSummary | null;
+  platformAccountingOverview: PlatformAccountingOverview | null;
   platformInvoices: InvoiceItem[];
   platformTransactions: TransactionItem[];
+  isSuperadmin?: boolean;
+  loading?: boolean;
+  onRecordPlatformWithdrawal?: (
+    payload: PlatformEarningsWithdrawalPayload,
+  ) => Promise<void>;
   onSyncInvoice?: (invoiceId: string) => void;
 };
 
 export function AdminOverviewSection({
-  platformAccounting,
+  platformAccountingOverview,
   platformInvoices,
   platformTransactions,
+  isSuperadmin = false,
+  loading = false,
+  onRecordPlatformWithdrawal,
   onSyncInvoice,
 }: AdminOverviewSectionProps) {
   return (
     <>
-      {platformAccounting ? (
-        <section className="stats-grid">
-          <article className="stat-card">
-            <span>Оборот (оплаченные инвойсы)</span>
-            <strong>{formatDecimal(platformAccounting.invoices_paid_amount)}</strong>
-          </article>
-          <article className="stat-card">
-            <span>Подтверждено</span>
-            <strong>{formatDecimal(platformAccounting.invoices_confirmed_amount)}</strong>
-          </article>
-          <article className="stat-card">
-            <span>Комиссия платформы</span>
-            <strong>{formatDecimal(platformAccounting.total_platform_revenue_amount)}</strong>
-          </article>
-          <article className="stat-card">
-            <span>Net amount</span>
-            <strong>{formatDecimal(platformAccounting.net_amount)}</strong>
-          </article>
+      {platformAccountingOverview ? (
+        <PlatformAccountingPanel
+          overview={platformAccountingOverview}
+          isSuperadmin={isSuperadmin}
+          loading={loading}
+          onRecordPlatformWithdrawal={onRecordPlatformWithdrawal}
+        />
+      ) : (
+        <section className="panel aps-empty-state">
+          <p className="muted-text">Загружаем бухгалтерию платформы…</p>
         </section>
-      ) : null}
+      )}
 
       <section className="dashboard-grid client-grid">
         <PlatformInvoicesPanel invoices={platformInvoices} onSyncInvoice={onSyncInvoice} />

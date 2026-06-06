@@ -17,6 +17,9 @@ import type {
   PayoutRequestItem,
   ReviewPayoutPayload,
   AccountingSummary,
+  PlatformAccountingOverview,
+  PlatformEarningsWithdrawalItem,
+  PlatformEarningsWithdrawalPayload,
   PlatformBillingSettings,
   NotificationTemplatePreview,
   NotificationTemplatePreviewPayload,
@@ -306,6 +309,25 @@ export function fetchInvoiceEvents(
 export function fetchPlatformAccountingSummary(token: string): Promise<AccountingSummary> {
   return request<AccountingSummary>("/admin/accounting/summary", {
     headers: authHeaders(token),
+  });
+}
+
+export function fetchPlatformAccountingOverview(
+  token: string,
+): Promise<PlatformAccountingOverview> {
+  return request<PlatformAccountingOverview>("/admin/accounting/overview", {
+    headers: authHeaders(token),
+  });
+}
+
+export function recordPlatformEarningsWithdrawal(
+  token: string,
+  payload: PlatformEarningsWithdrawalPayload,
+): Promise<PlatformEarningsWithdrawalItem> {
+  return request<PlatformEarningsWithdrawalItem>("/admin/accounting/platform-withdrawals", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
   });
 }
 

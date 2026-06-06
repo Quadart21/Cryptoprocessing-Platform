@@ -1234,7 +1234,7 @@ export function useAppController() {
     platformInvoices,
     platformTransactions,
     platformEvents,
-    platformAccounting,
+    platformAccountingOverview: null,
   });
 
   function openPublicPage(nextPage: PublicPage) {

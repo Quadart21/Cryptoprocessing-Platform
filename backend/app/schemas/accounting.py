@@ -1,7 +1,8 @@
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, PlainSerializer
+from pydantic import BaseModel, Field, PlainSerializer
 
 
 def _decimal_json_str(value: Decimal) -> str:
@@ -38,3 +39,63 @@ class AccountingSummaryResponse(BaseModel):
     crypto_amounts: list[CryptoAmount] = []
     total_usd_value: JsonDecimal = Decimal("0")
     exchange_rate_markup_percent: JsonDecimal = Decimal("0")
+
+
+class MerchantBalanceTotals(BaseModel):
+    currency: str = "USDT"
+    available: JsonDecimal = Decimal("0")
+    pending: JsonDecimal = Decimal("0")
+    frozen: JsonDecimal = Decimal("0")
+    locked: JsonDecimal = Decimal("0")
+    withdrawn: JsonDecimal = Decimal("0")
+    on_accounts: JsonDecimal = Decimal("0")
+
+
+class TenantBalanceSnapshot(BaseModel):
+    tenant_id: str
+    tenant_name: str
+    tenant_slug: str
+    tenant_status: str
+    available: JsonDecimal = Decimal("0")
+    pending: JsonDecimal = Decimal("0")
+    frozen: JsonDecimal = Decimal("0")
+    locked: JsonDecimal = Decimal("0")
+    withdrawn: JsonDecimal = Decimal("0")
+    on_accounts: JsonDecimal = Decimal("0")
+
+
+class PlatformAccountingOverviewResponse(BaseModel):
+    currency: str = "USDT"
+    summary: AccountingSummaryResponse
+    gross_turnover: JsonDecimal
+    provider_fees: JsonDecimal
+    platform_earnings: JsonDecimal
+    platform_earnings_accrued: JsonDecimal
+    platform_earnings_withdrawn: JsonDecimal
+    platform_earnings_outstanding: JsonDecimal
+    merchant_net_credited: JsonDecimal
+    merchant_balances: MerchantBalanceTotals
+    payouts_pending_count: int = 0
+    payouts_pending_amount: JsonDecimal = Decimal("0")
+    active_tenants_count: int = 0
+    tenants_with_balance_count: int = 0
+    tenant_balances: list[TenantBalanceSnapshot] = Field(default_factory=list)
+    platform_withdrawals: list["PlatformEarningsWithdrawalView"] = Field(default_factory=list)
+
+
+class PlatformEarningsWithdrawalCreate(BaseModel):
+    amount: Decimal = Field(gt=Decimal("0"))
+    note: str | None = Field(default=None, max_length=500)
+    external_reference: str | None = Field(default=None, max_length=255)
+    withdrawn_at: datetime | None = None
+
+
+class PlatformEarningsWithdrawalView(BaseModel):
+    id: str
+    amount: JsonDecimal
+    currency: str
+    note: str | None = None
+    external_reference: str | None = None
+    recorded_by_email: str | None = None
+    withdrawn_at: datetime
+    created_at: datetime

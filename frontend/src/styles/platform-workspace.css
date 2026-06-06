@@ -578,3 +578,142 @@ label.pw-toggle-field input[type="checkbox"] {
   white-space: nowrap;
   border: 0;
 }
+
+.pw-accounting {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pw-accounting-hero {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.pw-accounting-hero-grid,
+.pw-accounting-balance-grid,
+.pw-accounting-activity-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+
+.pw-accounting-kpi {
+  padding: 1rem 1.1rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pw-accounting-kpi span {
+  display: block;
+  font-size: 0.82rem;
+  opacity: 0.8;
+}
+
+.pw-accounting-kpi strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+}
+
+.pw-accounting-kpi--platform {
+  border-color: rgba(120, 190, 255, 0.35);
+}
+
+.pw-accounting-kpi--merchant {
+  border-color: rgba(120, 220, 160, 0.35);
+}
+
+.pw-accounting-kpi--payout {
+  border-color: rgba(255, 190, 120, 0.35);
+}
+
+.pw-accounting-flow-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: minmax(8rem, 1fr) auto minmax(8rem, 1fr) auto minmax(8rem, 1fr) auto minmax(8rem, 1fr);
+  align-items: stretch;
+}
+
+.pw-accounting-flow-step {
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pw-accounting-flow-step span {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.pw-accounting-flow-step strong {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.pw-accounting-flow-step p {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+}
+
+.pw-accounting-flow-step--platform {
+  border-color: rgba(120, 190, 255, 0.35);
+}
+
+.pw-accounting-flow-step--merchant {
+  border-color: rgba(120, 220, 160, 0.35);
+}
+
+.pw-accounting-flow-step--provider {
+  border-color: rgba(180, 180, 180, 0.25);
+}
+
+.pw-accounting-flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  opacity: 0.55;
+}
+
+.pw-accounting-tenant-table td .muted-text {
+  display: block;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 960px) {
+  .pw-accounting-flow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pw-accounting-flow-arrow {
+    display: none;
+  }
+}
+
+.pw-accounting-withdraw-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pw-accounting-withdraw-note {
+  grid-column: 1 / -1;
+}
+
+.pw-accounting-withdraw-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+@media (max-width: 720px) {
+  .pw-accounting-withdraw-grid {
+    grid-template-columns: 1fr;
+  }
+}
