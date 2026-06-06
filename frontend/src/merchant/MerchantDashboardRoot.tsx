@@ -76,6 +76,7 @@ export function MerchantDashboardRoot({
   onClientRevokeApiKey,
   onSelectClientInvoice,
   onClientInvoiceSync,
+  onRefreshClientInvoices,
   onCloseClientInvoiceModal,
   onSetupTwoFactor,
   onEnableTwoFactor,
@@ -406,6 +407,7 @@ export function MerchantDashboardRoot({
                 invoices={invoices}
                 onSelectInvoice={onSelectClientInvoice}
                 onSyncInvoice={onClientInvoiceSync}
+                onRefreshInvoices={onRefreshClientInvoices}
                 selectedClientInvoiceId={selectedClientInvoiceId}
                 canSyncInvoices={canSyncInvoices}
                 webhookConfigured={Boolean(activeWebhookUrl)}

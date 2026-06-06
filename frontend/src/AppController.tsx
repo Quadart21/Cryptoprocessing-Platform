@@ -1509,11 +1509,15 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
 
   async function handleSelectClientInvoice(invoiceId: string) {
     if (!token) return;
+    const canSync =
+      user?.permissions.includes("*") || user?.permissions.includes("client.invoices.write");
     try {
       setLoading(true);
       setError(null);
       setSelectedClientInvoiceId(invoiceId);
-      setSelectedClientInvoiceDetail(await fetchClientInvoiceDetail(token, invoiceId));
+      setSelectedClientInvoiceDetail(
+        await fetchClientInvoiceDetail(token, invoiceId, { sync: canSync }),
+      );
       setIsClientInvoiceModalOpen(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось загрузить детали инвойса.");
@@ -1529,16 +1533,17 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setError(null);
       setSuccess(null);
       const invoice = await syncClientInvoice(token, invoiceId);
+      setInvoices((current) => current.map((item) => (item.id === invoice.id ? invoice : item)));
+      setSelectedClientInvoiceId(invoice.id);
+      setSelectedClientInvoiceDetail(invoice);
+      setIsClientInvoiceModalOpen(true);
       const [invoiceItems, transactionItems, accountingSummary, balanceInfo] = await Promise.all([
-        fetchInvoices(token),
+        fetchInvoices(token, { sync: true }),
         fetchClientTransactions(token),
         fetchClientAccountingSummary(token),
         fetchBalance(token),
       ]);
       setInvoices(invoiceItems);
-      setSelectedClientInvoiceId(invoice.id);
-      setSelectedClientInvoiceDetail(invoice);
-      setIsClientInvoiceModalOpen(true);
       setClientTransactions(transactionItems);
       setClientAccounting(accountingSummary);
       setBalance(balanceInfo);
@@ -2082,6 +2087,23 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     setPlatformTransactions(transactionItems);
   }, [token]);
 
+  const refreshClientActiveInvoices = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+    const canSync =
+      user?.permissions.includes("*") || user?.permissions.includes("client.invoices.write");
+    if (!canSync) {
+      return;
+    }
+    try {
+      const invoiceItems = await fetchInvoices(token, { sync: true });
+      setInvoices(invoiceItems);
+    } catch {
+      // Тихий фоновый poll — не перекрываем основной UI ошибкой.
+    }
+  }, [token, user]);
+
   const { handleCreatePublicPage, handleUpdatePublicPage, handleDeletePublicPage } =
     useAdminPublicPagesCrud(token, {
       setLoading,
@@ -2306,6 +2328,7 @@ return (
           onClientRevokeApiKey={(apiKeyId) => void handleClientRevokeApiKey(apiKeyId)}
           onSelectClientInvoice={(invoiceId) => void handleSelectClientInvoice(invoiceId)}
           onClientInvoiceSync={(invoiceId) => void handleClientInvoiceSync(invoiceId)}
+          onRefreshClientInvoices={() => void refreshClientActiveInvoices()}
           onCloseClientInvoiceModal={() => setIsClientInvoiceModalOpen(false)}
           onSetupTwoFactor={() => void handleSetupTwoFactor()}
           onEnableTwoFactor={(code) => void handleEnableTwoFactor(code)}

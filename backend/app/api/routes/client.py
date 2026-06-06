@@ -819,22 +819,42 @@ async def list_invoices(
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
+    sync: bool = Query(default=False, description="Синхронизировать активные инвойсы с провайдером"),
 ) -> list[InvoiceResponse]:
-    _ensure_client_api_permission(auth, "client.invoices.read")
+    if sync:
+        _ensure_client_api_permission(auth, "client.invoices.write")
+    else:
+        _ensure_client_api_permission(auth, "client.invoices.read")
     invoice_service = InvoiceService(db)
     try:
+        invoices = await invoice_service.list_invoices(
+            auth.tenant_id,
+            project_id=auth.project_id,
+            limit=limit,
+            offset=offset,
+        )
+        if sync:
+            synced: list[Invoice] = []
+            for invoice in invoices:
+                if invoice.status in {"pending", "confirming", "cancelled"}:
+                    try:
+                        invoice = await _maybe_sync_client_invoice(
+                            invoice_service,
+                            invoice,
+                            tenant_id=auth.tenant_id,
+                            project_id=auth.project_id,
+                        )
+                    except (CryptoCashProviderError, ValueError):
+                        pass
+                synced.append(invoice)
+            invoices = synced
         projects_by_id = await _project_checkout_map(db, auth.tenant_id)
         return [
             _map_invoice_response(
                 invoice,
                 checkout_delivery=_checkout_delivery_for_invoice(invoice, projects_by_id),
             )
-            for invoice in await invoice_service.list_invoices(
-                auth.tenant_id,
-                project_id=auth.project_id,
-                limit=limit,
-                offset=offset,
-            )
+            for invoice in invoices
         ]
     except Exception:
         logger.exception("Unexpected invoice list error")

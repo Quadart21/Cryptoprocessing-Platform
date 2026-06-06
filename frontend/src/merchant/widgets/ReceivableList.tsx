@@ -8,12 +8,21 @@ import { isStableCoinFiatPair } from "../../utils/invoiceAccounting";
 import { InvoiceWebhookTestDialog } from "./InvoiceWebhookTestDialog";
 
 const MERCHANT_INVOICE_PAGE_SIZE = 10;
+const POLL_ACTIVE_INVOICES_MS = 30_000;
+
+function hasActiveInvoiceStatus(invoices: InvoiceItem[]): boolean {
+  return invoices.some((invoice) => {
+    const status = invoice.status.trim().toLowerCase();
+    return status === "pending" || status === "confirming" || status === "paid";
+  });
+}
 
 export type ReceivableListProps = {
   invoices: InvoiceItem[];
   selectedClientInvoiceId: string | null;
   onSelectInvoice: (invoiceId: string) => void;
   onSyncInvoice: (invoiceId: string) => void;
+  onRefreshInvoices?: () => void;
   canSyncInvoices: boolean;
   webhookConfigured: boolean;
   canSendInvoiceWebhookTest: boolean;
@@ -25,6 +34,7 @@ export function ReceivableList({
   selectedClientInvoiceId,
   onSelectInvoice,
   onSyncInvoice,
+  onRefreshInvoices,
   canSyncInvoices,
   webhookConfigured,
   canSendInvoiceWebhookTest,
@@ -36,6 +46,15 @@ export function ReceivableList({
   const [webhookTestLoading, setWebhookTestLoading] = useState(false);
   const [webhookTestResult, setWebhookTestResult] = useState<InvoiceWebhookTestResponse | null>(null);
   const [webhookTestError, setWebhookTestError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!canSyncInvoices || !onRefreshInvoices || !hasActiveInvoiceStatus(invoices)) {
+      return;
+    }
+    onRefreshInvoices();
+    const timer = window.setInterval(onRefreshInvoices, POLL_ACTIVE_INVOICES_MS);
+    return () => window.clearInterval(timer);
+  }, [canSyncInvoices, onRefreshInvoices, invoices]);
 
   const sortedInvoices = useMemo(() => {
     return [...invoices].sort((a, b) => {

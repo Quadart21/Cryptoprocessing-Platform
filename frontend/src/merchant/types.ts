@@ -78,6 +78,7 @@ export type ClientDashboardProps = {
   onClientRevokeApiKey: (apiKeyId: string) => void;
   onSelectClientInvoice: (invoiceId: string) => void;
   onClientInvoiceSync: (invoiceId: string) => void;
+  onRefreshClientInvoices?: () => void;
   onCloseClientInvoiceModal: () => void;
   onSetupTwoFactor: () => void;
   onEnableTwoFactor: (code: string) => void;

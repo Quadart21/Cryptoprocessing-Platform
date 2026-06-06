@@ -1169,8 +1169,9 @@ export function fetchApiKeys(token: string): Promise<ApiKeyItem[]> {
   });
 }
 
-export function fetchInvoices(token: string): Promise<InvoiceItem[]> {
-  return request<InvoiceItem[]>("/client/invoices", {
+export function fetchInvoices(token: string, options?: { sync?: boolean }): Promise<InvoiceItem[]> {
+  const path = options?.sync ? "/client/invoices?sync=1" : "/client/invoices";
+  return request<InvoiceItem[]>(path, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -1180,8 +1181,11 @@ export function fetchInvoices(token: string): Promise<InvoiceItem[]> {
 export function fetchClientInvoiceDetail(
   token: string,
   invoiceId: string,
+  options?: { sync?: boolean },
 ): Promise<InvoiceDetail> {
-  return request<InvoiceDetail>(`/client/invoices/${invoiceId}`, {
+  const base = `/client/invoices/${encodeURIComponent(invoiceId)}`;
+  const path = options?.sync ? `${base}?sync=1` : base;
+  return request<InvoiceDetail>(path, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
