@@ -10,6 +10,18 @@
 
 
 
+## [0.14.83] — 2026-06-07
+
+### Добавлено
+
+- **Бренд через админку**: `notification_logo_url` и `notification_brand_name` отдаются в `GET /public/seo` и применяются на лендинге, pay-странице, docs, экранах входа и в email/Telegram (как раньше).
+
+### Изменено
+
+- Общие компоненты `PlatformBrandMark` / `PlatformBrandText` — единая подстановка SVG/PNG по URL из раздела «Бренд» вместо захардкоженного NorenDigital.
+
+---
+
 ## [0.14.82] — 2026-06-05
 
 ### Добавлено

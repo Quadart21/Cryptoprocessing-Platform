@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { formatDecimal } from "../utils/format";
 import { getInvoiceDetailStatusMeta, invoiceStatusTone } from "../utils/invoiceStatus";
 import { isStableCoinFiatPair } from "../utils/invoiceAccounting";
+import { PlatformBrandAvatar, PlatformBrandText, usePlatformBrand } from "../brand/PlatformBrandLogo";
 import { PaymentConfirmationsProgress } from "./PaymentConfirmationsProgress";
 import {
   fetchPublicPayment,
@@ -244,6 +245,7 @@ function ReturnToShopBanner({ href, tone, autoRedirect = false }: ReturnBannerPr
 }
 
 export function PayPageRoot({ token }: PayPageRootProps) {
+  const { brandName } = usePlatformBrand();
   const [payment, setPayment] = useState<PublicPayment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -342,11 +344,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     ? `${formatDecimal(payment.amount_crypto)} ${payment.crypto_currency}`
     : "";
 
-  const headerTitle = payment?.merchant_name ?? (
-    <>
-      Noren<span>Digital</span>
-    </>
-  );
+  const headerTitle = payment?.merchant_name ?? brandName;
 
   const awaitingPayment =
     payment &&
@@ -374,9 +372,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
       <main className="pp-shell">
         <header className="pp-header">
           <div className="pp-header-user">
-            <span className="pp-avatar" aria-hidden>
-              ND
-            </span>
+            <PlatformBrandAvatar className="pp-avatar" />
             <div>
               <p className="pp-greeting">Безопасная оплата</p>
               <h1 className="pp-header-title">{headerTitle}</h1>
@@ -604,7 +600,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
         <footer className="pp-footer">
           <p>Защищённое соединение</p>
           <p className="pp-brand-foot">
-            Noren<span>Digital</span>
+            <PlatformBrandText split />
           </p>
         </footer>
       </main>

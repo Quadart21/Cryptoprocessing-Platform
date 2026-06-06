@@ -2,12 +2,14 @@ import { Link } from "react-router-dom";
 
 import { resolveClientApiBaseUrl } from "../config/apiBase";
 import { resolveMainSiteOrigin } from "../config/siteHost";
+import { usePlatformBrand } from "../brand/PlatformBrandContext";
 import { DocsCopyChip } from "./DocsCopyChip";
 import { DOCS_PIPELINE, DOCS_QUICK_CARDS, DOCS_STATS } from "./docsNav";
 
 export function DocsIntroductionPage() {
   const mainSite = resolveMainSiteOrigin();
   const apiBaseUrl = resolveClientApiBaseUrl();
+  const { brandName } = usePlatformBrand();
 
   return (
     <article className="docs-intro">
@@ -15,7 +17,7 @@ export function DocsIntroductionPage() {
         <div className="docs-hero-copy">
           <p className="docs-hero-eyebrow">
             <span className="docs-hero-pulse" />
-            NorenDigital · Merchant API
+            {brandName} · Merchant API
           </p>
           <h1>
             Документация

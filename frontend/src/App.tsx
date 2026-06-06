@@ -15,6 +15,7 @@ import { PayPageMissing } from "./pay/PayPageMissing";
 import { PayPageRoot } from "./pay/PayPageRoot";
 import { resolvePayPageToken } from "./pay/publicPayApi";
 import { fetchSeoSettings, type SeoSettings } from "./api";
+import { PlatformBrandProvider } from "./brand/PlatformBrandContext";
 
 export function App() {
   const [seoSettings, setSeoSettings] = useState<SeoSettings | null>(null);
@@ -52,9 +53,9 @@ export function App() {
   }
 
   return (
-    <>
+    <PlatformBrandProvider settings={seoSettings}>
       <SeoHead settings={seoSettings} />
       {content}
-    </>
+    </PlatformBrandProvider>
   );
 }

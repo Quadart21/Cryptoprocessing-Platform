@@ -4,6 +4,12 @@ import { useMemo } from "react";
 
 import type { PublicPageNavigationItem } from "../api";
 
+import {
+  PlatformBrandMark,
+  PlatformBrandTitle,
+  usePlatformBrand,
+} from "../brand/PlatformBrandLogo";
+
 
 
 import {
@@ -206,6 +212,8 @@ export function LandingSiteChrome({
 
   );
 
+  const { brandName, logoUrl } = usePlatformBrand();
+
 
 
   return (
@@ -222,64 +230,19 @@ export function LandingSiteChrome({
 
             <div className="lpx-logo-mark">
 
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-
-                <path
-
-                  d="M12 2L2 7L12 12L22 7L12 2Z"
-
-                  stroke="currentColor"
-
-                  strokeWidth="2"
-
-                  strokeLinecap="round"
-
-                  strokeLinejoin="round"
-
-                />
-
-                <path
-
-                  d="M2 17L12 22L22 17"
-
-                  stroke="currentColor"
-
-                  strokeWidth="2"
-
-                  strokeLinecap="round"
-
-                  strokeLinejoin="round"
-
-                />
-
-                <path
-
-                  d="M2 12L12 17L22 12"
-
-                  stroke="currentColor"
-
-                  strokeWidth="2"
-
-                  strokeLinecap="round"
-
-                  strokeLinejoin="round"
-
-                />
-
-              </svg>
+              <PlatformBrandMark />
 
             </div>
 
-            <div className="lpx-logo-text">
+            {!logoUrl ? (
+              <div className="lpx-logo-text">
 
-              <span className="lpx-logo-title">
-                <span className="lpx-logo-title-lime">Noren</span>Digital
-                <span className="lpx-logo-title-dot">.</span>
-              </span>
+                <PlatformBrandTitle landing />
 
-              <span className="lpx-logo-sub">Digital Acquiring</span>
+                <span className="lpx-logo-sub">Digital Acquiring</span>
 
-            </div>
+              </div>
+            ) : null}
 
           </a>
 
@@ -1181,57 +1144,15 @@ export function LandingSiteChrome({
 
             <div className="lpx-logo-mark lpx-logo-mark--footer">
 
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-
-                <path
-
-                  d="M12 2L2 7L12 12L22 7L12 2Z"
-
-                  stroke="currentColor"
-
-                  strokeWidth="2"
-
-                  strokeLinecap="round"
-
-                  strokeLinejoin="round"
-
-                />
-
-                <path
-
-                  d="M2 17L12 22L22 17"
-
-                  stroke="currentColor"
-
-                  strokeWidth="2"
-
-                  strokeLinecap="round"
-
-                  strokeLinejoin="round"
-
-                />
-
-                <path
-
-                  d="M2 12L12 17L22 12"
-
-                  stroke="currentColor"
-
-                  strokeWidth="2"
-
-                  strokeLinecap="round"
-
-                  strokeLinejoin="round"
-
-                />
-
-              </svg>
+              <PlatformBrandMark />
 
             </div>
 
-            <p className="lpx-footer-tagline">NorenDigital — приём криптовалюты и стейблкоинов для e-commerce и SaaS.</p>
+            <p className="lpx-footer-tagline">
+              {brandName} — приём криптовалюты и стейблкоинов для e-commerce и SaaS.
+            </p>
 
-            <p className="lpx-footer-copy">© {new Date().getFullYear()} NorenDigital</p>
+            <p className="lpx-footer-copy">© {new Date().getFullYear()} {brandName}</p>
 
           </div>
 

@@ -1,4 +1,6 @@
 import type { LandingPageProps } from "./types";
+import { PlatformBrandMark, PlatformBrandText } from "../brand/PlatformBrandLogo";
+import { usePlatformBrand } from "../brand/PlatformBrandContext";
 
 export type LandingAuthLayerProps = Pick<
   LandingPageProps,
@@ -57,6 +59,8 @@ export function LandingAuthLayer({
   onRegister,
   onSetRecoveredPassword,
 }: LandingAuthLayerProps) {
+  const { logoUrl } = usePlatformBrand();
+
   if (!authOpen) {
     return null;
   }
@@ -95,19 +99,17 @@ export function LandingAuthLayer({
         <div className="lp-auth-layout">
           <aside className="lp-auth-aside" aria-hidden="true">
             <div className="lp-auth-brand">
-              <div className="lp-auth-brand-mark">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path
-                    d="M12 3L4 7v10l8 4 8-4V7l-8-4z"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinejoin="round"
-                  />
-                  <path d="M12 12l8-5M12 12v10M12 12L4 7" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-                </svg>
-              </div>
+              {!logoUrl ? (
+                <div className="lp-auth-brand-mark">
+                  <PlatformBrandMark />
+                </div>
+              ) : null}
               <h2>
-                Noren<span>Digital</span>
+                {logoUrl ? (
+                  <PlatformBrandMark imgClassName="lp-auth-brand-logo-img" />
+                ) : (
+                  <PlatformBrandText split />
+                )}
               </h2>
               <p>Приём крипто-платежей, инвойсы и сводки — в одном тенанте. Без лишних экранов.</p>
               <div className="lp-auth-brand-footer">Merchant · Platform · API</div>

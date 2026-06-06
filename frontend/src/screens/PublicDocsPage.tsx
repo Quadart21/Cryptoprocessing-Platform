@@ -1,5 +1,6 @@
 ﻿import { ApiDocumentationPanel } from "./client/ApiDocumentationPanel";
 import { resolveClientApiBaseUrl } from "../config/apiBase";
+import { PlatformBrandMark, usePlatformBrand } from "../brand/PlatformBrandLogo";
 
 type PublicDocsPageProps = {
   onBackToLanding: () => void;
@@ -13,6 +14,7 @@ export function PublicDocsPage({
   onOpenRegister,
 }: PublicDocsPageProps) {
   const apiBaseUrl = resolveClientApiBaseUrl();
+  const { brandName, logoUrl } = usePlatformBrand();
   const integrationCurl = `curl -X POST "${apiBaseUrl}/invoices" \\
   -H "X-API-Key: <public_key>" \\
   -H "X-API-Secret: <secret_key>" \\
@@ -36,10 +38,14 @@ export function PublicDocsPage({
             event.preventDefault();
             onBackToLanding();
           }}
-          aria-label="NorenDigital"
+          aria-label={brandName}
         >
-          <span className="nc-brand-dot" />
-          <strong>NorenDigital</strong>
+          {logoUrl ? (
+            <PlatformBrandMark imgClassName="nc-brand-logo-img" />
+          ) : (
+            <span className="nc-brand-dot" />
+          )}
+          {!logoUrl ? <strong>{brandName}</strong> : null}
         </a>
         <div className="public-docs-actions">
           <button className="ghost-button" type="button" onClick={onBackToLanding}>

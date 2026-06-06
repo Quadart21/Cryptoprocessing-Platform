@@ -105,7 +105,7 @@ const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { key: "fees", label: "Комиссии", eyebrow: "Биллинг", description: "Основные проценты платформы и базовая экономика.", icon: "01" },
   { key: "rates", label: "Курсы", eyebrow: "Exchange", description: "Ручные override-курсы с приоритетом над API.", icon: "09" },
   { key: "payouts", label: "Выплаты", eyebrow: "Политики", description: "Глобальные правила переопределений и выплат.", icon: "02" },
-  { key: "brand", label: "Бренд", eyebrow: "Коммуникации", description: "Имя, логотип и основная ссылка в уведомлениях.", icon: "03" },
+  { key: "brand", label: "Бренд", eyebrow: "Коммуникации", description: "Имя, логотип (SVG/PNG URL) для UI, email и Telegram.", icon: "03" },
   { key: "seo", label: "SEO", eyebrow: "Мета-теги", description: "Заголовки, описания, favicon и Open Graph для поисковиков.", icon: "07" },
   { key: "email", label: "Email", eyebrow: "Канал", description: "SMTP.bz и тестовая отправка писем.", icon: "04" },
   { key: "telegram", label: "Telegram", eyebrow: "Канал", description: "Токен бота, проверка и тестовая доставка.", icon: "05" },
@@ -720,7 +720,11 @@ export function AdminPlatformSettingsSection({
                 notification_logo_url: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
+            placeholder="https://example.com/logo.svg"
           />
+          <p className="muted-text aps-field-hint">
+            Публичный URL SVG или PNG: лендинг, pay-страница, docs, вход и письма. Если не задан — стандартная иконка и название бренда.
+          </p>
         </label>
         <label className="aps-field-span-2">
           <span>Основной URL</span>

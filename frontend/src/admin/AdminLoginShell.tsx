@@ -4,6 +4,7 @@ import { LandingAuthLayer } from "../landing/LandingAuthLayer";
 import type { LandingLoginFormState } from "../landing/types";
 import type { RegistrationPayload } from "../api";
 import { resolveMainSiteOrigin } from "../config/siteHost";
+import { PlatformBrandText } from "../brand/PlatformBrandLogo";
 
 type AdminLoginShellProps = {
   loading: boolean;
@@ -51,7 +52,7 @@ export function AdminLoginShell(props: AdminLoginShellProps) {
     <div className="admin-site-login">
       <header className="admin-site-login__top">
         <a className="admin-site-login__brand" href={mainSite}>
-          Noren<span>Digital</span>
+          <PlatformBrandText split />
         </a>
         <span className="admin-site-login__badge">Platform admin</span>
       </header>

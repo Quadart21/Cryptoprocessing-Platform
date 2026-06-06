@@ -1020,6 +1020,8 @@ export type SeoSettings = {
   og_image_url: string | null;
   robots: string;
   canonical_url: string | null;
+  brand_name: string;
+  logo_url: string | null;
 };
 
 export function fetchSeoSettings(): Promise<SeoSettings> {

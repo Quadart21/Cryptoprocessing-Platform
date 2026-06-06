@@ -9,3 +9,5 @@ class PublicSeoResponse(BaseModel):
     og_image_url: str | None = None
     robots: str = "index, follow"
     canonical_url: str | None = None
+    brand_name: str = "NorenDigital"
+    logo_url: str | None = None

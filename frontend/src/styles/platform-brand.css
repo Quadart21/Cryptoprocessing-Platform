@@ -1,0 +1,70 @@
+.platform-brand-mark-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.platform-brand-avatar-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.lpx-logo-mark:has(.platform-brand-mark-img) {
+  width: auto;
+  min-width: 2.5rem;
+  max-width: 11rem;
+  padding-inline: 0.25rem;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.lpx-logo-mark--footer:has(.platform-brand-mark-img) {
+  max-width: 9rem;
+}
+
+.lp-auth-brand-logo-img {
+  max-height: 2.25rem;
+  max-width: 12rem;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.docs-site-brand-logo-img {
+  max-height: 2rem;
+  max-width: 10rem;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.nc-brand-logo-img {
+  max-height: 1.75rem;
+  max-width: 9rem;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.admin-site-login__brand .platform-brand-mark-img {
+  max-height: 1.75rem;
+  max-width: 10rem;
+}
+
+.pp-brand-foot .platform-brand-mark-img {
+  max-height: 1.25rem;
+  max-width: 8rem;
+  margin-inline: auto;
+}
+
+.pp-avatar.platform-brand-mark-img,
+.pp-avatar .platform-brand-avatar-img,
+img.pp-avatar {
+  object-fit: cover;
+}

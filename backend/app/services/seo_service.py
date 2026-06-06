@@ -25,6 +25,8 @@ class SeoService:
             "og_image_url": settings.seo_og_image_url,
             "robots": settings.seo_robots or "index, follow",
             "canonical_url": settings.seo_canonical_url,
+            "brand_name": (settings.notification_brand_name or "").strip() or "NorenDigital",
+            "logo_url": (settings.notification_logo_url or "").strip() or None,
         }
 
     @staticmethod
@@ -37,4 +39,6 @@ class SeoService:
             "og_image_url": None,
             "robots": "index, follow",
             "canonical_url": None,
+            "brand_name": "NorenDigital",
+            "logo_url": None,
         }

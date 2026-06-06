@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
+import { PlatformBrandMark, usePlatformBrand } from "../brand/PlatformBrandLogo";
 import { resolveMainSiteOrigin } from "../config/siteHost";
 import { DocsApiToc } from "./DocsApiToc";
 import { DOCS_PRIMARY_NAV } from "./docsNav";
@@ -8,6 +9,7 @@ export function DocsSiteLayout() {
   const mainSite = resolveMainSiteOrigin();
   const location = useLocation();
   const isApiPage = location.pathname.startsWith("/merchant-api");
+  const { brandName, logoUrl } = usePlatformBrand();
 
   return (
     <div className={`docs-site${isApiPage ? " docs-site--api" : ""}`}>
@@ -20,11 +22,15 @@ export function DocsSiteLayout() {
       <header className="docs-site-topbar">
         <div className="docs-site-topbar-inner">
           <NavLink className="docs-site-brand" to="/">
-            <span className="docs-site-brand-mark" aria-hidden="true">
-              <span />
-            </span>
+            {logoUrl ? (
+              <PlatformBrandMark imgClassName="docs-site-brand-logo-img" />
+            ) : (
+              <span className="docs-site-brand-mark" aria-hidden="true">
+                <span />
+              </span>
+            )}
             <div>
-              <strong>NorenDigital</strong>
+              {!logoUrl ? <strong>{brandName}</strong> : null}
               <small>Документация API</small>
             </div>
           </NavLink>
@@ -130,7 +136,7 @@ export function DocsSiteLayout() {
 
           {!isApiPage ? (
             <footer className="docs-site-footer">
-              <span>© {new Date().getFullYear()} NorenDigital</span>
+              <span>© {new Date().getFullYear()} {brandName}</span>
               <div className="docs-site-footer-links">
                 <a href={`${mainSite}/openapi.json`} target="_blank" rel="noreferrer">
                   openapi.json
