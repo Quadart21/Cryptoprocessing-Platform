@@ -33,16 +33,13 @@ ss -tlnp | grep ':8000' || echo "nothing listening on port 8000"
 log "uvicorn processes"
 ps aux | grep -E '[u]vicorn app.main:app' || echo "no uvicorn process found"
 
-log "backend import test (production .env)"
+log "backend import test (pydantic loads ${APP_DIR}/.env)"
 if [[ ! -f "${APP_DIR}/.env" ]]; then
   echo "Missing ${APP_DIR}/.env" >&2
 else
   sudo -u "${APP_USER}" bash -lc "
     set -euo pipefail
     cd '${APP_DIR}/backend'
-    set -a
-    source '${APP_DIR}/.env'
-    set +a
     ./.venv/bin/python -c 'from app.main import app; print(\"backend import ok\")'
   " || true
 fi

@@ -43,15 +43,12 @@ check_backend_syntax() {
 }
 
 check_backend_boot() {
-  log "Checking backend application import (production .env)"
+  log "Checking backend application import (pydantic loads ${APP_DIR}/.env)"
   local env_file="${APP_DIR}/.env"
   [[ -f "${env_file}" ]] || { echo "Missing ${env_file}"; exit 1; }
   sudo -u "${APP_USER}" bash -lc "
     set -euo pipefail
     cd '${APP_DIR}/backend'
-    set -a
-    source '${env_file}'
-    set +a
     ./.venv/bin/python -c 'from app.main import app; print(\"backend import ok\")'
   "
 }
