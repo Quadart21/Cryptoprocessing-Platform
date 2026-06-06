@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 
 import { DashboardRail, type DashboardRailGroup } from "../components/layout/DashboardRail";
+import { CopyableIdentifier } from "../components/CopyableIdentifier";
 import { DashboardStatusMessages } from "../components/layout/DashboardStatusMessages";
 import { SectionContextChips } from "../components/layout/SectionContextChips";
 import { ClientSectionHeader } from "../components/client/ClientSectionHeader";
 import { useClientAnalytics } from "../hooks/useClientAnalytics";
 import { TwoFactorPanel } from "../components/security/TwoFactorPanel";
-import { formatDecimal } from "../utils/format";
+import { formatDecimal, truncateMiddle } from "../utils/format";
 
 import {
   MERCHANT_MENU_GROUPS,
@@ -107,8 +108,14 @@ export function MerchantDashboardRoot({
 
   const sectionMeta = MERCHANT_SECTION_COPY[section];
 
+  const merchantId = user.tenant_id ?? onboarding?.tenant_id ?? null;
+
   const contextChips = useMemo(
     () => [
+      {
+        label: "Merchant ID",
+        value: merchantId ? truncateMiddle(merchantId) : "—",
+      },
       {
         label: "Проект",
         value: onboarding?.project_name ?? projects[0]?.name ?? "—",
@@ -118,7 +125,7 @@ export function MerchantDashboardRoot({
         value: onboarding?.project_domain ?? projects[0]?.domain ?? "—",
       },
       {
-        label: "Тенант",
+        label: "Статус",
         value: onboarding?.tenant_status ?? "—",
       },
       {
@@ -126,7 +133,7 @@ export function MerchantDashboardRoot({
         value: user.role,
       },
     ],
-    [onboarding, projects, user.role],
+    [merchantId, onboarding, projects, user.role],
   );
 
   const menuGroups: DashboardRailGroup[] = MERCHANT_MENU_GROUPS;
@@ -178,9 +185,14 @@ export function MerchantDashboardRoot({
 
           {section === "overview" ? (
             <div className="console-section-stack mc-page-stack">
+              <CopyableIdentifier
+                label="Merchant ID"
+                value={merchantId}
+                hint="Ваш идентификатор мерчанта (tenant_id). Указывайте в обращениях в поддержку и при сверке webhook."
+              />
               <section className="mc-bento">
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Тенант</span>
+                  <span className="mc-stat-label">Статус</span>
                   <strong className="mc-stat-value">{onboarding?.tenant_status ?? "—"}</strong>
                 </article>
                 <article className="mc-stat">
@@ -327,6 +339,7 @@ export function MerchantDashboardRoot({
               <div className="mc-split mc-split--balanced">
               <ProjectDirectory projects={projects} />
               <IntegrationCommandCenter
+                merchantId={merchantId}
                 activeApiKeyPublic={activeApiKeyPublic}
                 activeWebhookUrl={activeWebhookUrl}
                 apiBaseUrl={apiBaseUrl}
@@ -353,6 +366,7 @@ export function MerchantDashboardRoot({
                 onRevoke={onClientRevokeApiKey}
               />
               <IntegrationCommandCenter
+                merchantId={merchantId}
                 activeApiKeyPublic={activeApiKeyPublic}
                 activeWebhookUrl={activeWebhookUrl}
                 apiBaseUrl={apiBaseUrl}

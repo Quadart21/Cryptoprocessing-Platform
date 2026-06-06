@@ -27,6 +27,7 @@ import {
   PlatformTransactionsPanelLazy,
 } from "./lazySections";
 import { type AdminDashboardProps, type AdminSection, isAdminSection } from "./types";
+import { truncateMiddle } from "../utils/format";
 import { AdminSectionSubNav } from "./sections/AdminSectionSubNav";
 
 export function PlatformDashboardRoot(props: AdminDashboardProps) {
@@ -181,6 +182,10 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     () => [
       { label: "Роль консоли", value: user.role },
       { label: "Клиентов", value: String(tenants.length) },
+      {
+        label: "Merchant ID",
+        value: selectedTenantId ? truncateMiddle(selectedTenantId) : "—",
+      },
       { label: "Фокус", value: selectedTenantId ? selectedTenantName : "—" },
       { label: "Событий (буфер)", value: String(platformEvents.length) },
     ],

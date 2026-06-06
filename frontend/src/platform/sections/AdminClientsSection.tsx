@@ -1,6 +1,7 @@
 import { type FormEvent, useMemo, useState } from "react";
 
 import type { TenantCreatePayload, TenantCreateResponse, TenantItem } from "../../api";
+import { CopyableIdentifier } from "../../components/CopyableIdentifier";
 
 type AdminClientsSectionProps = {
   mode: "clients" | "requests";
@@ -169,6 +170,7 @@ export function AdminClientsSection({
                 <div className="pw-tenant-primary">
                   <strong>{tenant.name}</strong>
                   <p className="muted-text">{tenant.owner_email}</p>
+                  <CopyableIdentifier label="Merchant ID" value={tenant.id} variant="inline" />
                   <p className="muted-text small-comment">Комментарий: {tenant.review_comment ?? "нет"}</p>
                 </div>
                 <div className="tenant-meta pw-tenant-meta-col">

@@ -13,6 +13,7 @@
 @import "./styles/merchant-pages.css";
 @import "./styles/merchant-workspace.css";
 @import "./styles/platform-workspace.css";
+@import "./styles/copyable-identifier.css";
 @import "./styles/console-unified.css";
 @import "./styles/console-dock.css";
 @import "./styles/console-desktop.css";

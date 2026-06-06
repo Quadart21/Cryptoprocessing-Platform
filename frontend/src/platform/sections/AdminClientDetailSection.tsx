@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { CopyableIdentifier } from "../../components/CopyableIdentifier";
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
 import { invoiceCompactPillClass, invoiceStatusLabelRu } from "../../utils/invoiceStatus";
 import {
@@ -182,6 +183,12 @@ export function AdminClientDetailSection({
                 <div aria-label="Сводка" className="pw-console-tabpanel" role="tabpanel">
                   <p className="muted-text pw-tabpanel-intro">Ключевые метрики по выбранному тенанту.</p>
                   <div className="detail-summary pw-readonly-kv-grid">
+                    <CopyableIdentifier
+                      label="Merchant ID"
+                      value={selectedTenantDetail.tenant.id}
+                      hint="UUID тенанта (tenant_id) для API и поддержки."
+                      variant="chip"
+                    />
                     <div className="detail-chip">
                       <span>Компания</span>
                       <strong>{selectedTenantDetail.tenant.name}</strong>
@@ -258,6 +265,12 @@ export function AdminClientDetailSection({
                             </p>
                           </div>
                           <div className="pw-fieldset-body">
+                            <CopyableIdentifier
+                              className="panel-span-2"
+                              label="Merchant ID"
+                              value={selectedTenantDetail.tenant.id}
+                              hint="Не редактируется. Передаётся в webhook и служебных интеграциях как tenant_id."
+                            />
                             <div className="form-grid-2 pw-form-fields">
                           <label>
                             <span>Компания</span>

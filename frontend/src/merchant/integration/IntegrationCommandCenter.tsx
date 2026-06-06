@@ -5,6 +5,7 @@ import type { ProjectItem } from "../../api";
 import type { WebhookFormState } from "../types";
 
 export type IntegrationCommandCenterProps = {
+  merchantId: string | null;
   apiBaseUrl: string;
   activeApiKeyPublic: string | null;
   activeWebhookUrl: string | null;
@@ -31,6 +32,7 @@ type SandboxScenario = {
 };
 
 export function IntegrationCommandCenter({
+  merchantId,
   apiBaseUrl,
   activeApiKeyPublic,
   activeWebhookUrl,
@@ -211,6 +213,10 @@ export function IntegrationCommandCenter({
       </header>
 
       <div className="mc-kv-strip">
+        <div className="mc-kv">
+          <span>Merchant ID</span>
+          <code>{merchantId ?? "—"}</code>
+        </div>
         <div className="mc-kv">
           <span>Base URL</span>
           <code>{apiBaseUrl}</code>

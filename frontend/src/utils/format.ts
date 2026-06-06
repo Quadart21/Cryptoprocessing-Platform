@@ -108,3 +108,10 @@ function formatFiniteNumberNoExponent(n: number, minFd: number, maxFd: number): 
   }
   return formatPlainDecimalString(n.toFixed(Math.min(20, maxFd + 4)), minFd, maxFd);
 }
+
+export function truncateMiddle(value: string, head = 8, tail = 4): string {
+  if (value.length <= head + tail + 1) {
+    return value;
+  }
+  return `${value.slice(0, head)}…${value.slice(-tail)}`;
+}

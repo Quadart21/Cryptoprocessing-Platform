@@ -369,6 +369,7 @@ export function PlatformAccountingPanel({
                     <div className="pw-accounting-tenant-names">
                       <strong>{tenant.tenant_name}</strong>
                       <span className="pw-accounting-tenant-slug">{tenant.tenant_slug}</span>
+                      <span className="pw-accounting-tenant-slug">{tenant.tenant_id}</span>
                     </div>
                     <span
                       className={`pw-accounting-tenant-status ${tenantStatusClass(tenant.tenant_status)}`}
