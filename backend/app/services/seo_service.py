@@ -3,7 +3,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.public_urls import resolve_public_asset_url
+from app.core.public_urls import resolve_public_asset_url_for_web
 from app.models.platform_setting import PlatformSetting
 
 
@@ -27,7 +27,7 @@ class SeoService:
             "robots": settings.seo_robots or "index, follow",
             "canonical_url": settings.seo_canonical_url,
             "brand_name": (settings.notification_brand_name or "").strip() or "NorenDigital",
-            "logo_url": resolve_public_asset_url((settings.notification_logo_url or "").strip() or None),
+            "logo_url": resolve_public_asset_url_for_web((settings.notification_logo_url or "").strip() or None),
         }
 
     @staticmethod

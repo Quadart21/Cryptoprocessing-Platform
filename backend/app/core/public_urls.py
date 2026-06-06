@@ -35,6 +35,7 @@ def resolve_public_site_base_url() -> str:
 
 
 def resolve_public_asset_url(raw_value: str | None) -> str | None:
+    """Absolute URL — for email/Telegram and external consumers."""
     normalized = (raw_value or "").strip()
     if not normalized:
         return None
@@ -45,6 +46,23 @@ def resolve_public_asset_url(raw_value: str | None) -> str | None:
         if base:
             return f"{base}{normalized}"
         return normalized
+    return normalized
+
+
+def resolve_public_asset_url_for_web(raw_value: str | None) -> str | None:
+    """Browser-facing URL: keep /uploads on the current site origin (pay/docs/app subdomains)."""
+    normalized = (raw_value or "").strip()
+    if not normalized:
+        return None
+    if normalized.startswith("/uploads/"):
+        return normalized
+    if normalized.startswith("http://") or normalized.startswith("https://"):
+        parsed = urlparse(normalized)
+        if parsed.path.startswith("/uploads/"):
+            return parsed.path + (f"?{parsed.query}" if parsed.query else "")
+        return normalized
+    if normalized.startswith("/"):
+        return resolve_public_asset_url(normalized)
     return normalized
 
 

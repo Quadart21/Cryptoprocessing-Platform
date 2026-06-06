@@ -1,19 +1,11 @@
 import { useRef, useState, type ChangeEvent } from "react";
 
+import { resolveBrandLogoUrlForDisplay } from "../../brand/platformBrand";
+
 const UPLOADED_LOGO_PREFIX = "/uploads/brand/";
 
 function resolveLogoPreviewUrl(url: string | null | undefined): string | null {
-  const normalized = url?.trim() ?? "";
-  if (!normalized) {
-    return null;
-  }
-  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
-    return normalized;
-  }
-  if (normalized.startsWith("/")) {
-    return `${window.location.origin}${normalized}`;
-  }
-  return normalized;
+  return resolveBrandLogoUrlForDisplay(url);
 }
 
 type BrandLogoUploaderProps = {

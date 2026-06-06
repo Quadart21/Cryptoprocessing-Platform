@@ -119,7 +119,7 @@ def _register_security_headers(app: FastAPI) -> None:
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         api_prefix = settings.api_v1_prefix.rstrip("/")
         path = request.url.path
-        if path.startswith(f"{api_prefix}/") or path.startswith("/internal"):
+        if path.startswith(f"{api_prefix}/") or path.startswith("/internal") or path.startswith("/uploads/"):
             response.headers.setdefault("Cross-Origin-Resource-Policy", "cross-origin")
         else:
             response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
