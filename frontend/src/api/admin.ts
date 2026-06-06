@@ -277,8 +277,12 @@ export function repairAdminInvoiceSettlement(
   });
 }
 
-export function fetchAdminTransactions(token: string): Promise<TransactionItem[]> {
-  return request<TransactionItem[]>("/admin/transactions", {
+export function fetchAdminTransactions(
+  token: string,
+  options?: { reconcile?: boolean },
+): Promise<TransactionItem[]> {
+  const path = options?.reconcile ? "/admin/transactions?reconcile=1" : "/admin/transactions";
+  return request<TransactionItem[]>(path, {
     headers: authHeaders(token),
   });
 }

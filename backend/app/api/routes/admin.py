@@ -964,12 +964,35 @@ async def _maybe_sync_admin_invoice(
     except Exception:
         logger.exception("Admin invoice sync failed for invoice_id=%s", invoice.id)
         refreshed = await invoice_service.get_invoice_by_id(str(invoice.id))
+        if refreshed is not None:
+            transaction = await TransactionService(invoice_service.db).get_latest_for_invoice(refreshed.id)
+            if transaction is not None:
+                await invoice_service.reconcile_transaction_with_invoice(refreshed, transaction)
+                await invoice_service.db.commit()
+                refreshed = await invoice_service.get_invoice_by_id(str(invoice.id)) or refreshed
         return refreshed if refreshed is not None else invoice
+
+
+async def _reconcile_admin_invoice_transaction(
+    db: AsyncSession,
+    invoice_service: InvoiceService,
+    invoice: Invoice,
+) -> Invoice:
+    transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
+    if transaction is None:
+        return invoice
+    if await invoice_service.reconcile_transaction_with_invoice(invoice, transaction):
+        await db.commit()
+        refreshed = await invoice_service.get_invoice_by_id(str(invoice.id))
+        return refreshed if refreshed is not None else invoice
+    return invoice
 
 
 async def _sync_active_admin_invoices(
     invoice_service: InvoiceService,
     invoices: list[Invoice],
+    *,
+    db: AsyncSession,
 ) -> list[Invoice]:
     synced: list[Invoice] = []
     for invoice in invoices:
@@ -978,8 +1001,20 @@ async def _sync_active_admin_invoices(
                 invoice = await _maybe_sync_admin_invoice(invoice_service, invoice)
             except (CryptoCashProviderError, ValueError):
                 pass
+        invoice = await _reconcile_admin_invoice_transaction(db, invoice_service, invoice)
         synced.append(invoice)
     return synced
+
+
+async def _invoices_by_transaction_rows(
+    db: AsyncSession,
+    transactions: list,
+) -> dict[str, Invoice]:
+    if not transactions:
+        return {}
+    invoice_ids = {transaction.invoice_id for transaction in transactions}
+    rows = await db.scalars(select(Invoice).where(Invoice.id.in_(invoice_ids)))
+    return {invoice.id: invoice for invoice in rows}
 
 
 async def _get_admin_invoice_detail(
@@ -1004,6 +1039,7 @@ async def _get_admin_invoice_detail(
             ) from exc
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    invoice = await _reconcile_admin_invoice_transaction(db, invoice_service, invoice)
     return await _map_invoice_admin_detail_response(db, invoice)
 
 
@@ -1024,7 +1060,7 @@ async def list_tenant_invoices(
     invoice_service = InvoiceService(db)
     invoices = await invoice_service.list_invoices_by_tenant(tenant_id, limit=limit, offset=offset)
     if sync:
-        invoices = await _sync_active_admin_invoices(invoice_service, invoices)
+        invoices = await _sync_active_admin_invoices(invoice_service, invoices, db=db)
     return [_map_invoice_response(invoice) for invoice in invoices]
 
 
@@ -1044,7 +1080,7 @@ async def list_all_invoices(
     invoice_service = InvoiceService(db)
     invoices = await invoice_service.list_all_invoices(limit=limit, offset=offset)
     if sync:
-        invoices = await _sync_active_admin_invoices(invoice_service, invoices)
+        invoices = await _sync_active_admin_invoices(invoice_service, invoices, db=db)
     return [_map_invoice_response(invoice) for invoice in invoices]
 
 
@@ -1053,13 +1089,38 @@ async def list_tenant_transactions(
     tenant_id: str,
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
-    _: User = Depends(require_platform_permission("admin.transactions.read")),
+    reconcile: bool = Query(default=False, description="Сверить транзакции с инвойсами"),
+    current_user: User = Depends(require_platform_permission("admin.transactions.read")),
     db: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
+    if reconcile and not has_permission(current_user.role, "admin.invoices.write"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав: admin.invoices.write.",
+        )
     transaction_service = TransactionService(db)
+    transactions = list(
+        await transaction_service.list_by_tenant(tenant_id, limit=limit, offset=offset)
+    )
+    invoices_by_id = await _invoices_by_transaction_rows(db, transactions)
+    if reconcile:
+        invoice_service = InvoiceService(db)
+        changed = False
+        for transaction in transactions:
+            invoice = invoices_by_id.get(transaction.invoice_id)
+            if invoice is None:
+                continue
+            if await invoice_service.reconcile_transaction_with_invoice(invoice, transaction):
+                changed = True
+        if changed:
+            await db.commit()
+            transactions = list(
+                await transaction_service.list_by_tenant(tenant_id, limit=limit, offset=offset)
+            )
+            invoices_by_id = await _invoices_by_transaction_rows(db, transactions)
     return [
-        _map_transaction_response(transaction)
-        for transaction in await transaction_service.list_by_tenant(tenant_id, limit=limit, offset=offset)
+        _map_transaction_response(transaction, invoices_by_id.get(transaction.invoice_id))
+        for transaction in transactions
     ]
 
 
@@ -1067,13 +1128,34 @@ async def list_tenant_transactions(
 async def list_all_transactions(
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
-    _: User = Depends(require_platform_permission("admin.transactions.read")),
+    reconcile: bool = Query(default=False, description="Сверить транзакции с инвойсами"),
+    current_user: User = Depends(require_platform_permission("admin.transactions.read")),
     db: AsyncSession = Depends(get_db),
 ) -> list[TransactionResponse]:
+    if reconcile and not has_permission(current_user.role, "admin.invoices.write"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав: admin.invoices.write.",
+        )
     transaction_service = TransactionService(db)
+    transactions = list(await transaction_service.list_all(limit=limit, offset=offset))
+    invoices_by_id = await _invoices_by_transaction_rows(db, transactions)
+    if reconcile:
+        invoice_service = InvoiceService(db)
+        changed = False
+        for transaction in transactions:
+            invoice = invoices_by_id.get(transaction.invoice_id)
+            if invoice is None:
+                continue
+            if await invoice_service.reconcile_transaction_with_invoice(invoice, transaction):
+                changed = True
+        if changed:
+            await db.commit()
+            transactions = list(await transaction_service.list_all(limit=limit, offset=offset))
+            invoices_by_id = await _invoices_by_transaction_rows(db, transactions)
     return [
-        _map_transaction_response(transaction)
-        for transaction in await transaction_service.list_all(limit=limit, offset=offset)
+        _map_transaction_response(transaction, invoices_by_id.get(transaction.invoice_id))
+        for transaction in transactions
     ]
 
 
@@ -1945,6 +2027,7 @@ def _map_transaction_response(transaction, invoice: Invoice | None = None) -> Tr
         net_amount=transaction.net_amount,
         currency=transaction.currency,
         status=transaction.status,
+        invoice_status=invoice.status if invoice is not None else None,
         paid_at=transaction.paid_at,
         created_at=transaction.created_at,
     )

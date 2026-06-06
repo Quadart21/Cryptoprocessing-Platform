@@ -255,6 +255,7 @@ export type TransactionItem = {
   net_amount: string;
   currency: string;
   status: string;
+  invoice_status?: string | null;
   paid_at: string | null;
   created_at: string;
 };

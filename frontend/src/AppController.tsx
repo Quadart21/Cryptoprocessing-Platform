@@ -1446,7 +1446,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       );
       const [invoiceItems, transactionItems, eventItems] = await Promise.all([
         fetchAdminInvoices(token, { sync: true }),
-        fetchAdminTransactions(token),
+        fetchAdminTransactions(token, { reconcile: true }),
         fetchAdminEvents(token),
       ]);
       setPlatformInvoices(invoiceItems);
@@ -2104,9 +2104,23 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     if (!token) {
       return;
     }
-    const transactionItems = await fetchAdminTransactions(token);
-    setPlatformTransactions(transactionItems);
-  }, [token]);
+    const canReconcile =
+      user?.permissions.includes("*") || user?.permissions.includes("admin.invoices.write");
+    try {
+      const transactionItems = await fetchAdminTransactions(token, { reconcile: canReconcile });
+      setPlatformTransactions(transactionItems);
+    } catch {
+      if (!canReconcile) {
+        return;
+      }
+      try {
+        const transactionItems = await fetchAdminTransactions(token);
+        setPlatformTransactions(transactionItems);
+      } catch {
+        // Тихий фоновый poll.
+      }
+    }
+  }, [token, user]);
 
   const refreshClientActiveInvoices = useCallback(async () => {
     if (!token) {

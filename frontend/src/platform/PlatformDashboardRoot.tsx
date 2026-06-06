@@ -306,6 +306,11 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                   <PlatformTransactionsPanelLazy
                     className="panel panel-span-2"
                     transactions={platformTransactions}
+                    onRefreshTransactions={() => void onLoadPlatformTransactions()}
+                    canReconcileTransactions={
+                      user.permissions.includes("*") ||
+                      user.permissions.includes("admin.invoices.write")
+                    }
                   />
                 </section>
               </div>

@@ -246,6 +246,7 @@ export type TransactionItem = {
   net_amount: string;
   currency: string;
   status: string;
+  invoice_status?: string | null;
   paid_at: string | null;
   created_at: string;
 };
@@ -1905,8 +1906,12 @@ export function fetchAdminInvoices(token: string, options?: { sync?: boolean }):
   });
 }
 
-export function fetchAdminTransactions(token: string): Promise<TransactionItem[]> {
-  return request<TransactionItem[]>("/admin/transactions", {
+export function fetchAdminTransactions(
+  token: string,
+  options?: { reconcile?: boolean },
+): Promise<TransactionItem[]> {
+  const path = options?.reconcile ? "/admin/transactions?reconcile=1" : "/admin/transactions";
+  return request<TransactionItem[]>(path, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

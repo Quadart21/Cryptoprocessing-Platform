@@ -19,5 +19,6 @@ class TransactionResponse(BaseModel):
     net_amount: Decimal
     currency: str
     status: str
+    invoice_status: str | None = None
     paid_at: datetime | None
     created_at: datetime

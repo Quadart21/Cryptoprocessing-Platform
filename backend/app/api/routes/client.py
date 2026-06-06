@@ -846,6 +846,17 @@ async def list_invoices(
                         )
                     except (CryptoCashProviderError, ValueError):
                         pass
+                transaction = await TransactionService(db).get_latest_for_invoice(invoice.id)
+                if transaction is not None:
+                    if await invoice_service.reconcile_transaction_with_invoice(invoice, transaction):
+                        await db.commit()
+                        refreshed = await invoice_service.get_invoice(
+                            auth.tenant_id,
+                            str(invoice.id),
+                            project_id=auth.project_id,
+                        )
+                        if refreshed is not None:
+                            invoice = refreshed
                 synced.append(invoice)
             invoices = synced
         projects_by_id = await _project_checkout_map(db, auth.tenant_id)
@@ -900,6 +911,11 @@ async def _maybe_sync_client_invoice(
     except Exception:
         logger.exception("Client invoice sync failed for invoice_id=%s", invoice.id)
         refreshed = await invoice_service.get_invoice(tenant_id, str(invoice.id), project_id=project_id)
+        if refreshed is not None:
+            transaction = await TransactionService(invoice_service.db).get_latest_for_invoice(refreshed.id)
+            if transaction is not None:
+                await invoice_service.reconcile_transaction_with_invoice(refreshed, transaction)
+                await invoice_service.db.commit()
         return refreshed if refreshed is not None else invoice
 
 

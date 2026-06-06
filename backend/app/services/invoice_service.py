@@ -376,6 +376,54 @@ class InvoiceService:
                 except Exception:
                     continue
 
+    async def reconcile_transaction_with_invoice(
+        self,
+        invoice: Invoice,
+        transaction: Transaction,
+    ) -> bool:
+        """Align transaction row with invoice when they drifted (e.g. partial sync)."""
+        changed = False
+        paid_like = frozenset({"confirming", "paid", "confirmed"})
+
+        if transaction.status != invoice.status:
+            transaction.status = invoice.status
+            changed = True
+
+        if invoice.status in paid_like and transaction.paid_at is None:
+            if invoice.paid_at is not None:
+                transaction.paid_at = invoice.paid_at
+            else:
+                from datetime import datetime, timezone
+
+                now = datetime.now(timezone.utc)
+                transaction.paid_at = now
+                if invoice.paid_at is None:
+                    invoice.paid_at = now
+                    changed = True
+            changed = True
+
+        if invoice.status == "confirmed" and Decimal(transaction.gross_amount) == 0:
+            previous_status = "pending" if transaction.status == "confirmed" else transaction.status
+            try:
+                await self._apply_financial_state_transition(
+                    invoice=invoice,
+                    transaction=transaction,
+                    previous_status=previous_status,
+                    new_status="confirmed",
+                )
+                changed = True
+            except ValueError:
+                logger.warning(
+                    "Could not reconcile settlement for invoice_id=%s",
+                    invoice.id,
+                    exc_info=True,
+                )
+
+        if changed:
+            self.db.add(invoice)
+            self.db.add(transaction)
+        return changed
+
     async def apply_provider_status(
         self,
         provider_order_id: str | None,
@@ -403,6 +451,9 @@ class InvoiceService:
         )
         if transaction is None:
             raise ValueError("Транзакция для инвойса не найдена.")
+
+        if await self.reconcile_transaction_with_invoice(invoice, transaction):
+            await self.db.flush()
 
         event_service = EventService(self.db)
         if provider_event_id:

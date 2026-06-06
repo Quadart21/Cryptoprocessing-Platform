@@ -74,7 +74,23 @@ function hasActiveInvoiceStatus(invoices: InvoiceItem[]): boolean {
 type PlatformTransactionsPanelProps = {
   transactions: TransactionItem[];
   className?: string;
+  onRefreshTransactions?: () => void;
+  canReconcileTransactions?: boolean;
 };
+
+function transactionDisplayStatus(transaction: TransactionItem): string {
+  return transaction.invoice_status?.trim() || transaction.status;
+}
+
+function transactionNeedsReconcile(transaction: TransactionItem): boolean {
+  const txStatus = transaction.status.trim().toLowerCase();
+  const invoiceStatus = (transaction.invoice_status ?? transaction.status).trim().toLowerCase();
+  if (txStatus === invoiceStatus) {
+    return txStatus === "pending" || txStatus === "confirming";
+  }
+  const paidLike = new Set(["confirming", "paid", "confirmed"]);
+  return paidLike.has(invoiceStatus) && txStatus === "pending";
+}
 
 type PlatformEventsPanelProps = {
   events: ProviderEventItem[];
@@ -167,6 +183,8 @@ export function PlatformInvoicesPanel({
 export function PlatformTransactionsPanel({
   transactions,
   className = "panel",
+  onRefreshTransactions,
+  canReconcileTransactions = false,
 }: PlatformTransactionsPanelProps) {
   const [page, setPage] = useState(1);
   const totalCount = transactions.length;
@@ -177,6 +195,18 @@ export function PlatformTransactionsPanel({
       setPage(totalPages);
     }
   }, [page, totalPages]);
+
+  useEffect(() => {
+    if (!canReconcileTransactions || !onRefreshTransactions) {
+      return;
+    }
+    if (!transactions.some(transactionNeedsReconcile)) {
+      return;
+    }
+    onRefreshTransactions();
+    const timer = window.setInterval(onRefreshTransactions, POLL_ACTIVE_INVOICES_MS);
+    return () => window.clearInterval(timer);
+  }, [canReconcileTransactions, onRefreshTransactions, transactions]);
 
   const pageTransactions = useMemo(() => {
     const start = (page - 1) * PLATFORM_PANEL_PAGE_SIZE;
@@ -195,19 +225,35 @@ export function PlatformTransactionsPanel({
         {totalCount === 0 ? (
           <p className="muted-text">Транзакций пока нет.</p>
         ) : (
-          pageTransactions.map((transaction) => (
+          pageTransactions.map((transaction) => {
+            const displayStatus = transactionDisplayStatus(transaction);
+            const grossIsEmpty =
+              Number.parseFloat(transaction.gross_amount) === 0 &&
+              displayStatus !== "pending";
+            const grossLabel = grossIsEmpty
+              ? transaction.amount_crypto && transaction.crypto_currency
+                ? `${formatDecimal(transaction.amount_crypto)} ${transaction.crypto_currency} (до settlement)`
+                : "Ожидает settlement"
+              : formatMoneyAmount(transaction.gross_amount, transaction.currency);
+            const netLabel = grossIsEmpty
+              ? "—"
+              : formatMoneyAmount(transaction.net_amount, transaction.currency);
+            return (
             <article className="tenant-card" key={transaction.id}>
               <div>
-                <strong>{formatMoneyAmount(transaction.gross_amount, transaction.currency)}</strong>
+                <strong>{grossLabel}</strong>
                 <p>Invoice: {transaction.invoice_id}</p>
-                <p>Net: {formatMoneyAmount(transaction.net_amount, transaction.currency)}</p>
+                <p>Net: {netLabel}</p>
               </div>
               <div className="tenant-meta">
-                <span>{transaction.status}</span>
+                <span className={invoiceCompactPillClass(displayStatus)}>
+                  {invoiceStatusLabelRu(displayStatus)}
+                </span>
                 <span>{transaction.paid_at ?? "Не оплачено"}</span>
               </div>
             </article>
-          ))
+            );
+          })
         )}
       </div>
       <PanelPaginationFooter
