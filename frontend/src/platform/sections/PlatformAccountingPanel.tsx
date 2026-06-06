@@ -27,6 +27,30 @@ function formatWhen(value: string) {
   return date.toLocaleString("ru-RU");
 }
 
+const TENANT_STATUS_LABELS: Record<string, string> = {
+  approved: "Активен",
+  pending_review: "На модерации",
+  rejected: "Отклонён",
+  suspended: "Заблокирован",
+};
+
+function tenantStatusLabel(status: string) {
+  return TENANT_STATUS_LABELS[status] ?? status;
+}
+
+function tenantStatusClass(status: string) {
+  if (status === "approved") {
+    return "pw-accounting-tenant-status--approved";
+  }
+  if (status === "pending_review") {
+    return "pw-accounting-tenant-status--pending";
+  }
+  if (status === "rejected" || status === "suspended") {
+    return "pw-accounting-tenant-status--blocked";
+  }
+  return "pw-accounting-tenant-status--default";
+}
+
 function FlowStep({
   label,
   value,
@@ -323,39 +347,57 @@ export function PlatformAccountingPanel({
 
       {overview.tenant_balances.length > 0 ? (
         <section className="panel pw-accounting-tenants">
-          <div className="panel-head">
-            <h3>Клиенты по остатку на счёте</h3>
-            <p className="muted-text">Сортировка по сумме на внутреннем балансе</p>
+          <div className="panel-header pw-accounting-tenants-head">
+            <div>
+              <p className="eyebrow">Балансы клиентов</p>
+              <h3>Клиенты по остатку на счёте</h3>
+              <p className="muted-text">
+                {overview.tenants_with_balance_count} из {overview.active_tenants_count} активных
+                клиентов · сортировка по убыванию баланса
+              </p>
+            </div>
+            <span className="pw-accounting-tenants-count">{overview.tenant_balances.length}</span>
           </div>
-          <div className="table-scroll">
-            <table className="data-table pw-accounting-tenant-table">
-              <thead>
-                <tr>
-                  <th>Клиент</th>
-                  <th>Статус</th>
-                  <th>На счёте</th>
-                  <th>Доступно</th>
-                  <th>Ожидание</th>
-                  <th>Выведено</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overview.tenant_balances.map((tenant) => (
-                  <tr key={tenant.tenant_id}>
-                    <td>
+          <ol className="pw-accounting-tenant-list">
+            {overview.tenant_balances.map((tenant, index) => (
+              <li className="pw-accounting-tenant-row" key={tenant.tenant_id}>
+                <span className="pw-accounting-tenant-rank" aria-hidden="true">
+                  {index + 1}
+                </span>
+                <div className="pw-accounting-tenant-body">
+                  <div className="pw-accounting-tenant-title">
+                    <div className="pw-accounting-tenant-names">
                       <strong>{tenant.tenant_name}</strong>
-                      <span className="muted-text">{tenant.tenant_slug}</span>
-                    </td>
-                    <td>{tenant.tenant_status}</td>
-                    <td>{money(tenant.on_accounts, currency)}</td>
-                    <td>{money(tenant.available, currency)}</td>
-                    <td>{money(tenant.pending, currency)}</td>
-                    <td>{money(tenant.withdrawn, currency)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      <span className="pw-accounting-tenant-slug">{tenant.tenant_slug}</span>
+                    </div>
+                    <span
+                      className={`pw-accounting-tenant-status ${tenantStatusClass(tenant.tenant_status)}`}
+                    >
+                      {tenantStatusLabel(tenant.tenant_status)}
+                    </span>
+                  </div>
+                  <dl className="pw-accounting-tenant-metrics">
+                    <div>
+                      <dt>Доступно</dt>
+                      <dd>{money(tenant.available, currency)}</dd>
+                    </div>
+                    <div>
+                      <dt>Ожидание</dt>
+                      <dd>{money(tenant.pending, currency)}</dd>
+                    </div>
+                    <div>
+                      <dt>Выведено</dt>
+                      <dd>{money(tenant.withdrawn, currency)}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <div className="pw-accounting-tenant-total">
+                  <span>На счёте</span>
+                  <strong>{money(tenant.on_accounts, currency)}</strong>
+                </div>
+              </li>
+            ))}
+          </ol>
         </section>
       ) : null}
     </div>
