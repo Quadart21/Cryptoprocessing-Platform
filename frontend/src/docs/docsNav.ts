@@ -33,7 +33,7 @@ export const DOCS_PRIMARY_NAV: DocsNavItem[] = [
   {
     to: "/merchant-api#docs-commissions",
     label: "Комиссии",
-    description: "0,4% · минимум $7",
+    description: "0,4% · минимум $0,70",
     icon: "%",
   },
   {
@@ -72,14 +72,14 @@ export const DOCS_QUICK_CARDS = [
   {
     to: "/merchant-api#docs-commissions",
     title: "Комиссии",
-    body: "0,4% от платежа, но не ниже $7 — формула и примеры расчёта.",
+    body: "0,4% от платежа, но не ниже $0,70 — формула и примеры расчёта.",
     icon: "05",
   },
 ];
 
 export const DOCS_PIPELINE = [
   { step: "01", title: "Keys", text: "Public + Secret — только на backend" },
-  { step: "02", title: "Rates", text: "Сеть, лимиты, комиссия 0,4% (мин. $7)" },
+  { step: "02", title: "Rates", text: "Сеть, лимиты, комиссия 0,4% (мин. $0,70)" },
   { step: "03", title: "Checkout", text: "checkout_delivery: payment page или H2H" },
   { step: "04", title: "Invoice", text: "POST /invoices → ссылка или реквизиты" },
   { step: "05", title: "Webhook", text: "Подтверждение оплаты и sync" },

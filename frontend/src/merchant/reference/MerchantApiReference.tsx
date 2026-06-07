@@ -81,7 +81,7 @@ const API_FLOW_STEPS = [
   {
     key: "rates",
     title: "Rates",
-    text: "Проверьте доступные валюты, сети, лимиты и тариф: 0,4% (мин. $7) за платёж.",
+    text: "Проверьте доступные валюты, сети, лимиты и тариф: 0,4% (мин. $0,70) за платёж.",
   },
   {
     key: "invoice",
@@ -1086,7 +1086,7 @@ export function MerchantApiReference({
               зачисления на баланс; в кабинете и API отображается как сумма{" "}
               <code>provider_fee</code> + <code>platform_fee</code> в транзакции.
             </p>
-            <pre className="json-box">{`комиссия = max(сумма_платежа × ${MERCHANT_COMMISSION_PERCENT / 100}, ${MERCHANT_COMMISSION_MIN_USD}.00 USD)
+            <pre className="json-box">{`комиссия = max(сумма_платежа × ${MERCHANT_COMMISSION_PERCENT / 100}, ${formatUsd(MERCHANT_COMMISSION_MIN_USD)})
 
 нетто_мерчанту = сумма_платежа − комиссия`}</pre>
             <p className="muted-text">

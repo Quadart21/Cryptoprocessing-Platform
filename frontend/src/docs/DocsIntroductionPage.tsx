@@ -86,8 +86,8 @@ export function DocsIntroductionPage() {
           <h2>Комиссия за платёж</h2>
         </div>
         <p className="docs-intro-muted">
-          <strong>0,4%</strong> от суммы успешного платежа, но <strong>не ниже $7</strong>. Например: $1&nbsp;000 →
-          комиссия $7 (минимум); $2&nbsp;000 → $8; $10&nbsp;000 → $40. Комиссия сети blockchain — отдельно.
+          <strong>0,4%</strong> от суммы успешного платежа, но <strong>не ниже $0,70</strong>. Например: $100 →
+          комиссия $0,70 (минимум); $200 → $0,80; $500 → $2. Комиссия сети blockchain — отдельно.
         </p>
         <Link className="docs-site-button docs-site-button-ghost" to="/merchant-api#docs-commissions">
           Подробнее и таблица примеров
