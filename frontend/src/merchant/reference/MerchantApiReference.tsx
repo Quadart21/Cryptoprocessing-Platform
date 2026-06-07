@@ -6,7 +6,7 @@ import {
   MERCHANT_COMMISSION_EXAMPLES,
   MERCHANT_COMMISSION_MIN_USD,
   MERCHANT_COMMISSION_PERCENT,
-} from "../../docs/merchantCommissionDocs";
+} from "./merchantCommissionDocs";
 import { ApiCodePanel } from "./ApiCodePanel";
 
 export type MerchantApiReferenceProps = {

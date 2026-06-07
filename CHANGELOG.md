@@ -10,6 +10,14 @@
 
 
 
+## [0.14.94] — 2026-06-07
+
+### Исправлено
+
+- **Docs /merchant-api**: падение `Cannot access 'g' before initialization` — убран циклический импорт между чанками `docs-site` и `merchant-api-docs`.
+
+---
+
 ## [0.14.93] — 2026-06-07
 
 ### Исправлено
