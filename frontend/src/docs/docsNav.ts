@@ -31,6 +31,12 @@ export const DOCS_PRIMARY_NAV: DocsNavItem[] = [
     icon: "⇄",
   },
   {
+    to: "/merchant-api#docs-commissions",
+    label: "Комиссии",
+    description: "0,4% · минимум $7",
+    icon: "%",
+  },
+  {
     to: "/merchant-api#docs-faq",
     label: "FAQ",
     description: "Ключи, ошибки, типовые кейсы",
@@ -63,11 +69,17 @@ export const DOCS_QUICK_CARDS = [
     body: "Invoice events, HMAC-подпись, checkout_delivery, тестовая доставка.",
     icon: "04",
   },
+  {
+    to: "/merchant-api#docs-commissions",
+    title: "Комиссии",
+    body: "0,4% от платежа, но не ниже $7 — формула и примеры расчёта.",
+    icon: "05",
+  },
 ];
 
 export const DOCS_PIPELINE = [
   { step: "01", title: "Keys", text: "Public + Secret — только на backend" },
-  { step: "02", title: "Rates", text: "Сеть, лимиты, комиссии" },
+  { step: "02", title: "Rates", text: "Сеть, лимиты, комиссия 0,4% (мин. $7)" },
   { step: "03", title: "Checkout", text: "checkout_delivery: payment page или H2H" },
   { step: "04", title: "Invoice", text: "POST /invoices → ссылка или реквизиты" },
   { step: "05", title: "Webhook", text: "Подтверждение оплаты и sync" },
@@ -87,6 +99,7 @@ export const DOCS_API_SECTIONS = [
   { href: "#docs-reference", label: "Endpoint reference" },
   { href: "#docs-cabinet", label: "Кабинет (JWT)" },
   { href: "#docs-webhooks", label: "Webhooks" },
+  { href: "#docs-commissions", label: "Комиссии" },
   { href: "#docs-faq", label: "FAQ" },
 ];
 

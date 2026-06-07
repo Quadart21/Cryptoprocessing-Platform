@@ -82,6 +82,20 @@ export function DocsIntroductionPage() {
 
       <section className="docs-intro-section docs-endpoint-panel">
         <div className="docs-section-head">
+          <p>Тариф</p>
+          <h2>Комиссия за платёж</h2>
+        </div>
+        <p className="docs-intro-muted">
+          <strong>0,4%</strong> от суммы успешного платежа, но <strong>не ниже $7</strong>. Например: $1&nbsp;000 →
+          комиссия $7 (минимум); $2&nbsp;000 → $8; $10&nbsp;000 → $40. Комиссия сети blockchain — отдельно.
+        </p>
+        <Link className="docs-site-button docs-site-button-ghost" to="/merchant-api#docs-commissions">
+          Подробнее и таблица примеров
+        </Link>
+      </section>
+
+      <section className="docs-intro-section docs-endpoint-panel">
+        <div className="docs-section-head">
           <p>Окружение</p>
           <h2>Base URL и health</h2>
         </div>

@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  formatUsd,
+  MERCHANT_COMMISSION_BREAK_EVEN_USD,
+  MERCHANT_COMMISSION_EXAMPLES,
+  MERCHANT_COMMISSION_MIN_USD,
+  MERCHANT_COMMISSION_PERCENT,
+} from "../../docs/merchantCommissionDocs";
 import { ApiCodePanel } from "./ApiCodePanel";
 
 export type MerchantApiReferenceProps = {
@@ -45,6 +52,12 @@ const FAQ_ITEMS = [
     body:
       "4xx — ошибка в payload, ключах или параметрах. 5xx и 502/504 — retry с backoff, логируйте correlation/event id.",
   },
+  {
+    title: "Как считается комиссия?",
+    body: `${MERCHANT_COMMISSION_PERCENT}% от суммы успешного платежа, но не менее ${formatUsd(
+      MERCHANT_COMMISSION_MIN_USD,
+    )}. Подробнее — раздел «Комиссии» с таблицей примеров.`,
+  },
 ];
 
 const TOC_MAIN = [
@@ -55,6 +68,7 @@ const TOC_MAIN = [
   { href: "#docs-reference", label: "Примеры запросов" },
   { href: "#docs-cabinet", label: "Кабинет (JWT)" },
   { href: "#docs-webhooks", label: "Webhook" },
+  { href: "#docs-commissions", label: "Комиссии" },
   { href: "#docs-faq", label: "FAQ" },
 ];
 
@@ -67,7 +81,7 @@ const API_FLOW_STEPS = [
   {
     key: "rates",
     title: "Rates",
-    text: "Проверьте доступные валюты, сети и лимиты перед созданием платежа.",
+    text: "Проверьте доступные валюты, сети, лимиты и тариф: 0,4% (мин. $7) за платёж.",
   },
   {
     key: "invoice",
@@ -1058,6 +1072,72 @@ export function MerchantApiReference({
                 </button>
               </div>
             </article>
+          </section>
+
+          <section className="api-docs-section" id="docs-commissions">
+            <div className="api-docs-section-head">
+              <p className="eyebrow">Тариф</p>
+              <h3>Комиссия за успешный платёж</h3>
+            </div>
+            <p className="muted-text">
+              Стандартный тариф для мерчанта: <strong>{MERCHANT_COMMISSION_PERCENT}%</strong> от суммы
+              проведённого платежа, но <strong>не ниже {formatUsd(MERCHANT_COMMISSION_MIN_USD)}</strong>{" "}
+              (эквивалент в USDT по курсу на момент settlement). Комиссия удерживается из gross до
+              зачисления на баланс; в кабинете и API отображается как сумма{" "}
+              <code>provider_fee</code> + <code>platform_fee</code> в транзакции.
+            </p>
+            <pre className="json-box">{`комиссия = max(сумма_платежа × ${MERCHANT_COMMISSION_PERCENT / 100}, ${MERCHANT_COMMISSION_MIN_USD}.00 USD)
+
+нетто_мерчанту = сумма_платежа − комиссия`}</pre>
+            <p className="muted-text">
+              Порог, при котором 0,4% равно минимуму: платежи до{" "}
+              <strong>{formatUsd(MERCHANT_COMMISSION_BREAK_EVEN_USD)}</strong> включительно попадают под
+              фиксированный минимум {formatUsd(MERCHANT_COMMISSION_MIN_USD)}.
+            </p>
+
+            <div className="api-docs-table-wrap">
+              <table className="api-docs-table">
+                <thead>
+                  <tr>
+                    <th>Сумма платежа</th>
+                    <th>0,4% от суммы</th>
+                    <th>Комиссия к удержанию</th>
+                    <th>Нетто мерчанту</th>
+                    <th>Комментарий</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {MERCHANT_COMMISSION_EXAMPLES.map((row) => (
+                    <tr key={row.paymentUsd}>
+                      <td>{formatUsd(row.paymentUsd)}</td>
+                      <td>{formatUsd(row.percentFeeUsd)}</td>
+                      <td>
+                        <strong>{formatUsd(row.commissionUsd)}</strong>
+                      </td>
+                      <td>{formatUsd(row.paymentUsd - row.commissionUsd)}</td>
+                      <td>{row.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <ul className="integration-list">
+              <li>
+                Комиссия сети blockchain (<code>network_fee</code> / «Комиссия сети» в кабинете) — отдельно
+                от тарифа платформы и зависит от выбранной сети (TRC20, ERC20 и т.д.).
+              </li>
+              <li>
+                Детализация по каждому платежу: <code>GET /transactions</code> и{" "}
+                <code>GET /transactions/&#123;transaction_id&#125;</code> — поля{" "}
+                <code>gross_amount</code>, <code>provider_fee</code>, <code>platform_fee</code>,{" "}
+                <code>net_amount</code>.
+              </li>
+              <li>
+                Для крупных объёмов возможны индивидуальные условия — согласуйте с командой платформы до
+                запуска в production.
+              </li>
+            </ul>
           </section>
 
           <section className="api-docs-section" id="docs-faq">
