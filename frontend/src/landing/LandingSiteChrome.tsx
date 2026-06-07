@@ -6,7 +6,7 @@ import type { PublicPageNavigationItem } from "../api";
 
 import {
   PlatformBrandMark,
-  PlatformBrandTitle,
+  PlatformBrandText,
   usePlatformBrand,
 } from "../brand/PlatformBrandLogo";
 
@@ -236,15 +236,15 @@ export function LandingSiteChrome({
               </div>
             )}
 
-            {!logoUrl ? (
-              <div className="lpx-logo-text">
+            <div className="lpx-logo-text">
 
-                <PlatformBrandTitle landing />
+              <PlatformBrandText split withLogo className="lpx-logo-title" />
 
+              {!logoUrl ? (
                 <span className="lpx-logo-sub">Digital Acquiring</span>
+              ) : null}
 
-              </div>
-            ) : null}
+            </div>
 
           </a>
 
@@ -1144,13 +1144,19 @@ export function LandingSiteChrome({
 
           <div className="lpx-footer-brand-block">
 
-            {logoUrl ? (
-              <PlatformBrandMark imgClassName="lpx-logo-custom-img lpx-logo-custom-img--footer" />
-            ) : (
-              <div className="lpx-logo-mark lpx-logo-mark--footer">
-                <PlatformBrandMark />
-              </div>
-            )}
+            <div className="lpx-footer-brand-row">
+
+              {logoUrl ? (
+                <PlatformBrandMark imgClassName="lpx-logo-custom-img lpx-logo-custom-img--footer" />
+              ) : (
+                <div className="lpx-logo-mark lpx-logo-mark--footer">
+                  <PlatformBrandMark />
+                </div>
+              )}
+
+              <PlatformBrandText split withLogo className="lpx-logo-title lpx-logo-title--footer" />
+
+            </div>
 
             <p className="lpx-footer-tagline">
               {brandName} — приём криптовалюты и стейблкоинов для e-commerce и SaaS.

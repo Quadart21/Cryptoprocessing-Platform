@@ -859,6 +859,21 @@
   max-width: 22rem;
 }
 
+.lpx-footer-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.lpx-footer-brand-row .lpx-logo-mark--footer {
+  margin-bottom: 0;
+}
+
+.lpx-logo-title--footer {
+  font-size: 1.05rem;
+}
+
 .lpx-logo-mark--footer {
   margin-bottom: 0.75rem;
 }

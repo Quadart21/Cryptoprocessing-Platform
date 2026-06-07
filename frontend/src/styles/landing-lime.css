@@ -42,6 +42,11 @@
   color: #fff;
 }
 
+.lpx-logo-text .platform-brand-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+}
+
 .lp-theme-lime .lpx-logo-mark {
   border-radius: 14px;
   background: linear-gradient(145deg, var(--lp-accent), var(--lp-accent-deep));
