@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import { resolveClientApiBaseUrl } from "../config/apiBase";
 import { resolveMainSiteOrigin } from "../config/siteHost";
 import { usePlatformBrand } from "../brand/PlatformBrandContext";
-import { DocsCopyChip } from "./DocsCopyChip";
-import { DOCS_PIPELINE, DOCS_QUICK_CARDS, DOCS_STATS } from "./docsNav";
+import { DOCS_HUB_CARDS, DOCS_PIPELINE } from "./docsNav";
 
 export function DocsIntroductionPage() {
   const mainSite = resolveMainSiteOrigin();
@@ -12,8 +11,8 @@ export function DocsIntroductionPage() {
   const { brandName } = usePlatformBrand();
 
   return (
-    <article className="docs-intro">
-      <section className="docs-hero">
+    <article className="docs-intro docs-intro--hub">
+      <section className="docs-hero docs-hero--compact">
         <div className="docs-hero-copy">
           <p className="docs-hero-eyebrow">
             <span className="docs-hero-pulse" />
@@ -24,22 +23,25 @@ export function DocsIntroductionPage() {
             <span> приёма криптовалюты</span>
           </h1>
           <p className="docs-hero-lead">
-            REST API для инвойсов, hosted checkout на <code>/pay/&#123;token&#125;</code>, H2H-реквизитов,
-            баланса, транзакций и webhook. Формат ответа задаётся на уровне проекта.
+            Разделы разложены по задачам: старт, checkout, webhooks, справочник методов и тариф. Без простыни
+            на одной странице.
           </p>
           <div className="docs-hero-actions">
-            <Link className="docs-site-button docs-site-button-primary" to="/merchant-api">
-              API Reference
+            <Link className="docs-site-button docs-site-button-primary" to="/quickstart">
+              Быстрый старт
+            </Link>
+            <Link className="docs-site-button docs-site-button-ghost" to="/reference">
+              API методы
             </Link>
             <a className="docs-site-button docs-site-button-ghost" href={`${mainSite}/?auth=register`}>
-              Создать аккаунт
+              Получить ключи
             </a>
           </div>
         </div>
 
         <div className="docs-hero-panel">
-          <p className="docs-hero-panel-label">Сценарий интеграции</p>
-          <div className="docs-pipeline">
+          <p className="docs-hero-panel-label">Путь интеграции</p>
+          <div className="docs-pipeline docs-pipeline--compact">
             {DOCS_PIPELINE.map((item) => (
               <article className="docs-pipeline-step" key={item.step}>
                 <span>{item.step}</span>
@@ -53,23 +55,13 @@ export function DocsIntroductionPage() {
         </div>
       </section>
 
-      <section className="docs-stats-row" aria-label="Platform highlights">
-        {DOCS_STATS.map((item) => (
-          <article className="docs-stat-card" key={item.label}>
-            <strong>{item.value}</strong>
-            <span>{item.label}</span>
-            <p>{item.hint}</p>
-          </article>
-        ))}
-      </section>
-
       <section className="docs-intro-section">
         <div className="docs-section-head">
           <p>Разделы</p>
-          <h2>Документация</h2>
+          <h2>Куда перейти</h2>
         </div>
-        <div className="docs-intro-cards">
-          {DOCS_QUICK_CARDS.map((card) => (
+        <div className="docs-intro-cards docs-intro-cards--hub">
+          {DOCS_HUB_CARDS.map((card) => (
             <Link className="docs-intro-card" key={card.title} to={card.to}>
               <span className="docs-intro-card-icon">{card.icon}</span>
               <strong>{card.title}</strong>
@@ -80,44 +72,17 @@ export function DocsIntroductionPage() {
         </div>
       </section>
 
-      <section className="docs-intro-section docs-endpoint-panel">
-        <div className="docs-section-head">
-          <p>Тариф</p>
-          <h2>Комиссия за платёж</h2>
-        </div>
-        <p className="docs-intro-muted">
-          <strong>0,4%</strong> от суммы успешного платежа, но <strong>не ниже $0,70</strong>. Например: $100 →
-          комиссия $0,70 (минимум); $200 → $0,80; $500 → $2. Комиссия сети blockchain — отдельно.
-        </p>
-        <Link className="docs-site-button docs-site-button-ghost" to="/merchant-api#docs-commissions">
-          Подробнее и таблица примеров
-        </Link>
-      </section>
-
-      <section className="docs-intro-section docs-endpoint-panel">
-        <div className="docs-section-head">
-          <p>Окружение</p>
-          <h2>Base URL и health</h2>
-        </div>
-        <DocsCopyChip value={apiBaseUrl} label="Скопировать URL" />
-        <DocsCopyChip value={`${apiBaseUrl}/health`} label="Скопировать health" />
-        <p className="docs-intro-muted">
-          Merchant-методы — под <code>/api/v1/client</code>. Health доступен без авторизации.
-        </p>
-      </section>
-
       <section className="docs-intro-section docs-support-panel">
         <div>
-          <p className="docs-support-eyebrow">Поддержка</p>
-          <h2>Вопросы по интеграции</h2>
+          <p className="docs-support-eyebrow">Окружение</p>
+          <h2>Base URL</h2>
           <p>
-            Выпустите ключи в кабинете, проверьте webhook через встроенный тест. Для разбора payload — напишите
-            команде платформы.
+            Merchant API: <code>{apiBaseUrl}</code> · префикс <code>/api/v1/client</code> уже включён в примеры.
           </p>
         </div>
-        <a className="docs-site-button docs-site-button-primary" href={mainSite}>
-          {mainSite.replace(/^https?:\/\//, "")}
-        </a>
+        <Link className="docs-site-button docs-site-button-primary" to="/quickstart">
+          Начать интеграцию
+        </Link>
       </section>
     </article>
   );

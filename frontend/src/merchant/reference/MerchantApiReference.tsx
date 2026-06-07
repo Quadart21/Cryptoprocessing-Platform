@@ -7,7 +7,11 @@ import {
   MERCHANT_COMMISSION_MIN_USD,
   MERCHANT_COMMISSION_PERCENT,
 } from "./merchantCommissionDocs";
+import { docsShowsBlock } from "../../types/docsSection";
+import type { DocsSectionKey } from "../../types/docsSection";
 import { ApiCodePanel } from "./ApiCodePanel";
+
+export type { DocsSectionKey };
 
 export type MerchantApiReferenceProps = {
   apiBaseUrl: string;
@@ -16,6 +20,7 @@ export type MerchantApiReferenceProps = {
   activeWebhookUrl: string | null;
   integrationCurl: string;
   presentation?: "cabinet" | "docs";
+  docsSection?: DocsSectionKey;
 };
 
 type EndpointReference = {
@@ -56,7 +61,7 @@ const FAQ_ITEMS = [
     title: "Как считается комиссия?",
     body: `${MERCHANT_COMMISSION_PERCENT}% от суммы успешного платежа, но не менее ${formatUsd(
       MERCHANT_COMMISSION_MIN_USD,
-    )}. Подробнее — раздел «Комиссии» с таблицей примеров.`,
+    )}. Подробнее — раздел «Комиссии».`,
   },
 ];
 
@@ -116,8 +121,10 @@ export function MerchantApiReference({
   activeWebhookUrl,
   integrationCurl,
   presentation = "cabinet",
+  docsSection,
 }: MerchantApiReferenceProps) {
   const isDocsPresentation = presentation === "docs";
+  const show = (block: string) => docsShowsBlock(docsSection, block, isDocsPresentation);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   const backendOrigin = useMemo(() => {
@@ -595,11 +602,11 @@ export function MerchantApiReference({
 
   return (
     <article
-      className={`mc-surface mc-surface--docs api-docs-panel api-docs-landing${
-        isDocsPresentation ? " api-docs-panel--docs" : ""
+      className={`mc-surface mc-surface--docs api-docs-panel${
+        isDocsPresentation ? " api-docs-panel--docs api-docs-panel--split" : " api-docs-landing"
       }`}
     >
-      <div className={isDocsPresentation ? "api-docs-layout-main" : "api-docs-layout"}>
+      <div className={isDocsPresentation ? "api-docs-layout-main api-docs-layout-main--solo" : "api-docs-layout"}>
         {!isDocsPresentation ? (
           <aside className="api-docs-toc" aria-label="Оглавление документации">
             <p className="api-docs-toc-title">На странице</p>
@@ -619,8 +626,8 @@ export function MerchantApiReference({
           </aside>
         ) : null}
 
-        <div className="api-docs-layout-main">
-          {isDocsPresentation ? (
+        <div className={isDocsPresentation ? "api-docs-layout-main api-docs-layout-main--solo" : "api-docs-layout-main"}>
+          {show("toolbar") ? (
             <section className="api-docs-docs-toolbar" id="docs-toolbar">
               <div className="api-docs-docs-toolbar-copy">
                 <p className="eyebrow">Environment</p>
@@ -648,93 +655,96 @@ export function MerchantApiReference({
                 </div>
               </div>
             </section>
-          ) : (
+          ) : null}
+
+          {!isDocsPresentation ? (
             <>
               <section className="api-docs-hero">
-            <div className="api-docs-hero-copy">
-              <p className="eyebrow">Merchant API Reference</p>
-              <h2>Интеграция приёма криптооплат</h2>
-              <p className="muted-text">
-                Практический экран для backend-разработчика: статус окружения, путь подключения, быстрые копии
-                и подробный контракт без необходимости открывать внешнюю документацию.
-              </p>
-              <div className="api-docs-actions">
-                <a className="ghost-button" href={docsUrl} rel="noreferrer" target="_blank">
-                  Swagger UI
-                </a>
-                <a className="ghost-button" href={openApiUrl} rel="noreferrer" target="_blank">
-                  OpenAPI JSON
-                </a>
-                <button
-                  className="ghost-button"
-                  onClick={() => void handleCopy(apiBaseUrl, "Base URL")}
-                  type="button"
-                >
-                  Копировать Base URL
-                </button>
-              </div>
-            </div>
-
-            <div className="api-docs-status-board" aria-label="Статус интеграции">
-              {readinessCards.map((item) => (
-                <article className={`api-docs-status-card api-docs-status-card-${item.tone}`} key={item.title}>
-                  <span>{item.title}</span>
-                  <code>{item.value}</code>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="api-docs-flow" aria-label="Основной путь подключения">
-            {API_FLOW_STEPS.map((step, index) => (
-              <article className="api-docs-flow-step" key={step.key}>
-                <span className="api-docs-flow-index">{index + 1}</span>
-                <div>
-                  <strong>{step.title}</strong>
-                  <p>{step.text}</p>
-                </div>
-              </article>
-            ))}
-          </section>
-
-          <section className="api-docs-metrics" aria-label="Сводка контракта API">
-            <article>
-              <span>Методов</span>
-              <strong>{endpointStats.total}</strong>
-              <p>Полный набор для оплат, баланса, транзакций и статуса.</p>
-            </article>
-            <article>
-              <span>GET / POST</span>
-              <strong>
-                {endpointStats.get} / {endpointStats.post}
-              </strong>
-              <p>Чтение отделено от мутаций, удобно для прав и rate-limit.</p>
-            </article>
-            <article>
-              <span>Защищены ключами</span>
-              <strong>{endpointStats.secure}</strong>
-              <p>Основная схема: X-API-Key + X-API-Secret.</p>
-            </article>
-          </section>
-
-          <section className="api-docs-group-map" aria-label="Группы API-методов">
-            {Object.entries(ENDPOINT_GROUP_LABELS).map(([group, label]) => (
-              <article className="api-docs-group-card" key={group}>
-                <span>{label}</span>
-                <strong>{endpointGroups[group]?.length ?? 0}</strong>
-                <div>
-                  {(endpointGroups[group] ?? []).map((endpoint) => (
-                    <a href={`#endpoint-${endpoint.id}`} key={endpoint.id}>
-                      {endpoint.method} {endpoint.path.replace("/api/v1/client", "")}
+                <div className="api-docs-hero-copy">
+                  <p className="eyebrow">Merchant API Reference</p>
+                  <h2>Интеграция приёма криптооплат</h2>
+                  <p className="muted-text">
+                    Практический экран для backend-разработчика: статус окружения, путь подключения, быстрые
+                    копии и подробный контракт.
+                  </p>
+                  <div className="api-docs-actions">
+                    <a className="ghost-button" href={docsUrl} rel="noreferrer" target="_blank">
+                      Swagger UI
                     </a>
+                    <a className="ghost-button" href={openApiUrl} rel="noreferrer" target="_blank">
+                      OpenAPI JSON
+                    </a>
+                    <button
+                      className="ghost-button"
+                      onClick={() => void handleCopy(apiBaseUrl, "Base URL")}
+                      type="button"
+                    >
+                      Копировать Base URL
+                    </button>
+                  </div>
+                </div>
+
+                <div className="api-docs-status-board" aria-label="Статус интеграции">
+                  {readinessCards.map((item) => (
+                    <article className={`api-docs-status-card api-docs-status-card-${item.tone}`} key={item.title}>
+                      <span>{item.title}</span>
+                      <code>{item.value}</code>
+                    </article>
                   ))}
                 </div>
-              </article>
-            ))}
-          </section>
-            </>
-          )}
+              </section>
 
+              <section className="api-docs-flow" aria-label="Основной путь подключения">
+                {API_FLOW_STEPS.map((step, index) => (
+                  <article className="api-docs-flow-step" key={step.key}>
+                    <span className="api-docs-flow-index">{index + 1}</span>
+                    <div>
+                      <strong>{step.title}</strong>
+                      <p>{step.text}</p>
+                    </div>
+                  </article>
+                ))}
+              </section>
+
+              <section className="api-docs-metrics" aria-label="Сводка контракта API">
+                <article>
+                  <span>Методов</span>
+                  <strong>{endpointStats.total}</strong>
+                  <p>Полный набор для оплат, баланса, транзакций и статуса.</p>
+                </article>
+                <article>
+                  <span>GET / POST</span>
+                  <strong>
+                    {endpointStats.get} / {endpointStats.post}
+                  </strong>
+                  <p>Чтение отделено от мутаций.</p>
+                </article>
+                <article>
+                  <span>Защищены ключами</span>
+                  <strong>{endpointStats.secure}</strong>
+                  <p>X-API-Key + X-API-Secret.</p>
+                </article>
+              </section>
+
+              <section className="api-docs-group-map" aria-label="Группы API-методов">
+                {Object.entries(ENDPOINT_GROUP_LABELS).map(([group, label]) => (
+                  <article className="api-docs-group-card" key={group}>
+                    <span>{label}</span>
+                    <strong>{endpointGroups[group]?.length ?? 0}</strong>
+                    <div>
+                      {(endpointGroups[group] ?? []).map((endpoint) => (
+                        <a href={`#endpoint-${endpoint.id}`} key={endpoint.id}>
+                          {endpoint.method} {endpoint.path.replace("/api/v1/client", "")}
+                        </a>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </section>
+            </>
+          ) : null}
+
+          {show("start") ? (
           <section className="api-docs-grid api-docs-grid-feature" id="docs-start">
             <article className="api-docs-section api-docs-feature-card">
               <div className="api-docs-section-head">
@@ -765,7 +775,9 @@ export function MerchantApiReference({
               </div>
             </article>
           </section>
+          ) : null}
 
+          {show("auth") ? (
           <section className="api-docs-section" id="docs-auth">
             <div className="api-docs-section-head">
               <p className="eyebrow">Авторизация</p>
@@ -787,7 +799,9 @@ export function MerchantApiReference({
               </button>
             </div>
           </section>
+          ) : null}
 
+          {show("checkout") ? (
           <section className="api-docs-section" id="docs-checkout-delivery">
             <div className="api-docs-section-head">
               <p className="eyebrow">Checkout</p>
@@ -840,7 +854,9 @@ export function MerchantApiReference({
               <code>POST .../refresh</code> для синхронизации статуса.
             </p>
           </section>
+          ) : null}
 
+          {show("endpoints") ? (
           <section className="api-docs-section" id="docs-endpoints-table">
             <div className="api-docs-section-head">
               <p className="eyebrow">Сводка</p>
@@ -903,7 +919,9 @@ export function MerchantApiReference({
               </table>
             </div>
           </section>
+          ) : null}
 
+          {show("reference") ? (
           <section className="api-docs-section" id="docs-reference">
             <div className="api-docs-section-head">
               <p className="eyebrow">Endpoint Reference</p>
@@ -911,7 +929,47 @@ export function MerchantApiReference({
             </div>
 
             <div className="api-docs-endpoint-list">
-              {endpointReferences.map((endpoint) => (
+              {endpointReferences.map((endpoint) =>
+                isDocsPresentation ? (
+                  <details
+                    className="api-docs-endpoint-disclosure"
+                    id={`endpoint-${endpoint.id}`}
+                    key={endpoint.id}
+                  >
+                    <summary className="api-docs-endpoint-disclosure-summary">
+                      <span
+                        className={`api-docs-method-tag ${
+                          endpoint.method === "GET" ? "api-docs-method-get" : "api-docs-method-post"
+                        }`}
+                      >
+                        {endpoint.method}
+                      </span>
+                      <span>
+                        <strong>{endpoint.title}</strong>
+                        <code>{endpoint.path.replace("/api/v1/client", "")}</code>
+                      </span>
+                    </summary>
+                    <article className="api-docs-endpoint-card api-docs-endpoint-card--split">
+                      <div className="api-docs-endpoint-copy">
+                        <p className="muted-text">{endpoint.purpose}</p>
+                        {endpoint.notes?.length ? (
+                          <ul className="integration-list">
+                            {endpoint.notes.map((note) => (
+                              <li key={note}>{note}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                      <ApiCodePanel
+                        endpointId={endpoint.id}
+                        errorExample={endpoint.errorExample}
+                        onCopy={handleCopy}
+                        requestExample={endpoint.requestExample}
+                        successExample={endpoint.successExample}
+                      />
+                    </article>
+                  </details>
+                ) : (
                 <article
                   className={`api-docs-endpoint-card${
                     isDocsPresentation ? " api-docs-endpoint-card--split" : ""
@@ -962,10 +1020,13 @@ export function MerchantApiReference({
                     successExample={endpoint.successExample}
                   />
                 </article>
-              ))}
+                ),
+              )}
             </div>
           </section>
+          ) : null}
 
+          {!isDocsPresentation ? (
           <section className="api-docs-section" id="docs-cabinet">
             <div className="api-docs-section-head">
               <p className="eyebrow">Кабинет</p>
@@ -1012,7 +1073,9 @@ export function MerchantApiReference({
               </article>
             </div>
           </section>
+          ) : null}
 
+          {show("webhooks") ? (
           <section className="api-docs-grid" id="docs-webhooks">
             <article className="result-box api-docs-code-card">
               <div className="api-docs-section-head">
@@ -1073,7 +1136,9 @@ export function MerchantApiReference({
               </div>
             </article>
           </section>
+          ) : null}
 
+          {show("commissions") ? (
           <section className="api-docs-section" id="docs-commissions">
             <div className="api-docs-section-head">
               <p className="eyebrow">Тариф</p>
@@ -1139,7 +1204,9 @@ export function MerchantApiReference({
               </li>
             </ul>
           </section>
+          ) : null}
 
+          {show("faq") ? (
           <section className="api-docs-section" id="docs-faq">
             <div className="api-docs-section-head">
               <p className="eyebrow">FAQ</p>
@@ -1154,6 +1221,7 @@ export function MerchantApiReference({
               ))}
             </div>
           </section>
+          ) : null}
         </div>
       </div>
 

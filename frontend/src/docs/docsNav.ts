@@ -5,103 +5,181 @@ export type DocsNavItem = {
   icon: string;
 };
 
-export const DOCS_PRIMARY_NAV: DocsNavItem[] = [
+import type { DocsSectionKey } from "../types/docsSection";
+
+export type { DocsSectionKey };
+
+export type DocsPageMeta = {
+  eyebrow: string;
+  title: string;
+  lead: string;
+};
+
+export const DOCS_PAGE_META: Record<DocsSectionKey, DocsPageMeta> = {
+  quickstart: {
+    eyebrow: "Начало",
+    title: "Быстрый старт",
+    lead: "Ключи, первый инвойс и авторизация — минимум шагов до тестового платежа.",
+  },
+  checkout: {
+    eyebrow: "Оплата",
+    title: "Checkout: страница или H2H",
+    lead: "Как отдавать клиенту ссылку /pay/{token} или адрес/QR — зависит от checkout_delivery проекта.",
+  },
+  webhooks: {
+    eyebrow: "События",
+    title: "Webhooks",
+    lead: "Подпись HMAC, формат payload и тестовая доставка.",
+  },
+  commissions: {
+    eyebrow: "Тариф",
+    title: "Комиссии",
+    lead: "0,4% от платежа, минимум $0,70 — формула и примеры.",
+  },
+  reference: {
+    eyebrow: "Справочник",
+    title: "API Reference",
+    lead: "Все merchant-методы: таблица и примеры curl/JSON.",
+  },
+  faq: {
+    eyebrow: "Помощь",
+    title: "FAQ",
+    lead: "Ключи, ошибки, checkout и типовые вопросы интеграции.",
+  },
+};
+
+export const DOCS_SIDEBAR_GROUPS: Array<{ label: string; items: DocsNavItem[] }> = [
   {
-    to: "/",
-    label: "Overview",
-    description: "Обзор и быстрый старт",
-    icon: "◆",
+    label: "Начало",
+    items: [
+      {
+        to: "/",
+        label: "Обзор",
+        description: "Карта документации",
+        icon: "◆",
+      },
+      {
+        to: "/quickstart",
+        label: "Быстрый старт",
+        description: "7 шагов до первого инвойса",
+        icon: "→",
+      },
+    ],
   },
   {
-    to: "/merchant-api",
-    label: "Merchant API",
-    description: "Контракт и примеры",
-    icon: "⚡",
+    label: "Интеграция",
+    items: [
+      {
+        to: "/checkout",
+        label: "Checkout",
+        description: "Payment page / H2H",
+        icon: "◈",
+      },
+      {
+        to: "/webhooks",
+        label: "Webhooks",
+        description: "Подпись и payload",
+        icon: "⇄",
+      },
+    ],
   },
   {
-    to: "/merchant-api#docs-checkout-delivery",
-    label: "Payment page",
-    description: "Hosted checkout или H2H",
-    icon: "◈",
-  },
-  {
-    to: "/merchant-api#docs-webhooks",
-    label: "Webhooks",
-    description: "События, подпись, retry",
-    icon: "⇄",
-  },
-  {
-    to: "/merchant-api#docs-commissions",
-    label: "Комиссии",
-    description: "0,4% · минимум $0,70",
-    icon: "%",
-  },
-  {
-    to: "/merchant-api#docs-faq",
-    label: "FAQ",
-    description: "Ключи, ошибки, типовые кейсы",
-    icon: "?",
+    label: "Справочник",
+    items: [
+      {
+        to: "/reference",
+        label: "API методы",
+        description: "Endpoint reference",
+        icon: "⚡",
+      },
+      {
+        to: "/commissions",
+        label: "Комиссии",
+        description: "0,4% · min $0,70",
+        icon: "%",
+      },
+      {
+        to: "/faq",
+        label: "FAQ",
+        description: "Ответы на частые вопросы",
+        icon: "?",
+      },
+    ],
   },
 ];
 
-export const DOCS_QUICK_CARDS = [
-  {
-    to: "/merchant-api#docs-start",
-    title: "Quickstart",
-    body: "Ключи, rates, первый инвойс и checkout_delivery — 7 шагов.",
-    icon: "01",
-  },
-  {
-    to: "/merchant-api#docs-checkout-delivery",
-    title: "Payment page",
-    body: "Hosted checkout /pay/{token} или H2H-реквизиты — на уровне проекта.",
-    icon: "02",
-  },
-  {
-    to: "/merchant-api#docs-endpoints-table",
-    title: "API Reference",
-    body: "Endpoint'ы, auth-схема и curl-примеры.",
-    icon: "03",
-  },
-  {
-    to: "/merchant-api#docs-webhooks",
-    title: "Webhooks",
-    body: "Invoice events, HMAC-подпись, checkout_delivery, тестовая доставка.",
-    icon: "04",
-  },
-  {
-    to: "/merchant-api#docs-commissions",
-    title: "Комиссии",
-    body: "0,4% от платежа, но не ниже $0,70 — формула и примеры расчёта.",
-    icon: "05",
-  },
+export const DOCS_GUIDE_ORDER: DocsSectionKey[] = [
+  "quickstart",
+  "checkout",
+  "webhooks",
+  "reference",
+  "commissions",
+  "faq",
 ];
 
 export const DOCS_PIPELINE = [
-  { step: "01", title: "Keys", text: "Public + Secret — только на backend" },
-  { step: "02", title: "Rates", text: "Сеть, лимиты, комиссия 0,4% (мин. $0,70)" },
-  { step: "03", title: "Checkout", text: "checkout_delivery: payment page или H2H" },
-  { step: "04", title: "Invoice", text: "POST /invoices → ссылка или реквизиты" },
-  { step: "05", title: "Webhook", text: "Подтверждение оплаты и sync" },
+  { step: "01", title: "Ключи", text: "Public + Secret на backend" },
+  { step: "02", title: "Rates", text: "Сеть и лимиты" },
+  { step: "03", title: "Invoice", text: "POST /invoices" },
+  { step: "04", title: "Webhook", text: "Подтверждение оплаты" },
+] as const;
+
+export const DOCS_HUB_CARDS: Array<{
+  to: string;
+  title: string;
+  body: string;
+  icon: string;
+}> = [
+  {
+    to: "/quickstart",
+    title: "Быстрый старт",
+    body: "Ключи → rates → инвойс → webhook.",
+    icon: "01",
+  },
+  {
+    to: "/checkout",
+    title: "Checkout",
+    body: "Hosted /pay/{token} или H2H-реквизиты.",
+    icon: "02",
+  },
+  {
+    to: "/reference",
+    title: "API методы",
+    body: "Таблица endpoint'ов и примеры.",
+    icon: "03",
+  },
+  {
+    to: "/webhooks",
+    title: "Webhooks",
+    body: "HMAC, event_id, тест доставки.",
+    icon: "04",
+  },
+  {
+    to: "/commissions",
+    title: "Комиссии",
+    body: "0,4%, минимум $0,70.",
+    icon: "05",
+  },
+  {
+    to: "/faq",
+    title: "FAQ",
+    body: "Ключи, ошибки, sandbox.",
+    icon: "06",
+  },
 ];
 
-export const DOCS_STATS = [
-  { value: "10+", label: "API methods", hint: "Payments, balance, accounting" },
-  { value: "3", label: "Checkout modes", hint: "payment_page · h2h · both" },
-  { value: "<200ms", label: "Health ping", hint: "Smoke endpoint без auth" },
-];
-
-export const DOCS_API_SECTIONS = [
-  { href: "#docs-start", label: "Быстрый старт" },
-  { href: "#docs-auth", label: "Авторизация" },
-  { href: "#docs-checkout-delivery", label: "Checkout" },
-  { href: "#docs-endpoints-table", label: "Сводка методов" },
-  { href: "#docs-reference", label: "Endpoint reference" },
-  { href: "#docs-cabinet", label: "Кабинет (JWT)" },
-  { href: "#docs-webhooks", label: "Webhooks" },
-  { href: "#docs-commissions", label: "Комиссии" },
-  { href: "#docs-faq", label: "FAQ" },
-];
+/** Legacy hash on /merchant-api → new route */
+export const DOCS_LEGACY_HASH_REDIRECTS: Record<string, string> = {
+  "#docs-start": "/quickstart",
+  "#docs-auth": "/quickstart",
+  "#docs-checkout-delivery": "/checkout",
+  "#docs-webhooks": "/webhooks",
+  "#docs-commissions": "/commissions",
+  "#docs-faq": "/faq",
+  "#docs-endpoints-table": "/reference",
+  "#docs-reference": "/reference",
+  "#docs-cabinet": "/reference",
+};
 
 export const DOCS_API_ENDPOINTS = [
   { href: "#endpoint-health", label: "Health", method: "GET" },

@@ -1,18 +1,27 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { PlatformBrandMark, usePlatformBrand } from "../brand/PlatformBrandLogo";
+import { resolveClientApiBaseUrl } from "../config/apiBase";
 import { resolveMainSiteOrigin } from "../config/siteHost";
-import { DocsApiToc } from "./DocsApiToc";
-import { DOCS_PRIMARY_NAV } from "./docsNav";
+import { DocsCopyChip } from "./DocsCopyChip";
+import { DOCS_SIDEBAR_GROUPS } from "./docsNav";
+
+function isNavActive(pathname: string, to: string) {
+  if (to === "/") {
+    return pathname === "/";
+  }
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
 
 export function DocsSiteLayout() {
   const mainSite = resolveMainSiteOrigin();
+  const apiBaseUrl = resolveClientApiBaseUrl();
   const location = useLocation();
-  const isApiPage = location.pathname.startsWith("/merchant-api");
+  const isHub = location.pathname === "/";
   const { brandName, logoUrl } = usePlatformBrand();
 
   return (
-    <div className={`docs-site${isApiPage ? " docs-site--api" : ""}`}>
+    <div className="docs-site">
       <div className="docs-site-ambient" aria-hidden="true">
         <span className="docs-site-orb docs-site-orb-a" />
         <span className="docs-site-orb docs-site-orb-b" />
@@ -31,34 +40,13 @@ export function DocsSiteLayout() {
             )}
             <div>
               {!logoUrl ? <strong>{brandName}</strong> : null}
-              <small>Документация API</small>
+              <small>Документация Merchant API</small>
             </div>
           </NavLink>
 
-          <nav className="docs-site-topnav" aria-label="Documentation sections">
-            {DOCS_PRIMARY_NAV.map((item) => {
-              const isHashLink = item.to.includes("#");
-              const isActive =
-                !isHashLink &&
-                (item.to === "/"
-                  ? location.pathname === "/"
-                  : location.pathname.startsWith(item.to));
-              const className = `docs-site-topnav-link${isActive ? " is-active" : ""}`;
-              return isHashLink ? (
-                <a className={className} href={item.to} key={item.to}>
-                  {item.label}
-                </a>
-              ) : (
-                <NavLink className={className} end={item.to === "/"} key={item.to} to={item.to}>
-                  {item.label}
-                </NavLink>
-              );
-            })}
-          </nav>
-
           <div className="docs-site-topbar-actions">
             <a className="docs-site-link" href={`${mainSite}/docs`} target="_blank" rel="noreferrer">
-              OpenAPI
+              Swagger
             </a>
             <a className="docs-site-button docs-site-button-ghost" href={`${mainSite}/?auth=login`}>
               Войти
@@ -70,87 +58,69 @@ export function DocsSiteLayout() {
         </div>
       </header>
 
-      <div className={`docs-site-shell${isApiPage ? " docs-site-shell--api" : ""}`}>
-        {!isApiPage ? (
-          <aside className="docs-site-sidebar" aria-label="Documentation navigation">
-            <div className="docs-site-sidebar-panel">
-              <p className="docs-site-sidebar-label">Guides</p>
+      <div className="docs-site-shell">
+        <aside className="docs-site-sidebar" aria-label="Навигация документации">
+          {DOCS_SIDEBAR_GROUPS.map((group) => (
+            <div className="docs-site-sidebar-panel" key={group.label}>
+              <p className="docs-site-sidebar-label">{group.label}</p>
               <nav className="docs-site-nav">
-                {DOCS_PRIMARY_NAV.map((item) => {
-                  const className = `docs-site-nav-item${
-                    !item.to.includes("#") && location.pathname === item.to ? " is-active" : ""
-                  }`;
-                  const content = (
-                    <>
-                      <span className="docs-site-nav-icon">{item.icon}</span>
-                      <span className="docs-site-nav-copy">
-                        <strong>{item.label}</strong>
-                        <span>{item.description}</span>
-                      </span>
-                    </>
-                  );
-                  return item.to.includes("#") ? (
-                    <a className={className} href={item.to} key={item.to}>
-                      {content}
-                    </a>
-                  ) : (
-                    <NavLink className={className} end={item.to === "/"} key={item.to} to={item.to}>
-                      {content}
-                    </NavLink>
-                  );
-                })}
+                {group.items.map((item) => (
+                  <NavLink
+                    className={({ isActive }) =>
+                      `docs-site-nav-item${isActive || isNavActive(location.pathname, item.to) ? " is-active" : ""}`
+                    }
+                    end={item.to === "/"}
+                    key={item.to}
+                    to={item.to}
+                  >
+                    <span className="docs-site-nav-icon">{item.icon}</span>
+                    <span className="docs-site-nav-copy">
+                      <strong>{item.label}</strong>
+                      <span>{item.description}</span>
+                    </span>
+                  </NavLink>
+                ))}
               </nav>
             </div>
+          ))}
 
-            <div className="docs-site-sidebar-panel docs-site-sidebar-cta">
-              <p className="docs-site-sidebar-label">Поддержка</p>
-              <p>Поможем с интеграцией и разбором payload.</p>
-              <a className="docs-site-button docs-site-button-primary docs-site-button-block" href={mainSite}>
-                Открыть платформу
-              </a>
-            </div>
-          </aside>
-        ) : null}
+          <div className="docs-site-sidebar-panel docs-site-sidebar-env">
+            <p className="docs-site-sidebar-label">Base URL</p>
+            <DocsCopyChip value={apiBaseUrl} label="Скопировать" />
+            <p className="docs-site-sidebar-hint">
+              Health: <code>{apiBaseUrl}/health</code>
+            </p>
+          </div>
+
+          <div className="docs-site-sidebar-panel docs-site-sidebar-cta">
+            <p className="docs-site-sidebar-label">Поддержка</p>
+            <p>Поможем с интеграцией и разбором webhook payload.</p>
+            <a className="docs-site-button docs-site-button-primary docs-site-button-block" href={mainSite}>
+              Открыть платформу
+            </a>
+          </div>
+        </aside>
 
         <div className="docs-site-content">
-          {isApiPage ? (
-            <div className="docs-api-banner">
-              <div>
-                <p className="docs-api-banner-eyebrow">Reference</p>
-                <h1>Merchant API</h1>
-                <p>
-                  Контракт приёма криптовалюты: инвойсы, баланс, транзакции, webhook — с curl-примерами.
-                </p>
-              </div>
-              <div className="docs-api-banner-badges">
-                <span>REST</span>
-                <span>JSON</span>
-                <span>HMAC Webhooks</span>
-              </div>
-            </div>
-          ) : null}
-
-          <main className={`docs-site-main${isApiPage ? " docs-site-main--api" : ""}`}>
+          <main className={`docs-site-main${isHub ? " docs-site-main--hub" : " docs-site-main--guide"}`}>
             <Outlet />
           </main>
 
-          {!isApiPage ? (
-            <footer className="docs-site-footer">
-              <span>© {new Date().getFullYear()} {brandName}</span>
-              <div className="docs-site-footer-links">
-                <a href={`${mainSite}/openapi.json`} target="_blank" rel="noreferrer">
-                  openapi.json
-                </a>
-                <a href={`${mainSite}/docs`} target="_blank" rel="noreferrer">
-                  Swagger
-                </a>
-                <a href={mainSite}>Platform</a>
-              </div>
-            </footer>
-          ) : null}
+          <footer className="docs-site-footer">
+            <span>
+              © {new Date().getFullYear()} {brandName}
+            </span>
+            <div className="docs-site-footer-links">
+              <a href={`${mainSite}/openapi.json`} target="_blank" rel="noreferrer">
+                openapi.json
+              </a>
+              <a href={`${mainSite}/docs`} target="_blank" rel="noreferrer">
+                Swagger
+              </a>
+              <a href={mainSite}>Platform</a>
+            </div>
+          </footer>
         </div>
-
-        {isApiPage ? <DocsApiToc /> : null}
       </div>
     </div>
   );

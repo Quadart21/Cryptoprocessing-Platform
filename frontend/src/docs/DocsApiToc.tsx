@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
-import { DOCS_API_ENDPOINTS, DOCS_API_SECTIONS } from "./docsNav";
+import { DOCS_API_ENDPOINTS } from "./docsNav";
 
-export function DocsApiToc() {
+type DocsApiTocProps = {
+  variant?: "aside" | "inline";
+};
+
+export function DocsApiToc({ variant = "aside" }: DocsApiTocProps) {
   const location = useLocation();
   const [activeId, setActiveId] = useState<string>("");
 
   useEffect(() => {
-    const anchors = [...DOCS_API_SECTIONS, ...DOCS_API_ENDPOINTS].map((item) => item.href.slice(1));
+    const anchors = DOCS_API_ENDPOINTS.map((item) => item.href.slice(1));
     const elements = anchors
       .map((id) => document.getElementById(id))
       .filter((element): element is HTMLElement => Boolean(element));
@@ -26,7 +30,7 @@ export function DocsApiToc() {
           setActiveId(visible[0].target.id);
         }
       },
-      { rootMargin: "-20% 0px -55% 0px", threshold: [0.1, 0.35, 0.6] },
+      { rootMargin: "-15% 0px -60% 0px", threshold: [0.1, 0.35, 0.6] },
     );
 
     elements.forEach((element) => observer.observe(element));
@@ -34,34 +38,17 @@ export function DocsApiToc() {
   }, [location.pathname, location.hash]);
 
   return (
-    <aside className="docs-api-toc" aria-label="Оглавление API reference">
+    <aside
+      className={`docs-api-toc${variant === "inline" ? " docs-api-toc--inline" : ""}`}
+      aria-label="Endpoint navigation"
+    >
       <div className="docs-api-toc-panel">
         <p className="docs-site-sidebar-label">На странице</p>
         <nav className="docs-api-toc-nav">
-          {DOCS_API_SECTIONS.map((item) => {
-            const id = item.href.slice(1);
-            return (
-              <a
-                className={activeId === id ? "is-active" : undefined}
-                href={item.href}
-                key={item.href}
-              >
-                {item.label}
-              </a>
-            );
-          })}
-        </nav>
-
-        <p className="docs-site-sidebar-label docs-api-toc-label-endpoints">Endpoints</p>
-        <nav className="docs-api-toc-nav docs-api-toc-nav-endpoints">
           {DOCS_API_ENDPOINTS.map((item) => {
             const id = item.href.slice(1);
             return (
-              <a
-                className={activeId === id ? "is-active" : undefined}
-                href={item.href}
-                key={item.href}
-              >
+              <a className={activeId === id ? "is-active" : undefined} href={item.href} key={item.href}>
                 <span className={`docs-api-toc-method docs-api-toc-method-${item.method.toLowerCase()}`}>
                   {item.method}
                 </span>
