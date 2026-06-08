@@ -1,0 +1,9 @@
+root: ./
+
+structure:
+  readme: README.md
+  summary: SUMMARY.md
+
+redirects:
+  merchant-api: api-reference/endpoints.md
+  quickstart: quickstart.md

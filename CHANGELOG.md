@@ -10,6 +10,14 @@
 
 
 
+## [0.14.97] — 2026-06-07
+
+### Добавлено
+
+- **GitBook**: папка `gitbook/` — Markdown-документация Merchant API (SUMMARY, quickstart, checkout, webhooks, reference, комиссии, FAQ) для Git Sync.
+
+---
+
 ## [0.14.96] — 2026-06-07
 
 ### Добавлено
