@@ -1,23 +1,23 @@
 # Table of contents
 
-* [Обзор](README.md)
+* [Merchant API · для мерчантов](README.md)
 
-## Начало
+## Начало работы
 
 * [Быстрый старт](quickstart.md)
 
-## Интеграция
+## Приём платежей
 
 * [Checkout: payment page / H2H](checkout.md)
 * [Webhooks](webhooks.md)
 
-## Справочник API
+## Справочник Merchant API
 
 * [Сводка методов](api-reference/summary.md)
 * [Примеры запросов](api-reference/endpoints.md)
-* [Кабинет (JWT)](api-reference/cabinet.md)
+* [Кабинет мерчанта (JWT)](api-reference/cabinet.md)
 
-## Тариф
+## Тариф мерчанта
 
 * [Комиссии](commissions.md)
 

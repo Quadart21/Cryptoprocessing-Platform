@@ -2,14 +2,18 @@
 hidden: true
 ---
 
-# Подключение GitBook
+# Подключение GitBook (только мерчанты)
 
-Инструкция для команды: как опубликовать эту документацию на [GitBook](https://www.gitbook.com).
+Инструкция для команды: опубликовать **merchant-документацию** на [GitBook](https://www.gitbook.com).
+
+{% hint style="info" %}
+В этот space попадает **только** документация для мерчантов (Merchant API). Документация платформы, админки и внутренних процессов сюда **не добавляется**.
+{% endhint %}
 
 ## 1. Создать space
 
 1. Войдите на [gitbook.com](https://www.gitbook.com).
-2. **Create** → **Documentation** → новый space (например «NorenDigital Merchant API»).
+2. **Create** → **Documentation** → space **«NorenDigital · Merchant API»** (аудитория — мерчанты).
 
 ## 2. Включить Git Sync
 
@@ -39,11 +43,11 @@ gitbook/
 
 После push в `main` GitBook подтянет изменения автоматически (1–3 минуты).
 
-## 4. Кастомный домен
+## 4. Кастомный домен (опционально)
 
 1. **Settings** → **Domain**.
-2. Добавьте `docs.noren.digital` (CNAME на GitBook).
-3. В Cloudflare включите прокси или DNS-only — по инструкции GitBook.
+2. Можно привязать `docs.noren.digital` — публичная дока **для мерчантов**.
+3. Админка (`admin.noren.digital`) и внутренние материалы на GitBook **не выкладываются**.
 
 ## 5. Редактирование
 
@@ -56,11 +60,12 @@ gitbook/
 Не добавляйте один и тот же `.md` файл дважды в `SUMMARY.md` — у каждой страницы один URL.
 {% endhint %}
 
-## 6. Связь с docs-сайтом платформы
+## 6. Что не класть в этот space
 
-На платформе документация также доступна на `docs.noren.digital` (React docs-site). GitBook можно использовать как:
+| Не для GitBook `gitbook/` | Где держать |
+| --- | --- |
+| Админка платформы, RBAC, billing ops | Внутренняя дока / не публикуется |
+| Sandbox для команды | `sandbox/` в репозитории |
+| CHANGELOG, деплой, ops | `CHANGELOG.md`, `ops/` |
 
-* публичную внешнюю документацию для мерчантов;
-* или замену self-hosted docs после настройки домена.
-
-При расхождении источник правды для GitBook — папка `gitbook/` в этом репозитории.
+Источник правды merchant-доки — только папка `gitbook/` в репозитории.
