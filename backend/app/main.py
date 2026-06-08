@@ -59,12 +59,13 @@ MERCHANT_OPENAPI_ALLOWLIST: set[tuple[str, str]] = {
 async def lifespan(_: FastAPI):
     ensure_database_ready()
     BrandLogoService.ensure_upload_dir()
-    from app.db.session import AsyncSessionLocal
+    BrandLogoService.sync_bundled_logo()
     from app.services.billing_policy_service import BillingPolicyService
     from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
 
     rates_cache = get_crypto_cash_rates_cache()
     async with AsyncSessionLocal() as session:
+        await BrandLogoService.ensure_default_logo_in_db(session)
         price_field = await BillingPolicyService(session).get_exchange_rate_price_field()
     rates_cache.set_price_field(price_field)
     rates_cache.start_polling()

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.public_urls import resolve_public_asset_url_for_web
 from app.models.platform_setting import PlatformSetting
+from app.services.brand_logo_service import DEFAULT_BRAND_LOGO_PUBLIC_PATH
 
 
 class SeoService:
@@ -27,7 +28,9 @@ class SeoService:
             "robots": settings.seo_robots or "index, follow",
             "canonical_url": settings.seo_canonical_url,
             "brand_name": (settings.notification_brand_name or "").strip() or "NorenDigital",
-            "logo_url": resolve_public_asset_url_for_web((settings.notification_logo_url or "").strip() or None),
+            "logo_url": resolve_public_asset_url_for_web(
+                (settings.notification_logo_url or "").strip() or DEFAULT_BRAND_LOGO_PUBLIC_PATH
+            ),
         }
 
     @staticmethod
@@ -41,5 +44,5 @@ class SeoService:
             "robots": "index, follow",
             "canonical_url": None,
             "brand_name": "NorenDigital",
-            "logo_url": None,
+            "logo_url": resolve_public_asset_url_for_web(DEFAULT_BRAND_LOGO_PUBLIC_PATH),
         }

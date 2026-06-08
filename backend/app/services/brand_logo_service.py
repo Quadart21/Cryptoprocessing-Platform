@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 BRAND_LOGO_PUBLIC_PREFIX = "/uploads/brand/"
 BRAND_LOGO_FILENAME = "logo"
+DEFAULT_BRAND_LOGO_EXTENSION = ".png"
+DEFAULT_BRAND_LOGO_PUBLIC_PATH = f"{BRAND_LOGO_PUBLIC_PREFIX}{BRAND_LOGO_FILENAME}{DEFAULT_BRAND_LOGO_EXTENSION}"
 MAX_BRAND_LOGO_BYTES = 512 * 1024
 
 ALLOWED_EXTENSIONS = {
@@ -45,6 +47,38 @@ class BrandLogoService:
         target = cls.uploads_dir()
         target.mkdir(parents=True, exist_ok=True)
         return target
+
+    @staticmethod
+    def bundled_logo_source() -> Path:
+        project_root = Path(__file__).resolve().parents[3]
+        return (project_root / "ops" / "assets" / "brand" / "logo.png").resolve()
+
+    @classmethod
+    def sync_bundled_logo(cls) -> Path | None:
+        source = cls.bundled_logo_source()
+        if not source.is_file():
+            logger.warning("Bundled brand logo not found at %s", source)
+            return None
+
+        destination = cls.ensure_upload_dir() / f"{BRAND_LOGO_FILENAME}{DEFAULT_BRAND_LOGO_EXTENSION}"
+        destination.write_bytes(source.read_bytes())
+        logger.info("Synced bundled brand logo to %s", destination)
+        return destination
+
+    @classmethod
+    async def ensure_default_logo_in_db(cls, db: AsyncSession) -> None:
+        cls.sync_bundled_logo()
+
+        billing = BillingPolicyService(db)
+        platform_settings = await billing.get_platform_settings()
+        current = (platform_settings.notification_logo_url or "").strip()
+        if current:
+            return
+
+        platform_settings.notification_logo_url = DEFAULT_BRAND_LOGO_PUBLIC_PATH
+        db.add(platform_settings)
+        await db.commit()
+        logger.info("Set default brand logo URL to %s", DEFAULT_BRAND_LOGO_PUBLIC_PATH)
 
     @staticmethod
     def stored_public_path(extension: str) -> str:

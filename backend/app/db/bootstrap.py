@@ -400,6 +400,11 @@ DDL_PATCHES = [
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(64)
     """,
+    """
+    UPDATE platform_settings
+    SET notification_logo_url = '/uploads/brand/logo.png'
+    WHERE notification_logo_url IS NULL OR TRIM(notification_logo_url) = ''
+    """,
 ]
 
 RLS_TENANT_TABLES = [
