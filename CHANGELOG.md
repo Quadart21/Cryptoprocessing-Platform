@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.15.6] — 2026-06-09
+
+### Исправлено
+
+- **Backend Settings**: `extra=ignore` для `.env` — `UVICORN_WORKERS` и прочие systemd-переменные не ломают Alembic/запуск.
+
+---
+
 ## [0.15.5] — 2026-06-09
 
 ### Исправлено

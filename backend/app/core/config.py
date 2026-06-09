@@ -23,6 +23,7 @@ class Settings(BaseSettings):
         env_file=ROOT_ENV_FILE,
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     app_name: str = Field(default="NorenDigital", alias="APP_NAME")
