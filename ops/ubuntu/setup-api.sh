@@ -149,7 +149,7 @@ main() {
     ufw allow 80/tcp
     ufw allow 443/tcp
     if [[ -n "${SITE_SERVER_IP}" ]]; then
-      ufw allow from "${SITE_SERVER_IP}" to any port 8000 proto tcp
+      split_ufw_allow_from_to_port "${SITE_SERVER_IP}" 8000
     fi
     split_ufw_enable
   fi

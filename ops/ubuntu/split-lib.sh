@@ -114,14 +114,20 @@ split_ufw_allow_ssh() {
   if ! command -v ufw >/dev/null 2>&1; then
     return 0
   fi
-  if ufw status 2>/dev/null | grep -qE 'OpenSSH|22/tcp'; then
+  if ufw status numbered 2>/dev/null | grep -qE '[[:space:]]22(/tcp)?[[:space:]]'; then
     return 0
   fi
-  if ufw app list 2>/dev/null | grep -q OpenSSH; then
-    ufw allow OpenSSH
-  else
-    ufw allow 22/tcp
+  ufw allow 22/tcp
+}
+
+split_ufw_allow_from_to_port() {
+  local source_ip="$1"
+  local port="$2"
+  if [[ -z "${source_ip}" || -z "${port}" ]]; then
+    echo "UFW: skip empty source_ip or port (from=${source_ip} port=${port})" >&2
+    return 1
   fi
+  ufw allow from "${source_ip}" to any port "${port}"
 }
 
 split_ufw_enable() {

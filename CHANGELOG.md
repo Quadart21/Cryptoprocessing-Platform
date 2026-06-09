@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.15.2] — 2026-06-09
+
+### Исправлено
+
+- **UFW split deploy**: убран `proto tcp` (ломал правило с `Need 'to' or 'from' clause`), SSH только через `22/tcp`, проверка пустого IP.
+
+---
+
 ## [0.15.1] — 2026-06-09
 
 ### Исправлено
