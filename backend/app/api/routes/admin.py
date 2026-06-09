@@ -1945,7 +1945,9 @@ async def _map_platform_billing_settings_response(
         ),
         notification_events=notification_service.get_platform_event_views(platform_settings),
         notification_brand_name=platform_settings.notification_brand_name,
-        notification_logo_url=platform_settings.notification_logo_url,
+        notification_logo_url=BrandLogoService.web_url_for_stored_path(
+            platform_settings.notification_logo_url
+        ),
         notification_primary_url=platform_settings.notification_primary_url,
         notification_templates=notification_service.get_platform_template_views(
             platform_settings

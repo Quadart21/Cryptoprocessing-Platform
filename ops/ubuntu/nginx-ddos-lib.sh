@@ -66,6 +66,21 @@ nginx_emit_protected_locations() {
         proxy_pass http://127.0.0.1:8000;
     }
 
+    location /uploads/brand/ {
+        limit_req zone=cp_general burst=80 nodelay;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 60s;
+        proxy_connect_timeout 15s;
+        proxy_send_timeout 60s;
+        proxy_pass http://127.0.0.1:8000;
+        add_header Cache-Control "public, max-age=300, must-revalidate";
+        add_header Cross-Origin-Resource-Policy "cross-origin" always;
+    }
+
     location /uploads/ {
         limit_req zone=cp_general burst=80 nodelay;
         proxy_http_version 1.1;

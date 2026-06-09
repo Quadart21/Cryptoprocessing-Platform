@@ -408,7 +408,7 @@ class NotificationService:
         platform_settings.notification_brand_name = (
             (notification_brand_name or "").strip() or "NorenDigital"
         )
-        normalized_logo_url = (notification_logo_url or "").strip()
+        normalized_logo_url = (notification_logo_url or "").strip().split("?", 1)[0]
         platform_settings.notification_logo_url = normalized_logo_url or None
         normalized_primary_url = (notification_primary_url or "").strip()
         platform_settings.notification_primary_url = normalized_primary_url or None

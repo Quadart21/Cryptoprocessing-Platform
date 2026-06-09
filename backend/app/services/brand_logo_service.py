@@ -60,10 +60,45 @@ class BrandLogoService:
             logger.warning("Bundled brand logo not found at %s", source)
             return None
 
-        destination = cls.ensure_upload_dir() / f"{BRAND_LOGO_FILENAME}{DEFAULT_BRAND_LOGO_EXTENSION}"
+        target_dir = cls.ensure_upload_dir()
+        existing = [item for item in target_dir.glob(f"{BRAND_LOGO_FILENAME}.*") if item.is_file()]
+        if existing:
+            return existing[0]
+
+        destination = target_dir / f"{BRAND_LOGO_FILENAME}{DEFAULT_BRAND_LOGO_EXTENSION}"
         destination.write_bytes(source.read_bytes())
-        logger.info("Synced bundled brand logo to %s", destination)
+        logger.info("Seeded bundled brand logo to %s", destination)
         return destination
+
+    @staticmethod
+    def normalize_stored_path(stored: str | None) -> str:
+        return (stored or "").strip().split("?", 1)[0]
+
+    @classmethod
+    def append_cache_buster(cls, public_path: str) -> str:
+        path_only = cls.normalize_stored_path(public_path)
+        if not path_only.startswith(BRAND_LOGO_PUBLIC_PREFIX):
+            return (public_path or "").strip()
+
+        filename = Path(path_only).name
+        if not filename.startswith(BRAND_LOGO_FILENAME):
+            return path_only
+
+        candidate = cls.uploads_dir() / filename
+        if not candidate.is_file():
+            return path_only
+
+        version = int(candidate.stat().st_mtime)
+        return f"{path_only}?v={version}"
+
+    @classmethod
+    def web_url_for_stored_path(cls, stored: str | None) -> str | None:
+        raw = cls.normalize_stored_path(stored)
+        if not raw:
+            return None
+        if not raw.startswith(BRAND_LOGO_PUBLIC_PREFIX):
+            return (stored or "").strip() or None
+        return cls.append_cache_buster(raw)
 
     @classmethod
     async def ensure_default_logo_in_db(cls, db: AsyncSession) -> None:
@@ -115,7 +150,7 @@ class BrandLogoService:
 
         billing = BillingPolicyService(self.db)
         platform_settings = await billing.get_platform_settings()
-        current = (platform_settings.notification_logo_url or "").strip()
+        current = BrandLogoService.normalize_stored_path(platform_settings.notification_logo_url)
         if current.startswith(BRAND_LOGO_PUBLIC_PREFIX):
             platform_settings.notification_logo_url = None
             self.db.add(platform_settings)

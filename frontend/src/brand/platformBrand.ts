@@ -34,7 +34,9 @@ export function resolveBrandLogoUrlForDisplay(logoUrl: string | null | undefined
   }
 
   if (uploadPath) {
-    return `${window.location.origin}${uploadPath}`;
+    const pathOnly = uploadPath.split("?")[0] ?? uploadPath;
+    const query = uploadPath.includes("?") ? uploadPath.slice(uploadPath.indexOf("?")) : "";
+    return `${window.location.origin}${pathOnly}${query}`;
   }
 
   return normalized;
