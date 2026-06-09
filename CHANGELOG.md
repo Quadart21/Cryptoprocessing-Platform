@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.15.5] — 2026-06-09
+
+### Исправлено
+
+- **Split deploy**: `git safe.directory` без глобального config; `chown` после `git pull`; `cp .env` с fallback.
+
+---
+
 ## [0.15.4] — 2026-06-09
 
 ### Исправлено

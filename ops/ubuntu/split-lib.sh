@@ -23,6 +23,31 @@ split_ensure_app_user() {
   fi
 }
 
+split_git() {
+  local app_dir="${1:-/opt/cryptoprocessing}"
+  shift
+  git -c "safe.directory=${app_dir}" -C "${app_dir}" "$@"
+}
+
+split_pull_latest() {
+  local app_dir="${1:-/opt/cryptoprocessing}"
+  local branch="${2:-main}"
+  if [[ ! -d "${app_dir}/.git" ]]; then
+    return 0
+  fi
+  split_log "Updating repository (${branch})"
+  split_git "${app_dir}" fetch origin "${branch}"
+  split_git "${app_dir}" checkout "${branch}"
+  split_git "${app_dir}" reset --hard "origin/${branch}"
+}
+
+split_chown_app_dir() {
+  local app_dir="${1:-/opt/cryptoprocessing}"
+  local app_user="${2:-cryptoprocessing}"
+  split_ensure_app_user "${app_user}"
+  chown -R "${app_user}:${app_user}" "${app_dir}"
+}
+
 split_set_env_value() {
   local env_file="$1"
   local key="$2"

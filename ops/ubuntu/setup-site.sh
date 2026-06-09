@@ -49,14 +49,14 @@ main() {
   fi
 
   ensure_repo
-  split_ensure_app_user "${APP_USER}"
-  chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+  split_pull_latest "${APP_DIR}" "${GIT_BRANCH}"
 
   split_log "Installing packages"
   apt-get update
   apt-get install -y ca-certificates curl git gnupg nginx openssl sudo
   split_install_node22_if_needed
   split_write_frontend_env_production "${APP_DIR}/frontend" "${DOMAIN}"
+  split_chown_app_dir "${APP_DIR}" "${APP_USER}"
 
   split_log "Building frontend"
   sudo -u "${APP_USER}" bash -lc "cd '${APP_DIR}/frontend' && npm ci && npm run build"

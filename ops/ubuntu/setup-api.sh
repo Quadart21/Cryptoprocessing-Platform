@@ -116,8 +116,7 @@ main() {
   fi
 
   ensure_repo
-  split_ensure_app_user "${APP_USER}"
-  chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+  split_pull_latest "${APP_DIR}" "${GIT_BRANCH}"
 
   split_log "Installing packages"
   apt-get update
@@ -125,6 +124,7 @@ main() {
   systemctl enable --now redis-server
 
   configure_env
+  split_chown_app_dir "${APP_DIR}" "${APP_USER}"
   split_install_node22_if_needed
   split_write_frontend_env_production "${APP_DIR}/frontend" "${DOMAIN}"
 
