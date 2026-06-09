@@ -79,9 +79,10 @@ main() {
   systemctl reload nginx
 
   if [[ "${ENABLE_UFW}" == "1" ]] && command -v ufw >/dev/null 2>&1; then
+    split_ufw_allow_ssh
     ufw allow 80/tcp
     ufw allow 443/tcp
-    ufw --force enable
+    split_ufw_enable
   fi
 
   cat <<EOF

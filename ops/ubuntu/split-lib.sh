@@ -108,3 +108,23 @@ split_install_systemd_remote_units() {
   install -m 644 "${app_dir}/ops/ubuntu/cryptoprocessing-celery-beat-remote.service" /etc/systemd/system/cryptoprocessing-celery-beat.service
   systemctl daemon-reload
 }
+
+# Always allow SSH before enabling UFW (default deny blocks port 22 otherwise).
+split_ufw_allow_ssh() {
+  if ! command -v ufw >/dev/null 2>&1; then
+    return 0
+  fi
+  if ufw status 2>/dev/null | grep -qE 'OpenSSH|22/tcp'; then
+    return 0
+  fi
+  if ufw app list 2>/dev/null | grep -q OpenSSH; then
+    ufw allow OpenSSH
+  else
+    ufw allow 22/tcp
+  fi
+}
+
+split_ufw_enable() {
+  split_ufw_allow_ssh
+  ufw --force enable
+}

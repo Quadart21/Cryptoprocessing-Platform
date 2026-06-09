@@ -17,8 +17,10 @@
 
 ### 1. БД (`2.26.88.44`)
 
+> **UFW:** скрипт разрешает SSH (22) перед `ufw enable`. Без этого SSH обрывается.
+
 ```bash
-sudo DB_LISTEN_IP=2.26.88.44 API_SERVER_IP=2.26.90.43 POSTGRES_PASSWORD='ВАШ_ПАРОЛЬ_БД' bash ops/ubuntu/setup-db.sh
+sudo DB_LISTEN_IP=2.26.88.44 API_SERVER_IP=2.26.90.43 POSTGRES_PASSWORD='ВАШ_ПАРОЛЬ_БД' PG_VERSION=14 bash ops/ubuntu/setup-db.sh
 ```
 
 ### 2. API (`2.26.90.43`)

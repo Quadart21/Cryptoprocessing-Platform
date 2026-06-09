@@ -86,9 +86,10 @@ main() {
   systemctl restart postgresql
 
   if [[ "${ENABLE_UFW}" == "1" ]] && command -v ufw >/dev/null 2>&1; then
-    split_log "Configuring UFW (5432 from API only)"
+    split_log "Configuring UFW (SSH + 5432 from API only)"
+    split_ufw_allow_ssh
     ufw allow from "${API_SERVER_IP}" to any port 5432 proto tcp
-    ufw --force enable
+    split_ufw_enable
   fi
 
   cat <<EOF

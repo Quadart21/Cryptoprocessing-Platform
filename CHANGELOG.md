@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.15.1] — 2026-06-09
+
+### Исправлено
+
+- **Split deploy / UFW**: `setup-db.sh`, `setup-api.sh`, `setup-site.sh` — перед `ufw enable` добавлено правило SSH (22), иначе теряется доступ по ключу.
+
+---
+
 ## [0.15.0] — 2026-06-09
 
 ### Добавлено

@@ -145,12 +145,13 @@ main() {
   systemctl reload nginx
 
   if [[ "${ENABLE_UFW}" == "1" ]] && command -v ufw >/dev/null 2>&1; then
+    split_ufw_allow_ssh
     ufw allow 80/tcp
     ufw allow 443/tcp
     if [[ -n "${SITE_SERVER_IP}" ]]; then
       ufw allow from "${SITE_SERVER_IP}" to any port 8000 proto tcp
     fi
-    ufw --force enable
+    split_ufw_enable
   fi
 
   curl -fsS http://127.0.0.1:8000/api/v1/health
