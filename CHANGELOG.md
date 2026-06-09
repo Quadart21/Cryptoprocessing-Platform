@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.15.3] — 2026-06-09
+
+### Исправлено
+
+- **setup-api.sh**: пользователь `cryptoprocessing` создаётся до `chown` (исправлен `invalid user`).
+
+---
+
 ## [0.15.2] — 2026-06-09
 
 ### Исправлено

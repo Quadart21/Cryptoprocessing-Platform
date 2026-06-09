@@ -49,9 +49,7 @@ main() {
   fi
 
   ensure_repo
-  if ! id -u "${APP_USER}" >/dev/null 2>&1; then
-    useradd --system --create-home --shell /bin/bash "${APP_USER}"
-  fi
+  split_ensure_app_user "${APP_USER}"
   chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 
   split_log "Installing packages"

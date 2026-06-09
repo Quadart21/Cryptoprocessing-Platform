@@ -16,6 +16,13 @@ split_generate_password() {
   openssl rand -hex 16
 }
 
+split_ensure_app_user() {
+  local app_user="${1:-cryptoprocessing}"
+  if ! id -u "${app_user}" >/dev/null 2>&1; then
+    useradd --system --create-home --shell /bin/bash "${app_user}"
+  fi
+}
+
 split_set_env_value() {
   local env_file="$1"
   local key="$2"
