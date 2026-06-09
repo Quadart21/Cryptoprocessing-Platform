@@ -11,6 +11,7 @@ node_modules/
 .env.*
 !.env.example
 !frontend/.env.production.example
+!ops/ubuntu/.env.production.example
 .DS_Store
 *.pyc
 *.pyo

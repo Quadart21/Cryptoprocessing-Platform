@@ -53,8 +53,16 @@ ensure_repo() {
 configure_env() {
   local env_file="${APP_DIR}/.env"
   local env_example="${APP_DIR}/ops/ubuntu/.env.production.example"
+  local env_fallback="${APP_DIR}/.env.example"
   if [[ ! -f "${env_file}" ]]; then
-    cp "${env_example}" "${env_file}"
+    if [[ -f "${env_example}" ]]; then
+      cp "${env_example}" "${env_file}"
+    elif [[ -f "${env_fallback}" ]]; then
+      cp "${env_fallback}" "${env_file}"
+    else
+      echo "Missing ${env_example} and ${env_fallback}."
+      exit 1
+    fi
   fi
 
   if [[ -z "${POSTGRES_HOST}" || -z "${POSTGRES_PASSWORD}" ]]; then

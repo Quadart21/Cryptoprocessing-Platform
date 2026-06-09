@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.15.4] — 2026-06-09
+
+### Исправлено
+
+- **setup-api.sh**: `ops/ubuntu/.env.production.example` добавлен в git; fallback на `.env.example` если шаблона нет.
+
+---
+
 ## [0.15.3] — 2026-06-09
 
 ### Исправлено
