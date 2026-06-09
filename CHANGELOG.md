@@ -4,11 +4,18 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.15.0] — 2026-06-09
 
+### Добавлено
 
+- **Split deploy (3 сервера)**: `setup-db.sh`, `setup-api.sh`, `setup-site.sh` — PostgreSQL, API+Redis+Celery и frontend+nginx с `API_UPSTREAM`.
+- **Nginx split**: `nginx-site-lib.sh`, `apply-site-ddos-protection.sh` — rate limit и прокси на удалённый API.
+- **Systemd remote**: unit-файлы без локального PostgreSQL (`cryptoprocessing-remote.service` и celery).
+- **Обновление split**: `update-server-api.sh`, `update-server-site.sh`.
+- **Документация**: `ops/ubuntu/SPLIT-DEPLOY.md` (noren.digital: БД `2.26.88.44`, API `2.26.90.43`, сайт `2.26.9.49`).
+- **Frontend**: `frontend/.env.production.example` для prod-сборки с поддоменами.
 
-
-
+---
 
 ## [0.14.99] — 2026-06-07
 

@@ -1,6 +1,13 @@
 # Deploy на Ubuntu (production)
 
-Автоматическая установка: один скрипт ставит PostgreSQL, Redis, Nginx, systemd, backend, frontend, миграции и супер-админа.
+## Режимы
+
+| Режим | Документация |
+|-------|----------------|
+| **Один сервер** (по умолчанию) | этот файл, `setup-server.sh` |
+| **Три сервера** (БД + API + сайт) | [`SPLIT-DEPLOY.md`](SPLIT-DEPLOY.md), `setup-db.sh`, `setup-api.sh`, `setup-site.sh` |
+
+Автоматическая установка (монолит): один скрипт ставит PostgreSQL, Redis, Nginx, systemd, backend, frontend, миграции и супер-админа.
 
 ## Быстрый старт (рекомендуется)
 
@@ -251,3 +258,10 @@ sudo SKIP_MIGRATIONS=1 bash ops/ubuntu/restart_app.sh
 | `ops/ubuntu/deploy.sh` | Низкоуровневый deploy (вызывается из setup) |
 | `ops/ubuntu/update-server.sh` | Обновление после `git pull` |
 | `ops/ubuntu/restart_app.sh` | Пересборка frontend + миграции + рестарт |
+| `ops/ubuntu/setup-db.sh` | PostgreSQL-only (split) |
+| `ops/ubuntu/setup-api.sh` | API + Redis + Celery, удалённая БД |
+| `ops/ubuntu/setup-site.sh` | Frontend + nginx → `API_UPSTREAM` |
+| `ops/ubuntu/update-server-api.sh` | Обновление API-сервера (split) |
+| `ops/ubuntu/update-server-site.sh` | Обновление сайта (split) |
+| `ops/ubuntu/apply-site-ddos-protection.sh` | DDoS nginx на сайте (split) |
+| `ops/ubuntu/SPLIT-DEPLOY.md` | Пошаговый split для noren.digital |
