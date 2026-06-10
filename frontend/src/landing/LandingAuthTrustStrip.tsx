@@ -1,4 +1,8 @@
+import { useTranslation } from "../i18n";
+
 export function LandingAuthTrustStrip() {
+  const { t } = useTranslation();
+
   return (
     <div className="lp-auth-trust-strip" role="note">
       <span className="lp-auth-trust-icon" aria-hidden>
@@ -12,7 +16,7 @@ export function LandingAuthTrustStrip() {
           <path d="M9 12l2 2 4-4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.75" />
         </svg>
       </span>
-      <span>TLS · JWT-сессии · 2FA · изоляция tenant-данных</span>
+      <span>{t("auth.trustStrip")}</span>
     </div>
   );
 }

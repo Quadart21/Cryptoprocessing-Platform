@@ -172,6 +172,7 @@ import { useClientDashboard } from "./hooks/useClientDashboard";
 import { usePublicSiteNavigation } from "./hooks/usePublicSiteNavigation";
 import { useSession } from "./hooks/useSession";
 import { AppRouteFallback } from "./components/AppRouteFallback";
+import { useFlashMessages } from "./i18n/useFlashMessages";
 import { safeLoad } from "./utils/async";
 import { invoiceStatusLabelRu } from "./utils/invoiceStatus";
 
@@ -191,6 +192,7 @@ type AppControllerProps = {
 };
 
 export function AppController({ siteScope = "default" }: AppControllerProps) {
+  const flash = useFlashMessages();
   const adminHost = siteScope === "admin" || isAdminSubdomain();
   const [mode, setMode] = useState<"login" | "register">("login");
   const { token, user, setUser, applyAccessToken, applyCsrfToken, clearSession, csrfToken } = useSession();
@@ -671,8 +673,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
         setIsClientInvoiceModalOpen(false);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Не удалось загрузить сессию.";
-      setError(message);
+      setError(flash.sessionLoadFailed(err));
       clearSession();
     } finally {
       setLoading(false);
@@ -689,12 +690,15 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       const auth = await login(loginForm.email, loginForm.password);
       applyAccessToken(auth.access_token);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Ошибка входа.";
-      if (message === "Для входа требуется код 2FA.") {
+      const message = err instanceof Error ? err.message : "";
+      if (
+        message === flash.twoFactorRequired() ||
+        message === "2FA code is required to sign in."
+      ) {
         setLoginStep("two-factor");
         setError(null);
       } else {
-        setError(message);
+        setError(flash.loginFailed(err));
       }
     } finally {
       setLoading(false);
@@ -711,7 +715,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       const auth = await login(loginForm.email, loginForm.password, loginForm.otp_code);
       applyAccessToken(auth.access_token);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка входа.");
+      setError(flash.loginFailed(err));
     } finally {
       setLoading(false);
     }
@@ -746,7 +750,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       });
       setRegistrationForm(initialRegistrationForm);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка подключения проекта.");
+      setError(flash.projectConnectFailed(err));
     } finally {
       setLoading(false);
     }
@@ -842,9 +846,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       const setup = await setupTwoFactor(token);
       setTwoFactorSetup(setup);
       await refreshTwoFactorState(token);
-      setSuccess("Секрет 2FA сгенерирован. Подтвердите код из Google Authenticator.");
+      setSuccess(flash.twoFactorSetupGenerated());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось запустить настройку 2FA.");
+      setError(flash.twoFactorSetupFailed(err));
     } finally {
       setLoading(false);
     }
@@ -858,9 +862,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSuccess(null);
       await enableTwoFactor(token, code);
       await refreshTwoFactorState(token);
-      setSuccess("2FA успешно включен.");
+      setSuccess(flash.twoFactorEnabled());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось включить 2FA.");
+      setError(flash.twoFactorEnableFailed(err));
     } finally {
       setLoading(false);
     }
@@ -875,9 +879,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       await disableTwoFactor(token, payload);
       setTwoFactorSetup(null);
       await refreshTwoFactorState(token);
-      setSuccess("2FA отключен.");
+      setSuccess(flash.twoFactorDisabled());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось отключить 2FA.");
+      setError(flash.twoFactorDisableFailed(err));
     } finally {
       setLoading(false);
     }
@@ -895,9 +899,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSuccess(null);
       const updated = await updateClientNotificationSettings(token, payload);
       setClientNotificationSettings(updated);
-      setSuccess("Настройки уведомлений обновлены.");
+      setSuccess(flash.notificationsUpdated());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось обновить настройки уведомлений.");
+      setError(flash.notificationsUpdateFailed(err));
     } finally {
       setLoading(false);
     }
@@ -915,7 +919,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       const result = await changeClientPassword(token, payload);
       setSuccess(result.message);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось изменить пароль.");
+      setError(flash.passwordChangeFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1014,7 +1018,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSuccess(result.message);
       setPasswordRecoveryEmail(email.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось запросить восстановление пароля.");
+      setError(flash.passwordRecoveryFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1027,7 +1031,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setError(null);
       setSuccess(null);
       if (passwordResetForm.password !== passwordResetForm.confirmPassword) {
-        throw new Error("Подтверждение пароля не совпадает.");
+        throw new Error(flash.passwordMismatch());
       }
       const result = await setPasswordByRecoveryToken(
         passwordResetForm.token,
@@ -1044,7 +1048,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       }));
       setPasswordResetForm({ token: "", password: "", confirmPassword: "" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось установить новый пароль.");
+      setError(flash.passwordSetFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1168,10 +1172,10 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       });
       setSuccess(
         invoice.payment_page_url
-          ? `Инвойс создан. Ссылка для клиента: ${invoice.payment_page_url}`
+          ? flash.invoiceCreatedPaymentPage(invoice.payment_page_url)
           : invoice.payment_address
-            ? `Инвойс создан. Адрес: ${invoice.payment_address}`
-            : `Инвойс создан: ${invoice.provider_order_id}`,
+            ? flash.invoiceCreatedAddress(invoice.payment_address)
+            : flash.invoiceCreatedDefault(invoice.provider_order_id),
       );
       setSelectedClientInvoiceId(invoice.id);
       setSelectedClientInvoiceDetail({ ...invoice, settlement: null, transaction_details: null });
@@ -1207,7 +1211,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
         amount_fiat: 100,
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось создать инвойс.");
+      setError(flash.invoiceCreateFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1228,7 +1232,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     event.preventDefault();
     if (!token) return;
     if (!payoutForm.project_id) {
-      setError("Выберите проект для вывода.");
+      setError(flash.payoutSelectProject());
       return;
     }
     try {
@@ -1243,13 +1247,13 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       ]);
       setPayouts(payoutItems);
       setBalance(balanceInfo);
-      setSuccess("Запрос на вывод отправлен и ожидает проверки администратора.");
+      setSuccess(flash.payoutSubmitted());
       setPayoutForm((current) => ({
         ...initialPayoutForm,
         project_id: current.project_id,
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось отправить запрос на вывод.");
+      setError(flash.payoutFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1271,12 +1275,10 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       });
       const webhookItems = await fetchWebhookConfigs(token);
       setWebhookConfigs(webhookItems);
-      setSuccess(
-        `Webhook сохранен для проекта ${result.project_id}${result.has_secret ? " с секретом" : ""}.`,
-      );
+      setSuccess(flash.webhookSaved(result.project_id, result.has_secret));
       setWebhookForm((current) => ({ ...current, webhook_secret: "" }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить webhook.");
+      setError(flash.webhookSaveFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1285,7 +1287,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
   async function handleSendWebhookTest() {
     if (!token) return;
     if (!webhookForm.project_id) {
-      setError("Выберите проект для тестовой отправки webhook.");
+      setError(flash.webhookTestSelectProject());
       return;
     }
     try {
@@ -1294,10 +1296,10 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSuccess(null);
       const result = await sendWebhookTest(token, { project_id: webhookForm.project_id });
       setSuccess(
-        `Тестовый webhook доставлен (HTTP ${result.status_code}, попыток: ${result.attempts}, event: ${result.event_id}).`,
+        flash.webhookTestDelivered(result.status_code, result.attempts, result.event_id),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось отправить тестовый webhook.");
+      setError(flash.webhookTestFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1529,7 +1531,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       );
       setIsClientInvoiceModalOpen(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось загрузить детали инвойса.");
+      setError(flash.invoiceDetailsLoadFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1556,9 +1558,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setClientTransactions(transactionItems);
       setClientAccounting(accountingSummary);
       setBalance(balanceInfo);
-      setSuccess(`Статус инвойса синхронизирован: ${invoiceStatusLabelRu(invoice.status)}.`);
+      setSuccess(flash.invoiceSynced(invoice.status));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось синхронизировать инвойс.");
+      setError(flash.invoiceSyncFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1573,9 +1575,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setNewApiSecret(null);
       await revokeClientApiKey(token, apiKeyId);
       setApiKeys(await fetchApiKeys(token));
-      setSuccess("API-ключ отозван.");
+      setSuccess(flash.apiKeyRevoked());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось отозвать API-ключ.");
+      setError(flash.apiKeyRevokeFailed(err));
     } finally {
       setLoading(false);
     }
@@ -1590,9 +1592,9 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       const result = await regenerateClientApiKey(token, apiKeyId);
       setApiKeys(await fetchApiKeys(token));
       setNewApiSecret(result.secret_key);
-      setSuccess(`Ключ перевыпущен: ${result.public_key}`);
+      setSuccess(flash.apiKeyRegenerated(result.public_key));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось перевыпустить API-ключ.");
+      setError(flash.apiKeyRegenerateFailed(err));
     } finally {
       setLoading(false);
     }

@@ -19,28 +19,28 @@ export function DocsIntroductionPage() {
             {brandName} · Merchant API
           </p>
           <h1>
-            Документация
-            <span> приёма криптовалюты</span>
+            Cryptocurrency
+            <span> payment documentation</span>
           </h1>
           <p className="docs-hero-lead">
-            Разделы разложены по задачам: старт, checkout, webhooks, справочник методов и тариф. Без простыни
-            на одной странице.
+            Sections are organized by task: getting started, checkout, webhooks, method reference, and pricing. No
+            single endless page.
           </p>
           <div className="docs-hero-actions">
             <Link className="docs-site-button docs-site-button-primary" to="/quickstart">
-              Быстрый старт
+              Quick start
             </Link>
             <Link className="docs-site-button docs-site-button-ghost" to="/reference">
-              API методы
+              API methods
             </Link>
             <a className="docs-site-button docs-site-button-ghost" href={`${mainSite}/?auth=register`}>
-              Получить ключи
+              Get API keys
             </a>
           </div>
         </div>
 
         <div className="docs-hero-panel">
-          <p className="docs-hero-panel-label">Путь интеграции</p>
+          <p className="docs-hero-panel-label">Integration path</p>
           <div className="docs-pipeline docs-pipeline--compact">
             {DOCS_PIPELINE.map((item) => (
               <article className="docs-pipeline-step" key={item.step}>
@@ -57,8 +57,8 @@ export function DocsIntroductionPage() {
 
       <section className="docs-intro-section">
         <div className="docs-section-head">
-          <p>Разделы</p>
-          <h2>Куда перейти</h2>
+          <p>Sections</p>
+          <h2>Where to go next</h2>
         </div>
         <div className="docs-intro-cards docs-intro-cards--hub">
           {DOCS_HUB_CARDS.map((card) => (
@@ -66,7 +66,7 @@ export function DocsIntroductionPage() {
               <span className="docs-intro-card-icon">{card.icon}</span>
               <strong>{card.title}</strong>
               <span>{card.body}</span>
-              <em>Открыть →</em>
+              <em>Open →</em>
             </Link>
           ))}
         </div>
@@ -74,14 +74,15 @@ export function DocsIntroductionPage() {
 
       <section className="docs-intro-section docs-support-panel">
         <div>
-          <p className="docs-support-eyebrow">Окружение</p>
+          <p className="docs-support-eyebrow">Environment</p>
           <h2>Base URL</h2>
           <p>
-            Merchant API: <code>{apiBaseUrl}</code> · префикс <code>/api/v1/client</code> уже включён в примеры.
+            Merchant API: <code>{apiBaseUrl}</code> · the <code>/api/v1/client</code> prefix is already included in
+            examples.
           </p>
         </div>
         <Link className="docs-site-button docs-site-button-primary" to="/quickstart">
-          Начать интеграцию
+          Start integration
         </Link>
       </section>
     </article>

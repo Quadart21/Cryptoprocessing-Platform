@@ -2,6 +2,18 @@
 
 export type InvoiceStatusTone = "success" | "warning" | "danger";
 
+type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+
+const INVOICE_STATUS_KEYS: Record<string, string> = {
+  pending: "merchant.invoiceStatus.pending",
+  confirming: "merchant.invoiceStatus.confirming",
+  paid: "merchant.invoiceStatus.paid",
+  confirmed: "merchant.invoiceStatus.confirmed",
+  expired: "merchant.invoiceStatus.expired",
+  cancelled: "merchant.invoiceStatus.cancelled",
+  failed: "merchant.invoiceStatus.failed",
+};
+
 export function invoiceStatusTone(status: string): InvoiceStatusTone {
   const s = status.trim().toLowerCase();
   if (s === "paid" || s === "confirmed") {
@@ -11,6 +23,12 @@ export function invoiceStatusTone(status: string): InvoiceStatusTone {
     return "warning";
   }
   return "danger";
+}
+
+export function invoiceStatusLabel(status: string, t: TranslateFn): string {
+  const s = status.trim().toLowerCase();
+  const key = INVOICE_STATUS_KEYS[s];
+  return key ? t(key) : status;
 }
 
 export function invoiceStatusLabelRu(status: string): string {
@@ -50,9 +68,12 @@ export function invoiceDetailBadgeClass(status: string): string {
   }
 }
 
-export function getInvoiceDetailStatusMeta(status: string): { label: string; className: string } {
+export function getInvoiceDetailStatusMeta(
+  status: string,
+  t?: TranslateFn,
+): { label: string; className: string } {
   return {
-    label: invoiceStatusLabelRu(status),
+    label: t ? invoiceStatusLabel(status, t) : invoiceStatusLabelRu(status),
     className: invoiceDetailBadgeClass(status),
   };
 }

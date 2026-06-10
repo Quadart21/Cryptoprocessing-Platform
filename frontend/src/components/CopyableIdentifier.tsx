@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { useTranslation } from "../i18n";
+
 type CopyableIdentifierProps = {
   label: string;
   value: string | null | undefined;
@@ -14,11 +16,13 @@ export function CopyableIdentifier({
   value,
   hint,
   className = "",
-  emptyLabel = "—",
+  emptyLabel,
   variant = "block",
 }: CopyableIdentifierProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const display = value?.trim() ? value.trim() : null;
+  const resolvedEmptyLabel = emptyLabel ?? t("common.dash");
 
   async function handleCopy() {
     if (!display) {
@@ -49,10 +53,10 @@ export function CopyableIdentifier({
       <span className="copyable-id-label">{label}</span>
       {hint && variant === "block" ? <p className="copyable-id-hint muted-text">{hint}</p> : null}
       <div className="copyable-id-row">
-        <code className="copyable-id-value">{display ?? emptyLabel}</code>
+        <code className="copyable-id-value">{display ?? resolvedEmptyLabel}</code>
         {display ? (
           <button type="button" className="ghost-button copyable-id-btn" onClick={() => void handleCopy()}>
-            {copied ? "Скопировано" : "Копировать"}
+            {copied ? t("common.copied") : t("common.copy")}
           </button>
         ) : null}
       </div>

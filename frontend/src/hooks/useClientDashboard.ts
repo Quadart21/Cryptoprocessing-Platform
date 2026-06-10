@@ -6,6 +6,7 @@ import type {
   WebhookConfigItem,
 } from "../api";
 import { resolveClientApiBaseUrl } from "../config/apiBase";
+import { useTranslation } from "../i18n";
 
 type UseClientDashboardParams = {
   rates: RateItem[];
@@ -32,6 +33,8 @@ export function useClientDashboard({
   webhookConfigs,
   webhookProjectId,
 }: UseClientDashboardParams): UseClientDashboardResult {
+  const { t } = useTranslation();
+
   const selectedRate =
     rates.find((item) => item.currency === invoiceForm.crypto_currency) ?? rates[0] ?? null;
   const availableNetworks = selectedRate
@@ -67,7 +70,7 @@ export function useClientDashboard({
       "source": "merchant-test"
     }
   }'`
-    : "Сначала получите активный API-ключ, чтобы увидеть пример запроса.";
+    : t("merchant.integration.scenarios.rates.noKey");
 
   return {
     selectedRate,

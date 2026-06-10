@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 
+import { useTranslation } from "../../i18n";
+
 export type DashboardToastKind = "success" | "error";
 
 type DashboardToastProps = {
@@ -14,6 +16,8 @@ const AUTO_DISMISS_MS: Record<DashboardToastKind, number> = {
 };
 
 export function DashboardToast({ kind, message, onDismiss }: DashboardToastProps) {
+  const { t } = useTranslation();
+
   useEffect(() => {
     const timer = window.setTimeout(onDismiss, AUTO_DISMISS_MS[kind]);
     return () => window.clearTimeout(timer);
@@ -41,7 +45,7 @@ export function DashboardToast({ kind, message, onDismiss }: DashboardToastProps
       <button
         className="dashboard-toast-close"
         type="button"
-        aria-label="Закрыть уведомление"
+        aria-label={t("common.closeNotification")}
         onClick={onDismiss}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

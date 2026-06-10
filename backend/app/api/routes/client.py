@@ -128,7 +128,7 @@ async def get_public_page_by_slug(
 ) -> PublicPageResponse:
     page = await PublicPageService(db).get_published_page_by_slug(slug)
     if page is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Страница не найдена.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found.")
     return PublicPageResponse(
         id=page.id,
         slug=page.slug,
@@ -152,12 +152,12 @@ async def login(payload: dict[str, Any], request: Request, db: AsyncSession = De
     if not email or not password:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Укажите email и пароль.",
+            detail="Email and password are required.",
         )
     if len(password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Пароль должен быть не короче 8 символов.",
+            detail="Password must be at least 8 characters.",
         )
 
     device_fingerprint = _normalize_input(payload.get("device_fingerprint"))
@@ -207,22 +207,22 @@ async def register(
     if missing_fields:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Заполните обязательные поля: {', '.join(missing_fields)}.",
+            detail=f"Fill in required fields: {', '.join(missing_fields)}.",
         )
     if "@" not in owner_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Введите корректный email владельца.",
+            detail="Enter a valid owner email.",
         )
     if len(password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Пароль должен быть не короче 8 символов.",
+            detail="Password must be at least 8 characters.",
         )
     if len(domain) < 3:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Домен проекта должен содержать минимум 3 символа.",
+            detail="Project domain must be at least 3 characters.",
         )
 
     tenant_service = TenantService(db)
@@ -250,13 +250,13 @@ async def register(
         logger.exception("Registration integrity error")
         error_text = str(exc).lower()
         if "ix_projects_domain" in error_text or "projects_domain" in error_text:
-            detail = "Домен проекта уже используется. Укажите другой домен."
+            detail = "Project domain is already in use. Choose another domain."
         elif "ix_users_email" in error_text or "users_email" in error_text:
-            detail = "Email владельца уже используется. Укажите другой email."
+            detail = "Owner email is already in use. Choose another email."
         elif "ix_tenants_slug" in error_text or "tenants_slug" in error_text:
-            detail = "Компания с похожим именем уже зарегистрирована. Уточните название компании."
+            detail = "A company with a similar name is already registered. Adjust the company name."
         else:
-            detail = "Не удалось подключить проект из-за конфликта уникальности данных."
+            detail = "Could not register the project due to a data uniqueness conflict."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=detail,
@@ -266,23 +266,23 @@ async def register(
         logger.exception("Registration database connectivity error")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Сервис регистрации временно недоступен: ошибка подключения к базе данных.",
+            detail="Registration service is temporarily unavailable: database connection error.",
         ) from exc
     except Exception as exc:
         await db.rollback()
         logger.exception("Unexpected registration error")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Не удалось подключить проект. Проверьте корректность данных и попробуйте снова.",
+            detail="Could not register the project. Check your input and try again.",
         ) from exc
 
     await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_APPLICATION_SUBMITTED,
-        subject="Заявка на подключение проекта получена",
+        subject="Project registration request received",
         lines=[
-            f"Проект: {tenant.name}",
-            "Заявка отправлена на модерацию.",
+            f"Project: {tenant.name}",
+            "Your request has been submitted for review.",
         ],
     )
     await notify_platform_ops(
@@ -301,7 +301,7 @@ async def register(
         tenant_id=tenant.id,
         user_id=user.id,
         status=tenant.status,
-        message="Заявка на подключение проекта создана и ожидает одобрения супер-админом.",
+        message="Registration request submitted and awaiting super-admin approval.",
     )
 
 
@@ -321,16 +321,16 @@ async def set_password(
     await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_PASSWORD_CHANGED,
-        subject="Пароль для входа установлен",
+        subject="Sign-in password has been set",
         lines=[
-            "Пароль был успешно установлен через invite-ссылку.",
-            "Если это были не вы, срочно обратитесь в поддержку.",
+            "Password was set successfully via invite link.",
+            "If this was not you, contact support immediately.",
         ],
     )
 
     return {
         "status": "ok",
-        "message": "Пароль установлен.",
+        "message": "Password has been set.",
         "user_id": user.id,
         "email": user.email,
     }
@@ -355,11 +355,11 @@ async def recover_password(
         await NotificationService(db).notify_user(
             user,
             event_code=NotificationService.EVENT_PASSWORD_GENERATED,
-            subject="Запрошено восстановление пароля",
+            subject="Password recovery requested",
             lines=[
                 f"Email: {user.email}",
-                f"Токен восстановления: {token}",
-                "Введите токен на форме восстановления пароля и установите новый пароль.",
+                f"Recovery token: {token}",
+                "Enter the token on the password recovery form and set a new password.",
             ],
             force_email=True,
         )
@@ -367,7 +367,7 @@ async def recover_password(
     return PasswordRecoveryResponse(
         status="ok",
         message=(
-            "Если пользователь с таким email найден, инструкция по восстановлению уже отправлена."
+            "If an account with this email exists, recovery instructions have been sent."
         ),
     )
 
@@ -418,10 +418,10 @@ async def enable_two_factor(
     await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_TWO_FACTOR_ENABLED,
-        subject="2FA включена",
+        subject="2FA enabled",
         lines=[
-            f"Пользователь: {user.email}",
-            "Дополнительная защита входа успешно активирована.",
+            f"User: {user.email}",
+            "Additional sign-in protection has been activated.",
         ],
     )
     status_payload = two_factor_service.get_status(user)
@@ -446,10 +446,10 @@ async def disable_two_factor(
     await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_TWO_FACTOR_DISABLED,
-        subject="2FA отключена",
+        subject="2FA disabled",
         lines=[
-            f"Пользователь: {user.email}",
-            "Если это были не вы, срочно смените пароль.",
+            f"User: {user.email}",
+            "If this was not you, change your password immediately.",
         ],
     )
     status_payload = two_factor_service.get_status(user)
@@ -475,13 +475,13 @@ async def change_password(
     await NotificationService(db).notify_user(
         user,
         event_code=NotificationService.EVENT_PASSWORD_CHANGED,
-        subject="Пароль изменен",
+        subject="Password changed",
         lines=[
-            f"Пользователь: {user.email}",
-            "Пароль от кабинета мерчанта успешно обновлен.",
+            f"User: {user.email}",
+            "Merchant cabinet password has been updated.",
         ],
     )
-    return {"status": "ok", "message": "Пароль изменен."}
+    return {"status": "ok", "message": "Password has been changed."}
 
 
 @router.get("/notifications/settings", response_model=MerchantNotificationSettingsResponse)
@@ -515,7 +515,7 @@ async def update_notification_settings(
 async def client_cabinet(current_user: User = Depends(require_tenant_user)) -> dict[str, str]:
     return {
         "status": "ok",
-        "message": f"Добро пожаловать, {current_user.full_name}. Кабинет доступен.",
+        "message": f"Welcome, {current_user.full_name}. Merchant cabinet is available.",
     }
 
 
@@ -593,15 +593,15 @@ async def revoke_client_api_key(
     notification_service = NotificationService(db)
     api_key = await project_service.get_api_key(api_key_id)
     if api_key is None or api_key.tenant_id != (current_user.tenant_id or ""):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key не найден.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found.")
     revoked = await project_service.revoke_api_key(api_key_id)
     await notification_service.notify_tenant_users(
         revoked.tenant_id,
         event_code=NotificationService.EVENT_API_KEY_REVOKED,
-        subject="API-ключ отозван",
+        subject="API key revoked",
         lines=[
             f"Public key: {revoked.public_key}",
-            f"Инициатор: {current_user.email}",
+            f"Initiated by: {current_user.email}",
         ],
         owner_only=True,
     )
@@ -623,16 +623,16 @@ async def regenerate_client_api_key(
     notification_service = NotificationService(db)
     api_key = await project_service.get_api_key(api_key_id)
     if api_key is None or api_key.tenant_id != (current_user.tenant_id or ""):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key не найден.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found.")
     regenerated, secret_key = await project_service.regenerate_api_key(api_key_id)
     await notification_service.notify_tenant_users(
         regenerated.tenant_id,
         event_code=NotificationService.EVENT_API_KEY_REGENERATED,
-        subject="API-ключ перевыпущен",
+        subject="API key regenerated",
         lines=[
             f"Public key: {regenerated.public_key}",
             f"Secret key: {secret_key}",
-            f"Инициатор: {current_user.email}",
+            f"Initiated by: {current_user.email}",
         ],
         owner_only=True,
     )
@@ -701,7 +701,7 @@ async def test_webhook_delivery(
     project_service = ProjectService(db)
     project = await project_service.get_project(payload.project_id)
     if project is None or project.tenant_id != (current_user.tenant_id or ""):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Проект не найден.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
 
     try:
         result = ClientWebhookService(EventService(db)).send_test_ping(project)
@@ -729,12 +729,12 @@ async def test_invoice_webhook_simulation(
     invoice_service = InvoiceService(db)
     invoice = await invoice_service.get_invoice(tenant_id, invoice_id)
     if invoice is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
 
     project_service = ProjectService(db)
     project = await project_service.get_project(invoice.project_id)
     if project is None or project.tenant_id != tenant_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Проект не найден.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
 
     tx_service = TransactionService(db)
     transaction = await tx_service.get_latest_for_invoice(invoice_id)
@@ -772,7 +772,7 @@ async def create_invoice(
     if auth.project_id is not None and payload.project_id != auth.project_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="API-ключ привязан к другому проекту.",
+            detail="API key is bound to a different project.",
         )
     invoice_service = InvoiceService(db)
     try:
@@ -819,7 +819,7 @@ async def list_invoices(
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
-    sync: bool = Query(default=False, description="Синхронизировать активные инвойсы с провайдером"),
+    sync: bool = Query(default=False, description="Sync active invoices with the provider"),
 ) -> list[InvoiceResponse]:
     if sync:
         _ensure_client_api_permission(auth, "client.invoices.write")
@@ -929,9 +929,9 @@ async def _get_client_invoice_detail(
     invoice_service = InvoiceService(db)
     invoice = await invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
     if invoice is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
     if auth.project_id is not None and invoice.project_id != auth.project_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Инвойс не найден.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
 
     if sync:
         try:
@@ -961,7 +961,7 @@ async def _get_client_invoice_detail(
 @router.get("/invoices/{invoice_id}", response_model=InvoiceDetailResponse)
 async def get_invoice(
     invoice_id: str,
-    sync: bool = Query(default=False, description="Синхронизировать статус с провайдером"),
+    sync: bool = Query(default=False, description="Sync status with the provider"),
     auth: ClientAuthContext = Depends(get_client_auth_context),
     db: AsyncSession = Depends(get_db),
 ) -> InvoiceDetailResponse:
@@ -1091,12 +1091,12 @@ async def get_transaction(
     if transaction is None or transaction.tenant_id != auth.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Транзакция не найдена.",
+            detail="Transaction not found.",
         )
     if auth.project_id is not None and transaction.project_id != auth.project_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Транзакция не найдена.",
+            detail="Transaction not found.",
         )
     invoice = await db.get(Invoice, transaction.invoice_id)
     return _map_transaction_response(transaction, invoice)
@@ -1121,7 +1121,7 @@ async def request_payout(
     if payload.project_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="API-ключ привязан к другому проекту.",
+            detail="API key is bound to a different project.",
         )
     payout_service = PayoutService(db)
     try:
@@ -1138,12 +1138,12 @@ async def request_payout(
     await NotificationService(db).notify_tenant_users(
         current_user.tenant_id or "",
         event_code=NotificationService.EVENT_PAYOUT_REQUESTED,
-        subject="Создан запрос на выплату",
+        subject="Payout request created",
         lines=[
             f"Payout ID: {payout.id}",
-            f"Сумма: {payout.amount_requested} {payout.currency}",
-            f"Адрес: {payout.destination_address}",
-            f"Инициатор: {current_user.email}",
+            f"Amount: {payout.amount_requested} {payout.currency}",
+            f"Address: {payout.destination_address}",
+            f"Initiated by: {current_user.email}",
         ],
         owner_only=True,
     )
@@ -1198,7 +1198,7 @@ def _ensure_client_api_permission(auth: ClientAuthContext, permission: str) -> N
     if not has_permission(auth.user.role, permission):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Недостаточно прав: {permission}.",
+            detail=f"Insufficient permissions: {permission}.",
         )
 
 def _map_invoice_response(

@@ -1,11 +1,7 @@
 import { PlatformBrandMark, PlatformBrandText } from "../brand/PlatformBrandLogo";
 import { usePlatformBrand } from "../brand/PlatformBrandContext";
-
-import {
-  AUTH_ADMIN_HIGHLIGHTS,
-  AUTH_MERCHANT_HIGHLIGHTS,
-  AUTH_TRUST_CHIPS,
-} from "./authBrandContent";
+import { useTranslation } from "../i18n";
+import { AUTH_TRUST_CHIPS } from "./authBrandContent";
 
 type LandingAuthBrandPanelProps = {
   registrationEnabled?: boolean;
@@ -17,7 +13,10 @@ export function LandingAuthBrandPanel({
   compact = false,
 }: LandingAuthBrandPanelProps) {
   const { logoUrl } = usePlatformBrand();
-  const highlights = registrationEnabled ? AUTH_MERCHANT_HIGHLIGHTS : AUTH_ADMIN_HIGHLIGHTS;
+  const { t, ta } = useTranslation();
+  const highlights = registrationEnabled
+    ? ta<string>("auth.merchantHighlights")
+    : ta<string>("auth.adminHighlights");
 
   return (
     <div className={`lp-auth-brand-panel${compact ? " lp-auth-brand-panel--compact" : ""}`}>
@@ -35,9 +34,7 @@ export function LandingAuthBrandPanel({
           </h2>
           {!compact ? (
             <p className="lp-auth-brand-tagline">
-              {registrationEnabled
-                ? "Крипто-эквайринг для e-commerce и SaaS: инвойсы, hosted pay и сводки в одном тенанте."
-                : "Управление платформой, клиентами и настройками — в защищённой admin-консоли."}
+              {registrationEnabled ? t("auth.merchantTagline") : t("auth.adminTagline")}
             </p>
           ) : null}
         </div>
@@ -53,7 +50,7 @@ export function LandingAuthBrandPanel({
         </ul>
       ) : null}
 
-      <div className="lp-auth-chip-row" aria-label="Поддерживаемые возможности">
+      <div className="lp-auth-chip-row" aria-label={t("auth.capabilitiesAria")}>
         {AUTH_TRUST_CHIPS.map((chip) => (
           <span className="lp-auth-chip" key={chip}>
             {chip}

@@ -1,4 +1,5 @@
 import type { OnboardingStatus } from "../api";
+import { useTranslation } from "../i18n";
 
 type OnboardingScreenProps = {
   onboarding: OnboardingStatus | null;
@@ -6,23 +7,33 @@ type OnboardingScreenProps = {
 };
 
 export function OnboardingScreen({ onboarding, onLogout }: OnboardingScreenProps) {
+  const { t } = useTranslation();
+
   return (
     <main className="shell shell-status">
       <section className="auth-card status-card">
-        <p className="eyebrow">Онбординг проекта</p>
-        <h1>Статус вашей заявки</h1>
-        <p className="lead">
-          Полный доступ к кабинету откроется после одобрения супер-админом.
-        </p>
+        <p className="eyebrow">{t("merchant.onboarding.eyebrow")}</p>
+        <h1>{t("merchant.onboarding.title")}</h1>
+        <p className="lead">{t("merchant.onboarding.lead")}</p>
         <div className="result-box status-board">
-          <p>Компания: {onboarding?.project_name ?? "Не указано"}</p>
-          <p>Домен: {onboarding?.project_domain ?? "Не указано"}</p>
-          <p>Статус tenant: {onboarding?.tenant_status ?? "Неизвестно"}</p>
-          <p>Статус проекта: {onboarding?.project_status ?? "Неизвестно"}</p>
-          <p>Комментарий: {onboarding?.review_comment ?? "Пока без комментария"}</p>
+          <p>
+            {t("merchant.onboarding.company")}: {onboarding?.project_name ?? t("merchant.onboarding.notSpecified")}
+          </p>
+          <p>
+            {t("merchant.onboarding.domain")}: {onboarding?.project_domain ?? t("merchant.onboarding.notSpecified")}
+          </p>
+          <p>
+            {t("merchant.onboarding.tenantStatus")}: {onboarding?.tenant_status ?? t("merchant.onboarding.unknown")}
+          </p>
+          <p>
+            {t("merchant.onboarding.projectStatus")}: {onboarding?.project_status ?? t("merchant.onboarding.unknown")}
+          </p>
+          <p>
+            {t("merchant.onboarding.comment")}: {onboarding?.review_comment ?? t("merchant.onboarding.noComment")}
+          </p>
         </div>
         <button className="ghost-button" onClick={onLogout} type="button">
-          Выйти
+          {t("common.logout")}
         </button>
       </section>
     </main>

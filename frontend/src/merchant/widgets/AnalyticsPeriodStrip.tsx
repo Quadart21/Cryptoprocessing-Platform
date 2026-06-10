@@ -1,4 +1,5 @@
 import type { AnalyticsPeriod } from "../../hooks/useClientAnalytics";
+import { useTranslation } from "../../i18n";
 
 type AnalyticsSummaryProps = {
   periodLabel: string;
@@ -17,69 +18,65 @@ export type AnalyticsPeriodStripProps = {
   summary: AnalyticsSummaryProps;
 };
 
-const PERIODS: Array<{ key: AnalyticsPeriod; label: string }> = [
-  { key: "today", label: "Сегодня" },
-  { key: "7d", label: "7 дн." },
-  { key: "30d", label: "30 дн." },
-  { key: "90d", label: "90 дн." },
-  { key: "all", label: "Всё" },
-];
+const PERIOD_KEYS: AnalyticsPeriod[] = ["today", "7d", "30d", "90d", "all"];
 
 export function AnalyticsPeriodStrip({
   period,
   onPeriodChange,
   summary,
 }: AnalyticsPeriodStripProps) {
+  const { t } = useTranslation();
+
   return (
     <section className="mc-analytics">
       <div className="mc-analytics-top">
         <div>
-          <p className="mc-analytics-eyebrow">Аналитика</p>
-          <h2 className="mc-analytics-title">Срез по периоду</h2>
+          <p className="mc-analytics-eyebrow">{t("merchant.analytics.eyebrow")}</p>
+          <h2 className="mc-analytics-title">{t("merchant.analytics.title")}</h2>
         </div>
         <p className="mc-analytics-range">{summary.periodLabel}</p>
       </div>
 
-      <div className="mc-analytics-chips" role="group" aria-label="Период">
-        {PERIODS.map((item) => (
+      <div className="mc-analytics-chips" role="group" aria-label={t("merchant.analytics.periodAria")}>
+        {PERIOD_KEYS.map((key) => (
           <button
-            className={`segment-button ${period === item.key ? "segment-button-active" : ""}`}
-            key={item.key}
-            onClick={() => onPeriodChange(item.key)}
+            className={`segment-button ${period === key ? "segment-button-active" : ""}`}
+            key={key}
+            onClick={() => onPeriodChange(key)}
             type="button"
           >
-            {item.label}
+            {t(`merchant.analytics.periods.${key}`)}
           </button>
         ))}
       </div>
 
       <div className="mc-analytics-kpis">
         <article className="mc-kpi">
-          <span>Оборот (оплач.)</span>
+          <span>{t("merchant.analytics.turnover")}</span>
           <strong>{summary.turnover}</strong>
         </article>
         <article className="mc-kpi">
-          <span>К зачислению</span>
+          <span>{t("merchant.analytics.net")}</span>
           <strong>{summary.net}</strong>
         </article>
         <article className="mc-kpi">
-          <span>Чистая прибыль</span>
+          <span>{t("merchant.analytics.pureProfit")}</span>
           <strong>{summary.pureProfit}</strong>
         </article>
         <article className="mc-kpi">
-          <span>Комиссии</span>
+          <span>{t("merchant.analytics.fees")}</span>
           <strong>{summary.fee}</strong>
         </article>
         <article className="mc-kpi">
-          <span>Успех</span>
+          <span>{t("merchant.analytics.success")}</span>
           <strong>{summary.successRate}</strong>
         </article>
         <article className="mc-kpi">
-          <span>Ср. чек</span>
+          <span>{t("merchant.analytics.avgCheck")}</span>
           <strong>{summary.averageCheck}</strong>
         </article>
         <article className="mc-kpi">
-          <span>Транзакций</span>
+          <span>{t("merchant.analytics.transactions")}</span>
           <strong>{summary.transactionCount}</strong>
         </article>
       </div>

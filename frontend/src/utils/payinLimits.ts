@@ -86,6 +86,7 @@ export function formatPayinLimitHint(
   network: RateNetworkItem | null,
   cryptoCurrency: string,
   fiatCurrency: string,
+  formatApprox?: (params: { cryptoPart: string; minFiat: string; fiatCurrency: string }) => string,
 ): string | null {
   if (!network?.min_deposit) {
     return null;
@@ -97,5 +98,9 @@ export function formatPayinLimitHint(
     return cryptoPart;
   }
 
-  return `${cryptoPart} (от ≈ ${minFiat} ${fiatCurrency})`;
+  if (formatApprox) {
+    return formatApprox({ cryptoPart, minFiat: String(minFiat), fiatCurrency });
+  }
+
+  return `${cryptoPart} (≈ ${minFiat} ${fiatCurrency})`;
 }

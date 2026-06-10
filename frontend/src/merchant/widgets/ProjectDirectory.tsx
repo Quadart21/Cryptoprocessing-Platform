@@ -1,4 +1,5 @@
 import type { ProjectItem } from "../../api";
+import { useTranslation } from "../../i18n";
 
 export type ProjectDirectoryProps = {
   projects: ProjectItem[];
@@ -16,19 +17,19 @@ function statusClass(status: string): string {
 }
 
 export function ProjectDirectory({ projects }: ProjectDirectoryProps) {
+  const { t } = useTranslation();
+
   return (
     <article className="mc-surface">
       <header className="mc-surface-header">
-        <p className="mc-surface-eyebrow">Структура</p>
-        <h2 className="mc-surface-title">Проекты</h2>
-        <p className="mc-surface-desc">
-          Каждый проект — отдельный контур для инвойсов и webhook. Домен и статус помогают быстро ориентироваться.
-        </p>
+        <p className="mc-surface-eyebrow">{t("merchant.widgets.projectDirectory.eyebrow")}</p>
+        <h2 className="mc-surface-title">{t("merchant.widgets.projectDirectory.title")}</h2>
+        <p className="mc-surface-desc">{t("merchant.widgets.projectDirectory.description")}</p>
       </header>
 
       <div className="mc-rows">
         {projects.length === 0 ? (
-          <div className="mc-empty">Проекты не заведены.</div>
+          <div className="mc-empty">{t("merchant.widgets.projectDirectory.empty")}</div>
         ) : (
           projects.map((project) => (
             <div className="mc-row" key={project.id}>
@@ -36,7 +37,7 @@ export function ProjectDirectory({ projects }: ProjectDirectoryProps) {
                 <p className="mc-row-title">{project.name}</p>
                 <p className="mc-row-sub">{project.domain}</p>
                 <p className="mc-row-sub" style={{ color: "var(--text-2)", fontSize: 12 }}>
-                  {project.description ?? "Без описания"}
+                  {project.description ?? t("common.noDescription")}
                 </p>
               </div>
               <div className="mc-row-badges">

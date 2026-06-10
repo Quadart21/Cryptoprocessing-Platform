@@ -184,14 +184,14 @@ class PublicPageService:
             await self.db.commit()
         except IntegrityError as exc:
             await self.db.rollback()
-            raise ValueError("Страница с таким slug уже существует.") from exc
+            raise ValueError("A page with this slug already exists.") from exc
         await self.db.refresh(page)
         return page
 
     async def update_page(self, page_id: str, updates: dict) -> PublicPage:
         page = await self.db.get(PublicPage, page_id)
         if page is None:
-            raise ValueError("Страница не найдена.")
+            raise ValueError("Page not found.")
 
         merged = {
             "slug": page.slug,
@@ -214,30 +214,30 @@ class PublicPageService:
             await self.db.commit()
         except IntegrityError as exc:
             await self.db.rollback()
-            raise ValueError("Страница с таким slug уже существует.") from exc
+            raise ValueError("A page with this slug already exists.") from exc
         await self.db.refresh(page)
         return page
 
     async def delete_page(self, page_id: str) -> None:
         page = await self.db.get(PublicPage, page_id)
         if page is None:
-            raise ValueError("Страница не найдена.")
+            raise ValueError("Page not found.")
         await self.db.delete(page)
         await self.db.commit()
 
     def _normalize_payload(self, payload: dict) -> dict:
         slug = self.normalize_slug(str(payload.get("slug") or ""))
         if not slug:
-            raise ValueError("Slug должен содержать латиницу, цифры или дефис.")
+            raise ValueError("Slug must contain Latin letters, digits, or hyphens.")
         title = str(payload.get("title") or "").strip()
         if not title:
-            raise ValueError("Укажите заголовок страницы.")
+            raise ValueError("Page title is required.")
         status = str(payload.get("status") or self.STATUS_DRAFT).strip().lower()
         if status not in self.VALID_STATUSES:
-            raise ValueError("Статус страницы должен быть draft или published.")
+            raise ValueError("Page status must be draft or published.")
         content_html = self.sanitize_html(str(payload.get("content_html") or ""))
         if status == self.STATUS_PUBLISHED and not content_html:
-            raise ValueError("Нельзя публиковать пустую страницу.")
+            raise ValueError("Cannot publish an empty page.")
         show_in_header = bool(payload.get("show_in_header", False))
         show_in_footer = bool(payload.get("show_in_footer", False))
         header_order = int(payload.get("header_order") or 0)

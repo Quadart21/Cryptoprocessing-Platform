@@ -1,6 +1,8 @@
 import type { ApiKeyItem } from "../../api";
 import { useEffect, useState } from "react";
 
+import { useTranslation } from "../../i18n";
+
 export type KeysVaultProps = {
   apiKeys: ApiKeyItem[];
   activeApiKeyPublic: string | null;
@@ -14,59 +16,59 @@ export function KeysVault({
   onRegenerate,
   onRevoke,
 }: KeysVaultProps) {
+  const { t } = useTranslation();
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!copyMessage) {
       return;
     }
-    const t = window.setTimeout(() => setCopyMessage(null), 2800);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setCopyMessage(null), 2800);
+    return () => window.clearTimeout(timer);
   }, [copyMessage]);
 
   async function handleCopy(value: string | null) {
     if (!value) {
-      setCopyMessage("Активный public key не найден.");
+      setCopyMessage(t("merchant.widgets.keysVault.noPublicKeyCopy"));
       return;
     }
     try {
       await navigator.clipboard.writeText(value);
-      setCopyMessage("Public key скопирован.");
+      setCopyMessage(t("merchant.widgets.keysVault.publicKeyCopied"));
     } catch {
-      setCopyMessage("Не удалось скопировать.");
+      setCopyMessage(t("merchant.widgets.keysVault.copyFailed"));
     }
   }
 
   return (
     <article className="mc-surface">
       <header className="mc-surface-header">
-        <p className="mc-surface-eyebrow">Доступ</p>
-        <h2 className="mc-surface-title">API-ключи</h2>
-        <p className="mc-surface-desc">
-          Public и secret используются в заголовках X-API-Key и X-API-Secret. Secret показывается один раз при выпуске —
-          сразу сохраните его на сервере.
-        </p>
+        <p className="mc-surface-eyebrow">{t("merchant.widgets.keysVault.eyebrow")}</p>
+        <h2 className="mc-surface-title">{t("merchant.widgets.keysVault.title")}</h2>
+        <p className="mc-surface-desc">{t("merchant.widgets.keysVault.description")}</p>
       </header>
 
       <div className="mc-key-banner">
         <div>
           <p className="mc-surface-eyebrow" style={{ marginBottom: 8 }}>
-            Активный public key
+            {t("merchant.widgets.keysVault.activePublicKey")}
           </p>
-          <code className="mc-key-code">{activeApiKeyPublic ?? "Ключ не найден — выпустите в кабинете"}</code>
+          <code className="mc-key-code">
+            {activeApiKeyPublic ?? t("merchant.widgets.keysVault.noActiveKey")}
+          </code>
         </div>
         <button className="ghost-button" onClick={() => void handleCopy(activeApiKeyPublic)} type="button">
-          Копировать
+          {t("common.copy")}
         </button>
       </div>
       {copyMessage ? <p className="mc-inline-toast">{copyMessage}</p> : null}
 
       <p className="mc-surface-eyebrow" style={{ marginBottom: 12 }}>
-        Все ключи
+        {t("merchant.widgets.keysVault.allKeys")}
       </p>
       <div className="mc-rows">
         {apiKeys.length === 0 ? (
-          <div className="mc-empty">Ключи ещё не созданы.</div>
+          <div className="mc-empty">{t("merchant.widgets.keysVault.empty")}</div>
         ) : (
           apiKeys.map((apiKey) => (
             <div className="mc-row" key={apiKey.id}>
@@ -78,10 +80,10 @@ export function KeysVault({
               </div>
               <div className="mc-row-actions">
                 <button className="ghost-button" onClick={() => onRegenerate(apiKey.id)} type="button">
-                  Перевыпустить
+                  {t("merchant.widgets.keysVault.regenerate")}
                 </button>
                 <button className="ghost-button" onClick={() => onRevoke(apiKey.id)} type="button">
-                  Отозвать
+                  {t("merchant.widgets.keysVault.revoke")}
                 </button>
               </div>
             </div>

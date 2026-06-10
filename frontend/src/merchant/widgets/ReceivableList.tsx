@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { InvoiceItem, InvoiceWebhookTestResponse } from "../../api";
+import { useTranslation } from "../../i18n";
 import { formatDecimal } from "../../utils/format";
-import { invoiceMerchantBadgeClass, invoiceStatusLabelRu } from "../../utils/invoiceStatus";
+import { invoiceMerchantBadgeClass } from "../../utils/invoiceStatus";
 import { isStableCoinFiatPair } from "../../utils/invoiceAccounting";
 
 import { InvoiceWebhookTestDialog } from "./InvoiceWebhookTestDialog";
@@ -10,11 +11,32 @@ import { InvoiceWebhookTestDialog } from "./InvoiceWebhookTestDialog";
 const MERCHANT_INVOICE_PAGE_SIZE = 10;
 const POLL_ACTIVE_INVOICES_MS = 30_000;
 
+const INVOICE_STATUS_KEYS = [
+  "pending",
+  "confirming",
+  "paid",
+  "confirmed",
+  "expired",
+  "cancelled",
+  "failed",
+] as const;
+
 function hasActiveInvoiceStatus(invoices: InvoiceItem[]): boolean {
   return invoices.some((invoice) => {
     const status = invoice.status.trim().toLowerCase();
     return status === "pending" || status === "confirming" || status === "paid";
   });
+}
+
+function invoiceStatusLabel(
+  status: string,
+  t: (key: string) => string,
+): string {
+  const normalized = status.trim().toLowerCase();
+  if (INVOICE_STATUS_KEYS.includes(normalized as (typeof INVOICE_STATUS_KEYS)[number])) {
+    return t(`merchant.invoiceStatus.${normalized}`);
+  }
+  return status;
 }
 
 export type ReceivableListProps = {
@@ -40,6 +62,7 @@ export function ReceivableList({
   canSendInvoiceWebhookTest,
   onInvoiceWebhookTest,
 }: ReceivableListProps) {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [webhookTestInvoice, setWebhookTestInvoice] = useState<InvoiceItem | null>(null);
@@ -71,7 +94,7 @@ export function ReceivableList({
       return sortedInvoices;
     }
     return sortedInvoices.filter((invoice) => {
-      const statusRu = invoiceStatusLabelRu(invoice.status).toLowerCase();
+      const statusTranslated = invoiceStatusLabel(invoice.status, t).toLowerCase();
       const haystack = [
         invoice.merchant_order_id,
         invoice.payment_address ?? "",
@@ -80,13 +103,13 @@ export function ReceivableList({
         invoice.crypto_currency,
         invoice.fiat_currency,
         invoice.status,
-        statusRu,
+        statusTranslated,
       ]
         .join(" ")
         .toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [normalizedQuery, sortedInvoices]);
+  }, [normalizedQuery, sortedInvoices, t]);
 
   const totalCount = filteredInvoices.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / MERCHANT_INVOICE_PAGE_SIZE));
@@ -117,9 +140,9 @@ export function ReceivableList({
 
   const canSubmitWebhookTest = webhookConfigured && canSendInvoiceWebhookTest;
   const webhookSubmitBlockedReason = !webhookConfigured
-    ? "Укажите URL webhook для проекта в разделе «Проекты» или «Ключи», затем сохраните настройки."
+    ? t("merchant.widgets.receivableList.webhookBlockedNoUrl")
     : !canSendInvoiceWebhookTest
-      ? "Недостаточно прав: для отправки теста нужно право client.webhooks.write."
+      ? t("merchant.widgets.receivableList.webhookBlockedNoPermission")
       : null;
 
   const handleSendWebhookTest = useCallback(async () => {
@@ -133,30 +156,36 @@ export function ReceivableList({
       const result = await onInvoiceWebhookTest(webhookTestInvoice.id);
       setWebhookTestResult(result);
     } catch (err) {
-      setWebhookTestError(err instanceof Error ? err.message : "Не удалось отправить webhook.");
+      setWebhookTestError(
+        err instanceof Error ? err.message : t("merchant.widgets.receivableList.webhookSendFailed"),
+      );
     } finally {
       setWebhookTestLoading(false);
     }
-  }, [canSendInvoiceWebhookTest, onInvoiceWebhookTest, webhookConfigured, webhookTestInvoice]);
+  }, [canSendInvoiceWebhookTest, onInvoiceWebhookTest, t, webhookConfigured, webhookTestInvoice]);
+
+  const paginationFrom = (page - 1) * MERCHANT_INVOICE_PAGE_SIZE + 1;
+  const paginationTo = Math.min(page * MERCHANT_INVOICE_PAGE_SIZE, totalCount);
 
   return (
     <>
       <article className="mc-surface mc-surface--invoices-list" id="merchant-receivables">
         <header className="mc-surface-header mc-surface-header--row">
           <div>
-            <p className="mc-surface-eyebrow">Платежи</p>
-            <h2 className="mc-surface-title">Ваши инвойсы</h2>
+            <p className="mc-surface-eyebrow">{t("merchant.widgets.receivableList.eyebrow")}</p>
+            <h2 className="mc-surface-title">{t("merchant.widgets.receivableList.title")}</h2>
             <p className="mc-surface-desc" style={{ marginBottom: 0 }}>
-              Новые сверху. Поиск по заказу, адресу и статусу. Откройте карточку для адреса и QR или синхронизируйте
-              статус с провайдером.
+              {t("merchant.widgets.receivableList.description")}
             </p>
           </div>
           <div className="mc-invoices-list-header-aside">
             <a className="mw-skip-to-receivables" href="#merchant-invoice-create">
-              Новый счёт ↑
+              {t("merchant.widgets.receivableList.skipToCreate")}
             </a>
             {invoices.length > 0 ? (
-              <span className="mc-invoice-count-pill muted-text">{invoices.length} всего</span>
+              <span className="mc-invoice-count-pill muted-text">
+                {t("merchant.widgets.receivableList.totalCount", { count: invoices.length })}
+              </span>
             ) : null}
           </div>
         </header>
@@ -164,9 +193,9 @@ export function ReceivableList({
         {invoices.length > 0 ? (
           <div className="tx-toolbar">
             <label>
-              <span>Поиск</span>
+              <span>{t("common.search")}</span>
               <input
-                placeholder="Заказ, адрес, сеть, статус…"
+                placeholder={t("merchant.widgets.receivableList.searchPlaceholder")}
                 type="search"
                 value={searchTerm}
                 onChange={(event) => {
@@ -180,9 +209,9 @@ export function ReceivableList({
 
         <div className="mc-rows">
           {invoices.length === 0 ? (
-            <div className="mc-empty">Пока нет инвойсов — создайте первый в соседней форме.</div>
+            <div className="mc-empty">{t("merchant.widgets.receivableList.emptyNoInvoices")}</div>
           ) : totalCount === 0 ? (
-            <div className="mc-empty">Ничего не найдено — смените запрос или очистите поле поиска.</div>
+            <div className="mc-empty">{t("merchant.widgets.receivableList.emptyNoResults")}</div>
           ) : (
             pageInvoices.map((invoice) => (
               <div
@@ -210,7 +239,7 @@ export function ReceivableList({
                   <div className="mc-row-badges" style={{ marginTop: 8 }}>
                     <span className="mc-badge mc-badge-neutral">{invoice.network}</span>
                     <span className={invoiceMerchantBadgeClass(invoice.status)}>
-                      {invoiceStatusLabelRu(invoice.status)}
+                      {invoiceStatusLabel(invoice.status, t)}
                     </span>
                   </div>
                 </div>
@@ -222,23 +251,23 @@ export function ReceivableList({
                       rel="noreferrer"
                       target="_blank"
                     >
-                      Страница оплаты
+                      {t("merchant.widgets.receivableList.paymentPage")}
                     </a>
                   ) : null}
                   <button className="ghost-button" onClick={() => onSelectInvoice(invoice.id)} type="button">
-                    Подробнее
+                    {t("common.details")}
                   </button>
                   <button
                     className="ghost-button"
                     onClick={() => openWebhookDialog(invoice)}
-                    title="Тестовый webhook по этому инвойсу (ответ сервера в модальном окне)"
+                    title={t("merchant.widgets.receivableList.webhookTitle")}
                     type="button"
                   >
-                    Webhook
+                    {t("merchant.widgets.receivableList.webhook")}
                   </button>
                   {canSyncInvoices ? (
                     <button className="ghost-button" onClick={() => onSyncInvoice(invoice.id)} type="button">
-                      Синхронизировать
+                      {t("common.sync")}
                     </button>
                   ) : null}
                 </div>
@@ -250,12 +279,15 @@ export function ReceivableList({
         {totalCount > 0 ? (
           <div className="mc-tx-footer tx-footer">
             <p className="muted-text">
-              Показано {(page - 1) * MERCHANT_INVOICE_PAGE_SIZE + 1}–
-              {Math.min(page * MERCHANT_INVOICE_PAGE_SIZE, totalCount)} из {totalCount}
+              {t("merchant.widgets.receivableList.paginationShowing", {
+                from: paginationFrom,
+                to: paginationTo,
+                total: totalCount,
+              })}
             </p>
             <div className="tx-pagination">
               <button className="ghost-button" disabled={page <= 1} onClick={() => setPage(page - 1)} type="button">
-                Назад
+                {t("common.back")}
               </button>
               <span className="tx-page-indicator">
                 {page} / {totalPages}
@@ -266,7 +298,7 @@ export function ReceivableList({
                 onClick={() => setPage(page + 1)}
                 type="button"
               >
-                Вперёд
+                {t("common.forward")}
               </button>
             </div>
           </div>
@@ -292,7 +324,7 @@ function formatInvoiceDate(value: string): string {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return date.toLocaleString("ru-RU", {
+  return date.toLocaleString(undefined, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

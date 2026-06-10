@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import type { ProjectItem } from "../../api";
+import { useApiTranslation } from "../../i18n";
 
 import type { WebhookFormState } from "../types";
 
@@ -45,6 +46,7 @@ export function IntegrationCommandCenter({
   onSaveWebhook,
   onSendWebhookTest,
 }: IntegrationCommandCenterProps) {
+  const { t, ta } = useApiTranslation();
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<IntegrationTab>("sandbox");
   const [scenarioId, setScenarioId] = useState<SandboxScenarioId>("health");
@@ -71,78 +73,111 @@ export function IntegrationCommandCenter({
     ? `curl -X GET "${apiBaseUrl}/rates" \\
   -H "X-API-Key: ${activeApiKeyPublic}" \\
   -H "X-API-Secret: <secret_key>"`
-    : "Сначала получите активный API-ключ, чтобы проверить endpoint /rates.";
+    : t("merchant.integration.scenarios.rates.noKey");
   const syncCurl = activeApiKeyPublic
     ? `curl -X POST "${apiBaseUrl}/invoices/<invoice_id>/sync" \\
   -H "X-API-Key: ${activeApiKeyPublic}" \\
   -H "X-API-Secret: <secret_key>"`
-    : "Сначала получите активный API-ключ, чтобы проверить синхронизацию инвойса.";
+    : t("merchant.integration.scenarios.sync.noKey");
 
   const scenarios = useMemo<SandboxScenario[]>(
     () => [
       {
         id: "health",
-        title: "Доступность API",
-        endpoint: "GET /health",
-        description: "Проверка того, что ваш backend запущен и отвечает без авторизации.",
+        title: t("merchant.integration.scenarios.health.title"),
+        endpoint: t("merchant.integration.scenarios.health.endpoint"),
+        description: t("merchant.integration.scenarios.health.description"),
         command: healthCurl,
-        expected: "HTTP 200 и статус сервиса без ошибок.",
+        expected: t("merchant.integration.scenarios.health.expected"),
       },
       {
         id: "rates",
-        title: "Список токенов и сетей",
-        endpoint: "GET /rates",
-        description:
-          "Проверка активных валют/сетей и лимитов. Здесь сразу видно, что отключено в админке.",
+        title: t("merchant.integration.scenarios.rates.title"),
+        endpoint: t("merchant.integration.scenarios.rates.endpoint"),
+        description: t("merchant.integration.scenarios.rates.description"),
         command: ratesCurl,
-        expected: "Массив доступных токенов с min/max и сетями для оплаты.",
+        expected: t("merchant.integration.scenarios.rates.expected"),
       },
       {
         id: "invoice",
-        title: "Создание тестового инвойса",
-        endpoint: "POST /invoices",
-        description:
-          "Базовый smoke-тест интеграции: генерация инвойса и проверка того, что он появляется в списке.",
+        title: t("merchant.integration.scenarios.invoice.title"),
+        endpoint: t("merchant.integration.scenarios.invoice.endpoint"),
+        description: t("merchant.integration.scenarios.invoice.description"),
         command: integrationCurl,
-        expected: "ID инвойса, статус pending и данные для оплаты.",
+        expected: t("merchant.integration.scenarios.invoice.expected"),
       },
       {
         id: "sync",
-        title: "Синхронизация статуса",
-        endpoint: "POST /invoices/{invoice_id}/sync",
-        description:
-          "Ручная синхронизация полезна для отладки: обновляет статус из провайдера без ожидания webhook.",
+        title: t("merchant.integration.scenarios.sync.title"),
+        endpoint: t("merchant.integration.scenarios.sync.endpoint"),
+        description: t("merchant.integration.scenarios.sync.description"),
         command: syncCurl,
-        expected: "Актуальный статус инвойса после запроса к провайдеру.",
+        expected: t("merchant.integration.scenarios.sync.expected"),
       },
     ],
-    [healthCurl, integrationCurl, ratesCurl, syncCurl]
+    [healthCurl, integrationCurl, ratesCurl, syncCurl, t],
   );
 
   const scenario = scenarios.find((item) => item.id === scenarioId) ?? scenarios[0];
 
-  const readinessItems = [
-    {
-      title: "API-ключ активирован",
-      ok: hasApiKey,
-      detail: hasApiKey ? "Готово: ключ можно использовать в тестовых запросах." : "Нужно создать/активировать ключ.",
-    },
-    {
-      title: "Проект создан",
-      ok: hasProject,
-      detail: hasProject ? "Готово: можно назначать webhook и выпускать инвойсы." : "Добавьте хотя бы один проект в кабинете.",
-    },
-    {
-      title: "Webhook настроен",
-      ok: hasWebhook,
-      detail: hasWebhook ? "Готово: уведомления о статусе будут отправляться автоматически." : "Укажите URL и secret для webhook.",
-    },
-    {
-      title: "Маршрут клиента",
-      ok: Boolean(selectedRoute),
-      detail: selectedRoute ? `Используется контур ${selectedRoute}.` : "Маршрут не выбран.",
-    },
-  ];
+  const readinessItems = useMemo(
+    () => [
+      {
+        title: t("merchant.integration.checklist.apiKey.title"),
+        ok: hasApiKey,
+        detail: hasApiKey
+          ? t("merchant.integration.checklist.apiKey.ok")
+          : t("merchant.integration.checklist.apiKey.fail"),
+      },
+      {
+        title: t("merchant.integration.checklist.project.title"),
+        ok: hasProject,
+        detail: hasProject
+          ? t("merchant.integration.checklist.project.ok")
+          : t("merchant.integration.checklist.project.fail"),
+      },
+      {
+        title: t("merchant.integration.checklist.webhook.title"),
+        ok: hasWebhook,
+        detail: hasWebhook
+          ? t("merchant.integration.checklist.webhook.ok")
+          : t("merchant.integration.checklist.webhook.fail"),
+      },
+      {
+        title: t("merchant.integration.checklist.route.title"),
+        ok: Boolean(selectedRoute),
+        detail: selectedRoute
+          ? t("merchant.integration.checklist.route.ok", { route: selectedRoute })
+          : t("merchant.integration.checklist.route.fail"),
+      },
+    ],
+    [hasApiKey, hasProject, hasWebhook, selectedRoute, t],
+  );
+
+  const checklistSteps = useMemo(
+    () => ta<string>("merchant.integration.checklistSteps"),
+    [ta],
+  );
+
+  const swaggerEndpoints = useMemo(
+    () => ta<string>("merchant.integration.swagger.endpoints"),
+    [ta],
+  );
+
+  const swaggerTestItems = useMemo(
+    () => ta<string>("merchant.integration.swagger.testItems"),
+    [ta],
+  );
+
+  const checkoutDeliveryNote = useMemo(() => {
+    if (webhookForm.checkout_delivery === "h2h") {
+      return t("merchant.integration.webhookSection.checkoutH2h");
+    }
+    if (webhookForm.checkout_delivery === "both") {
+      return t("merchant.integration.webhookSection.checkoutBoth");
+    }
+    return t("merchant.integration.webhookSection.checkoutPaymentPage");
+  }, [t, webhookForm.checkout_delivery]);
 
   const webhookPayloadExample = useMemo(() => {
     const invoiceFields: Record<string, string> = {
@@ -178,14 +213,14 @@ export function IntegrationCommandCenter({
 
   async function handleCopy(value: string | null, title: string) {
     if (!value) {
-      setCopyMessage(`Нет значения для «${title}».`);
+      setCopyMessage(t("common.noValueToCopy", { title }));
       return;
     }
     try {
       await navigator.clipboard.writeText(value);
-      setCopyMessage(`Скопировано: ${title}.`);
+      setCopyMessage(t("common.copiedTitle", { title }));
     } catch {
-      setCopyMessage(`Не удалось скопировать «${title}».`);
+      setCopyMessage(t("common.copyFailedTitle", { title }));
     }
   }
 
@@ -198,44 +233,44 @@ export function IntegrationCommandCenter({
   }, [copyMessage]);
 
   return (
-    <article className="mc-surface mc-surface--span">
+    <article className="mc-surface mc-surface--span" lang="en" dir="ltr">
       <header className="mc-surface-header mc-surface-header--row">
         <div>
-          <p className="mc-surface-eyebrow">Интеграция</p>
-          <h2 className="mc-surface-title">Центр проверки API</h2>
+          <p className="mc-surface-eyebrow">{t("merchant.integration.eyebrow")}</p>
+          <h2 className="mc-surface-title">{t("merchant.integration.title")}</h2>
           <p className="mc-surface-desc" style={{ marginTop: 8, marginBottom: 0 }}>
-            Сценарии curl, webhook и быстрые ссылки — без перехода в другие разделы.
+            {t("merchant.integration.description")}
           </p>
         </div>
         <span className={`mc-env-pill ${isSandbox ? "mc-env-pill--sandbox" : "mc-env-pill--live"}`}>
-          {isSandbox ? "Песочница" : "Бой"}
+          {isSandbox ? t("merchant.integration.sandbox") : t("merchant.integration.live")}
         </span>
       </header>
 
       <div className="mc-kv-strip">
         <div className="mc-kv">
-          <span>Merchant ID</span>
-          <code>{merchantId ?? "—"}</code>
+          <span>{t("merchant.integration.merchantId")}</span>
+          <code>{merchantId ?? t("common.dash")}</code>
         </div>
         <div className="mc-kv">
-          <span>Base URL</span>
+          <span>{t("merchant.integration.baseUrl")}</span>
           <code>{apiBaseUrl}</code>
         </div>
         <div className="mc-kv">
-          <span>API key</span>
-          <code>{activeApiKeyPublic ?? "—"}</code>
+          <span>{t("merchant.integration.apiKey")}</span>
+          <code>{activeApiKeyPublic ?? t("common.dash")}</code>
         </div>
         <div className="mc-kv">
-          <span>Webhook</span>
-          <code>{activeWebhookUrl ?? "—"}</code>
+          <span>{t("merchant.integration.webhookLabel")}</span>
+          <code>{activeWebhookUrl ?? t("common.dash")}</code>
         </div>
         <div className="mc-kv">
-          <span>Контур</span>
+          <span>{t("merchant.integration.route")}</span>
           <code>{selectedRoute}</code>
         </div>
       </div>
 
-      <div className="mc-tabs" role="tablist" aria-label="Раздел интеграции">
+      <div className="mc-tabs" role="tablist" aria-label={t("merchant.integration.tabAria")}>
         <button
           className={`mc-tab ${tab === "sandbox" ? "mc-tab--active" : ""}`}
           onClick={() => setTab("sandbox")}
@@ -243,7 +278,7 @@ export function IntegrationCommandCenter({
           role="tab"
           aria-selected={tab === "sandbox"}
         >
-          Песочница
+          {t("merchant.integration.sandbox")}
         </button>
         <button
           className={`mc-tab ${tab === "webhook" ? "mc-tab--active" : ""}`}
@@ -252,7 +287,7 @@ export function IntegrationCommandCenter({
           role="tab"
           aria-selected={tab === "webhook"}
         >
-          Webhook
+          {t("merchant.integration.webhook")}
         </button>
         <button
           className={`mc-tab ${tab === "swagger" ? "mc-tab--active" : ""}`}
@@ -261,7 +296,7 @@ export function IntegrationCommandCenter({
           role="tab"
           aria-selected={tab === "swagger"}
         >
-          Swagger
+          {t("merchant.integration.tabSwagger")}
         </button>
       </div>
 
@@ -270,12 +305,10 @@ export function IntegrationCommandCenter({
           <div className="mc-integration-grid">
             <section className="mc-nested integration-card">
               <div className="integration-card-head">
-                <strong>Сценарии тестирования</strong>
-                <span>Пошаговый запуск API</span>
+                <strong>{t("merchant.integration.scenariosTitle")}</strong>
+                <span>{t("merchant.integration.scenariosSubtitle")}</span>
               </div>
-              <p className="integration-inline-note">
-                Выберите сценарий. Для каждого есть готовая команда и ожидаемый результат.
-              </p>
+              <p className="integration-inline-note">{t("merchant.integration.scenariosNote")}</p>
 
               <div className="integration-scenario-list">
                 {scenarios.map((item) => (
@@ -292,18 +325,20 @@ export function IntegrationCommandCenter({
 
               <div className="integration-scenario-body">
                 <p className="integration-endpoint-line">
-                  Endpoint: <code>{scenario.endpoint}</code>
+                  {t("merchant.integration.endpoint")}: <code>{scenario.endpoint}</code>
                 </p>
                 <p>{scenario.description}</p>
                 <pre className="json-box">{scenario.command}</pre>
-                <p className="integration-expected">Ожидаемо: {scenario.expected}</p>
+                <p className="integration-expected">
+                  {t("merchant.integration.expected")}: {scenario.expected}
+                </p>
                 <div className="action-row-inline">
                   <button
                     className="ghost-button"
                     onClick={() => void handleCopy(scenario.command, `${scenario.title} curl`)}
                     type="button"
                   >
-                    Копировать команду
+                    {t("common.copyCommand")}
                   </button>
                 </div>
               </div>
@@ -311,8 +346,8 @@ export function IntegrationCommandCenter({
 
             <section className="mc-nested integration-card">
               <div className="integration-card-head">
-                <strong>Чек-лист готовности</strong>
-                <span>Что проверить перед продом</span>
+                <strong>{t("merchant.integration.checklistTitle")}</strong>
+                <span>{t("merchant.integration.checklistSubtitle")}</span>
               </div>
 
               <div className="integration-readiness-list">
@@ -324,9 +359,9 @@ export function IntegrationCommandCenter({
                     </div>
                     <span
                       className={`status-pill ${item.ok ? "status-pill-ok" : "status-pill-bad"}`}
-                      title={item.ok ? "Готово" : "Нужно действие"}
+                      title={item.ok ? t("merchant.integration.ready") : t("merchant.integration.neededAction")}
                     >
-                      {item.ok ? "OK" : "Нужно"}
+                      {item.ok ? "OK" : t("merchant.integration.needed")}
                     </span>
                   </article>
                 ))}
@@ -334,13 +369,11 @@ export function IntegrationCommandCenter({
 
               <div className="integration-divider" />
 
-              <strong className="integration-subtitle">Рекомендуемый порядок проверки</strong>
+              <strong className="integration-subtitle">{t("merchant.integration.checklistOrderTitle")}</strong>
               <ol className="integration-steps">
-                <li>Проверить `GET /health`, что backend стабильно отвечает.</li>
-                <li>Проверить `GET /rates`, что видны только разрешенные токены/сети.</li>
-                <li>Создать тестовый инвойс и сверить его в списке инвойсов.</li>
-                <li>Запустить ручной sync и убедиться, что статус обновляется.</li>
-                <li>Отправить тестовый webhook и проверить подпись на стороне мерчанта.</li>
+                {checklistSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
               </ol>
             </section>
           </div>
@@ -352,41 +385,40 @@ export function IntegrationCommandCenter({
           <div className="mc-integration-grid">
             <section className="mc-nested integration-card">
               <div className="integration-card-head">
-                <strong>Webhook: формат и отладка</strong>
-                <span>Тест доставки событий</span>
+                <strong>{t("merchant.integration.webhookSection.title")}</strong>
+                <span>{t("merchant.integration.webhookSection.subtitle")}</span>
               </div>
-              <p className="integration-inline-note">
-                Заголовки: `X-Merset-Event`, `X-Merset-Event-Id`, `X-Merset-Timestamp`,
-                `X-Merset-Signature` (если задан secret).
-              </p>
-              <p className="integration-inline-note">
-                Для первой проверки удобно использовать RequestBin или ngrok, затем переключиться на production URL.
-              </p>
+              <p className="integration-inline-note">{t("merchant.integration.webhookSection.headersNote")}</p>
+              <p className="integration-inline-note">{t("merchant.integration.webhookSection.debugNote")}</p>
 
               <div className="copy-grid">
                 <div className="copy-row">
-                  <code className="copy-row-value">{activeApiKeyPublic ?? "Нет активного ключа"}</code>
+                  <code className="copy-row-value">
+                    {activeApiKeyPublic ?? t("merchant.integration.webhookSection.noActiveKey")}
+                  </code>
                   <button
                     className="ghost-button"
-                    onClick={() => void handleCopy(activeApiKeyPublic, "API key")}
+                    onClick={() => void handleCopy(activeApiKeyPublic, t("merchant.integration.apiKey"))}
                     type="button"
                   >
-                    Копировать ключ
+                    {t("merchant.integration.webhookSection.copyKey")}
                   </button>
                 </div>
                 <div className="copy-row">
-                  <code className="copy-row-value">{activeWebhookUrl ?? "Webhook URL не задан"}</code>
+                  <code className="copy-row-value">
+                    {activeWebhookUrl ?? t("merchant.integration.webhookSection.noWebhookUrl")}
+                  </code>
                   <button
                     className="ghost-button"
-                    onClick={() => void handleCopy(activeWebhookUrl, "Webhook URL")}
+                    onClick={() => void handleCopy(activeWebhookUrl, t("merchant.integration.webhookSection.webhookUrl"))}
                     type="button"
                   >
-                    Копировать URL
+                    {t("merchant.integration.webhookSection.copyUrl")}
                   </button>
                 </div>
               </div>
 
-              <strong className="integration-subtitle">Пример payload</strong>
+              <strong className="integration-subtitle">{t("merchant.integration.webhookSection.payloadExample")}</strong>
               <pre className="json-box">{webhookPayloadExample}</pre>
               <div className="action-row-inline">
                 <button
@@ -394,19 +426,19 @@ export function IntegrationCommandCenter({
                   onClick={() => void handleCopy(webhookPayloadExample, "Webhook payload")}
                   type="button"
                 >
-                  Копировать payload
+                  {t("common.copyPayload")}
                 </button>
               </div>
             </section>
 
             <form className="mc-form mc-nested" onSubmit={onSaveWebhook}>
               <label className="mc-field">
-                <span>Проект для webhook</span>
+                <span>{t("merchant.integration.webhookSection.projectForWebhook")}</span>
                 <select
                   value={webhookForm.project_id}
                   onChange={(event) => onWebhookFormChange({ ...webhookForm, project_id: event.target.value })}
                 >
-                  <option value="">Выберите проект</option>
+                  <option value="">{t("common.selectProject")}</option>
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
@@ -415,7 +447,7 @@ export function IntegrationCommandCenter({
                 </select>
               </label>
               <label className="mc-field">
-                <span>Webhook URL</span>
+                <span>{t("merchant.integration.webhookSection.webhookUrl")}</span>
                 <input
                   value={webhookForm.webhook_url}
                   onChange={(event) => onWebhookFormChange({ ...webhookForm, webhook_url: event.target.value })}
@@ -423,63 +455,53 @@ export function IntegrationCommandCenter({
                 />
               </label>
               <label className="mc-field">
-                <span>Webhook secret</span>
+                <span>{t("merchant.integration.webhookSection.webhookSecret")}</span>
                 <input
                   value={webhookForm.webhook_secret}
                   onChange={(event) => onWebhookFormChange({ ...webhookForm, webhook_secret: event.target.value })}
-                  placeholder="merchant-webhook-secret"
+                  placeholder={t("merchant.integration.webhookSection.webhookSecretPlaceholder")}
                 />
               </label>
               <div className="integration-card-head" style={{ marginTop: "0.5rem" }}>
-                <strong>Формат checkout</strong>
-                <span>Задаётся администратором</span>
+                <strong>{t("merchant.integration.webhookSection.checkoutFormat")}</strong>
+                <span>{t("merchant.integration.webhookSection.checkoutAdminOnly")}</span>
               </div>
               <p className="integration-inline-note">
-                {webhookForm.checkout_delivery === "h2h"
-                  ? "H2H: в ответе API и webhook приходят payment_address и qr_url."
-                  : webhookForm.checkout_delivery === "both"
-                    ? "Оба формата: payment_page_url, payment_address и qr_url."
-                    : "Платёжная ссылка: в ответе API и webhook приходит только payment_page_url (/pay/{token})."}
-                {" "}Для смены режима обратитесь в поддержку платформы.
+                {checkoutDeliveryNote} {t("merchant.integration.webhookSection.checkoutSupportNote")}
               </p>
 
               <div className="integration-card-head" style={{ marginTop: "1.25rem" }}>
-                <strong>Возврат в магазин</strong>
-                <span>Ссылки на платёжной странице</span>
+                <strong>{t("merchant.integration.webhookSection.returnToShop")}</strong>
+                <span>{t("merchant.integration.webhookSection.returnLinks")}</span>
               </div>
-              <p className="integration-inline-note">
-                После оплаты или ошибки покупатель увидит кнопку «Вернуться в магазин». Можно добавить
-                свои query-параметры, например{" "}
-                <code>?order_id=123&amp;status=success</code>.
-              </p>
+              <p className="integration-inline-note">{t("merchant.integration.webhookSection.returnNote")}</p>
               <label className="mc-field">
-                <span>Успешная оплата (success)</span>
+                <span>{t("merchant.integration.webhookSection.returnSuccess")}</span>
                 <input
                   value={webhookForm.return_url_success}
                   onChange={(event) =>
                     onWebhookFormChange({ ...webhookForm, return_url_success: event.target.value })
                   }
-                  placeholder="https://your-shop.com/checkout/success"
+                  placeholder={t("merchant.integration.webhookSection.returnSuccessPlaceholder")}
                 />
               </label>
               <label className="mc-field">
-                <span>Ошибка или отмена (failed)</span>
+                <span>{t("merchant.integration.webhookSection.returnFailed")}</span>
                 <input
                   value={webhookForm.return_url_failed}
                   onChange={(event) =>
                     onWebhookFormChange({ ...webhookForm, return_url_failed: event.target.value })
                   }
-                  placeholder="https://your-shop.com/checkout/failed"
+                  placeholder={t("merchant.integration.webhookSection.returnFailedPlaceholder")}
                 />
               </label>
 
-              <p className="integration-inline-note">
-                В ответе POST /invoices и в webhook приходит формат, заданный администратором для вашего проекта.
-                Платёжная страница — `payment_page_url` (`/pay/&#123;token&#125;`). H2H — `payment_address` и `qr_url`.
-              </p>
+              <p className="integration-inline-note">{t("merchant.integration.webhookSection.responseNote")}</p>
               <div className="action-row-inline">
                 <button className="primary-button" disabled={loading} type="submit">
-                  {loading ? "Сохраняем..." : "Сохранить webhook"}
+                  {loading
+                    ? t("merchant.integration.webhookSection.savingWebhook")
+                    : t("merchant.integration.webhookSection.saveWebhook")}
                 </button>
                 <button
                   className="ghost-button"
@@ -487,7 +509,7 @@ export function IntegrationCommandCenter({
                   onClick={onSendWebhookTest}
                   type="button"
                 >
-                  Отправить тестовый webhook
+                  {t("merchant.integration.webhookSection.sendTestWebhook")}
                 </button>
               </div>
             </form>
@@ -499,35 +521,31 @@ export function IntegrationCommandCenter({
         <div className="integration-tab-pane">
           <div className="integration-doc-grid">
             <a className="integration-link-card" href={docsUrl} rel="noreferrer" target="_blank">
-              <strong>Swagger UI</strong>
+              <strong>{t("merchant.integration.swagger.swaggerUi")}</strong>
               <span>{docsUrl}</span>
             </a>
             <a className="integration-link-card" href={openApiUrl} rel="noreferrer" target="_blank">
-              <strong>OpenAPI JSON</strong>
+              <strong>{t("merchant.integration.swagger.openApiJson")}</strong>
               <span>{openApiUrl}</span>
             </a>
           </div>
 
           <div className="integration-endpoints-grid">
             <article className="mc-nested integration-card">
-              <strong className="integration-subtitle">Ключевые endpoint'ы для интеграции</strong>
+              <strong className="integration-subtitle">{t("merchant.integration.swagger.keyEndpoints")}</strong>
               <ul className="integration-list">
-                <li>`POST /api/v1/client/invoices` - создать инвойс.</li>
-                <li>`GET /api/v1/client/invoices` - список инвойсов.</li>
-                <li>`POST /api/v1/client/invoices/{`{invoice_id}`}/sync` - синхронизировать статус.</li>
-                <li>`GET /api/v1/client/transactions` - проверить net и комиссии.</li>
-                <li>`POST /api/v1/client/webhooks/test` - отправить тестовый webhook.</li>
+                {swaggerEndpoints.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
               </ul>
             </article>
 
             <article className="mc-nested integration-card">
-              <strong className="integration-subtitle">Что тестировать в Swagger в первую очередь</strong>
+              <strong className="integration-subtitle">{t("merchant.integration.swagger.testFirst")}</strong>
               <ul className="integration-list">
-                <li>Ошибки лимитов сумм (min/max) при создании инвойса.</li>
-                <li>Корректность токена и сети в `/rates` после переключений в админке.</li>
-                <li>Переход статусов `pending -&gt; confirmed` после sync.</li>
-                <li>Корректность структуры ошибок в `detail`.</li>
-                <li>Доставку webhook с подписью при заданном secret.</li>
+                {swaggerTestItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
               </ul>
             </article>
           </div>

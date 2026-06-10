@@ -68,67 +68,67 @@ class NotificationService:
     EVENT_DEFINITIONS: tuple[NotificationEventDefinition, ...] = (
         NotificationEventDefinition(
             code=EVENT_APPLICATION_SUBMITTED,
-            title="Заявка на подключение проекта",
+            title="Project registration request",
             mode="notify",
         ),
         NotificationEventDefinition(
             code=EVENT_APPLICATION_APPROVED,
-            title="Заявка одобрена",
+            title="Application approved",
             mode="confirm",
         ),
         NotificationEventDefinition(
             code=EVENT_APPLICATION_REJECTED,
-            title="Заявка отклонена",
+            title="Application rejected",
             mode="notify",
         ),
         NotificationEventDefinition(
             code=EVENT_PASSWORD_GENERATED,
-            title="Сгенерирован пароль для входа",
+            title="Sign-in password generated",
             mode="confirm",
         ),
         NotificationEventDefinition(
             code=EVENT_PASSWORD_CHANGED,
-            title="Пароль изменен",
+            title="Password changed",
             mode="confirm",
         ),
         NotificationEventDefinition(
             code=EVENT_API_KEY_GENERATED,
-            title="Сгенерирован API-ключ",
+            title="API key generated",
             mode="confirm",
         ),
         NotificationEventDefinition(
             code=EVENT_API_KEY_REGENERATED,
-            title="API-ключ перевыпущен",
+            title="API key regenerated",
             mode="confirm",
         ),
         NotificationEventDefinition(
             code=EVENT_API_KEY_REVOKED,
-            title="API-ключ отозван",
+            title="API key revoked",
             mode="confirm",
         ),
         NotificationEventDefinition(
             code=EVENT_TWO_FACTOR_ENABLED,
-            title="2FA включена",
+            title="2FA enabled",
             mode="confirm",
         ),
         NotificationEventDefinition(
             code=EVENT_TWO_FACTOR_DISABLED,
-            title="2FA отключена",
+            title="2FA disabled",
             mode="confirm",
         ),
         NotificationEventDefinition(
             code=EVENT_PAYOUT_REQUESTED,
-            title="Запрос на выплату создан",
+            title="Payout request created",
             mode="notify",
         ),
         NotificationEventDefinition(
             code=EVENT_PAYOUT_APPROVED,
-            title="Запрос на выплату одобрен",
+            title="Payout request approved",
             mode="notify",
         ),
         NotificationEventDefinition(
             code=EVENT_PAYOUT_REJECTED,
-            title="Запрос на выплату отклонен",
+            title="Payout request rejected",
             mode="notify",
         ),
     )
@@ -173,91 +173,91 @@ class NotificationService:
         "telegram_body": "{{ event_subject }}\n\n{{ message_lines }}",
     }
     DEFAULT_EMAIL_SUBJECT_BY_EVENT: dict[str, str] = {
-        EVENT_APPLICATION_SUBMITTED: "{{ brand_name }}: заявка на подключение получена",
-        EVENT_APPLICATION_APPROVED: "{{ brand_name }}: проект одобрен",
-        EVENT_APPLICATION_REJECTED: "{{ brand_name }}: заявка отклонена",
-        EVENT_PASSWORD_GENERATED: "{{ brand_name }}: данные для входа",
-        EVENT_PASSWORD_CHANGED: "{{ brand_name }}: пароль изменён",
-        EVENT_API_KEY_GENERATED: "{{ brand_name }}: новый API-ключ",
-        EVENT_API_KEY_REGENERATED: "{{ brand_name }}: API-ключ перевыпущен",
-        EVENT_API_KEY_REVOKED: "{{ brand_name }}: API-ключ отозван",
-        EVENT_TWO_FACTOR_ENABLED: "{{ brand_name }}: двухфакторная защита включена",
-        EVENT_TWO_FACTOR_DISABLED: "{{ brand_name }}: двухфакторная защита отключена",
-        EVENT_PAYOUT_REQUESTED: "{{ brand_name }}: запрос на выплату создан",
-        EVENT_PAYOUT_APPROVED: "{{ brand_name }}: выплата одобрена",
-        EVENT_PAYOUT_REJECTED: "{{ brand_name }}: выплата отклонена",
+        EVENT_APPLICATION_SUBMITTED: "{{ brand_name }}: registration request received",
+        EVENT_APPLICATION_APPROVED: "{{ brand_name }}: project approved",
+        EVENT_APPLICATION_REJECTED: "{{ brand_name }}: application rejected",
+        EVENT_PASSWORD_GENERATED: "{{ brand_name }}: sign-in credentials",
+        EVENT_PASSWORD_CHANGED: "{{ brand_name }}: password changed",
+        EVENT_API_KEY_GENERATED: "{{ brand_name }}: new API key",
+        EVENT_API_KEY_REGENERATED: "{{ brand_name }}: API key regenerated",
+        EVENT_API_KEY_REVOKED: "{{ brand_name }}: API key revoked",
+        EVENT_TWO_FACTOR_ENABLED: "{{ brand_name }}: two-factor protection enabled",
+        EVENT_TWO_FACTOR_DISABLED: "{{ brand_name }}: two-factor protection disabled",
+        EVENT_PAYOUT_REQUESTED: "{{ brand_name }}: payout request created",
+        EVENT_PAYOUT_APPROVED: "{{ brand_name }}: payout approved",
+        EVENT_PAYOUT_REJECTED: "{{ brand_name }}: payout rejected",
     }
     DEFAULT_MESSAGE_LINES_BY_EVENT: dict[str, str] = {
         EVENT_APPLICATION_SUBMITTED: (
-            "Здравствуйте, {{ user_full_name }}!\n"
-            "Мы получили заявку на подключение проекта «{{ tenant_name }}».\n"
-            "Сейчас она на модерации — сообщим результат отдельным письмом."
+            "Hello, {{ user_full_name }}!\n"
+            "We received a registration request for project \"{{ tenant_name }}\".\n"
+            "It is now under review — we will notify you separately when there is a decision."
         ),
         EVENT_APPLICATION_APPROVED: (
-            "Здравствуйте, {{ user_full_name }}!\n"
-            "Проект «{{ tenant_name }}» одобрен.\n"
-            "Можно входить в кабинет и продолжать настройку интеграции."
+            "Hello, {{ user_full_name }}!\n"
+            "Project \"{{ tenant_name }}\" has been approved.\n"
+            "You can sign in to the merchant cabinet and continue integration setup."
         ),
         EVENT_APPLICATION_REJECTED: (
-            "Здравствуйте, {{ user_full_name }}!\n"
-            "Заявка проекта «{{ tenant_name }}» отклонена.\n"
-            "Комментарий модератора: {{ review_comment }}"
+            "Hello, {{ user_full_name }}!\n"
+            "The application for project \"{{ tenant_name }}\" was rejected.\n"
+            "Moderator comment: {{ review_comment }}"
         ),
         EVENT_PASSWORD_GENERATED: (
-            "Здравствуйте, {{ user_full_name }}!\n"
-            "Email для входа: {{ user_email }}\n"
-            "Временный пароль: {{ temporary_password }}{{ recovery_token }}\n"
-            "После первого входа рекомендуем сразу сменить пароль."
+            "Hello, {{ user_full_name }}!\n"
+            "Sign-in email: {{ user_email }}\n"
+            "Temporary password: {{ temporary_password }}{{ recovery_token }}\n"
+            "We recommend changing your password after the first sign-in."
         ),
         EVENT_PASSWORD_CHANGED: (
-            "Здравствуйте, {{ user_full_name }}!\n"
-            "Пароль для {{ user_email }} успешно обновлён.\n"
-            "Если это были не вы, срочно обратитесь в поддержку."
+            "Hello, {{ user_full_name }}!\n"
+            "Password for {{ user_email }} has been updated.\n"
+            "If this was not you, contact support immediately."
         ),
         EVENT_API_KEY_GENERATED: (
             "Project ID: {{ project_id }}\n"
             "Public key: {{ api_public_key }}\n"
             "Secret key: {{ api_secret_key }}\n"
             "Invite token: {{ invite_token }}\n"
-            "Сохраните secret key в защищённом месте."
+            "Store the secret key in a secure location."
         ),
         EVENT_API_KEY_REGENERATED: (
             "Public key: {{ api_public_key }}\n"
             "Secret key: {{ api_secret_key }}\n"
-            "Инициатор: {{ initiated_by_email }}\n"
-            "Сохраните новый secret key в защищённом месте."
+            "Initiated by: {{ initiated_by_email }}\n"
+            "Store the new secret key in a secure location."
         ),
         EVENT_API_KEY_REVOKED: (
             "Public key: {{ api_public_key }}\n"
-            "Инициатор: {{ initiated_by_email }}\n"
-            "Если отзыв был несанкционированным, срочно свяжитесь с поддержкой."
+            "Initiated by: {{ initiated_by_email }}\n"
+            "If this revocation was unauthorized, contact support immediately."
         ),
         EVENT_TWO_FACTOR_ENABLED: (
-            "Здравствуйте, {{ user_full_name }}!\n"
-            "Для {{ user_email }} включена двухфакторная защита входа."
+            "Hello, {{ user_full_name }}!\n"
+            "Two-factor sign-in protection has been enabled for {{ user_email }}."
         ),
         EVENT_TWO_FACTOR_DISABLED: (
-            "Здравствуйте, {{ user_full_name }}!\n"
-            "Для {{ user_email }} двухфакторная защита отключена.\n"
-            "Если это были не вы, срочно смените пароль."
+            "Hello, {{ user_full_name }}!\n"
+            "Two-factor protection has been disabled for {{ user_email }}.\n"
+            "If this was not you, change your password immediately."
         ),
         EVENT_PAYOUT_REQUESTED: (
-            "Создан запрос на выплату {{ payout_id }}.\n"
-            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
-            "Адрес: {{ destination_address }}\n"
-            "Инициатор: {{ initiated_by_email }}"
+            "Payout request {{ payout_id }} created.\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Address: {{ destination_address }}\n"
+            "Initiated by: {{ initiated_by_email }}"
         ),
         EVENT_PAYOUT_APPROVED: (
-            "Выплата {{ payout_id }} одобрена.\n"
-            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
-            "Статус: {{ payout_status }}\n"
-            "Комментарий: {{ review_comment }}"
+            "Payout {{ payout_id }} approved.\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Status: {{ payout_status }}\n"
+            "Comment: {{ review_comment }}"
         ),
         EVENT_PAYOUT_REJECTED: (
-            "Выплата {{ payout_id }} отклонена.\n"
-            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
-            "Статус: {{ payout_status }}\n"
-            "Комментарий: {{ review_comment }}"
+            "Payout {{ payout_id }} rejected.\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Status: {{ payout_status }}\n"
+            "Comment: {{ review_comment }}"
         ),
     }
 

@@ -1,14 +1,15 @@
+import { useTranslation } from "../../i18n";
+
 type PageLoaderProps = {
   label?: string;
 };
 
-export function PageLoader({ label = "Загрузка интерфейса..." }: PageLoaderProps) {
+export function PageLoader({ label }: PageLoaderProps) {
+  const { t } = useTranslation();
+
   return (
-    <div className="page-loader-shell">
-      <div className="page-loader-card">
-        <span className="page-loader-orb" />
-        <strong>{label}</strong>
-      </div>
+    <div className="page-loader">
+      <p>{label ?? t("merchant.app.loadingUi")}</p>
     </div>
   );
 }

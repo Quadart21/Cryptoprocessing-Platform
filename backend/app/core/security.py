@@ -49,14 +49,14 @@ def decrypt_value(value: str) -> str:
     try:
         return _build_fernet().decrypt(value.encode("utf-8")).decode("utf-8")
     except InvalidToken as exc:
-        raise ValueError("Не удалось расшифровать защищенное значение.") from exc
+        raise ValueError("Failed to decrypt protected value.") from exc
 
 
 def decode_token(token: str) -> dict:
     try:
         return jwt.decode(token, settings.effective_jwt_secret, algorithms=[ALGORITHM])
     except JWTError as exc:
-        raise ValueError("Недействительный токен.") from exc
+        raise ValueError("Invalid token.") from exc
 
 
 def _build_fernet() -> Fernet:

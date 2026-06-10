@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { InvoiceItem, TransactionItem } from "../api";
+import { useTranslation } from "../i18n";
 import { formatMoneyAmount } from "../utils/format";
 
 export type AnalyticsPeriod = "today" | "7d" | "30d" | "90d" | "all";
@@ -56,14 +57,6 @@ type UseClientAnalyticsResult = {
   chartCurrency: string;
 };
 
-const PERIOD_LABELS: Record<AnalyticsPeriod, string> = {
-  today: "Сегодня",
-  "7d": "7 дней",
-  "30d": "30 дней",
-  "90d": "90 дней",
-  all: "Весь период",
-};
-
 function isPaidLikeInvoiceStatus(status: string): boolean {
   return status === "paid" || status === "confirmed";
 }
@@ -77,6 +70,7 @@ export function useClientAnalytics({
   invoices,
   currencyFallback,
 }: UseClientAnalyticsParams): UseClientAnalyticsResult {
+  const { t } = useTranslation();
   const [period, setPeriod] = useState<AnalyticsPeriod>("30d");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currencyFilter, setCurrencyFilter] = useState<string>("all");
@@ -146,7 +140,7 @@ export function useClientAnalytics({
   };
 
   const chartCurrency = currencyFallback || transactionsInPeriod[0]?.currency || "USDT";
-  const summary = buildSummary(transactionsInPeriod, period, chartCurrency, transactionContributesToTurnover);
+  const summary = buildSummary(transactionsInPeriod, period, chartCurrency, transactionContributesToTurnover, t);
   const chartPoints = buildChartPoints(transactionsInPeriod, period, transactionContributesToTurnover);
 
   return {
@@ -250,11 +244,16 @@ function uniqueValues(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function periodLabel(t: (key: string) => string, period: AnalyticsPeriod): string {
+  return t(`merchant.periodLabels.${period}`);
+}
+
 function buildSummary(
   transactions: TransactionItem[],
   period: AnalyticsPeriod,
   currency: string,
   contributesToTurnover: (tx: TransactionItem) => boolean,
+  t: (key: string, params?: Record<string, string | number>) => string,
 ): ClientAnalyticsSummary {
   let turnover = 0;
   let net = 0;
@@ -286,10 +285,15 @@ function buildSummary(
   const newest = transactions[0];
   const oldestDate = toDate(oldest?.created_at ?? null);
   const newestDate = toDate(newest?.created_at ?? null);
-  const periodLabel =
+  const periodName = periodLabel(t, period);
+  const periodLabelText =
     oldestDate && newestDate
-      ? `${PERIOD_LABELS[period]}: ${formatDate(oldestDate)} - ${formatDate(newestDate)}`
-      : `${PERIOD_LABELS[period]}: нет данных`;
+      ? t("merchant.periodLabels.range", {
+          period: periodName,
+          from: formatDate(oldestDate),
+          to: formatDate(newestDate),
+        })
+      : t("merchant.periodLabels.noData", { period: periodName });
 
   return {
     turnover: formatAmount(turnover, currency),
@@ -299,7 +303,7 @@ function buildSummary(
     successRate: formatPercent(successRate),
     averageCheck: formatAmount(averageCheck, currency),
     transactionCount,
-    periodLabel,
+    periodLabel: periodLabelText,
   };
 }
 

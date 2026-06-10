@@ -1,5 +1,7 @@
 import { createPortal } from "react-dom";
 
+import { useTranslation } from "../../i18n";
+
 import { DashboardToast } from "./DashboardToast";
 
 type DashboardStatusMessagesProps = {
@@ -19,6 +21,8 @@ export function DashboardStatusMessages({
   newApiSecret,
   onCloseSecretModal,
 }: DashboardStatusMessagesProps) {
+  const { t } = useTranslation();
+
   async function handleCopySecret() {
     if (newApiSecret) {
       try {
@@ -78,11 +82,9 @@ export function DashboardStatusMessages({
                 </svg>
               </div>
               <h3 style={{ fontSize: 20, fontWeight: 600, color: "var(--text-0)", marginBottom: 8 }}>
-                Сохраните Secret Key
+                {t("common.saveSecretKey")}
               </h3>
-              <p style={{ color: "var(--text-2)", fontSize: 14 }}>
-                Этот ключ показывается один раз и нельзя будет посмотреть снова.
-              </p>
+              <p style={{ color: "var(--text-2)", fontSize: 14 }}>{t("common.saveSecretHint")}</p>
             </div>
             <div
               style={{
@@ -93,7 +95,7 @@ export function DashboardStatusMessages({
                 wordBreak: "break-all",
               }}
             >
-              <p style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>New Secret Key</p>
+              <p style={{ fontSize: 12, color: "var(--text-2)", marginBottom: 8 }}>{t("common.newSecretKey")}</p>
               <code style={{ color: "var(--cyan)", fontSize: 14, fontFamily: "monospace" }}>
                 {newApiSecret}
               </code>
@@ -105,7 +107,7 @@ export function DashboardStatusMessages({
                 type="button"
                 style={{ flex: 1 }}
               >
-                Копировать
+                {t("common.copy")}
               </button>
               <button
                 className="primary-button"
@@ -113,7 +115,7 @@ export function DashboardStatusMessages({
                 type="button"
                 style={{ flex: 1 }}
               >
-                Я сохранил(а)
+                {t("common.savedConfirm")}
               </button>
             </div>
           </div>

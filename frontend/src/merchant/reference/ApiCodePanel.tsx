@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 
+import { useApiTranslation } from "../../i18n";
+
 type ApiCodeTab = "request" | "success" | "error";
 
 type ApiCodePanelProps = {
@@ -10,10 +12,10 @@ type ApiCodePanelProps = {
   onCopy: (value: string, label: string) => void | Promise<void>;
 };
 
-const TAB_META: Record<ApiCodeTab, { label: string; badge: string; tone: string }> = {
-  request: { label: "Запрос", badge: "REQ", tone: "request" },
-  success: { label: "Успешный ответ", badge: "2xx", tone: "success" },
-  error: { label: "Типовая ошибка", badge: "4xx", tone: "error" },
+const TAB_BADGES: Record<ApiCodeTab, { badge: string; tone: string }> = {
+  request: { badge: "REQ", tone: "request" },
+  success: { badge: "2xx", tone: "success" },
+  error: { badge: "4xx", tone: "error" },
 };
 
 export function ApiCodePanel({
@@ -23,6 +25,17 @@ export function ApiCodePanel({
   errorExample,
   onCopy,
 }: ApiCodePanelProps) {
+  const { t } = useApiTranslation();
+
+  const tabMeta = useMemo(
+    () => ({
+      request: { label: t("merchant.apiDocs.codePanel.request"), ...TAB_BADGES.request },
+      success: { label: t("merchant.apiDocs.codePanel.success"), ...TAB_BADGES.success },
+      error: { label: t("merchant.apiDocs.codePanel.error"), ...TAB_BADGES.error },
+    }),
+    [t],
+  );
+
   const tabs = useMemo(() => {
     const items: Array<{ id: ApiCodeTab; code: string }> = [];
     if (requestExample?.trim()) {
@@ -39,21 +52,21 @@ export function ApiCodePanel({
 
   const [activeTab, setActiveTab] = useState<ApiCodeTab>(() => tabs[0]?.id ?? "success");
   const activeCode = tabs.find((tab) => tab.id === activeTab)?.code ?? tabs[0]?.code ?? "";
-  const activeMeta = TAB_META[activeTab];
+  const activeMeta = tabMeta[activeTab];
 
   if (!tabs.length) {
     return (
       <div className="api-code-panel api-code-panel-empty">
-        <p>Примеры для этого endpoint пока недоступны.</p>
+        <p>{t("merchant.apiDocs.codePanel.empty")}</p>
       </div>
     );
   }
 
   return (
     <div className="api-code-panel">
-      <div className="api-code-panel-tabs" role="tablist" aria-label="Примеры API">
+      <div className="api-code-panel-tabs" role="tablist" aria-label={t("merchant.apiDocs.codePanel.tabsAria")}>
         {tabs.map((tab) => {
-          const meta = TAB_META[tab.id];
+          const meta = tabMeta[tab.id];
           return (
             <button
               key={tab.id}
@@ -82,7 +95,7 @@ export function ApiCodePanel({
             onClick={() => void onCopy(activeCode, `${endpointId} ${activeTab}`)}
             type="button"
           >
-            Копировать
+            {t("common.copy")}
           </button>
         </div>
         <pre className="json-box api-code-panel-pre">{activeCode}</pre>

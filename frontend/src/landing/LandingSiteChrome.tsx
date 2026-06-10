@@ -1,36 +1,20 @@
 import { useMemo } from "react";
 
-
-
 import type { PublicPageNavigationItem } from "../api";
-
 import {
   PlatformBrandMark,
   PlatformBrandText,
   usePlatformBrand,
 } from "../brand/PlatformBrandLogo";
+import { LanguageSwitcher, useTranslation } from "../i18n";
+import { LANDING_TOKEN_STRIP } from "./content";
 
-
-
-import {
-
-  LANDING_FEATURE_CARDS,
-
-  LANDING_FEATURE_SHOWCASE,
-
-  LANDING_FLOW_STEPS,
-
-  LANDING_FAQ,
-
-  LANDING_HERO_STATS_CARD,
-
-  LANDING_PLATFORM_POINTS,
-
-  LANDING_TOKEN_STRIP,
-
-  LANDING_TRUST_PILLARS,
-
-} from "./content";
+type LandingFeatureCard = {
+  icon: "zap" | "globe" | "shield" | "dollar";
+  title: string;
+  description: string;
+  bento: "wide" | "normal";
+};
 
 
 
@@ -56,7 +40,7 @@ export type LandingSiteChromeProps = {
 
 
 
-function FeatureIcon({ name }: { name: (typeof LANDING_FEATURE_CARDS)[number]["icon"] }) {
+function FeatureIcon({ name }: { name: LandingFeatureCard["icon"] }) {
 
   if (name === "zap") {
 
@@ -183,6 +167,15 @@ export function LandingSiteChrome({
   setOpenFaqIndex,
 
 }: LandingSiteChromeProps) {
+  const { t, ta } = useTranslation();
+
+  const featureCards = ta<LandingFeatureCard>("landing.features");
+  const featureShowcase = featureCards.slice(0, 3);
+  const flowSteps = ta<{ number: string; title: string; description: string }>("landing.flowSteps");
+  const faq = ta<{ question: string; answer: string }>("landing.faq");
+  const trustPillars = ta<{ title: string; subtitle: string }>("landing.trustPillars");
+  const platformPoints = ta<string>("landing.platformPoints");
+  const heroStats = ta<{ value: string; label: string }>("landing.heroStats");
 
   const headerPages = useMemo(
 
@@ -241,7 +234,7 @@ export function LandingSiteChrome({
               <PlatformBrandText split withLogo className="lpx-logo-title" />
 
               {!logoUrl ? (
-                <span className="lpx-logo-sub">Digital Acquiring</span>
+                <span className="lpx-logo-sub">{t("landing.logoSub")}</span>
               ) : null}
 
             </div>
@@ -250,7 +243,7 @@ export function LandingSiteChrome({
 
 
 
-          <nav className="lpx-nav" aria-label="Разделы лендинга">
+          <nav className="lpx-nav" aria-label={t("landing.navAria")}>
 
             {headerPages.map((item) => (
 
@@ -263,9 +256,7 @@ export function LandingSiteChrome({
             ))}
 
             <button type="button" onClick={onOpenPublicDocs}>
-
-              API
-
+              {t("common.api")}
             </button>
 
           </nav>
@@ -273,19 +264,13 @@ export function LandingSiteChrome({
 
 
           <div className="lpx-header-actions">
-
+            <LanguageSwitcher variant="compact" />
             <button className="nc-btn-ghost lpx-btn-min" type="button" onClick={() => openAuth("login")}>
-
-              Войти
-
+              {t("common.login")}
             </button>
-
             <button className="nc-btn-primary lpx-btn-min lpx-header-cta" type="button" onClick={() => openAuth("register")}>
-
-              Старт
-
+              {t("landing.start")}
             </button>
-
           </div>
 
 
@@ -296,7 +281,7 @@ export function LandingSiteChrome({
 
             className={`lpx-burger ${mobileMenuOpen ? "lpx-burger--open" : ""}`}
 
-            aria-label={mobileMenuOpen ? "Закрыть меню" : "Открыть меню"}
+            aria-label={mobileMenuOpen ? t("landing.closeMenu") : t("landing.openMenu")}
 
             aria-expanded={mobileMenuOpen}
 
@@ -326,7 +311,7 @@ export function LandingSiteChrome({
 
             className="lpx-mobile-sheet"
 
-            aria-label="Мобильное меню"
+            aria-label={t("landing.mobileMenuAria")}
 
             onClick={(e) => e.stopPropagation()}
 
@@ -370,46 +355,27 @@ export function LandingSiteChrome({
 
             >
 
-              API
-
+              {t("common.api")}
             </button>
-
+            <LanguageSwitcher variant="full" />
             <button
-
               type="button"
-
               className="lpx-mobile-sheet-cta"
-
               onClick={() => {
-
                 openAuth("login");
-
               }}
-
             >
-
-              Войти
-
+              {t("common.login")}
             </button>
-
             <button
-
               type="button"
-
               className="lpx-mobile-sheet-cta lpx-mobile-sheet-cta--primary"
-
               onClick={() => {
-
                 openAuth("register");
-
               }}
-
             >
-
-              Подключить
-
+              {t("landing.connect")}
             </button>
-
           </nav>
 
         </div>
@@ -432,27 +398,15 @@ export function LandingSiteChrome({
 
           <div className="lpx-hero-copy">
 
-            <p className="lpx-hero-kicker">Crypto acquiring</p>
-
+            <p className="lpx-hero-kicker">{t("landing.heroKicker")}</p>
             <h1 id="lpx-hero-heading" className="lpx-hero-title">
-
-              Приём{" "}
-
-              <span className="lpx-hero-title-lime">криптовалюты</span>
-
-              {" "}для бизнеса
-
+              {t("landing.heroTitlePrefix")}{" "}
+              <span className="lpx-hero-title-lime">{t("landing.heroTitleAccent")}</span>{" "}
+              {t("landing.heroTitleSuffix")}
               <span className="lpx-hero-title-dot">.</span>
-
             </h1>
-
-            <p className="lpx-hero-lead">
-
-              REST API, вебхуки и кабинет мерчанта. Прозрачная комиссия, статусы в реальном времени.
-
-            </p>
-
-            <div className="lpx-hero-social" aria-label="Активные пользователи">
+            <p className="lpx-hero-lead">{t("landing.heroLead")}</p>
+            <div className="lpx-hero-social" aria-label={t("landing.heroSocialAria")}>
 
               <div className="lpx-hero-avatars" aria-hidden>
 
@@ -464,26 +418,20 @@ export function LandingSiteChrome({
 
               </div>
 
-              <span className="lpx-hero-social-text">
-
-                <strong>168K+</strong> обработанных транзакций
-
-              </span>
+              <span
+                className="lpx-hero-social-text"
+                dangerouslySetInnerHTML={{ __html: t("landing.heroSocialText") }}
+              />
 
             </div>
 
             <div className="lpx-hero-actions">
 
               <button className="nc-btn-primary nc-btn-lg lpx-hero-primary" type="button" onClick={() => openAuth("register")}>
-
-                Подключиться
-
+                {t("landing.heroConnect")}
               </button>
-
               <button className="nc-btn-ghost nc-btn-lg lpx-hero-outline" type="button" onClick={onOpenPublicDocs}>
-
-                Документация
-
+                {t("landing.heroDocs")}
               </button>
 
             </div>
@@ -512,15 +460,11 @@ export function LandingSiteChrome({
 
               </span>
 
-              <p className="lpx-hero-micro-text">
-
-                Инвойсы, выплаты и события — через один API.
-
-              </p>
+              <p className="lpx-hero-micro-text">{t("landing.heroMicro")}</p>
 
             </div>
 
-            <div className="lpx-token-row" aria-label="Поддерживаемые активы">
+            <div className="lpx-token-row" aria-label={t("landing.tokensAria")}>
 
               {LANDING_TOKEN_STRIP.map((token) => (
 
@@ -536,7 +480,7 @@ export function LandingSiteChrome({
 
           </div>
 
-          <aside className="lpx-hero-panel" aria-label="Интерфейс платформы">
+          <aside className="lpx-hero-panel" aria-label={t("landing.panelAria")}>
 
             <div className="lpx-phone-stage">
 
@@ -572,7 +516,7 @@ export function LandingSiteChrome({
 
                   <div className="lpx-phone-metrics">
 
-                    {LANDING_HERO_STATS_CARD.map((row) => (
+                    {heroStats.map((row) => (
 
                       <div key={row.label} className="lpx-phone-metric">
 
@@ -614,8 +558,7 @@ export function LandingSiteChrome({
 
                   <button type="button" className="lpx-phone-cta" tabIndex={-1}>
 
-                    Создать инвойс
-
+                    {t("landing.createInvoice")}
                   </button>
 
                 </div>
@@ -632,11 +575,9 @@ export function LandingSiteChrome({
 
 
 
-      <section className="lpx-trust-strip" aria-label="Кратко о платформе">
-
+      <section className="lpx-trust-strip" aria-label={t("landing.trustStripAria")}>
         <div className="lpx-container lpx-trust-strip-inner">
-
-          {LANDING_TRUST_PILLARS.map((pillar) => (
+          {trustPillars.map((pillar) => (
 
             <div key={pillar.title} className="lpx-trust-strip-item">
 
@@ -660,23 +601,13 @@ export function LandingSiteChrome({
 
           <header className="lpx-section-head">
 
-            <p className="lpx-kicker">Платформа</p>
-
+            <p className="lpx-kicker">{t("landing.platformKicker")}</p>
             <div className="lpx-section-head-row">
-
               <h2 id="lpx-bento-heading" className="lpx-section-title">
-
-                Инфраструктура{" "}
-
-                <span className="lpx-section-title-accent">приёма платежей</span>
-
+                {t("landing.platformTitlePrefix")}{" "}
+                <span className="lpx-section-title-accent">{t("landing.platformTitleAccent")}</span>
               </h2>
-
-              <p className="lpx-section-deck">
-
-                API, вебхуки и фиксированные условия — без сюрпризов на этапе запуска.
-
-              </p>
+              <p className="lpx-section-deck">{t("landing.platformDeck")}</p>
 
             </div>
 
@@ -684,7 +615,7 @@ export function LandingSiteChrome({
 
           <div className="lpx-bento lpx-bento--three">
 
-            {LANDING_FEATURE_SHOWCASE.map((feature, index) => (
+            {featureShowcase.map((feature, index) => (
 
               <article
 
@@ -710,8 +641,7 @@ export function LandingSiteChrome({
 
                   <button type="button" className="lpx-bento-more" onClick={() => openAuth("register")}>
 
-                    Подробнее
-
+                    {t("landing.learnMore")}
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
 
                       <path
@@ -740,23 +670,15 @@ export function LandingSiteChrome({
 
           </div>
 
-          {LANDING_FEATURE_CARDS[3] ? (
-
+          {featureCards[3] ? (
             <article className="lpx-bento-wide">
-
               <div className="lpx-bento-icon" aria-hidden>
-
-                <FeatureIcon name={LANDING_FEATURE_CARDS[3].icon} />
-
+                <FeatureIcon name={featureCards[3].icon} />
               </div>
-
               <div>
-
                 <span className="lpx-bento-num">04.</span>
-
-                <h3 className="lpx-bento-title">{LANDING_FEATURE_CARDS[3].title}</h3>
-
-                <p className="lpx-bento-desc">{LANDING_FEATURE_CARDS[3].description}</p>
+                <h3 className="lpx-bento-title">{featureCards[3].title}</h3>
+                <p className="lpx-bento-desc">{featureCards[3].description}</p>
 
               </div>
 
@@ -788,7 +710,7 @@ export function LandingSiteChrome({
 
               <span>1.44 BTC</span>
 
-              <small>объём</small>
+              <small>{t("landing.proofVolume")}</small>
 
             </div>
 
@@ -839,12 +761,11 @@ export function LandingSiteChrome({
           <div className="lpx-proof-copy">
 
             <h2 id="lpx-proof-heading" className="lpx-proof-title">
-
-              Инфраструктура <span className="lpx-proof-title-lime">без перерывов</span> и понятное подключение.
-
+              {t("landing.proofTitlePrefix")}{" "}
+              <span className="lpx-proof-title-lime">{t("landing.proofTitleAccent")}</span>{" "}
+              {t("landing.proofTitleSuffix")}
             </h2>
-
-            <div className="lpx-proof-stars" aria-label="Рейтинг 4 из 5">
+            <div className="lpx-proof-stars" aria-label={t("landing.proofRatingAria")}>
 
               {[1, 2, 3, 4].map((s) => (
 
@@ -860,30 +781,14 @@ export function LandingSiteChrome({
 
             </div>
 
-            <p className="lpx-proof-lead">
-
-              SLA на поддержку. Статусы инвойсов, вебхуки и сводки оборота — в одном кабинете.
-
-            </p>
-
-            <p className="lpx-proof-text">
-
-              Sandbox → приёмка сценариев → продакшн. Каждый шаг зафиксирован.
-
-            </p>
-
+            <p className="lpx-proof-lead">{t("landing.proofLead")}</p>
+            <p className="lpx-proof-text">{t("landing.proofText")}</p>
             <div className="lpx-proof-actions">
-
               <button type="button" className="nc-btn-primary nc-btn-lg" onClick={() => openAuth("register")}>
-
-                Подключиться
-
+                {t("landing.heroConnect")}
               </button>
-
               <button type="button" className="lpx-proof-link" onClick={() => openAuth("login")}>
-
-                Задать вопрос
-
+                {t("landing.askQuestion")}
               </button>
 
             </div>
@@ -902,25 +807,17 @@ export function LandingSiteChrome({
 
           <div className="lpx-split-text">
 
-            <p className="lpx-kicker">Инструментарий</p>
-
+            <p className="lpx-kicker">{t("landing.toolkitKicker")}</p>
             <h2 id="lpx-platform-heading" className="lpx-section-title">
-
-              API и кабинет
-
+              {t("landing.toolkitTitle")}
             </h2>
-
-            <p className="lpx-split-lead">
-
-              Единая модель данных для инвойсов и транзакций. Предсказуемые колбэки, согласованные статусы.
-
-            </p>
+            <p className="lpx-split-lead">{t("landing.toolkitLead")}</p>
 
           </div>
 
           <ul className="lpx-check-list">
 
-            {LANDING_PLATFORM_POINTS.map((point) => (
+            {platformPoints.map((point) => (
 
               <li key={point}>
 
@@ -966,25 +863,17 @@ export function LandingSiteChrome({
 
           <header className="lpx-section-head lpx-section-head--center">
 
-            <p className="lpx-kicker">Процесс</p>
-
+            <p className="lpx-kicker">{t("landing.processKicker")}</p>
             <h2 id="lpx-steps-heading" className="lpx-section-title">
-
-              От заявки до запуска
-
+              {t("landing.processTitle")}
             </h2>
-
-            <p className="lpx-section-deck lpx-section-deck--narrow">
-
-              Четыре шага. Каждый — с понятным результатом.
-
-            </p>
+            <p className="lpx-section-deck lpx-section-deck--narrow">{t("landing.processDeck")}</p>
 
           </header>
 
           <ol className="lpx-timeline">
 
-            {LANDING_FLOW_STEPS.map((step, index) => (
+            {flowSteps.map((step, index) => (
 
               <li key={step.number} className="lpx-timeline-item">
 
@@ -992,7 +881,7 @@ export function LandingSiteChrome({
 
                   <span className="lpx-timeline-node">{step.number}</span>
 
-                  {index < LANDING_FLOW_STEPS.length - 1 ? <span className="lpx-timeline-line" /> : null}
+                  {index < flowSteps.length - 1 ? <span className="lpx-timeline-line" /> : null}
 
                 </div>
 
@@ -1022,19 +911,16 @@ export function LandingSiteChrome({
 
           <header className="lpx-section-head lpx-section-head--center">
 
-            <p className="lpx-kicker">FAQ</p>
-
+            <p className="lpx-kicker">{t("landing.faqKicker")}</p>
             <h2 id="lpx-faq-heading" className="lpx-section-title">
-
-              Частые вопросы
-
+              {t("landing.faqTitle")}
             </h2>
 
           </header>
 
           <div className="lpx-faq">
 
-            {LANDING_FAQ.map((item, index) => (
+            {faq.map((item, index) => (
 
               <div
 
@@ -1105,27 +991,19 @@ export function LandingSiteChrome({
             <div className="lpx-cta-copy">
 
               <h2 id="lpx-cta-heading" className="lpx-cta-title">
-
-                Начать подключение
-
+                {t("landing.ctaTitle")}
               </h2>
-
-              <p className="lpx-cta-text">Оставьте заявку — согласуем формат интеграции под ваш стек.</p>
+              <p className="lpx-cta-text">{t("landing.ctaText")}</p>
 
             </div>
 
             <div className="lpx-cta-actions">
 
               <button className="nc-btn-primary nc-btn-lg" type="button" onClick={() => openAuth("register")}>
-
-                Запросить подключение
-
+                {t("landing.ctaRequest")}
               </button>
-
               <button className="nc-btn-ghost nc-btn-lg" type="button" onClick={onOpenPublicDocs}>
-
-                Смотреть API
-
+                {t("landing.ctaApi")}
               </button>
 
             </div>
@@ -1159,7 +1037,7 @@ export function LandingSiteChrome({
             </div>
 
             <p className="lpx-footer-tagline">
-              {brandName} — приём криптовалюты и стейблкоинов для e-commerce и SaaS.
+              {t("landing.footerTagline", { brand: brandName })}
             </p>
 
             <p className="lpx-footer-copy">© {new Date().getFullYear()} {brandName}</p>
@@ -1168,7 +1046,7 @@ export function LandingSiteChrome({
 
           <div className="lpx-footer-col">
 
-            <h3 className="lpx-footer-heading">Навигация</h3>
+            <h3 className="lpx-footer-heading">{t("landing.footerNav")}</h3>
 
             <div className="lpx-footer-links">
 
@@ -1183,31 +1061,18 @@ export function LandingSiteChrome({
               ))}
 
               <button type="button" onClick={onOpenPublicDocs}>
-
-                API
-
+                {t("common.api")}
               </button>
-
             </div>
-
           </div>
-
           <div className="lpx-footer-col">
-
-            <h3 className="lpx-footer-heading">Кабинет</h3>
-
+            <h3 className="lpx-footer-heading">{t("landing.footerCabinet")}</h3>
             <div className="lpx-footer-links">
-
               <button type="button" onClick={() => openAuth("login")}>
-
-                Вход для мерчантов
-
+                {t("landing.footerMerchantLogin")}
               </button>
-
               <button type="button" onClick={() => openAuth("register")}>
-
-                Регистрация
-
+                {t("landing.footerRegister")}
               </button>
 
             </div>

@@ -1,4 +1,5 @@
 import type { TransactionItem } from "../../api";
+import { useTranslation } from "../../i18n";
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
 import { transactionTotalFee } from "../../utils/invoiceAccounting";
 
@@ -37,6 +38,8 @@ export function OutboundLedger({
   onSearchChange,
   onPageChange,
 }: OutboundLedgerProps) {
+  const { t } = useTranslation();
+
   function handleExportCsv() {
     if (exportRows.length === 0) {
       return;
@@ -73,26 +76,29 @@ export function OutboundLedger({
     URL.revokeObjectURL(href);
   }
 
+  const paginationFrom = (page - 1) * pageSize + (transactions.length ? 1 : 0);
+  const paginationTo = (page - 1) * pageSize + transactions.length;
+
   return (
     <article className="mc-surface mc-surface--span">
       <header className="mc-surface-header mc-surface-header--row">
         <div>
-          <p className="mc-surface-eyebrow">Реестр</p>
-          <h2 className="mc-surface-title">Операции</h2>
+          <p className="mc-surface-eyebrow">{t("merchant.widgets.outboundLedger.eyebrow")}</p>
+          <h2 className="mc-surface-title">{t("merchant.widgets.outboundLedger.title")}</h2>
           <p className="mc-surface-desc" style={{ marginBottom: 0 }}>
-            Фильтры, поиск и экспорт. На телефоне — карточки; на широком экране — таблица.
+            {t("merchant.widgets.outboundLedger.description")}
           </p>
         </div>
         <button className="ghost-button" onClick={handleExportCsv} type="button">
-          Экспорт CSV
+          {t("common.exportCsv")}
         </button>
       </header>
 
       <div className="tx-toolbar">
         <label>
-          <span>Статус</span>
+          <span>{t("common.status")}</span>
           <select value={statusFilter} onChange={(event) => onStatusFilterChange(event.target.value)}>
-            <option value="all">Все</option>
+            <option value="all">{t("common.all")}</option>
             {statusOptions.map((status) => (
               <option key={status} value={status}>
                 {status}
@@ -101,9 +107,9 @@ export function OutboundLedger({
           </select>
         </label>
         <label>
-          <span>Валюта</span>
+          <span>{t("common.currency")}</span>
           <select value={currencyFilter} onChange={(event) => onCurrencyFilterChange(event.target.value)}>
-            <option value="all">Все</option>
+            <option value="all">{t("common.all")}</option>
             {currencyOptions.map((currency) => (
               <option key={currency} value={currency}>
                 {currency}
@@ -112,10 +118,10 @@ export function OutboundLedger({
           </select>
         </label>
         <label className="tx-search">
-          <span>Поиск</span>
+          <span>{t("common.search")}</span>
           <input
             onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="invoice / transaction id"
+            placeholder={t("merchant.widgets.outboundLedger.searchPlaceholder")}
             value={searchTerm}
           />
         </label>
@@ -123,7 +129,7 @@ export function OutboundLedger({
 
       <div className="mc-tx-cards">
         {transactions.length === 0 ? (
-          <div className="mc-empty">Нет операций по фильтрам.</div>
+          <div className="mc-empty">{t("merchant.widgets.outboundLedger.emptyCards")}</div>
         ) : (
           transactions.map((transaction) => (
             <article className="mc-tx-card" key={transaction.id}>
@@ -136,13 +142,17 @@ export function OutboundLedger({
                 </span>
               </div>
               <div className="mc-tx-card-meta">
-                <span>Net: {formatMoneyAmount(transaction.net_amount, transaction.currency)}</span>
                 <span>
-                  Комиссии:{" "}
+                  {t("common.net")}: {formatMoneyAmount(transaction.net_amount, transaction.currency)}
+                </span>
+                <span>
+                  {t("merchant.widgets.outboundLedger.feesLabel")}:{" "}
                   {formatMoneyAmount(transactionTotalFee(transaction), transaction.currency)}
                 </span>
                 <span className="mc-row-mono">{formatDate(transaction.created_at)}</span>
-                <span className="mc-row-mono">inv: {transaction.invoice_id}</span>
+                <span className="mc-row-mono">
+                  {t("merchant.widgets.outboundLedger.invPrefix")} {transaction.invoice_id}
+                </span>
               </div>
             </article>
           ))
@@ -153,19 +163,19 @@ export function OutboundLedger({
         <table className="tx-table">
           <thead>
             <tr>
-              <th>Дата</th>
-              <th>Статус</th>
-              <th>Сумма</th>
-              <th>Net</th>
-              <th>Комиссия</th>
-              <th>Invoice</th>
+              <th>{t("merchant.widgets.outboundLedger.tableDate")}</th>
+              <th>{t("merchant.widgets.outboundLedger.tableStatus")}</th>
+              <th>{t("merchant.widgets.outboundLedger.tableAmount")}</th>
+              <th>{t("merchant.widgets.outboundLedger.tableNet")}</th>
+              <th>{t("merchant.widgets.outboundLedger.tableCommission")}</th>
+              <th>{t("merchant.widgets.outboundLedger.tableInvoice")}</th>
             </tr>
           </thead>
           <tbody>
             {transactions.length === 0 ? (
               <tr>
                 <td className="tx-empty" colSpan={6}>
-                  Операций по выбранным фильтрам нет.
+                  {t("merchant.widgets.outboundLedger.emptyTable")}
                 </td>
               </tr>
             ) : (
@@ -179,9 +189,7 @@ export function OutboundLedger({
                   </td>
                   <td>{formatMoneyAmount(transaction.gross_amount, transaction.currency)}</td>
                   <td>{formatMoneyAmount(transaction.net_amount, transaction.currency)}</td>
-                  <td>
-                    {formatMoneyAmount(transactionTotalFee(transaction), transaction.currency)}
-                  </td>
+                  <td>{formatMoneyAmount(transactionTotalFee(transaction), transaction.currency)}</td>
                   <td className="tx-id-cell">{transaction.invoice_id}</td>
                 </tr>
               ))
@@ -192,12 +200,15 @@ export function OutboundLedger({
 
       <div className="mc-tx-footer tx-footer">
         <p className="muted-text">
-          Показано {(page - 1) * pageSize + (transactions.length ? 1 : 0)}–
-          {(page - 1) * pageSize + transactions.length} из {totalCount}
+          {t("merchant.widgets.outboundLedger.paginationShowing", {
+            from: paginationFrom,
+            to: paginationTo,
+            total: totalCount,
+          })}
         </p>
         <div className="tx-pagination">
           <button className="ghost-button" disabled={page <= 1} onClick={() => onPageChange(page - 1)} type="button">
-            Назад
+            {t("common.back")}
           </button>
           <span className="tx-page-indicator">
             {page} / {totalPages}
@@ -208,7 +219,7 @@ export function OutboundLedger({
             onClick={() => onPageChange(page + 1)}
             type="button"
           >
-            Вперёд
+            {t("common.forward")}
           </button>
         </div>
       </div>
@@ -237,7 +248,7 @@ function formatDate(value: string): string {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return date.toLocaleString("ru-RU", {
+  return date.toLocaleString(undefined, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",

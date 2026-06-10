@@ -51,11 +51,11 @@ class TwoFactorService:
 
     async def enable(self, user: User, code: str) -> User:
         if not user.totp_secret_encrypted:
-            raise TwoFactorError("Сначала запустите настройку 2FA.")
+            raise TwoFactorError("Start 2FA setup first.")
 
         secret = self._decrypt_secret(user)
         if not TotpService.verify_code(secret=secret, code=code):
-            raise TwoFactorError("Неверный код подтверждения 2FA.")
+            raise TwoFactorError("Invalid 2FA confirmation code.")
 
         user.totp_enabled = True
         user.totp_confirmed_at = datetime.now(timezone.utc)
@@ -66,12 +66,12 @@ class TwoFactorService:
 
     async def disable(self, user: User, *, password: str, code: str | None) -> User:
         if not verify_password(password, user.password_hash):
-            raise TwoFactorError("Неверный пароль.")
+            raise TwoFactorError("Invalid password.")
 
         if user.totp_enabled and code:
             secret = self._decrypt_secret(user)
             if not TotpService.verify_code(secret=secret, code=code):
-                raise TwoFactorError("Неверный код 2FA.")
+                raise TwoFactorError("Invalid 2FA code.")
 
         user.totp_enabled = False
         user.totp_secret_encrypted = None
@@ -85,22 +85,22 @@ class TwoFactorService:
         if not user.totp_enabled:
             return
         if not code:
-            raise TwoFactorError("Для входа требуется код 2FA.")
+            raise TwoFactorError("2FA code is required to sign in.")
 
         try:
             secret = self._decrypt_secret(user)
             if not TotpService.verify_code(secret=secret, code=code):
-                raise TwoFactorError("Неверный код 2FA.")
+                raise TwoFactorError("Invalid 2FA code.")
         except TwoFactorError:
             raise
         except Exception:
-            raise TwoFactorError("Ошибка проверки 2FA. Обратитесь к администратору.") from None
+            raise TwoFactorError("2FA verification failed. Contact support.") from None
 
     @staticmethod
     def _decrypt_secret(user: User) -> str:
         if not user.totp_secret_encrypted:
-            raise TwoFactorError("2FA не настроен для этого пользователя.")
+            raise TwoFactorError("2FA is not configured for this user.")
         try:
             return decrypt_value(user.totp_secret_encrypted)
         except ValueError as exc:
-            raise TwoFactorError("Ошибка чтения секрета 2FA.") from exc
+            raise TwoFactorError("Failed to read 2FA secret.") from exc

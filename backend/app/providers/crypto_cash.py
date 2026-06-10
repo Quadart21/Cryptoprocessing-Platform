@@ -90,7 +90,7 @@ class CryptoCashProvider(PaymentProviderInterface):
     def __init__(self) -> None:
         if not settings.crypto_cash_public_key or not settings.crypto_cash_secret_key:
             raise CryptoCashProviderError(
-                "Для Crypto-Cash нужны CRYPTO_CASH_PUBLIC_KEY и CRYPTO_CASH_SECRET_KEY."
+                "Crypto-Cash requires CRYPTO_CASH_PUBLIC_KEY and CRYPTO_CASH_SECRET_KEY."
             )
         self.base_url = settings.crypto_cash_api_base_url.rstrip("/")
         self.public_key = settings.crypto_cash_public_key
@@ -112,7 +112,7 @@ class CryptoCashProvider(PaymentProviderInterface):
                 self.signature_mode = "ed25519"
             except ValueError as exc:
                 raise CryptoCashProviderError(
-                    "Секретный ключ похож на ED25519, но не прошел валидацию."
+                    "Secret key looks like ED25519 but failed validation."
                 ) from exc
 
     def create_invoice(

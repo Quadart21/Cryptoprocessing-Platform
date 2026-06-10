@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
+import { useTranslation } from "../../i18n";
 import {
   buildTradingViewSymbolOptions,
   pickTradingViewCurrency,
@@ -15,19 +16,10 @@ type MerchantTradingViewChartProps = {
   className?: string;
 };
 
-const INTERVAL_OPTIONS = [
-  { value: "1", label: "1м" },
-  { value: "15", label: "15м" },
-  { value: "60", label: "1ч" },
-  { value: "240", label: "4ч" },
-  { value: "D", label: "1д" },
-] as const;
+const INTERVAL_VALUES = ["1", "15", "60", "240", "D"] as const;
+type ChartInterval = (typeof INTERVAL_VALUES)[number];
 
-function buildWidgetConfig(
-  symbol: string,
-  interval: (typeof INTERVAL_OPTIONS)[number]["value"],
-  compact: boolean,
-): string {
+function buildWidgetConfig(symbol: string, interval: ChartInterval, compact: boolean): string {
   return JSON.stringify({
     allow_symbol_change: false,
     calendar: false,
@@ -60,12 +52,13 @@ function MerchantTradingViewChart({
   compact = false,
   className = "",
 }: MerchantTradingViewChartProps) {
+  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const symbolOptions = useMemo(() => buildTradingViewSymbolOptions(rates), [rates]);
   const [selectedCurrency, setSelectedCurrency] = useState(() =>
     pickTradingViewCurrency(symbolOptions, defaultCurrency),
   );
-  const [chartInterval, setChartInterval] = useState<(typeof INTERVAL_OPTIONS)[number]["value"]>("1");
+  const [chartInterval, setChartInterval] = useState<ChartInterval>("1");
 
   const tradingViewSymbol = useMemo(
     () => resolveTradingViewSymbol(selectedCurrency),
@@ -116,12 +109,15 @@ function MerchantTradingViewChart({
     return (
       <article className={`mc-surface mc-tv-widget mc-tv-widget--empty ${className}`.trim()}>
         <header className="mc-surface-header">
-          <p className="mc-surface-eyebrow">Рынок</p>
-          <h2 className="mc-surface-title">{compact ? "Курс токена" : "График котировок"}</h2>
+          <p className="mc-surface-eyebrow">{t("merchant.widgets.merchantTradingViewChart.eyebrow")}</p>
+          <h2 className="mc-surface-title">
+            {compact
+              ? t("merchant.widgets.merchantTradingViewChart.titleCompact")
+              : t("merchant.widgets.merchantTradingViewChart.titleFull")}
+          </h2>
         </header>
         <p className="muted-text mc-tv-widget__empty">
-          Нет доступных пар для графика. Включите монеты в настройках платформы — здесь появятся только
-          принимаемые вами токены.
+          {t("merchant.widgets.merchantTradingViewChart.emptyDescription")}
         </p>
       </article>
     );
@@ -131,17 +127,23 @@ function MerchantTradingViewChart({
     <article className={`mc-surface mc-tv-widget${compact ? " mc-tv-widget--compact" : ""} ${className}`.trim()}>
       <header className="mc-surface-header mc-surface-header--row mc-tv-widget__header">
         <div>
-          <p className="mc-surface-eyebrow">Рынок</p>
-          <h2 className="mc-surface-title">{compact ? "Курс токена" : "График котировок"}</h2>
+          <p className="mc-surface-eyebrow">{t("merchant.widgets.merchantTradingViewChart.eyebrow")}</p>
+          <h2 className="mc-surface-title">
+            {compact
+              ? t("merchant.widgets.merchantTradingViewChart.titleCompact")
+              : t("merchant.widgets.merchantTradingViewChart.titleFull")}
+          </h2>
           <p className="mc-surface-desc" style={{ marginBottom: 0 }}>
             {compact
-              ? "Курс выбранного токена из вашего списка приёма."
-              : `Доступно пар: ${symbolOptions.length} — только монеты из вашего каталога.`}
+              ? t("merchant.widgets.merchantTradingViewChart.compactDescription")
+              : t("merchant.widgets.merchantTradingViewChart.fullDescription", {
+                  count: symbolOptions.length,
+                })}
           </p>
         </div>
         <div className="mc-tv-widget__controls">
           <label className="mc-tv-widget__control">
-            <span>Пара</span>
+            <span>{t("common.pair")}</span>
             <select
               onChange={(event) => setSelectedCurrency(event.target.value)}
               value={selectedCurrency}
@@ -154,11 +156,14 @@ function MerchantTradingViewChart({
             </select>
           </label>
           <label className="mc-tv-widget__control">
-            <span>Интервал</span>
-            <select onChange={(event) => setChartInterval(event.target.value as typeof chartInterval)} value={chartInterval}>
-              {INTERVAL_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+            <span>{t("merchant.widgets.merchantTradingViewChart.interval")}</span>
+            <select
+              onChange={(event) => setChartInterval(event.target.value as ChartInterval)}
+              value={chartInterval}
+            >
+              {INTERVAL_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {t(`merchant.widgets.merchantTradingViewChart.intervals.${value}`)}
                 </option>
               ))}
             </select>
@@ -180,7 +185,9 @@ function MerchantTradingViewChart({
             <a href={tradingViewChartUrl(tradingViewSymbol)} rel="noopener nofollow noreferrer" target="_blank">
               <span>{tradingViewSymbolLabel(selectedCurrency)}</span>
             </a>
-            <span className="mc-tv-widget__trademark"> · TradingView</span>
+            <span className="mc-tv-widget__trademark">
+              {t("merchant.widgets.merchantTradingViewChart.trademark")}
+            </span>
           </div>
         </div>
       </div>

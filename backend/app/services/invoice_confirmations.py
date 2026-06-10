@@ -5,6 +5,11 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.invoice import Invoice
+from app.providers.crypto_cash_status import (
+    CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES,
+    acquiring_event_finalizes_credit,
+    normalize_provider_status_key,
+)
 from app.services.rates_service import RatesService
 
 STORED_ACTUAL_KEY = "network_confirmations_actual"
@@ -143,7 +148,7 @@ def is_provider_deal_finalized(raw_payload: dict | None) -> bool:
         event_type = str(
             event.get("type") or event.get("event_type") or event.get("eventType") or ""
         ).strip().lower()
-        if event_type == "acquiring::completed":
+        if acquiring_event_finalizes_credit(event_type):
             return True
         data = event.get("data")
         if isinstance(data, dict) and _is_paid_with_completed_at(data):
@@ -188,17 +193,9 @@ def resolve_provider_deal_finalized(
 
 
 def _is_paid_with_completed_at(data: dict) -> bool:
-    status = str(data.get("status") or "").strip().lower()
+    status = normalize_provider_status_key(data.get("status"))
     completed_at = data.get("completedAt")
-    paid_like = {
-        "paid",
-        "confirmed",
-        "completed",
-        "overpaid",
-        "canceledbutpaid",
-        "canceledbutoverpaid",
-    }
-    return status in paid_like and completed_at not in (None, "")
+    return status in CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES and completed_at not in (None, "")
 
 
 def snap_confirmations_to_required(stored_payload: dict) -> bool:

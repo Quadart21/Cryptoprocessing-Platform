@@ -1,4 +1,5 @@
 import type { CurrentUser } from "../../api";
+import { useTranslation } from "../../i18n";
 
 type TopbarUserProps = {
   user: CurrentUser;
@@ -6,6 +7,8 @@ type TopbarUserProps = {
 };
 
 export function TopbarUser({ user, onLogout }: TopbarUserProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="topbar-user">
       <div className="topbar-user-info">
@@ -23,7 +26,7 @@ export function TopbarUser({ user, onLogout }: TopbarUserProps) {
           <path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           <path d="M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        <span>Выйти</span>
+        <span>{t("common.logout")}</span>
       </button>
     </div>
   );

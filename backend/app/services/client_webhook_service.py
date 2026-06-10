@@ -149,7 +149,7 @@ class ClientWebhookService:
 
     def send_test_ping(self, project: Project) -> dict:
         if not project.webhook_url:
-            raise ValueError("Для проекта не настроен webhook URL.")
+            raise ValueError("Webhook URL is not configured for this project.")
 
         delivery_id = f"wh_test_{token_hex(8)}"
         delivered_at = datetime.now(timezone.utc)
@@ -158,7 +158,7 @@ class ClientWebhookService:
             "event_id": delivery_id,
             "sent_at": delivered_at.isoformat(),
             "project_id": project.id,
-            "message": "Тестовая доставка webhook от платформы.",
+            "message": "Test webhook delivery from the platform.",
         }
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         headers = self._build_headers(
@@ -171,7 +171,7 @@ class ClientWebhookService:
         result = self._post_with_retry(project.webhook_url, body, headers)
         if not result.ok:
             reason = result.error or f"HTTP {result.status_code}"
-            raise ValueError(f"Тестовый webhook не доставлен: {reason}.")
+            raise ValueError(f"Test webhook was not delivered: {reason}.")
 
         return {
             "event_id": delivery_id,
@@ -189,7 +189,7 @@ class ClientWebhookService:
     ) -> dict:
         """Тестовый webhook «как при пополнении»: те же поля, что у боевого уведомления, без записи в БД."""
         if not project.webhook_url:
-            raise ValueError("Для проекта не настроен webhook URL.")
+            raise ValueError("Webhook URL is not configured for this project.")
 
         delivery_id = f"wh_test_dep_{token_hex(10)}"
         delivered_at = datetime.now(timezone.utc)
@@ -199,7 +199,7 @@ class ClientWebhookService:
             "event_id": delivery_id,
             "sent_at": delivered_at.isoformat(),
             "simulated": True,
-            "message": "Тестовый webhook по инвойсу: статус инвойса и транзакций в системе не изменяются.",
+            "message": "Test invoice webhook: invoice and transaction status in the system are not changed.",
             "invoice": self._build_invoice_payload(invoice, project),
             "transaction": {
                 "id": transaction.id,

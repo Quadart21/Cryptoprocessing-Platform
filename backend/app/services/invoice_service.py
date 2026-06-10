@@ -82,13 +82,13 @@ class InvoiceAmountOutOfRangeError(ValueError):
             bounds.append(f"min {self._fmt(min_amount)} {currency}")
         if max_amount is not None:
             bounds.append(f"max {self._fmt(max_amount)} {currency}")
-        bounds_text = ", ".join(bounds) if bounds else "лимиты не заданы"
+        bounds_text = ", ".join(bounds) if bounds else "limits not set"
         message = (
-            f"Сумма {self._fmt(amount)} {currency} для {currency}/{network} "
-            f"вне допустимого диапазона ({bounds_text})."
+            f"Amount {self._fmt(amount)} {currency} for {currency}/{network} "
+            f"is outside the allowed range ({bounds_text})."
         )
         if amount_fiat is not None and fiat_currency:
-            message += f" Запрошено ≈ {self._fmt(amount_fiat)} {fiat_currency}."
+            message += f" Requested ≈ {self._fmt(amount_fiat)} {fiat_currency}."
         super().__init__(message)
 
     def to_response_detail(self) -> dict[str, str | None]:
@@ -153,7 +153,7 @@ class InvoiceService:
             )
         )
         if project is None:
-            raise ValueError("Проект не найден.")
+            raise ValueError("Project not found.")
 
         rates_service = RatesService(self.db)
         limits = await rates_service.get_client_payin_limits(
@@ -446,13 +446,13 @@ class InvoiceService:
                 select(Invoice).where(Invoice.merchant_order_id == merchant_order_id)
             )
         if invoice is None:
-            raise ValueError("Инвойс по webhook-идентификаторам не найден.")
+            raise ValueError("Invoice was not found by webhook identifiers.")
 
         transaction = await self.db.scalar(
             select(Transaction).where(Transaction.invoice_id == invoice.id)
         )
         if transaction is None:
-            raise ValueError("Транзакция для инвойса не найдена.")
+            raise ValueError("Transaction for invoice not found.")
 
         if await self.reconcile_transaction_with_invoice(invoice, transaction):
             await self.db.flush()
@@ -706,7 +706,7 @@ class InvoiceService:
     ) -> Invoice:
         invoice = await self.get_invoice_by_id(invoice_id)
         if invoice is None:
-            raise ValueError("Инвойс не найден.")
+            raise ValueError("Invoice not found.")
         return await self.apply_provider_status(
             invoice.provider_order_id,
             provider_status,
@@ -727,7 +727,7 @@ class InvoiceService:
     ) -> Invoice:
         invoice = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
         if invoice is None:
-            raise ValueError("Инвойс не найден.")
+            raise ValueError("Invoice not found.")
 
         if invoice.status == "pending" and is_invoice_expired(invoice):
             return await self._sync_expired_pending(invoice)
@@ -810,7 +810,7 @@ class InvoiceService:
             select(Transaction).where(Transaction.invoice_id == invoice.id)
         )
         if transaction is None:
-            raise ValueError("Транзакция для инвойса не найдена.")
+            raise ValueError("Transaction for invoice not found.")
 
         invoice.status = "cancelled"
         transaction.status = "cancelled"
@@ -897,8 +897,8 @@ class InvoiceService:
         )
         if converted is None:
             raise ValueError(
-                f"Курс {crypto_currency}/{fiat_currency} недоступен. "
-                "Обновите курсы в админке или задайте ручной курс."
+                f"Rate {crypto_currency}/{fiat_currency} is unavailable. "
+                "Refresh rates in admin or set a manual rate."
             )
         return converted.quantize(self.AMOUNT_PRECISION)
 
@@ -931,8 +931,8 @@ class InvoiceService:
             return gross
 
         raise ValueError(
-            "Курс Crypto-Cash (exchangeRate) не найден в webhook/retrieve со статусом Paid. "
-            "Выполните sync инвойса после оплаты или дождитесь webhook acquiring::completed."
+            "Crypto-Cash rate (exchangeRate) was not found in webhook/retrieve with Paid status. "
+            "Sync the invoice after payment or wait for the acquiring::completed webhook."
         )
 
     async def _apply_initial_settlement(
@@ -1046,7 +1046,7 @@ class InvoiceService:
 
         after_provider = (gross - provider_fee).quantize(self.SETTLEMENT_USDT_PRECISION)
         if after_provider < Decimal("0"):
-            raise ValueError("Комиссия провайдера не может превышать gross.")
+            raise ValueError("Provider fee cannot exceed gross amount.")
 
         if provider_used_fix:
             platform_fixed = await self._resolve_fixed_fee_usdt(
@@ -1060,7 +1060,7 @@ class InvoiceService:
         turnover_fee = Decimal("0")
         net_amount = (after_provider - platform_fee).quantize(self.SETTLEMENT_USDT_PRECISION)
         if net_amount < Decimal("0"):
-            raise ValueError("Чистая сумма клиента не может быть отрицательной.")
+            raise ValueError("Client net amount cannot be negative.")
         return provider_fee, platform_fee, turnover_fee, net_amount
 
     async def _resolve_fixed_fee_usdt(
@@ -1122,8 +1122,8 @@ class InvoiceService:
         )
         if estimated is None:
             raise ValueError(
-                f"Курс {crypto_currency}/{fiat_currency} недоступен. "
-                "Обновите курсы в админке или задайте ручной курс."
+                f"Rate {crypto_currency}/{fiat_currency} is unavailable. "
+                "Refresh rates in admin or set a manual rate."
             )
         return estimated.quantize(self.AMOUNT_PRECISION)
 
@@ -1263,14 +1263,14 @@ class InvoiceService:
     async def repair_misconverted_settlement(self, invoice_id: str) -> Invoice:
         invoice = await self.get_invoice_by_id(invoice_id)
         if invoice is None:
-            raise ValueError("Инвойс не найден.")
+            raise ValueError("Invoice not found.")
         transaction = await self.db.scalar(
             select(Transaction).where(Transaction.invoice_id == invoice.id)
         )
         if transaction is None:
-            raise ValueError("Транзакция для инвойса не найдена.")
+            raise ValueError("Transaction for invoice not found.")
         if not self._has_misconverted_altcoin_settlement(invoice, transaction):
-            raise ValueError("Перерасчёт для этого инвойса не требуется.")
+            raise ValueError("Recalculation is not required for this invoice.")
 
         old_gross = Decimal(transaction.gross_amount)
         old_net = Decimal(transaction.net_amount)

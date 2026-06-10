@@ -1,12 +1,23 @@
 import type { InvoiceTransactionDetails } from "../../api";
+import { useTranslation } from "../../i18n";
 import { formatDecimal } from "../../utils/format";
 import { formatNetworkConfirmations } from "../../utils/networkConfirmations";
-import { getInvoiceDetailStatusMeta } from "../../utils/invoiceStatus";
+import { invoiceDetailBadgeClass } from "../../utils/invoiceStatus";
 
 type InvoiceTransactionDetailsCardProps = {
   details: InvoiceTransactionDetails;
   compact?: boolean;
 };
+
+const INVOICE_STATUS_KEYS = [
+  "pending",
+  "confirming",
+  "paid",
+  "confirmed",
+  "expired",
+  "cancelled",
+  "failed",
+] as const;
 
 function formatTxDateTime(value: string | null | undefined): string {
   if (!value) {
@@ -16,7 +27,7 @@ function formatTxDateTime(value: string | null | undefined): string {
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
-  return new Intl.DateTimeFormat("ru-RU", {
+  return new Intl.DateTimeFormat(undefined, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -72,11 +83,13 @@ async function copyValue(value: string | null | undefined) {
 }
 
 function CopyableValue({ label, value }: { label: string; value: string | null | undefined }) {
+  const { t } = useTranslation();
+
   if (!value) {
     return (
       <div className="invoice-tx-copyable">
         <span>{label}</span>
-        <strong>—</strong>
+        <strong>{t("common.dash")}</strong>
       </div>
     );
   }
@@ -89,18 +102,28 @@ function CopyableValue({ label, value }: { label: string; value: string | null |
           {truncateMiddle(value)}
         </strong>
         <button className="ghost-button invoice-tx-copy-btn" onClick={() => void copyValue(value)} type="button">
-          Копировать
+          {t("common.copy")}
         </button>
       </div>
     </div>
   );
 }
 
+function invoiceStatusLabel(status: string, t: (key: string) => string): string {
+  const normalized = status.trim().toLowerCase();
+  if (INVOICE_STATUS_KEYS.includes(normalized as (typeof INVOICE_STATUS_KEYS)[number])) {
+    return t(`merchant.invoiceStatus.${normalized}`);
+  }
+  return status;
+}
+
 export function InvoiceTransactionDetailsCard({
   details,
   compact = false,
 }: InvoiceTransactionDetailsCardProps) {
-  const statusMeta = getInvoiceDetailStatusMeta(details.status);
+  const { t } = useTranslation();
+  const statusLabel = invoiceStatusLabel(details.status, t);
+  const statusClassName = invoiceDetailBadgeClass(details.status);
   const confirmationProgress = formatNetworkConfirmations(
     details.network_confirmations_actual,
     details.network_confirmations_required,
@@ -110,27 +133,31 @@ export function InvoiceTransactionDetailsCard({
     <section className={`invoice-modal-card invoice-tx-details${compact ? " invoice-tx-details--compact" : ""}`}>
       <div className="invoice-modal-card-header">
         <div>
-          <p className="eyebrow">Транзакция</p>
-          <h3>Детали платежа</h3>
+          <p className="eyebrow">{t("merchant.widgets.invoiceTransactionDetailsCard.eyebrow")}</p>
+          <h3>{t("merchant.widgets.invoiceTransactionDetailsCard.title")}</h3>
         </div>
         <div className="invoice-tx-header-badges">
-          {details.is_estimate ? <span className="mc-badge mc-badge-neutral">Расчёт</span> : null}
-          <span className={`invoice-status-badge ${statusMeta.className}`}>{statusMeta.label}</span>
+          {details.is_estimate ? <span className="mc-badge mc-badge-neutral">{t("common.estimate")}</span> : null}
+          <span className={`invoice-status-badge ${statusClassName}`}>{statusLabel}</span>
         </div>
       </div>
 
-      <div className="invoice-tx-summary" role="table" aria-label="Сводка транзакции">
+      <div
+        className="invoice-tx-summary"
+        role="table"
+        aria-label={t("merchant.widgets.invoiceTransactionDetailsCard.summaryAria")}
+      >
         <div className="invoice-tx-summary-row invoice-tx-summary-row--head" role="row">
-          <span role="columnheader">Дата</span>
-          <span role="columnheader">Тип</span>
-          <span role="columnheader">Пара</span>
-          <span role="columnheader">Крипто</span>
-          <span role="columnheader">Фиат</span>
-          <span role="columnheader">Статус</span>
+          <span role="columnheader">{t("common.date")}</span>
+          <span role="columnheader">{t("common.type")}</span>
+          <span role="columnheader">{t("common.pair")}</span>
+          <span role="columnheader">{t("common.crypto")}</span>
+          <span role="columnheader">{t("common.fiat")}</span>
+          <span role="columnheader">{t("common.status")}</span>
         </div>
         <div className="invoice-tx-summary-row" role="row">
           <span role="cell">{formatTxDateTime(details.created_at)}</span>
-          <span role="cell">Sale</span>
+          <span role="cell">{t("merchant.widgets.invoiceTransactionDetailsCard.saleType")}</span>
           <span role="cell">{details.trading_pair}</span>
           <span role="cell">
             {formatDecimal(details.amount_crypto)} {details.crypto_currency}
@@ -139,25 +166,25 @@ export function InvoiceTransactionDetailsCard({
             {formatDecimal(details.amount_fiat)} {details.fiat_currency}
           </span>
           <span className="invoice-tx-summary-status" role="cell">
-            {statusMeta.label}
+            {statusLabel}
           </span>
         </div>
       </div>
 
       <div className="invoice-tx-meta-grid">
         <div className="invoice-tx-meta-item">
-          <span>Последнее изменение</span>
+          <span>{t("common.lastChange")}</span>
           <strong>{formatTxDateTime(details.last_updated_at)}</strong>
         </div>
-        <CopyableValue label="ID обмена" value={details.exchange_id} />
-        <CopyableValue label="Адрес кошелька" value={details.wallet_address} />
+        <CopyableValue label={t("common.exchangeId")} value={details.exchange_id} />
+        <CopyableValue label={t("common.walletAddress")} value={details.wallet_address} />
         {details.payment_memo ? (
-          <CopyableValue label="Memo / Tag" value={details.payment_memo} />
+          <CopyableValue label={t("common.memoNotRequired")} value={details.payment_memo} />
         ) : null}
-        <CopyableValue label="HASH" value={details.tx_hash} />
+        <CopyableValue label={t("merchant.widgets.invoiceTransactionDetailsCard.hash")} value={details.tx_hash} />
         {confirmationProgress ? (
           <div className="invoice-tx-meta-item">
-            <span>Подтверждения сети</span>
+            <span>{t("common.networkConfirmations")}</span>
             <strong>{confirmationProgress}</strong>
           </div>
         ) : null}
@@ -166,29 +193,29 @@ export function InvoiceTransactionDetailsCard({
       <div className="invoice-tx-fees">
         {details.exchange_rate != null ? (
           <div className="invoice-tx-fee">
-            <span>Курс settlement</span>
+            <span>{t("common.settlementRate")}</span>
             <strong>{formatRate(details.exchange_rate, details.exchange_rate_currency)}</strong>
           </div>
         ) : null}
         {details.total_commission != null ? (
           <div className="invoice-tx-fee">
-            <span>Комиссия</span>
+            <span>{t("merchant.widgets.invoiceTransactionDetailsCard.totalCommission")}</span>
             <strong>{formatCommission(details.total_commission, details.commission_currency)}</strong>
           </div>
         ) : (
           <>
             <div className="invoice-tx-fee">
-              <span>Комиссия обработки</span>
+              <span>{t("common.processingFee")}</span>
               <strong>{formatCommission(details.processing_commission, details.commission_currency)}</strong>
             </div>
             <div className="invoice-tx-fee">
-              <span>Комиссия платформы</span>
+              <span>{t("common.platformFee")}</span>
               <strong>{formatCommission(details.platform_commission, details.commission_currency)}</strong>
             </div>
           </>
         )}
         <div className="invoice-tx-fee">
-          <span>Комиссия сети</span>
+          <span>{t("common.networkFeeLabel")}</span>
           <strong>
             {formatNetworkCommission(
               details.network_commission,

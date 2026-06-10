@@ -3,21 +3,14 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from app.providers.crypto_cash_status import CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES
+
 STORED_SETTLEMENT_RATE_KEY = "settlement_exchange_rate"
 SETTLEMENT_USDT_PRECISION = Decimal("0.0001")
 AMOUNT_PRECISION = Decimal("0.00000001")
 RATE_KEYS = ("exchangeRate", "exchange_rate", "rate", "conversionRate")
 AMOUNT_KEYS = ("amount", "receivedAmount", "expectedAmount", "requestedAmount")
-PAID_LIKE_PROVIDER_STATUSES = frozenset(
-    {
-        "paid",
-        "confirmed",
-        "completed",
-        "overpaid",
-        "canceledbutpaid",
-        "canceledbutoverpaid",
-    }
-)
+PAID_LIKE_PROVIDER_STATUSES = CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES
 
 
 def _parse_decimal(value: Any) -> Decimal | None:

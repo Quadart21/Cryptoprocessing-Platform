@@ -43,7 +43,7 @@ export function DocsApiToc({ variant = "aside" }: DocsApiTocProps) {
       aria-label="Endpoint navigation"
     >
       <div className="docs-api-toc-panel">
-        <p className="docs-site-sidebar-label">На странице</p>
+        <p className="docs-site-sidebar-label">On this page</p>
         <nav className="docs-api-toc-nav">
           {DOCS_API_ENDPOINTS.map((item) => {
             const id = item.href.slice(1);

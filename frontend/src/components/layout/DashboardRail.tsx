@@ -1,4 +1,6 @@
 import type { CurrentUser } from "../../api";
+import { LanguageSwitcher } from "../../i18n";
+import { useTranslation } from "../../i18n";
 import { TopbarUser } from "./TopbarUser";
 import { DashboardDockIcon } from "./DashboardDockIcon";
 
@@ -91,7 +93,7 @@ const DEFAULT_CLIENT_GROUPS: DashboardRailGroup[] = [
 
 function findActiveGroupLabel(groups: DashboardRailGroup[], activeKey: string): string {
   const group = groups.find((entry) => entry.items.some((item) => item.key === activeKey));
-  return group?.label ?? groups[0]?.label ?? "Разделы";
+  return group?.label ?? groups[0]?.label ?? "";
 }
 
 export function DashboardRail({
@@ -105,6 +107,8 @@ export function DashboardRail({
   user,
   onLogout,
 }: DashboardRailProps) {
+  const { t } = useTranslation();
+
   const railGroups =
     groups ??
     (items
@@ -131,7 +135,7 @@ export function DashboardRail({
   return (
     <>
       <nav
-        aria-label="Навигация по разделам"
+        aria-label={t("merchant.navAria")}
         className={`dashboard-dock ${hubMode ? "dashboard-dock-hubs" : ""}`}
       >
         <div className="dashboard-dock-surface">
@@ -216,13 +220,16 @@ export function DashboardRail({
       <header className="dashboard-topbar">
         <div className="topbar-left">
           <div className="topbar-title">
-            <span className="topbar-role">{role === "admin" ? "Админ-панель" : "Кабинет клиента"}</span>
+            <span className="topbar-role">
+              {role === "admin" ? t("admin.cabinetTitle") : t("merchant.cabinetTitle")}
+            </span>
             <span className="topbar-section">
-              {topbarSubtitle ?? findActiveGroupLabel(railGroups, resolvedActiveKey)}
+              {topbarSubtitle ?? (findActiveGroupLabel(railGroups, resolvedActiveKey) || t("common.sections"))}
             </span>
           </div>
         </div>
         <div className="topbar-right">
+          <LanguageSwitcher variant="compact" />
           {user && onLogout ? <TopbarUser user={user} onLogout={onLogout} /> : null}
         </div>
       </header>

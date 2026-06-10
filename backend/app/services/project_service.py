@@ -39,7 +39,7 @@ class ProjectService:
             select(Project.id).where(Project.domain == normalized_domain)
         )
         if existing_project is not None:
-            raise ValueError("Домен проекта уже используется. Укажите другой домен.")
+            raise ValueError("Project domain is already in use. Choose another domain.")
 
         project = Project(
             tenant_id=tenant_id,
@@ -122,7 +122,7 @@ class ProjectService:
             and not has_return_update
         ):
             raise ValueError(
-                "Укажите webhook URL, ссылки возврата в магазин или secret.",
+                "Provide webhook URL, store return URLs, or secret.",
             )
 
         self.db.add(project)
@@ -206,7 +206,7 @@ class ProjectService:
     def _normalize_project_domain(domain: str) -> str:
         normalized = domain.strip().lower()
         if not normalized:
-            raise ValueError("Укажите домен проекта.")
+            raise ValueError("Project domain is required.")
         return normalized
 
     @staticmethod
@@ -257,15 +257,15 @@ class ProjectService:
             return None
         parsed = urlparse(normalized)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError("Ссылка возврата должна начинаться с http:// или https:// и содержать хост.")
+            raise ValueError("Return URL must start with http:// or https:// and include a host.")
         if settings.is_production and parsed.scheme != "https":
-            raise ValueError("Ссылка возврата в production должна использовать HTTPS.")
+            raise ValueError("Return URL must use HTTPS in production.")
         if (
             not settings.is_production
             and not settings.webhook_allow_http_in_local
             and parsed.scheme != "https"
         ):
-            raise ValueError("Ссылка возврата должна использовать HTTPS.")
+            raise ValueError("Return URL must use HTTPS.")
         return normalized
 
 

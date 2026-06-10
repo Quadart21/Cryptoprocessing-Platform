@@ -196,9 +196,9 @@ async def create_tenant(
     await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_API_KEY_GENERATED,
-        subject="Проект создан администратором",
+        subject="Project created by administrator",
         lines=[
-            f"Проект: {tenant.name}",
+            f"Project: {tenant.name}",
             f"Public key: {api_public_key}",
             f"Secret key: {api_secret_key}",
             f"Invite token: {invite_token}",
@@ -361,10 +361,10 @@ async def approve_tenant(
     await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_APPLICATION_APPROVED,
-        subject="Заявка на подключение проекта одобрена",
+        subject="Project registration request approved",
         lines=[
-            f"Проект: {tenant.name}",
-            "Статус: одобрено администратором.",
+            f"Project: {tenant.name}",
+            "Status: approved by administrator.",
         ],
         force_email=True,
     )
@@ -382,23 +382,23 @@ async def approve_tenant(
     await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_PASSWORD_GENERATED,
-        subject="Сгенерирован пароль для входа в кабинет мерчанта",
+        subject="Merchant cabinet sign-in password generated",
         lines=[
             f"Email: {owner.email}",
-            f"Временный пароль: {generated_password}",
-            "Рекомендуем изменить пароль после первого входа.",
+            f"Temporary password: {generated_password}",
+            "We recommend changing your password after the first sign-in.",
         ],
         force_email=True,
     )
     await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_API_KEY_GENERATED,
-        subject="Сгенерирован API-ключ проекта",
+        subject="Project API key generated",
         lines=[
             f"Project ID: {project.id}",
             f"Public key: {public_key}",
             f"Secret key: {secret_key}",
-            "Сохраните secret key в защищенном месте.",
+            "Store the secret key in a secure location.",
         ],
         force_email=True,
     )
@@ -435,13 +435,13 @@ async def reject_tenant(
     )
     if owner is not None:
         review_comment = (payload.review_comment or "").strip()
-        notification_lines = [f"Проект: {tenant.name}"]
+        notification_lines = [f"Project: {tenant.name}"]
         if review_comment:
-            notification_lines.append(f"Комментарий: {review_comment}")
+            notification_lines.append(f"Comment: {review_comment}")
         await notification_service.notify_user(
             owner,
             event_code=NotificationService.EVENT_APPLICATION_REJECTED,
-            subject="Заявка на подключение проекта отклонена",
+            subject="Project registration request rejected",
             lines=notification_lines,
         )
     await notify_platform_ops(
@@ -495,11 +495,11 @@ async def reset_tenant_owner_password(
     await NotificationService(db).notify_user(
         owner,
         event_code=NotificationService.EVENT_PASSWORD_GENERATED,
-        subject="Администратор сбросил пароль от кабинета",
+        subject="Cabinet password reset by administrator",
         lines=[
             f"Email: {owner.email}",
-            f"Временный пароль: {generated_password}",
-            "Рекомендуем войти и сразу сменить пароль на свой.",
+            f"Temporary password: {generated_password}",
+            "Sign in and change your password as soon as possible.",
         ],
         force_email=True,
     )
@@ -546,10 +546,10 @@ async def reset_tenant_owner_two_factor(
     await NotificationService(db).notify_user(
         owner,
         event_code=NotificationService.EVENT_TWO_FACTOR_DISABLED,
-        subject="2FA отключена администратором",
+        subject="2FA disabled by administrator",
         lines=[
             f"Email: {owner.email}",
-            "Если отключение было выполнено не по вашему запросу, срочно смените пароль.",
+            "If this was not requested by you, change your password immediately.",
         ],
         force_email=True,
     )
@@ -630,10 +630,10 @@ async def revoke_admin_api_key(
     await notification_service.notify_tenant_users(
         revoked.tenant_id,
         event_code=NotificationService.EVENT_API_KEY_REVOKED,
-        subject="API-ключ отозван администратором",
+        subject="API key revoked by administrator",
         lines=[
             f"Public key: {revoked.public_key}",
-            "Если отзыв был несанкционированным, срочно свяжитесь с поддержкой.",
+            "If this revocation was unauthorized, contact support immediately.",
         ],
         owner_only=True,
     )
@@ -660,11 +660,11 @@ async def regenerate_admin_api_key(
     await notification_service.notify_tenant_users(
         regenerated.tenant_id,
         event_code=NotificationService.EVENT_API_KEY_REGENERATED,
-        subject="API-ключ перевыпущен администратором",
+        subject="API key regenerated by administrator",
         lines=[
             f"Public key: {regenerated.public_key}",
             f"Secret key: {secret_key}",
-            "Сохраните новый secret key в защищенном месте.",
+            "Store the new secret key in a secure location.",
         ],
         owner_only=True,
         force_email=True,
@@ -1864,15 +1864,15 @@ async def review_payout_request(
             else NotificationService.EVENT_PAYOUT_REJECTED
         ),
         subject=(
-            "Запрос на выплату одобрен"
+            "Payout request approved"
             if is_approved
-            else "Запрос на выплату отклонен"
+            else "Payout request rejected"
         ),
         lines=[
             f"Payout ID: {payout.id}",
-            f"Сумма: {payout.amount_requested} {payout.currency}",
-            f"Статус: {payout.status}",
-            f"Комментарий: {payload.review_comment or '-'}",
+            f"Amount: {payout.amount_requested} {payout.currency}",
+            f"Status: {payout.status}",
+            f"Comment: {payload.review_comment or '-'}",
         ],
         owner_only=True,
     )

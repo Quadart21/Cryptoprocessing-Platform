@@ -17,57 +17,57 @@ export type DocsPageMeta = {
 
 export const DOCS_PAGE_META: Record<DocsSectionKey, DocsPageMeta> = {
   quickstart: {
-    eyebrow: "Начало",
-    title: "Быстрый старт",
-    lead: "Ключи, первый инвойс и авторизация — минимум шагов до тестового платежа.",
+    eyebrow: "Getting started",
+    title: "Quick start",
+    lead: "Keys, your first invoice, and authentication — the minimum steps to a test payment.",
   },
   checkout: {
-    eyebrow: "Оплата",
-    title: "Checkout: страница или H2H",
-    lead: "Как отдавать клиенту ссылку /pay/{token} или адрес/QR — зависит от checkout_delivery проекта.",
+    eyebrow: "Payments",
+    title: "Checkout: hosted page or H2H",
+    lead: "How to deliver /pay/{token} or address/QR to the customer — depends on the project checkout_delivery setting.",
   },
   webhooks: {
-    eyebrow: "События",
+    eyebrow: "Events",
     title: "Webhooks",
-    lead: "Подпись HMAC, формат payload и тестовая доставка.",
+    lead: "HMAC signature, payload format, and test delivery.",
   },
   commissions: {
-    eyebrow: "Тариф",
-    title: "Комиссии",
-    lead: "0,4% от платежа, минимум $0,70 — формула и примеры.",
+    eyebrow: "Pricing",
+    title: "Commissions",
+    lead: "0.4% per payment, $0.70 minimum — formula and examples.",
   },
   reference: {
-    eyebrow: "Справочник",
+    eyebrow: "Reference",
     title: "API Reference",
-    lead: "Все merchant-методы: таблица и примеры curl/JSON.",
+    lead: "All merchant endpoints: table and curl/JSON examples.",
   },
   faq: {
-    eyebrow: "Помощь",
+    eyebrow: "Help",
     title: "FAQ",
-    lead: "Ключи, ошибки, checkout и типовые вопросы интеграции.",
+    lead: "Keys, errors, checkout, and common integration questions.",
   },
 };
 
 export const DOCS_SIDEBAR_GROUPS: Array<{ label: string; items: DocsNavItem[] }> = [
   {
-    label: "Начало",
+    label: "Getting started",
     items: [
       {
         to: "/",
-        label: "Обзор",
-        description: "Карта документации",
+        label: "Overview",
+        description: "Documentation map",
         icon: "◆",
       },
       {
         to: "/quickstart",
-        label: "Быстрый старт",
-        description: "7 шагов до первого инвойса",
+        label: "Quick start",
+        description: "7 steps to your first invoice",
         icon: "→",
       },
     ],
   },
   {
-    label: "Интеграция",
+    label: "Integration",
     items: [
       {
         to: "/checkout",
@@ -78,30 +78,30 @@ export const DOCS_SIDEBAR_GROUPS: Array<{ label: string; items: DocsNavItem[] }>
       {
         to: "/webhooks",
         label: "Webhooks",
-        description: "Подпись и payload",
+        description: "Signature and payload",
         icon: "⇄",
       },
     ],
   },
   {
-    label: "Справочник",
+    label: "Reference",
     items: [
       {
         to: "/reference",
-        label: "API методы",
+        label: "API methods",
         description: "Endpoint reference",
         icon: "⚡",
       },
       {
         to: "/commissions",
-        label: "Комиссии",
-        description: "0,4% · min $0,70",
+        label: "Commissions",
+        description: "0.4% · min $0.70",
         icon: "%",
       },
       {
         to: "/faq",
         label: "FAQ",
-        description: "Ответы на частые вопросы",
+        description: "Answers to common questions",
         icon: "?",
       },
     ],
@@ -118,10 +118,10 @@ export const DOCS_GUIDE_ORDER: DocsSectionKey[] = [
 ];
 
 export const DOCS_PIPELINE = [
-  { step: "01", title: "Ключи", text: "Public + Secret на backend" },
-  { step: "02", title: "Rates", text: "Сеть и лимиты" },
+  { step: "01", title: "Keys", text: "Public + Secret on your backend" },
+  { step: "02", title: "Rates", text: "Network and limits" },
   { step: "03", title: "Invoice", text: "POST /invoices" },
-  { step: "04", title: "Webhook", text: "Подтверждение оплаты" },
+  { step: "04", title: "Webhook", text: "Payment confirmation" },
 ] as const;
 
 export const DOCS_HUB_CARDS: Array<{
@@ -132,38 +132,38 @@ export const DOCS_HUB_CARDS: Array<{
 }> = [
   {
     to: "/quickstart",
-    title: "Быстрый старт",
-    body: "Ключи → rates → инвойс → webhook.",
+    title: "Quick start",
+    body: "Keys → rates → invoice → webhook.",
     icon: "01",
   },
   {
     to: "/checkout",
     title: "Checkout",
-    body: "Hosted /pay/{token} или H2H-реквизиты.",
+    body: "Hosted /pay/{token} or H2H payment details.",
     icon: "02",
   },
   {
     to: "/reference",
-    title: "API методы",
-    body: "Таблица endpoint'ов и примеры.",
+    title: "API methods",
+    body: "Endpoint table and examples.",
     icon: "03",
   },
   {
     to: "/webhooks",
     title: "Webhooks",
-    body: "HMAC, event_id, тест доставки.",
+    body: "HMAC, event_id, test delivery.",
     icon: "04",
   },
   {
     to: "/commissions",
-    title: "Комиссии",
-    body: "0,4%, минимум $0,70.",
+    title: "Commissions",
+    body: "0.4%, $0.70 minimum.",
     icon: "05",
   },
   {
     to: "/faq",
     title: "FAQ",
-    body: "Ключи, ошибки, sandbox.",
+    body: "Keys, errors, sandbox.",
     icon: "06",
   },
 ];

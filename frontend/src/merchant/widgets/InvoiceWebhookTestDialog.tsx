@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
 import type { InvoiceItem, InvoiceWebhookTestResponse } from "../../api";
+import { useTranslation } from "../../i18n";
 
 export type InvoiceWebhookTestDialogProps = {
   invoice: InvoiceItem | null;
@@ -24,6 +25,7 @@ export function InvoiceWebhookTestDialog({
   onClose,
   onSend,
 }: InvoiceWebhookTestDialogProps) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
 
   useLayoutEffect(() => {
@@ -61,26 +63,23 @@ export function InvoiceWebhookTestDialog({
       {invoice ? (
         <div className="mc-webhook-test-inner">
           <header className="mc-webhook-test-header">
-            <p className="mc-surface-eyebrow">Тест webhook</p>
-            <h2 className="mc-webhook-test-title">Уведомление о пополнении (симуляция)</h2>
+            <p className="mc-surface-eyebrow">{t("merchant.widgets.invoiceWebhookTestDialog.eyebrow")}</p>
+            <h2 className="mc-webhook-test-title">{t("merchant.widgets.invoiceWebhookTestDialog.title")}</h2>
             <p className="mc-webhook-test-lede">
-              Отправка на URL проекта из настроек webhook. Тело запроса содержит актуальные данные инвойса{" "}
-              <strong>{invoice.merchant_order_id}</strong>; статус инвойса в платформе{" "}
-              <strong>не меняется</strong>. Событие: <code className="mc-inline-code">invoice.test_deposit</code>, поле{" "}
-              <code className="mc-inline-code">simulated: true</code>.
+              {t("merchant.widgets.invoiceWebhookTestDialog.lede", { orderId: invoice.merchant_order_id })}
             </p>
           </header>
 
           {!canSubmitTest && submitBlockedReason ? (
             <div className="mc-webhook-test-result mc-webhook-test-result--warn" role="status">
-              <strong>Отправка недоступна</strong>
+              <strong>{t("common.sendingUnavailable")}</strong>
               <p className="mc-webhook-test-blocked-msg">{submitBlockedReason}</p>
             </div>
           ) : null}
 
           <div className="mc-webhook-test-actions">
             <button className="ghost-button" disabled={loading} onClick={() => ref.current?.close()} type="button">
-              Закрыть
+              {t("common.close")}
             </button>
             <button
               className="primary-button"
@@ -88,13 +87,13 @@ export function InvoiceWebhookTestDialog({
               onClick={onSend}
               type="button"
             >
-              {loading ? "Отправка…" : "Отправить тестовый webhook"}
+              {loading ? t("common.sending") : t("merchant.widgets.invoiceWebhookTestDialog.sendTest")}
             </button>
           </div>
 
           {errorMessage ? (
             <div className="mc-webhook-test-result mc-webhook-test-result--error" role="alert">
-              <strong>Ошибка</strong>
+              <strong>{t("common.error")}</strong>
               <pre>{errorMessage}</pre>
             </div>
           ) : null}
@@ -102,24 +101,24 @@ export function InvoiceWebhookTestDialog({
           {lastResult ? (
             <div className={`mc-webhook-test-result ${lastResult.ok ? "" : "mc-webhook-test-result--warn"}`}>
               <div className="mc-webhook-test-kv">
-                <span>HTTP</span>
+                <span>{t("merchant.widgets.invoiceWebhookTestDialog.http")}</span>
                 <strong>{lastResult.status_code}</strong>
               </div>
               <div className="mc-webhook-test-kv">
-                <span>Попыток</span>
+                <span>{t("common.attempts")}</span>
                 <strong>{lastResult.attempts}</strong>
               </div>
               <div className="mc-webhook-test-kv">
-                <span>event_id</span>
+                <span>{t("merchant.widgets.invoiceWebhookTestDialog.eventId")}</span>
                 <code className="mc-inline-code">{lastResult.event_id}</code>
               </div>
               <div className="mc-webhook-test-kv mc-webhook-test-kv--full">
-                <span>Ответ вашего сервера</span>
-                <pre>{lastResult.response_preview ?? "—"}</pre>
+                <span>{t("common.serverResponse")}</span>
+                <pre>{lastResult.response_preview ?? t("common.dash")}</pre>
               </div>
               {lastResult.error ? (
                 <div className="mc-webhook-test-kv mc-webhook-test-kv--full">
-                  <span>Транспорт / после повторов</span>
+                  <span>{t("common.transport")}</span>
                   <pre>{lastResult.error}</pre>
                 </div>
               ) : null}

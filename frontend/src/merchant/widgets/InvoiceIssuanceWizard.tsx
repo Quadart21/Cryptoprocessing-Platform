@@ -1,6 +1,7 @@
 import { FormEvent, useMemo } from "react";
 
 import type { CreateInvoicePayload, ProjectItem, RateNetworkItem } from "../../api";
+import { useTranslation } from "../../i18n";
 import {
   formatPayinLimitHint,
   isPayinAmountWithinLimits,
@@ -28,6 +29,7 @@ export function InvoiceIssuanceWizard({
   onInvoiceFormChange,
   onCreateInvoice,
 }: InvoiceIssuanceWizardProps) {
+  const { t } = useTranslation();
   const fiatValue = (invoiceForm.fiat_currency ?? "USD").trim().toUpperCase() || "USD";
 
   const fiatOptions = useMemo(() => {
@@ -46,35 +48,50 @@ export function InvoiceIssuanceWizard({
     hasProject &&
     hasOrderId &&
     isPayinAmountWithinLimits(invoiceForm.amount_fiat, selectedNetwork, fiatValue);
-  const minLimitHint = formatPayinLimitHint(selectedNetwork, invoiceForm.crypto_currency, fiatValue);
+  const minLimitHint = formatPayinLimitHint(
+    selectedNetwork,
+    invoiceForm.crypto_currency,
+    fiatValue,
+    ({ cryptoPart, minFiat, fiatCurrency }) =>
+      t("merchant.widgets.invoiceIssuanceWizard.minLimitApprox", {
+        cryptoPart,
+        minFiat,
+        fiatCurrency,
+      }),
+  );
 
   return (
-    <article className="mc-surface mw-invoice-create" aria-label="Создание инвойса" id="merchant-invoice-create">
+    <article
+      className="mc-surface mw-invoice-create"
+      aria-label={t("merchant.widgets.invoiceIssuanceWizard.ariaLabel")}
+      id="merchant-invoice-create"
+    >
       <header className="mc-surface-header mc-surface-header--row">
         <div>
-          <p className="mc-surface-eyebrow">Новый счёт</p>
-          <h2 className="mc-surface-title">Создать инвойс</h2>
+          <p className="mc-surface-eyebrow">{t("merchant.widgets.invoiceIssuanceWizard.eyebrow")}</p>
+          <h2 className="mc-surface-title">{t("merchant.widgets.invoiceIssuanceWizard.title")}</h2>
           <p className="mc-surface-desc" style={{ marginBottom: 0 }}>
-            Один экран: проект, номер заказа, токен, сеть и сумма в валюте учёта. После создания счёт появится в списке
-            ниже.
+            {t("merchant.widgets.invoiceIssuanceWizard.description")}
           </p>
         </div>
         <a className="mw-skip-to-receivables" href="#merchant-receivables">
-          К списку инвойсов ↓
+          {t("merchant.widgets.invoiceIssuanceWizard.skipToList")}
         </a>
       </header>
 
       <form className="mc-form mw-invoice-create-form" onSubmit={onCreateInvoice}>
         <div className="mw-invoice-create-section">
-          <p className="mw-invoice-create-section-label">Заказ</p>
+          <p className="mw-invoice-create-section-label">
+            {t("merchant.widgets.invoiceIssuanceWizard.sectionOrder")}
+          </p>
           <div className="mc-form-grid mc-form-grid--2">
             <label className="mc-field">
-              <span>Проект</span>
+              <span>{t("merchant.widgets.invoiceIssuanceWizard.project")}</span>
               <select
                 value={invoiceForm.project_id}
                 onChange={(event) => onInvoiceFormChange({ ...invoiceForm, project_id: event.target.value })}
               >
-                <option value="">Выберите проект</option>
+                <option value="">{t("common.selectProject")}</option>
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
                     {project.name}
@@ -83,13 +100,13 @@ export function InvoiceIssuanceWizard({
               </select>
             </label>
             <label className="mc-field">
-              <span>Внутренний номер заказа</span>
+              <span>{t("merchant.widgets.invoiceIssuanceWizard.merchantOrderId")}</span>
               <input
                 value={invoiceForm.merchant_order_id}
                 onChange={(event) =>
                   onInvoiceFormChange({ ...invoiceForm, merchant_order_id: event.target.value })
                 }
-                placeholder="order-2048"
+                placeholder={t("merchant.widgets.invoiceIssuanceWizard.orderIdPlaceholder")}
                 autoComplete="off"
               />
             </label>
@@ -97,10 +114,12 @@ export function InvoiceIssuanceWizard({
         </div>
 
         <div className="mw-invoice-create-section">
-          <p className="mw-invoice-create-section-label">Оплата</p>
+          <p className="mw-invoice-create-section-label">
+            {t("merchant.widgets.invoiceIssuanceWizard.sectionPayment")}
+          </p>
           <div className="mc-form-grid mc-form-grid--2">
             <label className="mc-field">
-              <span>Токен</span>
+              <span>{t("merchant.widgets.invoiceIssuanceWizard.token")}</span>
               <select
                 value={invoiceForm.crypto_currency}
                 onChange={(event) =>
@@ -116,7 +135,7 @@ export function InvoiceIssuanceWizard({
               </select>
             </label>
             <label className="mc-field">
-              <span>Сеть</span>
+              <span>{t("merchant.widgets.invoiceIssuanceWizard.network")}</span>
               <select
                 value={invoiceForm.network}
                 onChange={(event) => onInvoiceFormChange({ ...invoiceForm, network: event.target.value })}
@@ -133,7 +152,7 @@ export function InvoiceIssuanceWizard({
               </select>
             </label>
             <label className="mc-field">
-              <span>Сумма к оплате</span>
+              <span>{t("merchant.widgets.invoiceIssuanceWizard.amountToPay")}</span>
               <input
                 value={invoiceForm.amount_fiat}
                 min={minFiatAmount ?? "0.00000001"}
@@ -145,7 +164,7 @@ export function InvoiceIssuanceWizard({
               />
             </label>
             <label className="mc-field">
-              <span>Валюта учёта</span>
+              <span>{t("merchant.widgets.invoiceIssuanceWizard.accountingCurrency")}</span>
               <select
                 value={fiatValue}
                 onChange={(event) =>
@@ -168,12 +187,17 @@ export function InvoiceIssuanceWizard({
               <strong>
                 {invoiceForm.crypto_currency} · {selectedNetwork.network}
               </strong>
-              <p>Мин. оплата: {minLimitHint ?? "—"}</p>
               <p>
-                Макс. оплата:{" "}
+                {t("merchant.widgets.invoiceIssuanceWizard.minPaymentLabel", {
+                  hint: minLimitHint ?? t("common.dash"),
+                })}
+              </p>
+              <p>
                 {selectedNetwork.max_deposit
-                  ? `${selectedNetwork.max_deposit} ${invoiceForm.crypto_currency}`
-                  : "—"}
+                  ? t("merchant.widgets.invoiceIssuanceWizard.maxPaymentLabel", {
+                      amount: `${selectedNetwork.max_deposit} ${invoiceForm.crypto_currency}`,
+                    })
+                  : t("merchant.widgets.invoiceIssuanceWizard.maxPaymentUnlimited")}
               </p>
             </div>
           ) : null}
@@ -181,7 +205,9 @@ export function InvoiceIssuanceWizard({
 
         <div className="mw-invoice-create-actions">
           <button className="primary-button" disabled={!canSubmit} type="submit">
-            {loading ? "Создаём…" : "Создать инвойс"}
+            {loading
+              ? t("merchant.widgets.invoiceIssuanceWizard.submitCreating")
+              : t("merchant.widgets.invoiceIssuanceWizard.submitCreate")}
           </button>
         </div>
       </form>

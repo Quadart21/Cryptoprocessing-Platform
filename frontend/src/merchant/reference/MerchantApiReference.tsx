@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { useApiTranslation } from "../../i18n";
 import {
   formatUsd,
   MERCHANT_COMMISSION_BREAK_EVEN_USD,
@@ -30,82 +31,40 @@ type EndpointReference = {
   title: string;
   purpose: string;
   auth: string;
+  authKey: "none" | "apiKey" | "apiKeyOrJwt";
   notes?: string[];
   requestExample?: string;
   successExample: string;
   errorExample: string;
 };
 
-const FAQ_ITEMS = [
-  {
-    title: "Где взять public и secret?",
-    body:
-      "Кабинет → API-ключи. Secret показывается при создании или перевыпуске — сохраните сразу в backend или секрет-хранилище.",
-  },
-  {
-    title: "Куда сохранять ключи?",
-    body:
-      "Только на backend. Не используйте secret во frontend, браузере, мобильном приложении или публичном репозитории.",
-  },
-  {
-    title: "Payment page или H2H?",
-    body:
-      "checkout_delivery в настройках проекта: payment_page — только payment_page_url (/pay/{token}); h2h — payment_address и qr_url; both — оба. Правило одинаково для POST /invoices, GET /invoices и webhook.",
-  },
-  {
-    title: "Что делать при 4xx и 5xx?",
-    body:
-      "4xx — ошибка в payload, ключах или параметрах. 5xx и 502/504 — retry с backoff, логируйте correlation/event id.",
-  },
-  {
-    title: "Как считается комиссия?",
-    body: `${MERCHANT_COMMISSION_PERCENT}% от суммы успешного платежа, но не менее ${formatUsd(
-      MERCHANT_COMMISSION_MIN_USD,
-    )}. Подробнее — раздел «Комиссии».`,
-  },
-];
+type FlowStepKey = "keys" | "rates" | "invoice" | "webhook";
 
-const TOC_MAIN = [
-  { href: "#docs-start", label: "Быстрый старт" },
-  { href: "#docs-auth", label: "Авторизация" },
-  { href: "#docs-checkout-delivery", label: "Checkout: page / H2H" },
-  { href: "#docs-endpoints-table", label: "Сводка методов" },
-  { href: "#docs-reference", label: "Примеры запросов" },
-  { href: "#docs-cabinet", label: "Кабинет (JWT)" },
-  { href: "#docs-webhooks", label: "Webhook" },
-  { href: "#docs-commissions", label: "Комиссии" },
-  { href: "#docs-faq", label: "FAQ" },
-];
+const FLOW_STEP_KEYS: FlowStepKey[] = ["keys", "rates", "invoice", "webhook"];
+const ENDPOINT_GROUP_KEYS = ["smoke", "auth", "payments", "accounting"] as const;
 
-const API_FLOW_STEPS = [
-  {
-    key: "keys",
-    title: "Ключи",
-    text: "Получите public/secret и храните secret только на backend.",
-  },
-  {
-    key: "rates",
-    title: "Rates",
-    text: "Проверьте доступные валюты, сети, лимиты и тариф: 0,4% (мин. $0,70) за платёж.",
-  },
-  {
-    key: "invoice",
-    title: "Инвойс",
-    text: "Создайте счёт и отдайте клиенту payment_page_url или H2H-реквизиты — формат задаётся checkout_delivery проекта.",
-  },
-  {
-    key: "webhook",
-    title: "Webhook",
-    text: "Принимайте события, проверяйте подпись и дедуплицируйте event_id.",
-  },
-];
-
-const ENDPOINT_GROUP_LABELS: Record<string, string> = {
-  smoke: "Проверка",
-  auth: "Доступ",
-  payments: "Оплаты",
-  accounting: "Финансы",
+const ENDPOINT_REF_KEYS: Record<string, string> = {
+  health: "health",
+  login: "login",
+  "create-invoice": "createInvoice",
+  "list-invoices": "listInvoices",
+  "get-invoice": "getInvoice",
+  "sync-invoice": "syncInvoice",
+  rates: "rates",
+  balance: "balance",
+  transactions: "transactions",
+  transaction: "transaction",
 };
+
+function endpointAuthKey(id: string): EndpointReference["authKey"] {
+  if (id === "health" || id === "login") {
+    return "none";
+  }
+  if (id === "sync-invoice") {
+    return "apiKeyOrJwt";
+  }
+  return "apiKey";
+}
 
 function endpointGroup(id: string) {
   if (id === "health") return "smoke";
@@ -123,6 +82,7 @@ export function MerchantApiReference({
   presentation = "cabinet",
   docsSection,
 }: MerchantApiReferenceProps) {
+  const { t, ta } = useApiTranslation();
   const isDocsPresentation = presentation === "docs";
   const show = (block: string) => docsShowsBlock(docsSection, block, isDocsPresentation);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
@@ -147,9 +107,9 @@ export function MerchantApiReference({
         id: "health",
         method: "GET",
         path: "/api/v1/client/health",
-        title: "Проверка доступности API",
-        purpose: "Быстрый ping backend без авторизации и бизнес-логики.",
-        auth: "Нет",
+        title: "",
+        purpose: "",
+        auth: "",
         requestExample: `curl -X GET "${apiBaseUrl}/health"`,
         successExample: `{
   "status": "ok",
@@ -165,9 +125,9 @@ export function MerchantApiReference({
         id: "login",
         method: "POST",
         path: "/api/v1/client/auth/login",
-        title: "Логин в кабинет мерчанта",
-        purpose: "Получить JWT-токены для доступа к cabinet-only endpoints.",
-        auth: "Нет",
+        title: "",
+        purpose: "",
+        auth: "",
         requestExample: `curl -X POST "${apiBaseUrl}/auth/login" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -182,7 +142,7 @@ export function MerchantApiReference({
 }`,
         errorExample: `HTTP 401
 {
-  "detail": "Неверный email или пароль.",
+  "detail": "Invalid email or password.",
   "code": "request_error"
 }`,
       },
@@ -190,15 +150,10 @@ export function MerchantApiReference({
         id: "create-invoice",
         method: "POST",
         path: "/api/v1/client/invoices",
-        title: "Создать инвойс",
-        purpose: "Создать счёт на оплату. Формат реквизитов в ответе определяется checkout_delivery проекта.",
-        auth: "X-API-Key + X-API-Secret",
-        notes: [
-          "project_id должен принадлежать API-ключу.",
-          "Перед созданием инвойса вызывайте GET /rates: min_deposit — в криптовалюте (как у CryptoCash list-in), min_deposit_fiat — ориентир в USD.",
-          "checkout_delivery проекта: payment_page → только payment_page_url; h2h → payment_address и qr_url; both → все поля.",
-          "payment_page_url ведёт на hosted checkout (QR, таймер, статус). Для кастомного UI можно опрашивать GET /api/v1/public/pay/{token}.",
-        ],
+        title: "",
+        purpose: "",
+        auth: "",
+        notes: [],
         requestExample: integrationCurl,
         successExample: `{
   "id": "inv_01J_DOCS_EXAMPLE",
@@ -220,7 +175,7 @@ export function MerchantApiReference({
 {
   "detail": {
     "code": "amount_out_of_range",
-    "message": "Сумма 1 USDT для USDT/TRC20 вне допустимого диапазона (min 5 USDT, max 5000 USDT). Запрошено ≈ 1 USD.",
+    "message": "Amount 1 USDT for USDT/TRC20 is outside the allowed range (min 5 USDT, max 5000 USDT). Requested ≈ 1 USD.",
     "currency": "USDT",
     "network": "TRC20",
     "amount": "1",
@@ -236,9 +191,9 @@ export function MerchantApiReference({
         id: "list-invoices",
         method: "GET",
         path: "/api/v1/client/invoices",
-        title: "Получить список инвойсов",
-        purpose: "Вернуть список инвойсов по tenant/project с пагинацией.",
-        auth: "X-API-Key + X-API-Secret",
+        title: "",
+        purpose: "",
+        auth: "",
         requestExample: `curl -X GET "${apiBaseUrl}/invoices?limit=20&offset=0" \\
   -H "X-API-Key: ${publicKey}" \\
   -H "X-API-Secret: <secret_key>"`,
@@ -262,7 +217,7 @@ export function MerchantApiReference({
 ]`,
         errorExample: `HTTP 403
 {
-  "detail": "Недостаточно прав: client.invoices.read.",
+  "detail": "Insufficient permissions: client.invoices.read.",
   "code": "request_error"
 }`,
       },
@@ -270,9 +225,9 @@ export function MerchantApiReference({
         id: "get-invoice",
         method: "GET",
         path: "/api/v1/client/invoices/{invoice_id}",
-        title: "Получить один инвойс",
-        purpose: "Вернуть текущий статус и реквизиты конкретного инвойса.",
-        auth: "X-API-Key + X-API-Secret",
+        title: "",
+        purpose: "",
+        auth: "",
         requestExample: `curl -X GET "${apiBaseUrl}/invoices/<invoice_id>" \\
   -H "X-API-Key: ${publicKey}" \\
   -H "X-API-Secret: <secret_key>"`,
@@ -294,7 +249,7 @@ export function MerchantApiReference({
 }`,
         errorExample: `HTTP 404
 {
-  "detail": "Инвойс не найден.",
+  "detail": "Invoice not found.",
   "code": "request_error"
 }`,
       },
@@ -302,10 +257,9 @@ export function MerchantApiReference({
         id: "sync-invoice",
         method: "POST",
         path: "/api/v1/client/invoices/{invoice_id}/sync",
-        title: "Синхронизировать статус инвойса",
-        purpose:
-          "Принудительно обновить статус инвойса у провайдера. Требуется право client.invoices.write и при авторизации по API-ключу, и при JWT.",
-        auth: "X-API-Key + X-API-Secret (или Bearer JWT с client.invoices.write)",
+        title: "",
+        purpose: "",
+        auth: "",
         requestExample: `curl -X POST "${apiBaseUrl}/invoices/<invoice_id>/sync" \\
   -H "X-API-Key: ${publicKey}" \\
   -H "X-API-Secret: <secret_key>"`,
@@ -327,16 +281,16 @@ export function MerchantApiReference({
 }`,
         errorExample: `HTTP 403
 {
-  "detail": "Недостаточно прав: client.invoices.write."
+  "detail": "Insufficient permissions: client.invoices.write."
 }`,
       },
       {
         id: "rates",
         method: "GET",
         path: "/api/v1/client/rates",
-        title: "Получить доступные rates",
-        purpose: "Список валют и сетей с лимитами депозита/вывода и флагами доступности (см. поля в ответе).",
-        auth: "X-API-Key + X-API-Secret",
+        title: "",
+        purpose: "",
+        auth: "",
         requestExample: `curl -X GET "${apiBaseUrl}/rates" \\
   -H "X-API-Key: ${publicKey}" \\
   -H "X-API-Secret: <secret_key>"`,
@@ -378,9 +332,9 @@ export function MerchantApiReference({
         id: "balance",
         method: "GET",
         path: "/api/v1/client/balance",
-        title: "Получить баланс",
-        purpose: "Доступный, замороженный и суммарный баланс в расчётной валюте тенанта.",
-        auth: "X-API-Key + X-API-Secret",
+        title: "",
+        purpose: "",
+        auth: "",
         requestExample: `curl -X GET "${apiBaseUrl}/balance" \\
   -H "X-API-Key: ${publicKey}" \\
   -H "X-API-Secret: <secret_key>"`,
@@ -398,7 +352,7 @@ export function MerchantApiReference({
 }`,
         errorExample: `HTTP 403
 {
-  "detail": "Недостаточно прав: client.balance.read.",
+  "detail": "Insufficient permissions: client.balance.read.",
   "code": "request_error"
 }`,
       },
@@ -406,9 +360,9 @@ export function MerchantApiReference({
         id: "transactions",
         method: "GET",
         path: "/api/v1/client/transactions",
-        title: "Получить список транзакций",
-        purpose: "История транзакций по tenant/project с breakdown комиссий.",
-        auth: "X-API-Key + X-API-Secret",
+        title: "",
+        purpose: "",
+        auth: "",
         requestExample: `curl -X GET "${apiBaseUrl}/transactions?limit=20&offset=0" \\
   -H "X-API-Key: ${publicKey}" \\
   -H "X-API-Secret: <secret_key>"`,
@@ -439,9 +393,9 @@ export function MerchantApiReference({
         id: "transaction",
         method: "GET",
         path: "/api/v1/client/transactions/{transaction_id}",
-        title: "Получить одну транзакцию",
-        purpose: "Вернуть детали конкретной транзакции по id.",
-        auth: "X-API-Key + X-API-Secret",
+        title: "",
+        purpose: "",
+        auth: "",
         requestExample: `curl -X GET "${apiBaseUrl}/transactions/<transaction_id>" \\
   -H "X-API-Key: ${publicKey}" \\
   -H "X-API-Secret: <secret_key>"`,
@@ -462,12 +416,27 @@ export function MerchantApiReference({
 }`,
         errorExample: `HTTP 404
 {
-  "detail": "Транзакция не найдена.",
+  "detail": "Transaction not found.",
   "code": "request_error"
 }`,
       },
-    ],
-    [apiBaseUrl, integrationCurl, publicKey],
+    ].map((ref): EndpointReference => {
+      const refKey = ENDPOINT_REF_KEYS[ref.id] ?? ref.id;
+      const authKey = endpointAuthKey(ref.id);
+      return {
+        ...ref,
+        method: ref.method as EndpointReference["method"],
+        title: t(`merchant.apiDocs.endpointRefs.${refKey}.title`),
+        purpose: t(`merchant.apiDocs.endpointRefs.${refKey}.purpose`),
+        auth: t(`merchant.apiDocs.authLabels.${authKey}`),
+        authKey,
+        notes:
+          ref.id === "create-invoice"
+            ? ta<string>(`merchant.apiDocs.endpointRefs.${refKey}.notes`)
+            : undefined,
+      };
+    }),
+    [t, ta, apiBaseUrl, integrationCurl, publicKey],
   );
 
   const endpointToc = useMemo(
@@ -479,7 +448,7 @@ export function MerchantApiReference({
       total: endpointReferences.length,
       get: endpointReferences.filter((endpoint) => endpoint.method === "GET").length,
       post: endpointReferences.filter((endpoint) => endpoint.method === "POST").length,
-      secure: endpointReferences.filter((endpoint) => endpoint.auth !== "Нет").length,
+      secure: endpointReferences.filter((endpoint) => endpoint.authKey !== "none").length,
     }),
     [endpointReferences],
   );
@@ -492,28 +461,94 @@ export function MerchantApiReference({
       }, {}),
     [endpointReferences],
   );
-  const readinessCards = [
-    {
-      title: "Base URL",
-      value: apiBaseUrl,
-      tone: "info",
-    },
-    {
-      title: "API key",
-      value: activeApiKeyPublic ? "Активный ключ найден" : "Ключ не выбран",
-      tone: activeApiKeyPublic ? "ok" : "warn",
-    },
-    {
-      title: "Webhook",
-      value: activeWebhookUrl ?? "Ещё не настроен",
-      tone: activeWebhookUrl ? "ok" : "warn",
-    },
-    {
-      title: "Роут платежей",
-      value: selectedRoute,
-      tone: "info",
-    },
-  ];
+  const tocMain = useMemo(
+    () => [
+      { href: "#docs-start", label: t("merchant.apiDocs.toc.start") },
+      { href: "#docs-auth", label: t("merchant.apiDocs.toc.auth") },
+      { href: "#docs-checkout-delivery", label: t("merchant.apiDocs.toc.checkout") },
+      { href: "#docs-endpoints-table", label: t("merchant.apiDocs.toc.endpointsTable") },
+      { href: "#docs-reference", label: t("merchant.apiDocs.toc.reference") },
+      { href: "#docs-cabinet", label: t("merchant.apiDocs.toc.cabinet") },
+      { href: "#docs-webhooks", label: t("merchant.apiDocs.toc.webhooks") },
+      { href: "#docs-commissions", label: t("merchant.apiDocs.toc.commissions") },
+      { href: "#docs-faq", label: t("merchant.apiDocs.toc.faq") },
+    ],
+    [t],
+  );
+
+  const apiFlowSteps = useMemo(
+    () =>
+      FLOW_STEP_KEYS.map((key) => ({
+        key,
+        title: t(`merchant.apiDocs.flow.${key}.title`),
+        text: t(`merchant.apiDocs.flow.${key}.text`),
+      })),
+    [t],
+  );
+
+  const endpointGroupLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        ENDPOINT_GROUP_KEYS.map((key) => [key, t(`merchant.apiDocs.endpointGroups.${key}`)]),
+      ) as Record<(typeof ENDPOINT_GROUP_KEYS)[number], string>,
+    [t],
+  );
+
+  const readinessCards = useMemo(
+    () => [
+      {
+        title: t("merchant.apiDocs.statusBoard.baseUrl"),
+        value: apiBaseUrl,
+        tone: "info",
+      },
+      {
+        title: t("merchant.apiDocs.statusBoard.apiKey"),
+        value: activeApiKeyPublic
+          ? t("merchant.apiDocs.statusBoard.apiKeyOk")
+          : t("merchant.apiDocs.statusBoard.apiKeyMissing"),
+        tone: activeApiKeyPublic ? "ok" : "warn",
+      },
+      {
+        title: t("merchant.apiDocs.statusBoard.webhook"),
+        value: activeWebhookUrl ?? t("merchant.apiDocs.statusBoard.webhookMissing"),
+        tone: activeWebhookUrl ? "ok" : "warn",
+      },
+      {
+        title: t("merchant.apiDocs.statusBoard.paymentRoute"),
+        value: selectedRoute,
+        tone: "info",
+      },
+    ],
+    [activeApiKeyPublic, activeWebhookUrl, apiBaseUrl, selectedRoute, t],
+  );
+
+  const quickStartSteps = useMemo(() => ta<string>("merchant.apiDocs.quickStart.steps"), [ta]);
+  const quickStartKeyItems = useMemo(() => ta<string>("merchant.apiDocs.quickStart.keysItems"), [ta]);
+  const authItems = useMemo(() => ta<string>("merchant.apiDocs.auth.items"), [ta]);
+  const paymentPageItems = useMemo(() => ta<string>("merchant.apiDocs.checkout.paymentPageItems"), [ta]);
+  const h2hItems = useMemo(() => ta<string>("merchant.apiDocs.checkout.h2hItems"), [ta]);
+  const webhookPayloadItems = useMemo(() => ta<string>("merchant.apiDocs.webhooks.payloadItems"), [ta]);
+  const commissionNotes = useMemo(() => ta<string>("merchant.apiDocs.commissions.notes"), [ta]);
+
+  const faqItems = useMemo(
+    () =>
+      ta<{ title: string; body: string }>("merchant.apiDocs.faq.items").map((item) => ({
+        title: item.title,
+        body: item.body
+          .replace(/\{\{percent\}\}/g, String(MERCHANT_COMMISSION_PERCENT))
+          .replace(/\{\{minUsd\}\}/g, formatUsd(MERCHANT_COMMISSION_MIN_USD)),
+      })),
+    [ta],
+  );
+
+  const commissionFormula = useMemo(
+    () =>
+      t("merchant.apiDocs.commissions.formula", {
+        rate: MERCHANT_COMMISSION_PERCENT / 100,
+        minUsd: formatUsd(MERCHANT_COMMISSION_MIN_USD),
+      }),
+    [t],
+  );
 
   const cabinetMeExample = `curl -X GET "${apiBaseUrl}/me" \\
   -H "Authorization: Bearer <jwt_access>"`;
@@ -534,7 +569,7 @@ export function MerchantApiReference({
 
   const cabinetPingSuccess = `{
   "status": "ok",
-  "message": "Добро пожаловать, Owner. Кабинет доступен."
+  "message": "${t("merchant.apiDocs.cabinet.pingSuccessMessage")}"
 }`;
 
   const webhookConfigExample = `curl -X POST "${apiBaseUrl}/webhooks" \\
@@ -594,29 +629,31 @@ export function MerchantApiReference({
   async function handleCopy(value: string, title: string) {
     try {
       await navigator.clipboard.writeText(value);
-      setCopyMessage(`Скопировано: ${title}`);
+      setCopyMessage(t("common.copiedTitle", { title }));
     } catch {
-      setCopyMessage(`Не удалось скопировать: ${title}`);
+      setCopyMessage(t("common.copyFailedTitle", { title }));
     }
   }
 
   return (
     <article
+      lang="en"
+      dir="ltr"
       className={`mc-surface mc-surface--docs api-docs-panel${
         isDocsPresentation ? " api-docs-panel--docs api-docs-panel--split" : " api-docs-landing"
       }`}
     >
       <div className={isDocsPresentation ? "api-docs-layout-main api-docs-layout-main--solo" : "api-docs-layout"}>
         {!isDocsPresentation ? (
-          <aside className="api-docs-toc" aria-label="Оглавление документации">
-            <p className="api-docs-toc-title">На странице</p>
+          <aside className="api-docs-toc" aria-label={t("merchant.apiDocs.tocAria")}>
+            <p className="api-docs-toc-title">{t("merchant.apiDocs.onPage")}</p>
             <nav className="api-docs-toc-nav">
-              {TOC_MAIN.map((item) => (
+              {tocMain.map((item) => (
                 <a href={item.href} key={item.href}>
                   {item.label}
                 </a>
               ))}
-              <p className="api-docs-toc-title api-docs-toc-title-sub">Эндпоинты</p>
+              <p className="api-docs-toc-title api-docs-toc-title-sub">{t("merchant.apiDocs.endpoints")}</p>
               {endpointToc.map((item) => (
                 <a href={item.href} key={item.href}>
                   {item.label}
@@ -630,24 +667,22 @@ export function MerchantApiReference({
           {show("toolbar") ? (
             <section className="api-docs-docs-toolbar" id="docs-toolbar">
               <div className="api-docs-docs-toolbar-copy">
-                <p className="eyebrow">Environment</p>
-                <h3>Base URL и OpenAPI</h3>
-                <p className="muted-text">
-                  Примеры используют ваш Base URL. Копируйте curl и JSON в backend.
-                </p>
+                <p className="eyebrow">{t("merchant.apiDocs.environment")}</p>
+                <h3>{t("merchant.apiDocs.baseUrlOpenApi")}</h3>
+                <p className="muted-text">{t("merchant.apiDocs.examplesNote")}</p>
               </div>
               <div className="api-docs-docs-toolbar-actions">
                 <code className="api-docs-base-url">{apiBaseUrl}</code>
                 <div className="api-docs-actions">
                   <button
                     className="ghost-button"
-                    onClick={() => void handleCopy(apiBaseUrl, "Base URL")}
+                    onClick={() => void handleCopy(apiBaseUrl, t("merchant.apiDocs.statusBoard.baseUrl"))}
                     type="button"
                   >
-                    Скопировать Base URL
+                    {t("common.copyBaseUrl")}
                   </button>
                   <a className="ghost-button" href={docsUrl} rel="noreferrer" target="_blank">
-                    Swagger
+                    {t("merchant.integration.tabSwagger")}
                   </a>
                   <a className="ghost-button" href={openApiUrl} rel="noreferrer" target="_blank">
                     openapi.json
@@ -661,30 +696,27 @@ export function MerchantApiReference({
             <>
               <section className="api-docs-hero">
                 <div className="api-docs-hero-copy">
-                  <p className="eyebrow">Merchant API Reference</p>
-                  <h2>Интеграция приёма криптооплат</h2>
-                  <p className="muted-text">
-                    Практический экран для backend-разработчика: статус окружения, путь подключения, быстрые
-                    копии и подробный контракт.
-                  </p>
+                  <p className="eyebrow">{t("merchant.apiDocs.heroEyebrow")}</p>
+                  <h2>{t("merchant.apiDocs.heroTitle")}</h2>
+                  <p className="muted-text">{t("merchant.apiDocs.heroLead")}</p>
                   <div className="api-docs-actions">
                     <a className="ghost-button" href={docsUrl} rel="noreferrer" target="_blank">
-                      Swagger UI
+                      {t("merchant.integration.swagger.swaggerUi")}
                     </a>
                     <a className="ghost-button" href={openApiUrl} rel="noreferrer" target="_blank">
-                      OpenAPI JSON
+                      {t("merchant.integration.swagger.openApiJson")}
                     </a>
                     <button
                       className="ghost-button"
-                      onClick={() => void handleCopy(apiBaseUrl, "Base URL")}
+                      onClick={() => void handleCopy(apiBaseUrl, t("merchant.apiDocs.statusBoard.baseUrl"))}
                       type="button"
                     >
-                      Копировать Base URL
+                      {t("common.copyBaseUrl")}
                     </button>
                   </div>
                 </div>
 
-                <div className="api-docs-status-board" aria-label="Статус интеграции">
+                <div className="api-docs-status-board" aria-label={t("merchant.apiDocs.statusBoardAria")}>
                   {readinessCards.map((item) => (
                     <article className={`api-docs-status-card api-docs-status-card-${item.tone}`} key={item.title}>
                       <span>{item.title}</span>
@@ -694,8 +726,8 @@ export function MerchantApiReference({
                 </div>
               </section>
 
-              <section className="api-docs-flow" aria-label="Основной путь подключения">
-                {API_FLOW_STEPS.map((step, index) => (
+              <section className="api-docs-flow" aria-label={t("merchant.apiDocs.flowAria")}>
+                {apiFlowSteps.map((step, index) => (
                   <article className="api-docs-flow-step" key={step.key}>
                     <span className="api-docs-flow-index">{index + 1}</span>
                     <div>
@@ -706,28 +738,28 @@ export function MerchantApiReference({
                 ))}
               </section>
 
-              <section className="api-docs-metrics" aria-label="Сводка контракта API">
+              <section className="api-docs-metrics" aria-label={t("merchant.apiDocs.metricsAria")}>
                 <article>
-                  <span>Методов</span>
+                  <span>{t("merchant.apiDocs.metrics.methods")}</span>
                   <strong>{endpointStats.total}</strong>
-                  <p>Полный набор для оплат, баланса, транзакций и статуса.</p>
+                  <p>{t("merchant.apiDocs.metrics.methodsDesc")}</p>
                 </article>
                 <article>
-                  <span>GET / POST</span>
+                  <span>{t("merchant.apiDocs.metrics.getPost")}</span>
                   <strong>
                     {endpointStats.get} / {endpointStats.post}
                   </strong>
-                  <p>Чтение отделено от мутаций.</p>
+                  <p>{t("merchant.apiDocs.metrics.getPostDesc")}</p>
                 </article>
                 <article>
-                  <span>Защищены ключами</span>
+                  <span>{t("merchant.apiDocs.metrics.secured")}</span>
                   <strong>{endpointStats.secure}</strong>
-                  <p>X-API-Key + X-API-Secret.</p>
+                  <p>{t("merchant.apiDocs.metrics.securedDesc")}</p>
                 </article>
               </section>
 
-              <section className="api-docs-group-map" aria-label="Группы API-методов">
-                {Object.entries(ENDPOINT_GROUP_LABELS).map(([group, label]) => (
+              <section className="api-docs-group-map" aria-label={t("merchant.apiDocs.groupsAria")}>
+                {Object.entries(endpointGroupLabels).map(([group, label]) => (
                   <article className="api-docs-group-card" key={group}>
                     <span>{label}</span>
                     <strong>{endpointGroups[group]?.length ?? 0}</strong>
@@ -748,30 +780,25 @@ export function MerchantApiReference({
           <section className="api-docs-grid api-docs-grid-feature" id="docs-start">
             <article className="api-docs-section api-docs-feature-card">
               <div className="api-docs-section-head">
-                <p className="eyebrow">Быстрый старт</p>
-                <h3>Пошаговое подключение</h3>
+                <p className="eyebrow">{t("merchant.apiDocs.quickStart.eyebrow")}</p>
+                <h3>{t("merchant.apiDocs.quickStart.title")}</h3>
               </div>
               <ol className="api-docs-steps">
-                <li>В кабинете клиента откройте раздел «API-ключи» и получите public key и secret key.</li>
-                <li>Сохраните оба значения только на backend стороне вашего проекта.</li>
-                <li>Вызовите GET /rates, чтобы выбрать доступный токен и сеть.</li>
-                <li>Создайте тестовый инвойс через POST /invoices.</li>
-                <li>Формат checkout (payment page или H2H) задаёт администратор платформы для вашего проекта.</li>
-                <li>Отправьте клиенту payment_page_url или покажите адрес/QR — в зависимости от режима.</li>
-                <li>Проверьте статус через GET /invoices/&lt;invoice_id&gt; и при необходимости POST /sync.</li>
-                <li>Настройте webhook (JWT) и проверьте доставку через POST /webhooks/test.</li>
+                {quickStartSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
               </ol>
             </article>
 
             <article className="api-docs-section api-docs-feature-card">
               <div className="api-docs-section-head">
-                <p className="eyebrow">Ключи доступа</p>
-                <h3>Где взять public и secret</h3>
+                <p className="eyebrow">{t("merchant.apiDocs.quickStart.keysEyebrow")}</p>
+                <h3>{t("merchant.apiDocs.quickStart.keysTitle")}</h3>
               </div>
               <div className="integration-list">
-                <p>Public key виден в кабинете клиента в разделе «API-ключи».</p>
-                <p>Secret key показывается при создании или перевыпуске ключа и должен быть сохранён сразу.</p>
-                <p>Secret нельзя хранить в frontend, браузере или публичном репозитории.</p>
+                {quickStartKeyItems.map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
               </div>
             </article>
           </section>
@@ -780,22 +807,22 @@ export function MerchantApiReference({
           {show("auth") ? (
           <section className="api-docs-section" id="docs-auth">
             <div className="api-docs-section-head">
-              <p className="eyebrow">Авторизация</p>
-              <h3>Заголовки для server-to-server интеграции</h3>
+              <p className="eyebrow">{t("merchant.apiDocs.auth.eyebrow")}</p>
+              <h3>{t("merchant.apiDocs.auth.title")}</h3>
             </div>
             <pre className="json-box">{authHeadersExample}</pre>
             <ul className="integration-list">
-              <li>X-API-Key и X-API-Secret — для оплатных и учётных методов merchant API.</li>
-              <li>Authorization: Bearer &lt;jwt&gt; — для сценариев кабинета: webhooks, /me, /cabinet и др.</li>
-              <li>После ротации ключей обновите конфигурацию backend без задержки.</li>
+              {authItems.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
             <div className="action-row-inline">
               <button
                 className="ghost-button"
-                onClick={() => void handleCopy(authHeadersExample, "Заголовки авторизации")}
+                onClick={() => void handleCopy(authHeadersExample, t("merchant.apiDocs.auth.title"))}
                 type="button"
               >
-                Копировать заголовки
+                {t("common.copyHeaders")}
               </button>
             </div>
           </section>
@@ -804,24 +831,20 @@ export function MerchantApiReference({
           {show("checkout") ? (
           <section className="api-docs-section" id="docs-checkout-delivery">
             <div className="api-docs-section-head">
-              <p className="eyebrow">Checkout</p>
-              <h3>Платёжная страница или H2H-реквизиты</h3>
+              <p className="eyebrow">{t("merchant.apiDocs.checkout.eyebrow")}</p>
+              <h3>{t("merchant.apiDocs.checkout.title")}</h3>
             </div>
-            <p className="muted-text">
-              Для каждого проекта администратор платформы задаёт <code>checkout_delivery</code>. Мерчант видит текущий режим
-              в разделе «Интеграция → Webhook», но изменить его самостоятельно не может. Поле влияет на ответ POST /invoices,
-              GET /invoices и payload входящих webhook.
-            </p>
+            <p className="muted-text">{t("merchant.apiDocs.checkout.intro")}</p>
             <div className="api-docs-grid">
               <article className="result-box api-docs-code-card">
                 <div className="api-docs-section-head">
-                  <p className="eyebrow">payment_page</p>
-                  <h3>Hosted checkout</h3>
+                  <p className="eyebrow">{t("merchant.apiDocs.checkout.paymentPageEyebrow")}</p>
+                  <h3>{t("merchant.apiDocs.checkout.paymentPageTitle")}</h3>
                 </div>
                 <ul className="integration-list">
-                  <li>В ответе API — только <code>payment_page_url</code> (поля payment_address и qr_url отсутствуют).</li>
-                  <li>Клиент переходит на страницу вида <code>/pay/&#123;token&#125;</code> — QR, адрес, таймер и статус.</li>
-                  <li>Webhook дублирует тот же набор полей в объекте invoice.</li>
+                  {paymentPageItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </ul>
                 <pre className="json-box">{`{
   "payment_page_url": "https://noren.digital/pay/abc123example",
@@ -830,12 +853,13 @@ export function MerchantApiReference({
               </article>
               <article className="result-box api-docs-code-card">
                 <div className="api-docs-section-head">
-                  <p className="eyebrow">h2h</p>
-                  <h3>Head-to-head интеграция</h3>
+                  <p className="eyebrow">{t("merchant.apiDocs.checkout.h2hEyebrow")}</p>
+                  <h3>{t("merchant.apiDocs.checkout.h2hTitle")}</h3>
                 </div>
                 <ul className="integration-list">
-                  <li>В ответе — <code>payment_address</code> и <code>qr_url</code>; payment_page_url отсутствует.</li>
-                  <li>Подходит, если вы сами рисуете экран оплаты в своём приложении.</li>
+                  {h2hItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </ul>
                 <pre className="json-box">{`{
   "payment_address": "TG9...example",
@@ -845,13 +869,7 @@ export function MerchantApiReference({
               </article>
             </div>
             <p className="muted-text" style={{ marginTop: "1rem" }}>
-              Режим <code>both</code> возвращает все поля (обратная совместимость). Для кастомной checkout-страницы
-              можно опрашивать публичный API без ключей:{" "}
-              <code>
-                GET {backendOrigin ? `${backendOrigin}/api/v1/public/pay/{token}` : "/api/v1/public/pay/{token}"}
-              </code>{" "}
-              и{" "}
-              <code>POST .../refresh</code> для синхронизации статуса.
+              {t("merchant.apiDocs.checkout.bothNote")}
             </p>
           </section>
           ) : null}
@@ -859,14 +877,11 @@ export function MerchantApiReference({
           {show("endpoints") ? (
           <section className="api-docs-section" id="docs-endpoints-table">
             <div className="api-docs-section-head">
-              <p className="eyebrow">Сводка</p>
-              <h3>Все merchant-методы в одной таблице</h3>
+              <p className="eyebrow">{t("merchant.apiDocs.endpointsTable.eyebrow")}</p>
+              <h3>{t("merchant.apiDocs.endpointsTable.title")}</h3>
             </div>
-            <p className="muted-text">
-              Полные пути соответствуют префиксу вашего Base URL (уже включает /api/v1/client). Ниже — канонический
-              путь в OpenAPI.
-            </p>
-            <div className="api-docs-mobile-endpoints" aria-label="Краткая сводка методов">
+            <p className="muted-text">{t("merchant.apiDocs.endpointsTable.intro")}</p>
+            <div className="api-docs-mobile-endpoints" aria-label={t("merchant.apiDocs.mobileSummaryAria")}>
               {endpointReferences.map((row) => (
                 <a className="api-docs-mobile-endpoint-card" href={`#endpoint-${row.id}`} key={row.id}>
                   <span
@@ -886,9 +901,9 @@ export function MerchantApiReference({
               <table className="api-docs-table">
                 <thead>
                   <tr>
-                    <th>Метод</th>
-                    <th>Путь</th>
-                    <th>Авторизация</th>
+                    <th>{t("merchant.apiDocs.endpointsTable.method")}</th>
+                    <th>{t("merchant.apiDocs.endpointsTable.path")}</th>
+                    <th>{t("merchant.apiDocs.endpointsTable.authorization")}</th>
                     <th />
                   </tr>
                 </thead>
@@ -910,7 +925,7 @@ export function MerchantApiReference({
                       <td>{row.auth}</td>
                       <td>
                         <a className="api-docs-table-link" href={`#endpoint-${row.id}`}>
-                          Подробнее
+                          {t("merchant.apiDocs.endpointsTable.more")}
                         </a>
                       </td>
                     </tr>
@@ -924,8 +939,8 @@ export function MerchantApiReference({
           {show("reference") ? (
           <section className="api-docs-section" id="docs-reference">
             <div className="api-docs-section-head">
-              <p className="eyebrow">Endpoint Reference</p>
-              <h3>Запросы, ответы и ошибки</h3>
+              <p className="eyebrow">{t("merchant.apiDocs.reference.eyebrow")}</p>
+              <h3>{t("merchant.apiDocs.reference.title")}</h3>
             </div>
 
             <div className="api-docs-endpoint-list">
@@ -994,11 +1009,11 @@ export function MerchantApiReference({
 
                     <div className="api-docs-endpoint-meta">
                       <div>
-                        <span>Назначение</span>
+                        <span>{t("merchant.apiDocs.reference.purpose")}</span>
                         <strong>{endpoint.purpose}</strong>
                       </div>
                       <div>
-                        <span>Авторизация</span>
+                        <span>{t("merchant.apiDocs.reference.authorization")}</span>
                         <strong>{endpoint.auth}</strong>
                       </div>
                     </div>
@@ -1029,45 +1044,42 @@ export function MerchantApiReference({
           {!isDocsPresentation ? (
           <section className="api-docs-section" id="docs-cabinet">
             <div className="api-docs-section-head">
-              <p className="eyebrow">Кабинет</p>
-              <h3>JWT: профиль и проверка доступа</h3>
+              <p className="eyebrow">{t("merchant.apiDocs.cabinet.eyebrow")}</p>
+              <h3>{t("merchant.apiDocs.cabinet.title")}</h3>
             </div>
-            <p className="muted-text">
-              После POST /auth/login используйте <code>access_token</code> в заголовке Authorization. Эти маршруты
-              удобны для серверных BFF-прослоек рядом с кабинетом; массовые оплаты по-прежнему делаются через API-ключ.
-            </p>
+            <p className="muted-text">{t("merchant.apiDocs.cabinet.intro")}</p>
             <div className="api-docs-grid">
               <article className="result-box api-docs-code-card">
                 <div className="api-docs-section-head">
-                  <p className="eyebrow">GET /me</p>
-                  <h3>Текущий пользователь и права</h3>
+                  <p className="eyebrow">{t("merchant.apiDocs.cabinet.meEyebrow")}</p>
+                  <h3>{t("merchant.apiDocs.cabinet.meTitle")}</h3>
                 </div>
                 <pre className="json-box">{cabinetMeExample}</pre>
                 <pre className="json-box">{cabinetMeSuccess}</pre>
                 <div className="action-row-inline">
                   <button
                     className="ghost-button"
-                    onClick={() => void handleCopy(`${cabinetMeExample}\n\n${cabinetMeSuccess}`, "GET /me")}
+                    onClick={() => void handleCopy(`${cabinetMeExample}\n\n${cabinetMeSuccess}`, t("merchant.apiDocs.cabinet.meEyebrow"))}
                     type="button"
                   >
-                    Копировать пример
+                    {t("common.copyExample")}
                   </button>
                 </div>
               </article>
               <article className="result-box api-docs-code-card">
                 <div className="api-docs-section-head">
-                  <p className="eyebrow">GET /cabinet</p>
-                  <h3>Проверка доступа к кабинету</h3>
+                  <p className="eyebrow">{t("merchant.apiDocs.cabinet.cabinetEyebrow")}</p>
+                  <h3>{t("merchant.apiDocs.cabinet.cabinetTitle")}</h3>
                 </div>
                 <pre className="json-box">{cabinetPingExample}</pre>
                 <pre className="json-box">{cabinetPingSuccess}</pre>
                 <div className="action-row-inline">
                   <button
                     className="ghost-button"
-                    onClick={() => void handleCopy(`${cabinetPingExample}\n\n${cabinetPingSuccess}`, "GET /cabinet")}
+                    onClick={() => void handleCopy(`${cabinetPingExample}\n\n${cabinetPingSuccess}`, t("merchant.apiDocs.cabinet.cabinetEyebrow"))}
                     type="button"
                   >
-                    Копировать пример
+                    {t("common.copyExample")}
                   </button>
                 </div>
               </article>
@@ -1079,59 +1091,58 @@ export function MerchantApiReference({
           <section className="api-docs-grid" id="docs-webhooks">
             <article className="result-box api-docs-code-card">
               <div className="api-docs-section-head">
-                <p className="eyebrow">Webhook config</p>
-                <h3>Настроить webhook</h3>
+                <p className="eyebrow">{t("merchant.apiDocs.webhooks.configEyebrow")}</p>
+                <h3>{t("merchant.apiDocs.webhooks.configTitle")}</h3>
               </div>
               <pre className="json-box">{webhookConfigExample}</pre>
-              <p className="muted-text">Требуется JWT и право client.webhooks.write.</p>
+              <p className="muted-text">{t("merchant.apiDocs.webhooks.configNote")}</p>
               <div className="action-row-inline">
                 <button
                   className="ghost-button"
-                  onClick={() => void handleCopy(webhookConfigExample, "Webhook config")}
+                  onClick={() => void handleCopy(webhookConfigExample, t("merchant.apiDocs.webhooks.configTitle"))}
                   type="button"
                 >
-                  Копировать
+                  {t("common.copy")}
                 </button>
               </div>
             </article>
 
             <article className="result-box api-docs-code-card">
               <div className="api-docs-section-head">
-                <p className="eyebrow">Webhook test</p>
-                <h3>Отправить тестовую доставку</h3>
+                <p className="eyebrow">{t("merchant.apiDocs.webhooks.testEyebrow")}</p>
+                <h3>{t("merchant.apiDocs.webhooks.testTitle")}</h3>
               </div>
               <pre className="json-box">{webhookTestExample}</pre>
-              <p className="muted-text">Используйте после сохранения webhook URL и secret.</p>
+              <p className="muted-text">{t("merchant.apiDocs.webhooks.testNote")}</p>
               <div className="action-row-inline">
                 <button
                   className="ghost-button"
-                  onClick={() => void handleCopy(webhookTestExample, "Webhook test")}
+                  onClick={() => void handleCopy(webhookTestExample, t("merchant.apiDocs.webhooks.testTitle"))}
                   type="button"
                 >
-                  Копировать
+                  {t("common.copy")}
                 </button>
               </div>
             </article>
 
             <article className="result-box api-docs-code-card">
               <div className="api-docs-section-head">
-                <p className="eyebrow">Payload</p>
-                <h3>Формат входящего webhook</h3>
+                <p className="eyebrow">{t("merchant.apiDocs.webhooks.payloadEyebrow")}</p>
+                <h3>{t("merchant.apiDocs.webhooks.payloadTitle")}</h3>
               </div>
               <pre className="json-box">{webhookPayloadExample}</pre>
               <ul className="integration-list">
-                <li>Проверяйте подпись в заголовке X-Merset-Signature.</li>
-                <li>Сохраняйте event_id, чтобы исключить повторную обработку.</li>
-                <li>Поля invoice.payment_page_url / payment_address / qr_url зависят от checkout_delivery проекта.</li>
-                <li>Отвечайте 2xx только после успешной записи события во внутреннюю систему.</li>
+                {webhookPayloadItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
               </ul>
               <div className="action-row-inline">
                 <button
                   className="ghost-button"
-                  onClick={() => void handleCopy(webhookPayloadExample, "Webhook payload")}
+                  onClick={() => void handleCopy(webhookPayloadExample, t("merchant.apiDocs.webhooks.payloadTitle"))}
                   type="button"
                 >
-                  Копировать payload
+                  {t("common.copyPayload")}
                 </button>
               </div>
             </article>
@@ -1141,34 +1152,32 @@ export function MerchantApiReference({
           {show("commissions") ? (
           <section className="api-docs-section" id="docs-commissions">
             <div className="api-docs-section-head">
-              <p className="eyebrow">Тариф</p>
-              <h3>Комиссия за успешный платёж</h3>
+              <p className="eyebrow">{t("merchant.apiDocs.commissions.eyebrow")}</p>
+              <h3>{t("merchant.apiDocs.commissions.title")}</h3>
             </div>
             <p className="muted-text">
-              Стандартный тариф для мерчанта: <strong>{MERCHANT_COMMISSION_PERCENT}%</strong> от суммы
-              проведённого платежа, но <strong>не ниже {formatUsd(MERCHANT_COMMISSION_MIN_USD)}</strong>{" "}
-              (эквивалент в USDT по курсу на момент settlement). Комиссия удерживается из gross до
-              зачисления на баланс; в кабинете и API отображается как сумма{" "}
-              <code>provider_fee</code> + <code>platform_fee</code> в транзакции.
+              {t("merchant.apiDocs.commissions.intro", {
+                percent: MERCHANT_COMMISSION_PERCENT,
+                minUsd: formatUsd(MERCHANT_COMMISSION_MIN_USD),
+              })}
             </p>
-            <pre className="json-box">{`комиссия = max(сумма_платежа × ${MERCHANT_COMMISSION_PERCENT / 100}, ${formatUsd(MERCHANT_COMMISSION_MIN_USD)})
-
-нетто_мерчанту = сумма_платежа − комиссия`}</pre>
+            <pre className="json-box">{commissionFormula}</pre>
             <p className="muted-text">
-              Порог, при котором 0,4% равно минимуму: платежи до{" "}
-              <strong>{formatUsd(MERCHANT_COMMISSION_BREAK_EVEN_USD)}</strong> включительно попадают под
-              фиксированный минимум {formatUsd(MERCHANT_COMMISSION_MIN_USD)}.
+              {t("merchant.apiDocs.commissions.threshold", {
+                breakEven: formatUsd(MERCHANT_COMMISSION_BREAK_EVEN_USD),
+                minUsd: formatUsd(MERCHANT_COMMISSION_MIN_USD),
+              })}
             </p>
 
             <div className="api-docs-table-wrap">
               <table className="api-docs-table">
                 <thead>
                   <tr>
-                    <th>Сумма платежа</th>
-                    <th>0,4% от суммы</th>
-                    <th>Комиссия к удержанию</th>
-                    <th>Нетто мерчанту</th>
-                    <th>Комментарий</th>
+                    <th>{t("merchant.apiDocs.commissions.tablePayment")}</th>
+                    <th>{t("merchant.apiDocs.commissions.tablePercent")}</th>
+                    <th>{t("merchant.apiDocs.commissions.tableCommission")}</th>
+                    <th>{t("merchant.apiDocs.commissions.tableNet")}</th>
+                    <th>{t("merchant.apiDocs.commissions.tableComment")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1180,7 +1189,7 @@ export function MerchantApiReference({
                         <strong>{formatUsd(row.commissionUsd)}</strong>
                       </td>
                       <td>{formatUsd(row.paymentUsd - row.commissionUsd)}</td>
-                      <td>{row.note}</td>
+                      <td>{t(`merchant.commission.${row.noteKey}`)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1188,20 +1197,9 @@ export function MerchantApiReference({
             </div>
 
             <ul className="integration-list">
-              <li>
-                Комиссия сети blockchain (<code>network_fee</code> / «Комиссия сети» в кабинете) — отдельно
-                от тарифа платформы и зависит от выбранной сети (TRC20, ERC20 и т.д.).
-              </li>
-              <li>
-                Детализация по каждому платежу: <code>GET /transactions</code> и{" "}
-                <code>GET /transactions/&#123;transaction_id&#125;</code> — поля{" "}
-                <code>gross_amount</code>, <code>provider_fee</code>, <code>platform_fee</code>,{" "}
-                <code>net_amount</code>.
-              </li>
-              <li>
-                Для крупных объёмов возможны индивидуальные условия — согласуйте с командой платформы до
-                запуска в production.
-              </li>
+              {commissionNotes.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
           </section>
           ) : null}
@@ -1209,11 +1207,11 @@ export function MerchantApiReference({
           {show("faq") ? (
           <section className="api-docs-section" id="docs-faq">
             <div className="api-docs-section-head">
-              <p className="eyebrow">FAQ</p>
-              <h3>Частые вопросы</h3>
+              <p className="eyebrow">{t("merchant.apiDocs.faq.eyebrow")}</p>
+              <h3>{t("merchant.apiDocs.faq.title")}</h3>
             </div>
             <div className="api-docs-faq">
-              {FAQ_ITEMS.map((item) => (
+              {faqItems.map((item) => (
                 <article className="api-docs-faq-item" key={item.title}>
                   <h4>{item.title}</h4>
                   <p>{item.body}</p>

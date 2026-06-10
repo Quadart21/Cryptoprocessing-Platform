@@ -1,6 +1,6 @@
 import type { LandingPageProps } from "./types";
 import { usePlatformBrand } from "../brand/PlatformBrandContext";
-import { AUTH_REGISTRATION_STEPS } from "./authBrandContent";
+import { useTranslation } from "../i18n";
 import { LandingAuthBrandPanel } from "./LandingAuthBrandPanel";
 import { LandingAuthTrustStrip } from "./LandingAuthTrustStrip";
 
@@ -62,6 +62,8 @@ export function LandingAuthLayer({
   onSetRecoveredPassword,
 }: LandingAuthLayerProps) {
   const { brandName } = usePlatformBrand();
+  const { t, ta } = useTranslation();
+  const regSteps = ta<{ id: string; label: string }>("auth.regSteps");
 
   if (!authOpen) {
     return null;
@@ -69,30 +71,30 @@ export function LandingAuthLayer({
 
   const mainHeadline =
     mode === "register" && registrationEnabled
-      ? "Регистрация проекта"
+      ? t("auth.registerTitle")
       : recoveryMode === "request"
-        ? "Восстановление доступа"
+        ? t("auth.recoveryRequestTitle")
         : recoveryMode === "reset"
-          ? "Новый пароль"
+          ? t("auth.recoveryResetTitle")
           : loginStep === "two-factor"
-            ? "Код 2FA"
-            : "Вход в кабинет";
+            ? t("auth.twoFactorTitle")
+            : t("auth.loginTitle");
 
   const mainSub =
     mode === "register" && registrationEnabled
-      ? "Компания, владелец и домен — дальше вы попадёте в консоль мерчанта."
+      ? t("auth.registerSub")
       : recoveryMode === "request"
-        ? "Отправим одноразовый токен на email учётной записи."
+        ? t("auth.recoveryRequestSub")
         : recoveryMode === "reset"
-          ? "Вставьте токен из письма и задайте новый пароль."
+          ? t("auth.recoveryResetSub")
           : loginStep === "two-factor"
-            ? "Введите код из приложения аутентификатора."
-            : "Рабочий email и пароль от аккаунта.";
+            ? t("auth.twoFactorSub")
+            : t("auth.loginSub");
 
   return (
     <div className="lp-auth-overlay" onClick={() => setAuthOpen(false)}>
       <div className="lp-auth-shell" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <button className="lp-auth-close" onClick={() => setAuthOpen(false)} type="button" aria-label="Закрыть">
+        <button className="lp-auth-close" onClick={() => setAuthOpen(false)} type="button" aria-label={t("common.close")}>
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
@@ -120,7 +122,7 @@ export function LandingAuthLayer({
                 onClick={() => onModeChange("login")}
                 type="button"
               >
-                Вход
+                {t("auth.tabLogin")}
               </button>
               <button
                 className={mode === "register" && registrationEnabled ? "lp-auth-switch-active" : ""}
@@ -128,13 +130,13 @@ export function LandingAuthLayer({
                 disabled={!registrationEnabled}
                 type="button"
               >
-                Новый проект
+                {t("auth.tabRegister")}
               </button>
             </div>
 
             {mode === "register" && registrationEnabled ? (
-              <ol className="lp-auth-reg-steps" aria-label="Этапы подключения">
-                {AUTH_REGISTRATION_STEPS.map((step, index) => (
+              <ol className="lp-auth-reg-steps" aria-label={t("auth.regStepsAria")}>
+                {regSteps.map((step, index) => (
                   <li
                     className={`lp-auth-reg-step${index === 0 ? " lp-auth-reg-step--active" : ""}`}
                     key={step.id}
@@ -150,7 +152,7 @@ export function LandingAuthLayer({
               recoveryMode === "login" && loginStep === "credentials" ? (
                 <form className="nc-form" onSubmit={onLogin}>
                   <label>
-                    <span>Email</span>
+                    <span>{t("common.email")}</span>
                     <input
                       type="email"
                       placeholder="you@company.com"
@@ -161,7 +163,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label>
-                    <span>Пароль</span>
+                    <span>{t("common.password")}</span>
                     <input
                       type="password"
                       placeholder="••••••••"
@@ -172,20 +174,20 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <button className="nc-btn-primary" disabled={loading} type="submit">
-                    {loading ? "Входим…" : "Продолжить"}
+                    {loading ? t("auth.loggingIn") : t("common.continue")}
                   </button>
                   <button className="nc-btn-ghost" onClick={() => setRecoveryMode("request")} type="button">
-                    Забыли пароль?
+                    {t("auth.forgotPassword")}
                   </button>
                 </form>
               ) : recoveryMode === "login" && loginStep === "two-factor" ? (
                 <form className="nc-form" onSubmit={onLoginTwoFactor}>
                   <div className="result-box lp-auth-2fa-hint">
                     <p className="lp-auth-2fa-email">{loginForm.email}</p>
-                    <p className="lp-auth-2fa-text">Код из приложения (Google Authenticator и т.п.).</p>
+                    <p className="lp-auth-2fa-text">{t("auth.twoFactorHint")}</p>
                   </div>
                   <label>
-                    <span>Код 2FA</span>
+                    <span>{t("auth.twoFactorCode")}</span>
                     <input
                       type="text"
                       value={loginForm.otp_code}
@@ -198,10 +200,10 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <button className="nc-btn-primary" disabled={loading} type="submit">
-                    {loading ? "Проверка…" : "Войти"}
+                    {loading ? t("auth.verifying") : t("common.login")}
                   </button>
                   <button className="nc-btn-ghost" onClick={onBackToLoginCredentials} type="button">
-                    ← Назад к паролю
+                    {t("auth.backToPassword")}
                   </button>
                 </form>
               ) : recoveryMode === "request" ? (
@@ -213,7 +215,7 @@ export function LandingAuthLayer({
                   }}
                 >
                   <label>
-                    <span>Email учётной записи</span>
+                    <span>{t("auth.accountEmail")}</span>
                     <input
                       type="email"
                       placeholder="you@company.com"
@@ -224,19 +226,19 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <button className="nc-btn-primary" disabled={loading} type="submit">
-                    {loading ? "Отправка…" : "Отправить ссылку / токен"}
+                    {loading ? t("auth.sending") : t("auth.sendToken")}
                   </button>
                   <button className="nc-btn-ghost" onClick={() => setRecoveryMode("reset")} type="button">
-                    У меня уже есть токен
+                    {t("auth.haveToken")}
                   </button>
                   <button className="nc-btn-ghost" onClick={() => setRecoveryMode("login")} type="button">
-                    ← Ко входу
+                    {t("auth.backToLogin")}
                   </button>
                 </form>
               ) : (
                 <form className="nc-form" onSubmit={onSetRecoveredPassword}>
                   <label>
-                    <span>Токен из письма</span>
+                    <span>{t("auth.tokenFromEmail")}</span>
                     <input
                       value={passwordResetForm.token}
                       onChange={(e) =>
@@ -250,7 +252,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label>
-                    <span>Новый пароль</span>
+                    <span>{t("auth.newPassword")}</span>
                     <input
                       type="password"
                       value={passwordResetForm.password}
@@ -265,7 +267,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label>
-                    <span>Повтор пароля</span>
+                    <span>{t("auth.confirmPassword")}</span>
                     <input
                       type="password"
                       value={passwordResetForm.confirmPassword}
@@ -280,13 +282,13 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <button className="nc-btn-primary" disabled={loading} type="submit">
-                    {loading ? "Сохранение…" : "Сохранить пароль"}
+                    {loading ? t("auth.saving") : t("auth.savePassword")}
                   </button>
                   <button className="nc-btn-ghost" onClick={() => setRecoveryMode("request")} type="button">
-                    Запросить токен ещё раз
+                    {t("auth.requestTokenAgain")}
                   </button>
                   <button className="nc-btn-ghost" onClick={() => setRecoveryMode("login")} type="button">
-                    ← Ко входу
+                    {t("auth.backToLogin")}
                   </button>
                 </form>
               )
@@ -294,7 +296,7 @@ export function LandingAuthLayer({
               <form className="nc-form" onSubmit={onRegister}>
                 <div className="nc-form-grid">
                   <label>
-                    <span>Компания</span>
+                    <span>{t("auth.company")}</span>
                     <input
                       value={registrationForm.company_name}
                       onChange={(e) => onRegistrationFormChange({ ...registrationForm, company_name: e.target.value })}
@@ -303,7 +305,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label>
-                    <span>Владелец</span>
+                    <span>{t("auth.owner")}</span>
                     <input
                       value={registrationForm.owner_full_name}
                       onChange={(e) => onRegistrationFormChange({ ...registrationForm, owner_full_name: e.target.value })}
@@ -312,7 +314,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label>
-                    <span>Email</span>
+                    <span>{t("common.email")}</span>
                     <input
                       type="email"
                       value={registrationForm.owner_email}
@@ -322,7 +324,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label>
-                    <span>Пароль</span>
+                    <span>{t("common.password")}</span>
                     <input
                       type="password"
                       value={registrationForm.password}
@@ -332,7 +334,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label className="lp-auth-span-2">
-                    <span>Домен проекта</span>
+                    <span>{t("auth.projectDomain")}</span>
                     <input
                       placeholder="pay.example.com"
                       value={registrationForm.domain}
@@ -342,7 +344,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label className="lp-auth-span-2">
-                    <span>Описание (необязательно)</span>
+                    <span>{t("auth.descriptionOptional")}</span>
                     <input
                       value={registrationForm.project_description}
                       onChange={(e) =>
@@ -352,7 +354,7 @@ export function LandingAuthLayer({
                   </label>
                 </div>
                 <button className="nc-btn-primary nc-btn-lg" disabled={loading} type="submit">
-                  {loading ? "Создаём…" : "Создать тенант и войти"}
+                  {loading ? t("auth.creating") : t("auth.createTenant")}
                 </button>
               </form>
             )}

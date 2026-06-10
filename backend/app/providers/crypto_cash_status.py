@@ -11,6 +11,32 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Sale statuses where Crypto-Cash credited USDT to merchant balance (data.status).
+# See https://docs.crypto-cash.world/webhooks/structure#значения-статусов
+CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES = frozenset(
+    {
+        "paid",
+        "overpaid",
+        "underpaid",
+        "canceledbutpaid",
+        "canceledbutoverpaid",
+        "canceledbutunderpaid",
+        "confirmed",
+        "completed",
+        "deposit_received",
+    }
+)
+
+# Terminal acquiring events that follow deposit_received (credit + email).
+# See https://docs.crypto-cash.world/webhooks/types
+ACQUIRING_FINAL_CREDIT_EVENTS = frozenset(
+    {
+        "acquiring::completed",
+        "acquiring::overpaid",
+        "acquiring::underpaid",
+    }
+)
+
 # Sale (пополнение / acquiring) — значения поля data.status
 CRYPTO_CASH_STATUS_TO_PLATFORM: dict[str, str] = {
     # Ожидание депозита
@@ -18,18 +44,18 @@ CRYPTO_CASH_STATUS_TO_PLATFORM: dict[str, str] = {
     "new": "pending",
     # Подтверждение в блокчейне
     "waiting": "confirming",
-    # Успешные / частичные депозиты
+    # Успешные / частичные депозиты (все зачисляют USDT на баланс CC)
     "paid": "paid",
     "overpaid": "paid",
-    "underpaid": "failed",
+    "underpaid": "paid",
     # Отмена / ошибки
     "canceled": "cancelled",
     "cancelled": "cancelled",
     "currencymismatch": "failed",
-    # Просроченный заказ, но депозит всё же пришёл
+    # Просроченный заказ (>24ч), но депозит всё же пришёл — зачисление сохраняется
     "canceledbutpaid": "paid",
     "canceledbutoverpaid": "paid",
-    "canceledbutunderpaid": "failed",
+    "canceledbutunderpaid": "paid",
     # Legacy / internal aliases
     "pending": "pending",
     "confirming": "confirming",
@@ -46,6 +72,7 @@ ACQUIRING_EVENT_DEFAULT_STATUS: dict[str, str] = {
     "acquiring::created": "New",
     "acquiring::confirmation_started": "Waiting",
     "acquiring::confirmation": "Waiting",
+    # deposit_received приходит в паре с completed/overpaid/underpaid/currency_mismatch
     "acquiring::deposit_received": "Paid",
     "acquiring::completed": "Paid",
     "acquiring::overpaid": "Overpaid",
@@ -54,6 +81,22 @@ ACQUIRING_EVENT_DEFAULT_STATUS: dict[str, str] = {
     "acquiring::declined": "Canceled",
     "acquiring::canceled": "Canceled",
 }
+
+
+def normalize_provider_status_key(provider_status: str | None) -> str:
+    if not provider_status:
+        return ""
+    return str(provider_status).strip().lower()
+
+
+def provider_status_indicates_deposit_credit(provider_status: str | None) -> bool:
+    return normalize_provider_status_key(provider_status) in CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES
+
+
+def acquiring_event_finalizes_credit(event_type: str | None) -> bool:
+    if not event_type:
+        return False
+    return str(event_type).strip().lower() in ACQUIRING_FINAL_CREDIT_EVENTS
 
 PLATFORM_PAYMENT_IN_FLIGHT = frozenset({"confirming", "paid", "confirmed"})
 

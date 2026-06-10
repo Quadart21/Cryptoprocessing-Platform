@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { BalanceResponse } from "../../api";
+import { useTranslation } from "../../i18n";
 import { formatDecimal } from "../../utils/format";
 
 type BalanceHoldsPanelProps = {
@@ -19,6 +20,7 @@ function formatCountdown(targetIso: string, nowMs: number): string {
 }
 
 export function BalanceHoldsPanel({ balance, onRefresh }: BalanceHoldsPanelProps) {
+  const { t } = useTranslation();
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -57,21 +59,22 @@ export function BalanceHoldsPanel({ balance, onRefresh }: BalanceHoldsPanelProps
   return (
     <article className="mc-surface">
       <header className="mc-surface-header">
-        <p className="mc-surface-eyebrow">Удержание</p>
-        <h2 className="mc-surface-title">Замороженные средства</h2>
+        <p className="mc-surface-eyebrow">{t("merchant.widgets.balanceHoldsPanel.eyebrow")}</p>
+        <h2 className="mc-surface-title">{t("merchant.widgets.balanceHoldsPanel.title")}</h2>
         <p className="mc-surface-desc">
-          После подтверждения оплаты средства доступны к выводу через {holdHours} ч.
+          {t("merchant.widgets.balanceHoldsPanel.description", { hours: holdHours })}
           {nextCountdown ? (
             <>
               {" "}
-              Ближайшая разморозка через <strong>{nextCountdown}</strong>.
+              {t("merchant.widgets.balanceHoldsPanel.nextRelease")}{" "}
+              <strong>{nextCountdown}</strong>.
             </>
           ) : null}
         </p>
       </header>
 
       {holds.length === 0 ? (
-        <div className="mc-empty">Сейчас нет замороженных зачислений.</div>
+        <div className="mc-empty">{t("merchant.widgets.balanceHoldsPanel.empty")}</div>
       ) : (
         <div className="mc-rows">
           {holds.map((hold) => (
@@ -80,7 +83,9 @@ export function BalanceHoldsPanel({ balance, onRefresh }: BalanceHoldsPanelProps
                 <p className="mc-row-title">
                   {formatDecimal(hold.amount)} {currency}
                 </p>
-                <p className="mc-row-sub">Заказ {hold.merchant_order_id}</p>
+                <p className="mc-row-sub">
+                  {t("merchant.widgets.balanceHoldsPanel.orderLabel", { orderId: hold.merchant_order_id })}
+                </p>
               </div>
               <div className="mc-row-badges">
                 <span className="mc-badge mc-badge-neutral">

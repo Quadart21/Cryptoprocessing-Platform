@@ -4,6 +4,7 @@ import type {
   MerchantNotificationSettings,
   MerchantNotificationSettingsUpdatePayload,
 } from "../../api";
+import { useTranslation } from "../../i18n";
 
 export type AccountNotificationsFormProps = {
   loading: boolean;
@@ -18,6 +19,7 @@ export function AccountNotificationsForm({
   onSaveNotificationSettings,
   onChangePassword,
 }: AccountNotificationsFormProps) {
+  const { t } = useTranslation();
   const [notificationForm, setNotificationForm] = useState<MerchantNotificationSettingsUpdatePayload>({
     notify_email_enabled: true,
     notify_telegram_enabled: false,
@@ -56,35 +58,37 @@ export function AccountNotificationsForm({
   return (
     <article className="mc-surface">
       <header className="mc-surface-header">
-        <p className="mc-surface-eyebrow">Аккаунт</p>
-        <h2 className="mc-surface-title">Уведомления и пароль</h2>
-        <p className="mc-surface-desc">
-          Управляйте каналами оповещений и периодически обновляйте пароль входа в кабинет.
-        </p>
+        <p className="mc-surface-eyebrow">{t("merchant.widgets.accountNotificationsForm.eyebrow")}</p>
+        <h2 className="mc-surface-title">{t("merchant.widgets.accountNotificationsForm.title")}</h2>
+        <p className="mc-surface-desc">{t("merchant.widgets.accountNotificationsForm.description")}</p>
       </header>
 
       <div className="mc-stack-gap">
         {settings ? (
           <div className="mc-kv-strip">
             <div className="mc-kv">
-              <span>Email</span>
+              <span>{t("merchant.widgets.accountNotificationsForm.email")}</span>
               <code>{settings.email}</code>
             </div>
             <div className="mc-kv">
-              <span>Telegram</span>
-              <code>{settings.telegram_connected ? "подключён" : "не подключён"}</code>
+              <span>{t("merchant.widgets.accountNotificationsForm.telegram")}</span>
+              <code>
+                {settings.telegram_connected
+                  ? t("common.telegramConnected")
+                  : t("common.telegramDisconnected")}
+              </code>
             </div>
           </div>
         ) : (
-          <p className="muted-text">Настройки не загружены.</p>
+          <p className="muted-text">{t("common.settingsNotLoaded")}</p>
         )}
 
         <form className="mc-form" onSubmit={handleSaveNotificationSettings}>
           <p className="mc-surface-eyebrow" style={{ marginBottom: 4 }}>
-            Каналы
+            {t("merchant.widgets.accountNotificationsForm.channels")}
           </p>
           <label className="mc-switch">
-            <span>Email-уведомления</span>
+            <span>{t("merchant.widgets.accountNotificationsForm.emailNotifications")}</span>
             <input
               checked={notificationForm.notify_email_enabled}
               onChange={(event) =>
@@ -97,7 +101,7 @@ export function AccountNotificationsForm({
             />
           </label>
           <label className="mc-switch">
-            <span>Telegram</span>
+            <span>{t("merchant.widgets.accountNotificationsForm.telegram")}</span>
             <input
               checked={notificationForm.notify_telegram_enabled}
               onChange={(event) =>
@@ -110,7 +114,7 @@ export function AccountNotificationsForm({
             />
           </label>
           <label className="mc-field">
-            <span>Telegram chat ID</span>
+            <span>{t("merchant.widgets.accountNotificationsForm.telegramChatId")}</span>
             <input
               value={notificationForm.telegram_chat_id ?? ""}
               onChange={(event) =>
@@ -119,12 +123,14 @@ export function AccountNotificationsForm({
                   telegram_chat_id: event.target.value,
                 })
               }
-              placeholder="например: 123456789"
+              placeholder={t("merchant.widgets.accountNotificationsForm.telegramChatIdPlaceholder")}
               type="text"
             />
           </label>
           <button className="primary-button" disabled={loading} type="submit">
-            {loading ? "Сохраняем…" : "Сохранить уведомления"}
+            {loading
+              ? t("merchant.widgets.accountNotificationsForm.savingNotifications")
+              : t("merchant.widgets.accountNotificationsForm.saveNotifications")}
           </button>
         </form>
 
@@ -132,10 +138,10 @@ export function AccountNotificationsForm({
 
         <form className="mc-form" onSubmit={handleChangePassword}>
           <p className="mc-surface-eyebrow" style={{ marginBottom: 4 }}>
-            Смена пароля
+            {t("merchant.widgets.accountNotificationsForm.changePassword")}
           </p>
           <label className="mc-field">
-            <span>Текущий пароль</span>
+            <span>{t("merchant.widgets.accountNotificationsForm.currentPassword")}</span>
             <input
               value={passwordForm.current_password}
               onChange={(event) =>
@@ -151,7 +157,7 @@ export function AccountNotificationsForm({
             />
           </label>
           <label className="mc-field">
-            <span>Новый пароль</span>
+            <span>{t("merchant.widgets.accountNotificationsForm.newPassword")}</span>
             <input
               value={passwordForm.new_password}
               onChange={(event) =>
@@ -167,7 +173,9 @@ export function AccountNotificationsForm({
             />
           </label>
           <button className="ghost-button" disabled={loading} type="submit">
-            {loading ? "Обновляем…" : "Сменить пароль"}
+            {loading
+              ? t("merchant.widgets.accountNotificationsForm.updatingPassword")
+              : t("merchant.widgets.accountNotificationsForm.changePasswordBtn")}
           </button>
         </form>
       </div>

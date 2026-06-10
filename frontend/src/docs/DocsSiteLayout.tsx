@@ -21,7 +21,7 @@ export function DocsSiteLayout() {
   const { brandName, logoUrl } = usePlatformBrand();
 
   return (
-    <div className="docs-site">
+    <div className="docs-site" lang="en" dir="ltr">
       <div className="docs-site-ambient" aria-hidden="true">
         <span className="docs-site-orb docs-site-orb-a" />
         <span className="docs-site-orb docs-site-orb-b" />
@@ -40,7 +40,7 @@ export function DocsSiteLayout() {
             )}
             <div>
               {!logoUrl ? <strong>{brandName}</strong> : null}
-              <small>Документация Merchant API</small>
+              <small>Merchant API documentation</small>
             </div>
           </NavLink>
 
@@ -49,17 +49,17 @@ export function DocsSiteLayout() {
               Swagger
             </a>
             <a className="docs-site-button docs-site-button-ghost" href={`${mainSite}/?auth=login`}>
-              Войти
+              Sign in
             </a>
             <a className="docs-site-button docs-site-button-primary" href={`${mainSite}/?auth=register`}>
-              Получить ключи
+              Get API keys
             </a>
           </div>
         </div>
       </header>
 
       <div className="docs-site-shell">
-        <aside className="docs-site-sidebar" aria-label="Навигация документации">
+        <aside className="docs-site-sidebar" aria-label="Documentation navigation">
           {DOCS_SIDEBAR_GROUPS.map((group) => (
             <div className="docs-site-sidebar-panel" key={group.label}>
               <p className="docs-site-sidebar-label">{group.label}</p>
@@ -86,17 +86,17 @@ export function DocsSiteLayout() {
 
           <div className="docs-site-sidebar-panel docs-site-sidebar-env">
             <p className="docs-site-sidebar-label">Base URL</p>
-            <DocsCopyChip value={apiBaseUrl} label="Скопировать" />
+            <DocsCopyChip value={apiBaseUrl} label="Copy" />
             <p className="docs-site-sidebar-hint">
               Health: <code>{apiBaseUrl}/health</code>
             </p>
           </div>
 
           <div className="docs-site-sidebar-panel docs-site-sidebar-cta">
-            <p className="docs-site-sidebar-label">Поддержка</p>
-            <p>Поможем с интеграцией и разбором webhook payload.</p>
+            <p className="docs-site-sidebar-label">Support</p>
+            <p>We can help with integration and webhook payload review.</p>
             <a className="docs-site-button docs-site-button-primary docs-site-button-block" href={mainSite}>
-              Открыть платформу
+              Open platform
             </a>
           </div>
         </aside>

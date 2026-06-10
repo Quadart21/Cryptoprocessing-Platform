@@ -53,10 +53,10 @@ export function DocsGuidePage({ section }: DocsGuidePageProps) {
         {section === "reference" ? <DocsApiToc variant="inline" /> : null}
       </div>
 
-      <nav className="docs-pager" aria-label="Навигация по разделам">
+      <nav className="docs-pager" aria-label="Section navigation">
         {prev ? (
           <Link className="docs-pager-link docs-pager-link--prev" to={`/${prev}`}>
-            <span>Назад</span>
+            <span>Previous</span>
             <strong>{DOCS_PAGE_META[prev].title}</strong>
           </Link>
         ) : (
@@ -64,7 +64,7 @@ export function DocsGuidePage({ section }: DocsGuidePageProps) {
         )}
         {next ? (
           <Link className="docs-pager-link docs-pager-link--next" to={`/${next}`}>
-            <span>Далее</span>
+            <span>Next</span>
             <strong>{DOCS_PAGE_META[next].title}</strong>
           </Link>
         ) : null}

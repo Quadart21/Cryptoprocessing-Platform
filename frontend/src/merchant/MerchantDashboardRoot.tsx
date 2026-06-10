@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { DashboardRail, type DashboardRailGroup } from "../components/layout/DashboardRail";
+import { DashboardRail } from "../components/layout/DashboardRail";
 import { CopyableIdentifier } from "../components/CopyableIdentifier";
 import { DashboardStatusMessages } from "../components/layout/DashboardStatusMessages";
 import { SectionContextChips } from "../components/layout/SectionContextChips";
@@ -9,12 +9,13 @@ import { useClientAnalytics } from "../hooks/useClientAnalytics";
 import { TwoFactorPanel } from "../components/security/TwoFactorPanel";
 import { formatDecimal, truncateMiddle } from "../utils/format";
 
+import { useTranslation } from "../i18n";
 import {
-  MERCHANT_MENU_GROUPS,
-  MERCHANT_SECTION_COPY,
-  MERCHANT_SHORTCUTS,
-  isMerchantSection,
-} from "./config";
+  useIsMerchantSection,
+  useMerchantMenuGroups,
+  useMerchantSectionCopy,
+  useMerchantShortcuts,
+} from "./useMerchantConfig";
 import { IntegrationCommandCenter } from "./integration/IntegrationCommandCenter";
 import { MerchantApiReference } from "./reference/MerchantApiReference";
 import type { ClientDashboardProps, MerchantSection } from "./types";
@@ -86,6 +87,12 @@ export function MerchantDashboardRoot({
   onCloseSecretModal,
   onRefreshBalance,
 }: ClientDashboardProps) {
+  const { t } = useTranslation();
+  const menuGroups = useMerchantMenuGroups();
+  const sectionCopy = useMerchantSectionCopy();
+  const shortcuts = useMerchantShortcuts();
+  const isMerchantSection = useIsMerchantSection(menuGroups);
+
   const canSyncInvoices =
     user.permissions.includes("*") || user.permissions.includes("client.invoices.write");
   const canSendInvoiceWebhookTest =
@@ -107,42 +114,40 @@ export function MerchantDashboardRoot({
     return Number.isFinite(n) ? formatDecimal(n) : null;
   }, [clientAccounting]);
 
-  const sectionMeta = MERCHANT_SECTION_COPY[section];
+  const sectionMeta = sectionCopy[section];
 
   const merchantId = user.tenant_id ?? onboarding?.tenant_id ?? null;
 
   const contextChips = useMemo(
     () => [
       {
-        label: "Merchant ID",
+        label: t("common.merchantId"),
         value: merchantId ? truncateMiddle(merchantId) : "—",
       },
       {
-        label: "Проект",
+        label: t("common.project"),
         value: onboarding?.project_name ?? projects[0]?.name ?? "—",
       },
       {
-        label: "Домен",
+        label: t("common.domain"),
         value: onboarding?.project_domain ?? projects[0]?.domain ?? "—",
       },
       {
-        label: "Статус",
+        label: t("common.status"),
         value: onboarding?.tenant_status ?? "—",
       },
       {
-        label: "Роль",
+        label: t("common.role"),
         value: user.role,
       },
     ],
-    [merchantId, onboarding, projects, user.role],
+    [merchantId, onboarding, projects, t, user.role],
   );
-
-  const menuGroups: DashboardRailGroup[] = MERCHANT_MENU_GROUPS;
 
   return (
     <div className="app-frame merchant-app-frame mw-root">
       <a className="merchant-skip-link" href="#merchant-main">
-        К содержимому
+        {t("merchant.skipLink")}
       </a>
       <DashboardRail
         activeKey={section}
@@ -187,37 +192,37 @@ export function MerchantDashboardRoot({
           {section === "overview" ? (
             <div className="console-section-stack mc-page-stack">
               <CopyableIdentifier
-                label="Merchant ID"
+                label={t("common.merchantId")}
                 value={merchantId}
-                hint="Ваш идентификатор мерчанта (tenant_id). Указывайте в обращениях в поддержку и при сверке webhook."
+                hint={t("merchant.merchantIdHint")}
               />
               <section className="mc-bento">
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Статус</span>
+                  <span className="mc-stat-label">{t("common.status")}</span>
                   <strong className="mc-stat-value">{onboarding?.tenant_status ?? "—"}</strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Проекты</span>
+                  <span className="mc-stat-label">{t("merchant.stats.projects")}</span>
                   <strong className="mc-stat-value">{projects.length}</strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Инвойсы</span>
+                  <span className="mc-stat-label">{t("merchant.stats.invoices")}</span>
                   <strong className="mc-stat-value">{invoices.length}</strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Операции</span>
+                  <span className="mc-stat-label">{t("merchant.stats.transactions")}</span>
                   <strong className="mc-stat-value">{analytics.summary.transactionCount}</strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Оборот (оплач.)</span>
+                  <span className="mc-stat-label">{t("merchant.stats.turnover")}</span>
                   <strong className="mc-stat-value">{analytics.summary.turnover}</strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">К зачислению</span>
+                  <span className="mc-stat-label">{t("merchant.stats.net")}</span>
                   <strong className="mc-stat-value">{analytics.summary.net}</strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Чистая прибыль</span>
+                  <span className="mc-stat-label">{t("merchant.stats.pureProfit")}</span>
                   <strong className="mc-stat-value">{analytics.summary.pureProfit}</strong>
                 </article>
               </section>
@@ -227,12 +232,12 @@ export function MerchantDashboardRoot({
               <div className="mc-split mc-split--balanced">
                 <article className="mc-surface">
                   <header className="mc-surface-header">
-                    <p className="mc-surface-eyebrow">Маршруты</p>
-                    <h2 className="mc-surface-title">Быстрые переходы</h2>
-                    <p className="mc-surface-desc">Секции кабинета в один тап.</p>
+                    <p className="mc-surface-eyebrow">{t("merchant.overview.routesEyebrow")}</p>
+                    <h2 className="mc-surface-title">{t("merchant.overview.routesTitle")}</h2>
+                    <p className="mc-surface-desc">{t("merchant.overview.routesDesc")}</p>
                   </header>
                   <div className="mc-tiles">
-                    {MERCHANT_SHORTCUTS.map((shortcut) => (
+                    {shortcuts.map((shortcut) => (
                       <button
                         className="mc-tile"
                         key={shortcut.section}
@@ -248,47 +253,52 @@ export function MerchantDashboardRoot({
 
                 <article className="mc-surface">
                   <header className="mc-surface-header">
-                    <p className="mc-surface-eyebrow">Готовность</p>
-                    <h2 className="mc-surface-title">Интеграция</h2>
-                    <p className="mc-surface-desc">Ключ, webhook и защита входа.</p>
+                    <p className="mc-surface-eyebrow">{t("merchant.overview.readinessEyebrow")}</p>
+                    <h2 className="mc-surface-title">{t("merchant.overview.readinessTitle")}</h2>
+                    <p className="mc-surface-desc">{t("merchant.overview.readinessDesc")}</p>
                   </header>
                   <div className="mc-checklist">
                     <div className="mc-checklist-item">
                       <div>
-                        <strong>API-ключ</strong>
-                        <p>{activeApiKeyPublic ?? "Активный ключ не найден"}</p>
+                        <strong>{t("merchant.overview.apiKey")}</strong>
+                        <p>{activeApiKeyPublic ?? t("merchant.overview.noActiveKey")}</p>
                       </div>
                       <span className={`mc-badge ${activeApiKeyPublic ? "mc-badge-ok" : "mc-badge-warn"}`}>
-                        {activeApiKeyPublic ? "OK" : "Нужен"}
+                        {activeApiKeyPublic ? t("common.ok") : t("merchant.overview.needed")}
                       </span>
                     </div>
                     <div className="mc-checklist-item">
                       <div>
-                        <strong>Webhook</strong>
-                        <p>{activeWebhookUrl ?? "URL не задан"}</p>
+                        <strong>{t("merchant.overview.webhook")}</strong>
+                        <p>{activeWebhookUrl ?? t("merchant.overview.noWebhookUrl")}</p>
                       </div>
                       <span className={`mc-badge ${activeWebhookUrl ? "mc-badge-ok" : "mc-badge-warn"}`}>
-                        {activeWebhookUrl ? "OK" : "Нужен"}
+                        {activeWebhookUrl ? t("common.ok") : t("merchant.overview.needed")}
                       </span>
                     </div>
                     <div className="mc-checklist-item">
                       <div>
-                        <strong>2FA</strong>
-                        <p>{twoFactorStatus?.enabled ? "Включена" : "Отключена"}</p>
-                      </div>
-                      <span className={`mc-badge ${twoFactorStatus?.enabled ? "mc-badge-ok" : "mc-badge-neutral"}`}>
-                        {twoFactorStatus?.enabled ? "OK" : "Рекомендуем"}
-                      </span>
-                    </div>
-                    <div className="mc-checklist-item">
-                      <div>
-                        <strong>Уведомления</strong>
+                        <strong>{t("merchant.overview.twoFa")}</strong>
                         <p>
-                          Email {notificationSettings?.notify_email_enabled ? "вкл." : "выкл."} · Telegram{" "}
-                          {notificationSettings?.notify_telegram_enabled ? "вкл." : "выкл."}
+                          {twoFactorStatus?.enabled
+                            ? t("merchant.overview.twoFaEnabled")
+                            : t("merchant.overview.twoFaDisabled")}
                         </p>
                       </div>
-                      <span className="mc-badge mc-badge-neutral">См. «Доступ»</span>
+                      <span className={`mc-badge ${twoFactorStatus?.enabled ? "mc-badge-ok" : "mc-badge-neutral"}`}>
+                        {twoFactorStatus?.enabled ? t("common.ok") : t("merchant.overview.recommended")}
+                      </span>
+                    </div>
+                    <div className="mc-checklist-item">
+                      <div>
+                        <strong>{t("merchant.overview.notifications")}</strong>
+                        <p>
+                          Email{" "}
+                          {notificationSettings?.notify_email_enabled ? t("common.on") : t("common.off")} · Telegram{" "}
+                          {notificationSettings?.notify_telegram_enabled ? t("common.on") : t("common.off")}
+                        </p>
+                      </div>
+                      <span className="mc-badge mc-badge-neutral">{t("merchant.overview.notificationsHint")}</span>
                     </div>
                   </div>
                 </article>
@@ -297,25 +307,25 @@ export function MerchantDashboardRoot({
               {clientAccounting ? (
                 <section className="mc-bento">
                   <article className="mc-stat">
-                    <span className="mc-stat-label">Всего инвойсов</span>
+                    <span className="mc-stat-label">{t("merchant.stats.totalInvoices")}</span>
                     <strong className="mc-stat-value">{clientAccounting.invoices_total_count}</strong>
                   </article>
                   <article className="mc-stat">
-                    <span className="mc-stat-label">Оплачено</span>
+                    <span className="mc-stat-label">{t("merchant.stats.paid")}</span>
                     <strong className="mc-stat-value">{formatDecimal(clientAccounting.invoices_paid_amount)}</strong>
                   </article>
                   <article className="mc-stat">
-                    <span className="mc-stat-label">Подтверждено</span>
+                    <span className="mc-stat-label">{t("merchant.stats.confirmed")}</span>
                     <strong className="mc-stat-value">
                       {formatDecimal(clientAccounting.invoices_confirmed_amount)}
                     </strong>
                   </article>
                   <article className="mc-stat">
-                    <span className="mc-stat-label">К зачислению</span>
+                    <span className="mc-stat-label">{t("merchant.stats.net")}</span>
                     <strong className="mc-stat-value">{formatDecimal(clientAccounting.net_amount)}</strong>
                   </article>
                   <article className="mc-stat">
-                    <span className="mc-stat-label">Чистая прибыль</span>
+                    <span className="mc-stat-label">{t("merchant.stats.pureProfit")}</span>
                     <strong className="mc-stat-value">{accountingPureProfit ?? "—"}</strong>
                   </article>
                 </section>
@@ -443,45 +453,45 @@ export function MerchantDashboardRoot({
             <div className="console-section-stack mc-page-stack">
               <section className="mc-bento">
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Доступно</span>
+                  <span className="mc-stat-label">{t("merchant.stats.available")}</span>
                   <strong className="mc-stat-value">
                     {formatDecimal(balance?.available_amount ?? balance?.amount ?? "0")}{" "}
                     {balance?.currency ?? "USDT"}
                   </strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Заморожено</span>
+                  <span className="mc-stat-label">{t("merchant.stats.frozen")}</span>
                   <strong className="mc-stat-value">
                     {formatDecimal(balance?.frozen_amount ?? "0")} {balance?.currency ?? "USDT"}
                   </strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">В выводе</span>
+                  <span className="mc-stat-label">{t("merchant.stats.inPayout")}</span>
                   <strong className="mc-stat-value">
                     {formatDecimal(balance?.locked_amount ?? "0")} {balance?.currency ?? "USDT"}
                   </strong>
                 </article>
                 {Number(balance?.pending_amount ?? 0) > 0 ? (
                   <article className="mc-stat">
-                    <span className="mc-stat-label">В обработке</span>
+                    <span className="mc-stat-label">{t("merchant.stats.processing")}</span>
                     <strong className="mc-stat-value">
                       {formatDecimal(balance?.pending_amount ?? "0")} {balance?.currency ?? "USDT"}
                     </strong>
                   </article>
                 ) : null}
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Всего</span>
+                  <span className="mc-stat-label">{t("merchant.stats.total")}</span>
                   <strong className="mc-stat-value">
                     {formatDecimal(balance?.total_amount ?? balance?.amount ?? "0")}{" "}
                     {balance?.currency ?? "USDT"}
                   </strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">К зачислению (период)</span>
+                  <span className="mc-stat-label">{t("merchant.stats.netPeriod")}</span>
                   <strong className="mc-stat-value">{analytics.summary.net}</strong>
                 </article>
                 <article className="mc-stat">
-                  <span className="mc-stat-label">Чистая прибыль (период)</span>
+                  <span className="mc-stat-label">{t("merchant.stats.pureProfitPeriod")}</span>
                   <strong className="mc-stat-value">{analytics.summary.pureProfit}</strong>
                 </article>
               </section>

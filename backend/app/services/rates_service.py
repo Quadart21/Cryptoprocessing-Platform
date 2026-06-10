@@ -169,7 +169,7 @@ class RatesService:
 
         normalized_currency, normalized_network = self._normalize_pair(currency, network)
         if not self._asset_exists_on_provider(normalized_currency, normalized_network):
-            raise ValueError("Токен или сеть не найдены в списке провайдера.")
+            raise ValueError("Token or network was not found in the provider list.")
 
         rule = await self.db.scalar(
             select(AssetAvailability).where(
@@ -204,7 +204,7 @@ class RatesService:
             )
         )
         if rule is not None and not rule.is_enabled:
-            raise ValueError("Выбранные токен и сеть отключены администратором платформы.")
+            raise ValueError("Selected token and network are disabled by the platform administrator.")
 
     async def get_client_payin_limits(self, *, currency: str, network: str) -> PayInLimits:
         normalized_currency, normalized_network = self._normalize_pair(currency, network)
@@ -223,7 +223,7 @@ class RatesService:
         )
         if target_item is None:
             raise ValueError(
-                f"Пара {normalized_currency}/{normalized_network} не найдена у провайдера."
+                f"Pair {normalized_currency}/{normalized_network} was not found at the provider."
             )
 
         limits = target_item.get("limits", []) or []
@@ -237,18 +237,18 @@ class RatesService:
         )
         if limit is None:
             raise ValueError(
-                f"Сеть {normalized_network} для {normalized_currency} не поддерживается провайдером."
+                f"Network {normalized_network} for {normalized_currency} is not supported by the provider."
             )
 
         provider_availability = bool(limit.get("availability", True))
         acquiring = bool(limit.get("acquiring", True))
         platform_enabled = overrides.get((normalized_currency, normalized_network), True)
         if not platform_enabled:
-            raise ValueError("Выбранные токен и сеть отключены администратором платформы.")
+            raise ValueError("Selected token and network are disabled by the platform administrator.")
         if not provider_availability:
-            raise ValueError("Провайдер временно отключил этот токен/сеть.")
+            raise ValueError("Provider has temporarily disabled this token/network.")
         if not acquiring:
-            raise ValueError("Пополнение по этому токену/сети временно недоступно у провайдера.")
+            raise ValueError("Deposits for this token/network are temporarily unavailable at the provider.")
 
         min_amount = self._pick_decimal(limit, *self.MIN_DEPOSIT_KEYS)
         max_amount = self._pick_decimal(limit, *self.MAX_DEPOSIT_KEYS)
@@ -277,7 +277,7 @@ class RatesService:
         )
         if target_item is None:
             raise ValueError(
-                f"Пара {normalized_currency}/{normalized_network} не найдена у провайдера."
+                f"Pair {normalized_currency}/{normalized_network} was not found at the provider."
             )
 
         limits = target_item.get("limits", []) or []
@@ -291,7 +291,7 @@ class RatesService:
         )
         if limit is None:
             raise ValueError(
-                f"Сеть {normalized_network} для {normalized_currency} не поддерживается провайдером."
+                f"Network {normalized_network} for {normalized_currency} is not supported by the provider."
             )
 
         value = self._pick_first(limit, *self.NETWORK_CONFIRM_KEYS)
@@ -357,7 +357,7 @@ class RatesService:
         normalized_currency = currency.strip().upper()
         normalized_network = network.strip().upper()
         if not normalized_currency or not normalized_network:
-            raise ValueError("Валюту и сеть нужно заполнить.")
+            raise ValueError("Currency and network are required.")
         return normalized_currency, normalized_network
 
     @staticmethod
@@ -422,7 +422,7 @@ class RatesService:
         if RatesService._is_allowed_client_currency(currency, catalog_symbols):
             return
         normalized_currency = currency.strip().upper()
-        raise ValueError(f"Токен {normalized_currency} недоступен для оплаты.")
+        raise ValueError(f"Token {normalized_currency} is not available for payment.")
 
     @staticmethod
     def _resolve_availability_reason(

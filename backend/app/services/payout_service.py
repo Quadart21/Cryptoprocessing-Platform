@@ -41,7 +41,7 @@ class PayoutService:
         available_amount = Decimal(balance.available_amount).quantize(self.AMOUNT_PRECISION)
         if normalized_amount > available_amount:
             raise ValueError(
-                f"Недостаточно доступного баланса. Доступно: {self._format_amount(available_amount)} {self.BALANCE_CURRENCY}."
+                f"Insufficient available balance. Available: {self._format_amount(available_amount)} {self.BALANCE_CURRENCY}."
             )
 
         await self.balance_service.apply_bucket_delta(balance, "available_amount", -normalized_amount)
@@ -217,16 +217,16 @@ class PayoutService:
     async def _ensure_payouts_enabled(self, tenant_id: str) -> None:
         settings = await self.billing_service.get_platform_settings()
         if not settings.payouts_enabled:
-            raise ValueError("Выводы временно отключены на уровне платформы.")
+            raise ValueError("Payouts are temporarily disabled at the platform level.")
 
         policy = await self.billing_service.get_or_create_tenant_policy(tenant_id)
         if not policy.payouts_enabled:
-            raise ValueError("Для вашего аккаунта выводы отключены администратором.")
+            raise ValueError("Payouts are disabled for your account by an administrator.")
 
     def _validate_trc20_address(self, value: str) -> None:
         address = value.strip()
         if not re.fullmatch(r"T[1-9A-HJ-NP-Za-km-z]{25,45}", address):
-            raise ValueError("Укажите корректный адрес USDT TRC20 (начинается с T).")
+            raise ValueError("Enter a valid USDT TRC20 address (starts with T).")
 
     async def _validate_project_ownership(self, tenant_id: str, project_id: str | None) -> None:
         if project_id is None:
@@ -238,7 +238,7 @@ class PayoutService:
             )
         )
         if project is None:
-            raise ValueError("Проект для вывода не найден или недоступен.")
+            raise ValueError("Payout project not found or unavailable.")
 
     def _normalize_amount(self, amount: Decimal) -> Decimal:
         return Decimal(amount).quantize(self.AMOUNT_PRECISION)

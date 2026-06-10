@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import QRCode from "qrcode";
 
 import type { TwoFactorSetup, TwoFactorStatus } from "../../api";
+import { useTranslation } from "../../i18n";
 
 type TwoFactorPanelProps = {
   status: TwoFactorStatus | null;
@@ -20,6 +21,7 @@ export function TwoFactorPanel({
   onEnable,
   onDisable,
 }: TwoFactorPanelProps) {
+  const { t } = useTranslation();
   const [enableCode, setEnableCode] = useState("");
   const [disablePassword, setDisablePassword] = useState("");
   const [disableCode, setDisableCode] = useState("");
@@ -88,31 +90,31 @@ export function TwoFactorPanel({
   return (
     <article className="mc-surface">
       <header className="mc-surface-header">
-        <p className="mc-surface-eyebrow">Защита</p>
-        <h2 className="mc-surface-title">Двухфакторная аутентификация</h2>
-        <p className="mc-surface-desc">
-          Подключите приложение вроде Google Authenticator. После включения для входа потребуется одноразовый код.
-        </p>
+        <p className="mc-surface-eyebrow">{t("merchant.twoFactor.eyebrow")}</p>
+        <h2 className="mc-surface-title">{t("merchant.twoFactor.title")}</h2>
+        <p className="mc-surface-desc">{t("merchant.twoFactor.description")}</p>
       </header>
 
       <div className="mc-kv-strip">
         <div className="mc-kv">
-          <span>Статус</span>
-          <code>{status?.enabled ? "включена" : "выключена"}</code>
+          <span>{t("merchant.twoFactor.status")}</span>
+          <code>{status?.enabled ? t("merchant.twoFactor.enabled") : t("merchant.twoFactor.disabled")}</code>
         </div>
         <div className="mc-kv">
-          <span>Секрет</span>
-          <code>{status?.configured ? "создан" : "не создан"}</code>
+          <span>{t("merchant.twoFactor.secret")}</span>
+          <code>
+            {status?.configured ? t("merchant.twoFactor.secretCreated") : t("merchant.twoFactor.secretNotCreated")}
+          </code>
         </div>
         <div className="mc-kv">
-          <span>Подтверждение</span>
-          <code>{status?.confirmed_at ?? "—"}</code>
+          <span>{t("merchant.twoFactor.confirmation")}</span>
+          <code>{status?.confirmed_at ?? t("common.dash")}</code>
         </div>
       </div>
 
       <div className="mc-form-actions" style={{ marginBottom: 16 }}>
         <button className="ghost-button" disabled={loading} onClick={onSetup} type="button">
-          {loading ? "Готовим…" : "Сгенерировать секрет"}
+          {loading ? t("merchant.twoFactor.preparing") : t("merchant.twoFactor.generateSecret")}
         </button>
       </div>
 
@@ -120,33 +122,33 @@ export function TwoFactorPanel({
         <div className="mc-nested twofactor-setup-card" style={{ marginBottom: 20 }}>
           <div className="twofactor-setup-grid">
             <section className="twofactor-qr-panel">
-              <p className="twofactor-label">QR для приложения</p>
+              <p className="twofactor-label">{t("merchant.twoFactor.qrForApp")}</p>
               {qrDataUrl ? (
-                <img className="twofactor-qr-image" src={qrDataUrl} alt="QR-код для настройки 2FA" />
+                <img className="twofactor-qr-image" src={qrDataUrl} alt={t("merchant.twoFactor.qrAlt")} />
               ) : (
-                <div className="twofactor-qr-placeholder">QR генерируется…</div>
+                <div className="twofactor-qr-placeholder">{t("merchant.twoFactor.qrGenerating")}</div>
               )}
-              <p className="muted-text">Отсканируйте или введите код ниже вручную.</p>
+              <p className="muted-text">{t("merchant.twoFactor.scanOrEnter")}</p>
             </section>
 
             <section className="twofactor-live-panel">
-              <p className="twofactor-label">Секрет для ввода</p>
+              <p className="twofactor-label">{t("merchant.twoFactor.secretForEntry")}</p>
               <div className="twofactor-live-code">{formatRegistrationSecret(setupData.secret)}</div>
               <button className="ghost-button" onClick={() => void handleCopyRegistrationCode()} type="button">
-                {copiedSecret ? "Скопировано" : "Копировать секрет"}
+                {copiedSecret ? t("common.copied") : t("merchant.twoFactor.copySecret")}
               </button>
             </section>
           </div>
 
           <div className="twofactor-meta-grid">
             <p>
-              <strong>Issuer:</strong> {setupData.issuer}
+              <strong>{t("merchant.twoFactor.issuer")}:</strong> {setupData.issuer}
             </p>
             <p>
-              <strong>Аккаунт:</strong> {setupData.account_name}
+              <strong>{t("merchant.twoFactor.account")}:</strong> {setupData.account_name}
             </p>
             <p>
-              <strong>Секрет:</strong> <code>{setupData.secret}</code>
+              <strong>{t("merchant.twoFactor.secret")}:</strong> <code>{setupData.secret}</code>
             </p>
           </div>
         </div>
@@ -154,20 +156,20 @@ export function TwoFactorPanel({
 
       <form className="mc-form" onSubmit={handleEnable}>
         <label className="mc-field">
-          <span>Код из приложения</span>
+          <span>{t("merchant.twoFactor.appCode")}</span>
           <input
             value={enableCode}
             onChange={(event) => setEnableCode(event.target.value)}
             inputMode="numeric"
             minLength={6}
             maxLength={8}
-            placeholder="123456"
+            placeholder={t("merchant.twoFactor.codePlaceholder")}
             required
             type="text"
           />
         </label>
         <button className="primary-button" disabled={loading} type="submit">
-          {loading ? "Проверяем…" : "Включить 2FA"}
+          {loading ? t("merchant.twoFactor.verifying") : t("merchant.twoFactor.enable")}
         </button>
       </form>
 
@@ -176,10 +178,10 @@ export function TwoFactorPanel({
           <hr className="mc-divider" />
           <form className="mc-form" onSubmit={handleDisable}>
             <p className="mc-surface-eyebrow" style={{ marginBottom: 4 }}>
-              Отключение
+              {t("merchant.twoFactor.disableSection")}
             </p>
             <label className="mc-field">
-              <span>Текущий пароль</span>
+              <span>{t("merchant.twoFactor.currentPassword")}</span>
               <input
                 value={disablePassword}
                 onChange={(event) => setDisablePassword(event.target.value)}
@@ -190,19 +192,19 @@ export function TwoFactorPanel({
               />
             </label>
             <label className="mc-field">
-              <span>Код 2FA (по желанию)</span>
+              <span>{t("merchant.twoFactor.optionalCode")}</span>
               <input
                 value={disableCode}
                 onChange={(event) => setDisableCode(event.target.value)}
                 inputMode="numeric"
                 minLength={6}
                 maxLength={8}
-                placeholder="123456"
+                placeholder={t("merchant.twoFactor.codePlaceholder")}
                 type="text"
               />
             </label>
             <button className="ghost-button" disabled={loading} type="submit">
-              {loading ? "Отключаем…" : "Отключить 2FA"}
+              {loading ? t("merchant.twoFactor.disabling") : t("merchant.twoFactor.disable")}
             </button>
           </form>
         </>
