@@ -47,6 +47,12 @@
   gap: 0.65rem;
 }
 
+@media (min-width: 720px) {
+  .app-frame .pw-platform-settings-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .app-frame .pw-settings-stat-pill {
   min-height: 0;
   padding: 0.95rem 1.05rem;
@@ -123,6 +129,99 @@
 
 .app-frame .pw-platform-settings .aps-nav {
   gap: 0.35rem;
+}
+
+.app-frame .pw-platform-settings .aps-nav-grouped {
+  gap: 0.85rem;
+}
+
+.app-frame .pw-platform-settings .aps-nav-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.app-frame .pw-platform-settings .aps-nav-group-trigger {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.app-frame .pw-platform-settings .aps-nav-group-trigger strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--cu-amber, #00a3ff);
+}
+
+.app-frame .pw-platform-settings .aps-nav-group-trigger span {
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-2, var(--cu-text-dim));
+}
+
+.app-frame .pw-platform-settings .aps-nav-group-trigger.active {
+  border-color: color-mix(in srgb, var(--cu-amber, #00a3ff) 24%, transparent);
+  background: color-mix(in srgb, var(--cu-glow, rgba(0, 163, 255, 0.14)) 65%, transparent);
+}
+
+.app-frame .pw-platform-settings .aps-nav-group-items {
+  display: grid;
+  gap: 0.3rem;
+  padding-left: 0.35rem;
+}
+
+.app-frame .pw-platform-settings .aps-nav-dirty {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 0.4rem;
+  border-radius: 999px;
+  background: var(--green, #34d399);
+  vertical-align: middle;
+}
+
+.app-frame .pw-platform-settings .aps-section-dirty {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--green, #34d399);
+  background: color-mix(in srgb, var(--green, #34d399) 16%, transparent);
+}
+
+.app-frame .pw-platform-settings .aps-section-save-message {
+  margin: 0;
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--green, #34d399) 35%, transparent);
+  background: color-mix(in srgb, var(--green, #34d399) 10%, transparent);
+}
+
+.app-frame .pw-platform-settings .aps-mobile-group {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.app-frame .pw-platform-settings .aps-mobile-group-label {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cu-amber, #00a3ff);
 }
 
 .app-frame .pw-platform-settings .aps-nav-link {

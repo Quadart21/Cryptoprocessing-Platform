@@ -24,6 +24,18 @@ import type {
 } from "../../api";
 import { NotificationTemplatesWorkspace } from "../components/NotificationTemplatesWorkspace";
 import { BrandLogoUploader } from "../components/BrandLogoUploader";
+import {
+  applySectionDraft,
+  buildVisibleGroups,
+  createSectionDrafts,
+  flattenVisibleSections,
+  getGroupForSection,
+  getSaveButtonLabel,
+  getSectionMeta,
+  isSectionDirty,
+  type SettingsGroupKey,
+  type SettingsSectionKey,
+} from "../settings/platformSettingsSections";
 
 const EXCHANGE_RATE_PRICE_FIELD_LABELS: Record<ExchangeRatePriceField, string> = {
   last: "Last",
@@ -83,49 +95,18 @@ type AdminPlatformSettingsSectionProps = {
   onUpdateTenantPolicy: (payload: Omit<TenantBillingPolicy, "tenant_id">) => void;
 };
 
-type SettingsSectionKey =
-  | "fees"
-  | "rates"
-  | "payouts"
-  | "brand"
-  | "seo"
-  | "email"
-  | "telegram"
-  | "ops-chat"
-  | "templates"
-  | "events"
-  | "tenant";
-
-type SettingsSectionMeta = {
-  key: SettingsSectionKey;
-  label: string;
-  eyebrow: string;
-  description: string;
-  icon: string;
-};
-
-const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
-  { key: "fees", label: "Комиссии", eyebrow: "Биллинг", description: "Основные проценты платформы и базовая экономика.", icon: "01" },
-  { key: "rates", label: "Курсы", eyebrow: "Exchange", description: "Ручные override-курсы с приоритетом над API.", icon: "09" },
-  { key: "payouts", label: "Выплаты", eyebrow: "Политики", description: "Глобальные правила переопределений и выплат.", icon: "02" },
-  { key: "brand", label: "Бренд", eyebrow: "Коммуникации", description: "Имя, логотип (SVG/PNG URL) для UI, email и Telegram.", icon: "03" },
-  { key: "seo", label: "SEO", eyebrow: "Мета-теги", description: "Заголовки, описания, favicon и Open Graph для поисковиков.", icon: "07" },
-  { key: "email", label: "Email", eyebrow: "Канал", description: "SMTP.bz и тестовая отправка писем.", icon: "04" },
-  { key: "telegram", label: "Telegram", eyebrow: "Канал", description: "Токен бота, проверка и тестовая доставка.", icon: "05" },
-  { key: "ops-chat", label: "Служебный чат", eyebrow: "Ops", description: "Форум-чат команды платформы с топиками (только superadmin).", icon: "10" },
-  { key: "templates", label: "Шаблоны", eyebrow: "Контент", description: "Тексты email и Telegram для каждого события платформы.", icon: "06" },
-  { key: "events", label: "События", eyebrow: "Матрица", description: "Какие каналы активны для каждого события.", icon: "07" },
-  { key: "tenant", label: "Клиенты", eyebrow: "Индивидуально", description: "Переопределения правил для выбранного клиента.", icon: "08" },
-];
+type SettingsSectionMeta = ReturnType<typeof getSectionMeta>;
 
 function SectionShell({
   meta,
   children,
   actions,
+  dirty = false,
 }: {
   meta: SettingsSectionMeta;
   children: ReactNode;
   actions?: ReactNode;
+  dirty?: boolean;
 }) {
   return (
     <section className="aps-section-card pw-settings-section-card" id={`settings-${meta.key}`}>
@@ -133,7 +114,10 @@ function SectionShell({
         <div className="aps-section-mark">{meta.icon}</div>
         <div className="aps-section-copy">
           <p className="eyebrow">{meta.eyebrow}</p>
-          <h2>{meta.label}</h2>
+          <h2>
+            {meta.label}
+            {dirty ? <span className="aps-section-dirty">Изменено</span> : null}
+          </h2>
           <p className="muted-text">{meta.description}</p>
         </div>
       </div>
@@ -188,8 +172,9 @@ export function AdminPlatformSettingsSection({
   onSendNotificationTemplateTest,
   onUpdateTenantPolicy,
 }: AdminPlatformSettingsSectionProps) {
-  const [platformSettingsForm, setPlatformSettingsForm] =
-    useState<PlatformBillingSettings | null>(platformBillingSettings);
+  const [sectionDrafts, setSectionDrafts] = useState<
+    Partial<Record<SettingsSectionKey, Partial<PlatformBillingSettings>>>
+  >({});
   const [smtpBzApiKey, setSmtpBzApiKey] = useState("");
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [telegramBotInfo, setTelegramBotInfo] = useState<TelegramBotIdentity | null>(null);
@@ -204,11 +189,9 @@ export function AdminPlatformSettingsSection({
   const [opsChatError, setOpsChatError] = useState<string | null>(null);
   const [opsChatMessage, setOpsChatMessage] = useState<string | null>(null);
 
+  const visibleGroups = useMemo(() => buildVisibleGroups(isSuperadmin), [isSuperadmin]);
   const visibleSections = useMemo(
-    () =>
-      isSuperadmin
-        ? SETTINGS_SECTIONS
-        : SETTINGS_SECTIONS.filter((item) => item.key !== "ops-chat"),
+    () => flattenVisibleSections(isSuperadmin),
     [isSuperadmin],
   );
   const [smtpTestRecipient, setSmtpTestRecipient] = useState("");
@@ -223,13 +206,25 @@ export function AdminPlatformSettingsSection({
     TenantBillingPolicy,
     "tenant_id"
   > | null>(null);
+  const [activeGroup, setActiveGroup] = useState<SettingsGroupKey>("commissions");
   const [activeSection, setActiveSection] = useState<SettingsSectionKey>("fees");
   const [expandedSections, setExpandedSections] = useState<Set<SettingsSectionKey>>(
     new Set(["fees"]),
   );
+  const [savingSection, setSavingSection] = useState<SettingsSectionKey | null>(null);
+  const [sectionSaveMessage, setSectionSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setPlatformSettingsForm(platformBillingSettings ? { ...platformBillingSettings } : null);
+    if (!platformBillingSettings) {
+      setSectionDrafts({});
+      return;
+    }
+    setSectionDrafts(
+      createSectionDrafts(
+        platformBillingSettings,
+        visibleSections.map((item) => item.key),
+      ),
+    );
     setSmtpBzApiKey("");
     setTelegramBotToken("");
     setAdminTelegramChatId("");
@@ -238,7 +233,8 @@ export function AdminPlatformSettingsSection({
     setSmtpTestResult(null);
     setTelegramBotInfo(null);
     setTelegramBotCheckError(null);
-  }, [platformBillingSettings]);
+    setSectionSaveMessage(null);
+  }, [platformBillingSettings, visibleSections]);
 
   useEffect(() => {
     if (!selectedTenantBillingPolicy) {
@@ -253,18 +249,51 @@ export function AdminPlatformSettingsSection({
     });
   }, [selectedTenantBillingPolicy]);
 
+  function getSectionForm(section: SettingsSectionKey): PlatformBillingSettings | null {
+    if (!platformBillingSettings) return null;
+    const draft = sectionDrafts[section] ?? {};
+    return { ...platformBillingSettings, ...draft };
+  }
+
+  function updateSectionDraft(
+    section: SettingsSectionKey,
+    patch: Partial<PlatformBillingSettings>,
+  ) {
+    if (!platformBillingSettings) return;
+    setSectionDrafts((prev) => {
+      const merged = {
+        ...platformBillingSettings,
+        ...(prev[section] ?? {}),
+        ...patch,
+      };
+      return {
+        ...prev,
+        [section]: createSectionDrafts(merged, [section])[section],
+      };
+    });
+  }
+
+  function sectionIsDirty(section: SettingsSectionKey): boolean {
+    if (!platformBillingSettings) return false;
+    return isSectionDirty(platformBillingSettings, section, sectionDrafts[section], {
+      smtpBzApiKey: section === "email" ? smtpBzApiKey : undefined,
+      telegramBotToken: section === "telegram" ? telegramBotToken : undefined,
+    });
+  }
+
   const manualRateCurrencies = useMemo(() => {
     const all = new Set<string>();
     for (const item of adminAssetRates) {
       all.add(item.currency);
     }
-    if (platformSettingsForm) {
-      for (const key of Object.keys(platformSettingsForm.manual_exchange_rates ?? {})) {
+    const ratesForm = getSectionForm("rates");
+    if (ratesForm) {
+      for (const key of Object.keys(ratesForm.manual_exchange_rates ?? {})) {
         all.add(key);
       }
     }
     return Array.from(all).sort((left, right) => left.localeCompare(right));
-  }, [adminAssetRates, platformSettingsForm]);
+  }, [adminAssetRates, platformBillingSettings, sectionDrafts.rates]);
 
   useEffect(() => {
     if (manualRateCurrencies.length === 0) {
@@ -317,47 +346,62 @@ export function AdminPlatformSettingsSection({
   }, [onFetchPlatformExchangeRate, selectedManualRateCurrency]);
 
   const overviewStats = useMemo(() => {
-    if (!platformSettingsForm) return [];
-    const enabledEvents = platformSettingsForm.notification_events.filter(
+    if (!platformBillingSettings) return [];
+    const enabledEvents = platformBillingSettings.notification_events.filter(
       (event) => event.email_enabled || event.telegram_enabled,
     ).length;
+    const dirtyCount = visibleSections.filter((item) => sectionIsDirty(item.key)).length;
     return [
       {
         label: "Email",
-        value: platformSettingsForm.email_notifications_enabled ? "Вкл" : "Выкл",
-        tone: platformSettingsForm.email_notifications_enabled ? "good" : "muted",
+        value: platformBillingSettings.email_notifications_enabled ? "Вкл" : "Выкл",
+        tone: platformBillingSettings.email_notifications_enabled ? "good" : "muted",
       },
       {
         label: "Telegram",
-        value: platformSettingsForm.telegram_notifications_enabled ? "Вкл" : "Выкл",
-        tone: platformSettingsForm.telegram_notifications_enabled ? "good" : "muted",
+        value: platformBillingSettings.telegram_notifications_enabled ? "Вкл" : "Выкл",
+        tone: platformBillingSettings.telegram_notifications_enabled ? "good" : "muted",
       },
       {
         label: "Шаблоны",
-        value: String(platformSettingsForm.notification_templates.length),
+        value: String(platformBillingSettings.notification_templates.length),
         tone: "default",
       },
       {
+        label: "Черновики",
+        value: dirtyCount > 0 ? String(dirtyCount) : "—",
+        tone: dirtyCount > 0 ? "good" : "muted",
+      },
+      {
         label: "События",
-        value: `${enabledEvents}/${platformSettingsForm.notification_events.length}`,
+        value: `${enabledEvents}/${platformBillingSettings.notification_events.length}`,
         tone: "default",
       },
     ];
-  }, [platformSettingsForm]);
+  }, [platformBillingSettings, sectionDrafts, smtpBzApiKey, telegramBotToken, visibleSections]);
 
-  async function handleSavePlatformSettings() {
-    if (!platformSettingsForm) return;
-    const payload: PlatformBillingSettings = {
-      ...platformSettingsForm,
-      smtp_bz_api_key: smtpBzApiKey.trim() || null,
-      telegram_bot_token: telegramBotToken.trim() || null,
-    };
-    if (isSuperadmin && activeSection === "ops-chat") {
-      payload.ops_telegram = ensureOpsTelegramSettings();
+  async function handleSaveSection(section: SettingsSectionKey) {
+    if (!platformBillingSettings) return;
+    const draft = sectionDrafts[section] ?? {};
+    const payload = applySectionDraft(platformBillingSettings, section, draft, {
+      smtpBzApiKey: section === "email" ? smtpBzApiKey : undefined,
+      telegramBotToken: section === "telegram" ? telegramBotToken : undefined,
+    });
+    setSavingSection(section);
+    setSectionSaveMessage(null);
+    try {
+      await onUpdatePlatformSettings(payload);
+      if (section === "email") setSmtpBzApiKey("");
+      if (section === "telegram") setTelegramBotToken("");
+      setSectionSaveMessage(`Раздел «${getSectionMeta(section).label}» сохранён.`);
+    } finally {
+      setSavingSection(null);
     }
-    await onUpdatePlatformSettings(payload);
-    setSmtpBzApiKey("");
-    setTelegramBotToken("");
+  }
+
+  function handleSelectSection(section: SettingsSectionKey) {
+    setActiveSection(section);
+    setActiveGroup(getGroupForSection(section));
   }
 
   function handleSubmitTenantPolicy(event: FormEvent<HTMLFormElement>) {
@@ -371,23 +415,24 @@ export function AdminPlatformSettingsSection({
     channel: "email_enabled" | "telegram_enabled",
     enabled: boolean,
   ) {
-    if (!platformSettingsForm) return;
-    setPlatformSettingsForm({
-      ...platformSettingsForm,
-      notification_events: platformSettingsForm.notification_events.map((item) =>
+    const eventsForm = getSectionForm("events");
+    if (!eventsForm) return;
+    updateSectionDraft("events", {
+      notification_events: eventsForm.notification_events.map((item) =>
         item.code === code ? { ...item, [channel]: enabled } : item,
       ),
     });
   }
 
   async function handleCheckTelegramBot() {
-    if (!platformSettingsForm) return;
+    const telegramForm = getSectionForm("telegram");
+    if (!telegramForm) return;
     setCheckingTelegramBot(true);
     setTelegramTestResult(null);
     setTelegramBotCheckError(null);
     try {
       const info = await onInspectPlatformTelegramBot({
-        telegram_api_base_url: platformSettingsForm.telegram_api_base_url,
+        telegram_api_base_url: telegramForm.telegram_api_base_url,
         telegram_bot_token: telegramBotToken.trim() || null,
       });
       setTelegramBotInfo(info);
@@ -402,13 +447,14 @@ export function AdminPlatformSettingsSection({
   }
 
   async function handleSendTelegramTest() {
-    if (!platformSettingsForm || adminTelegramChatId.trim() === "") return;
+    const telegramForm = getSectionForm("telegram");
+    if (!telegramForm || adminTelegramChatId.trim() === "") return;
     setSendingTelegramTest(true);
     setTelegramBotCheckError(null);
     try {
       const result = await onSendPlatformTelegramTest({
         admin_telegram_chat_id: adminTelegramChatId.trim(),
-        telegram_api_base_url: platformSettingsForm.telegram_api_base_url,
+        telegram_api_base_url: telegramForm.telegram_api_base_url,
         telegram_bot_token: telegramBotToken.trim() || null,
       });
       setTelegramTestResult(result);
@@ -423,16 +469,17 @@ export function AdminPlatformSettingsSection({
   }
 
   async function handleSendSmtpTest() {
-    if (!platformSettingsForm || smtpTestRecipient.trim() === "") return;
+    const emailForm = getSectionForm("email");
+    if (!emailForm || smtpTestRecipient.trim() === "") return;
     setSendingSmtpTest(true);
     try {
       const result = await onSendPlatformSmtpBzTest({
         test_recipient_email: smtpTestRecipient.trim(),
-        smtp_bz_api_base_url: platformSettingsForm.smtp_bz_api_base_url,
-        smtp_bz_sender_email: platformSettingsForm.smtp_bz_sender_email,
-        smtp_bz_sender_name: platformSettingsForm.smtp_bz_sender_name,
-        smtp_bz_reply_to: platformSettingsForm.smtp_bz_reply_to,
-        smtp_bz_tag: platformSettingsForm.smtp_bz_tag,
+        smtp_bz_api_base_url: emailForm.smtp_bz_api_base_url,
+        smtp_bz_sender_email: emailForm.smtp_bz_sender_email,
+        smtp_bz_sender_name: emailForm.smtp_bz_sender_name,
+        smtp_bz_reply_to: emailForm.smtp_bz_reply_to,
+        smtp_bz_tag: emailForm.smtp_bz_tag,
         smtp_bz_api_key: smtpBzApiKey.trim() || null,
       });
       setSmtpTestResult(result);
@@ -447,14 +494,6 @@ export function AdminPlatformSettingsSection({
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
-    });
-  }
-
-  function updatePlatformSettings(patch: Partial<PlatformBillingSettings>) {
-    if (!platformSettingsForm) return;
-    setPlatformSettingsForm({
-      ...platformSettingsForm,
-      ...patch,
     });
   }
 
@@ -477,7 +516,8 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderFeesSection() {
-    if (!platformSettingsForm) return renderUnavailable();
+    const feesForm = getSectionForm("fees");
+    if (!feesForm) return renderUnavailable();
     return (
       <div className="aps-stack">
         <FieldGrid>
@@ -488,9 +528,9 @@ export function AdminPlatformSettingsSection({
               step="0.0001"
               min="0"
               max="100"
-              value={platformSettingsForm.provider_fee_percent}
+              value={feesForm.provider_fee_percent}
               onChange={(event) =>
-                updatePlatformSettings({ provider_fee_percent: event.target.value })
+                updateSectionDraft("fees", { provider_fee_percent: event.target.value })
               }
             />
           </label>
@@ -501,9 +541,9 @@ export function AdminPlatformSettingsSection({
               step="0.0001"
               min="0"
               max="100"
-              value={platformSettingsForm.default_markup_percent}
+              value={feesForm.default_markup_percent}
               onChange={(event) =>
-                updatePlatformSettings({ default_markup_percent: event.target.value })
+                updateSectionDraft("fees", { default_markup_percent: event.target.value })
               }
             />
           </label>
@@ -513,9 +553,9 @@ export function AdminPlatformSettingsSection({
               type="number"
               step="0.01"
               min="0"
-              value={platformSettingsForm.platform_markup_min_usdt}
+              value={feesForm.platform_markup_min_usdt}
               onChange={(event) =>
-                updatePlatformSettings({ platform_markup_min_usdt: event.target.value })
+                updateSectionDraft("fees", { platform_markup_min_usdt: event.target.value })
               }
             />
           </label>
@@ -525,9 +565,9 @@ export function AdminPlatformSettingsSection({
               type="number"
               step="0.01"
               min="0"
-              value={platformSettingsForm.platform_fee_min_usdt}
+              value={feesForm.platform_fee_min_usdt}
               onChange={(event) =>
-                updatePlatformSettings({ platform_fee_min_usdt: event.target.value })
+                updateSectionDraft("fees", { platform_fee_min_usdt: event.target.value })
               }
             />
           </label>
@@ -536,9 +576,9 @@ export function AdminPlatformSettingsSection({
             <input
               type="number"
               step="0.0001"
-              value={platformSettingsForm.exchange_rate_markup_percent}
+              value={feesForm.exchange_rate_markup_percent}
               onChange={(event) =>
-                updatePlatformSettings({ exchange_rate_markup_percent: event.target.value })
+                updateSectionDraft("fees", { exchange_rate_markup_percent: event.target.value })
               }
             />
           </label>
@@ -553,11 +593,12 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderRatesSection() {
-    if (!platformSettingsForm) return renderUnavailable();
+    const ratesForm = getSectionForm("rates");
+    if (!ratesForm) return renderUnavailable();
     const currency = selectedManualRateCurrency;
     const currentRate = selectedExchangeRate?.rate ?? null;
-    const manualRate = currency ? platformSettingsForm.manual_exchange_rates?.[currency] ?? "" : "";
-    const priceField = platformSettingsForm.exchange_rate_price_field ?? "last";
+    const manualRate = currency ? ratesForm.manual_exchange_rates?.[currency] ?? "" : "";
+    const priceField = ratesForm.exchange_rate_price_field ?? "last";
     const rateSource = manualRate
       ? "Ручной"
       : formatExchangeRateSource(selectedExchangeRate?.source, priceField);
@@ -569,7 +610,7 @@ export function AdminPlatformSettingsSection({
           <select
             value={priceField}
             onChange={(event) =>
-              updatePlatformSettings({
+              updateSectionDraft("rates", {
                 exchange_rate_price_field: event.target.value as ExchangeRatePriceField,
               })
             }
@@ -629,14 +670,14 @@ export function AdminPlatformSettingsSection({
               placeholder="Оставьте пустым для автокурса"
               onChange={(event) => {
                 if (!currency) return;
-                const nextRates = { ...(platformSettingsForm.manual_exchange_rates ?? {}) };
+                const nextRates = { ...(ratesForm.manual_exchange_rates ?? {}) };
                 const nextValue = event.target.value.trim();
                 if (nextValue === "") {
                   delete nextRates[currency];
                 } else {
                   nextRates[currency] = nextValue;
                 }
-                updatePlatformSettings({ manual_exchange_rates: nextRates });
+                updateSectionDraft("rates", { manual_exchange_rates: nextRates });
               }}
             />
           </label>
@@ -671,7 +712,8 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderPayoutsSection() {
-    if (!platformSettingsForm) return renderUnavailable();
+    const payoutsForm = getSectionForm("payouts");
+    if (!payoutsForm) return renderUnavailable();
     return (
       <div className="aps-stack">
         <label className="aps-switch-card">
@@ -681,9 +723,11 @@ export function AdminPlatformSettingsSection({
           </div>
           <input
             type="checkbox"
-            checked={platformSettingsForm.allow_tenant_markup_override}
+            checked={payoutsForm.allow_tenant_markup_override}
             onChange={(event) =>
-              updatePlatformSettings({ allow_tenant_markup_override: event.target.checked })
+              updateSectionDraft("payouts", {
+                allow_tenant_markup_override: event.target.checked,
+              })
             }
           />
         </label>
@@ -694,8 +738,10 @@ export function AdminPlatformSettingsSection({
           </div>
           <input
             type="checkbox"
-            checked={platformSettingsForm.payouts_enabled}
-            onChange={(event) => updatePlatformSettings({ payouts_enabled: event.target.checked })}
+            checked={payoutsForm.payouts_enabled}
+            onChange={(event) =>
+              updateSectionDraft("payouts", { payouts_enabled: event.target.checked })
+            }
           />
         </label>
       </div>
@@ -703,16 +749,17 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderBrandSection() {
-    if (!platformSettingsForm) return renderUnavailable();
+    const brandForm = getSectionForm("brand");
+    if (!brandForm) return renderUnavailable();
     return (
       <FieldGrid>
         <label>
           <span>Название бренда</span>
           <input
-            value={platformSettingsForm.notification_brand_name}
+            value={brandForm.notification_brand_name}
             placeholder="NorenDigital"
             onChange={(event) =>
-              updatePlatformSettings({ notification_brand_name: event.target.value })
+              updateSectionDraft("brand", { notification_brand_name: event.target.value })
             }
           />
         </label>
@@ -720,7 +767,7 @@ export function AdminPlatformSettingsSection({
           <span>Файл логотипа</span>
           <BrandLogoUploader
             disabled={loading}
-            logoUrl={platformSettingsForm.notification_logo_url}
+            logoUrl={brandForm.notification_logo_url}
             onRemoveUploaded={onRemoveBrandLogo}
             onUpload={onUploadBrandLogo}
           />
@@ -728,9 +775,9 @@ export function AdminPlatformSettingsSection({
         <label className="aps-field-span-2">
           <span>URL логотипа (вручную)</span>
           <input
-            value={platformSettingsForm.notification_logo_url ?? ""}
+            value={brandForm.notification_logo_url ?? ""}
             onChange={(event) =>
-              updatePlatformSettings({
+              updateSectionDraft("brand", {
                 notification_logo_url: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
@@ -743,9 +790,9 @@ export function AdminPlatformSettingsSection({
         <label className="aps-field-span-2">
           <span>Основной URL</span>
           <input
-            value={platformSettingsForm.notification_primary_url ?? ""}
+            value={brandForm.notification_primary_url ?? ""}
             onChange={(event) =>
-              updatePlatformSettings({
+              updateSectionDraft("brand", {
                 notification_primary_url:
                   event.target.value.trim() === "" ? null : event.target.value,
               })
@@ -757,15 +804,16 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderSeoSection() {
-    if (!platformSettingsForm) return renderUnavailable();
+    const seoForm = getSectionForm("seo");
+    if (!seoForm) return renderUnavailable();
     return (
       <FieldGrid>
         <label>
           <span>Title (заголовок страницы)</span>
           <input
-            value={platformSettingsForm.seo_title ?? ""}
+            value={seoForm.seo_title ?? ""}
             onChange={(event) =>
-              updatePlatformSettings({
+              updateSectionDraft("seo", {
                 seo_title: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
@@ -775,9 +823,9 @@ export function AdminPlatformSettingsSection({
         <label>
           <span>Description (описание)</span>
           <input
-            value={platformSettingsForm.seo_description ?? ""}
+            value={seoForm.seo_description ?? ""}
             onChange={(event) =>
-              updatePlatformSettings({
+              updateSectionDraft("seo", {
                 seo_description: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
@@ -787,9 +835,9 @@ export function AdminPlatformSettingsSection({
         <label className="aps-field-span-2">
           <span>Keywords (ключевые слова)</span>
           <input
-            value={platformSettingsForm.seo_keywords ?? ""}
+            value={seoForm.seo_keywords ?? ""}
             onChange={(event) =>
-              updatePlatformSettings({
+              updateSectionDraft("seo", {
                 seo_keywords: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
@@ -799,9 +847,9 @@ export function AdminPlatformSettingsSection({
         <label>
           <span>Favicon URL</span>
           <input
-            value={platformSettingsForm.seo_favicon_url ?? ""}
+            value={seoForm.seo_favicon_url ?? ""}
             onChange={(event) =>
-              updatePlatformSettings({
+              updateSectionDraft("seo", {
                 seo_favicon_url: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
@@ -811,9 +859,9 @@ export function AdminPlatformSettingsSection({
         <label>
           <span>OG Image (соцсети)</span>
           <input
-            value={platformSettingsForm.seo_og_image_url ?? ""}
+            value={seoForm.seo_og_image_url ?? ""}
             onChange={(event) =>
-              updatePlatformSettings({
+              updateSectionDraft("seo", {
                 seo_og_image_url: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
@@ -823,10 +871,8 @@ export function AdminPlatformSettingsSection({
         <label>
           <span>Robots</span>
           <select
-            value={platformSettingsForm.seo_robots ?? "index, follow"}
-            onChange={(event) =>
-              updatePlatformSettings({ seo_robots: event.target.value })
-            }
+            value={seoForm.seo_robots ?? "index, follow"}
+            onChange={(event) => updateSectionDraft("seo", { seo_robots: event.target.value })}
           >
             <option value="index, follow">Index, Follow</option>
             <option value="noindex, follow">No Index, Follow</option>
@@ -837,9 +883,9 @@ export function AdminPlatformSettingsSection({
         <label>
           <span>Canonical URL</span>
           <input
-            value={platformSettingsForm.seo_canonical_url ?? ""}
+            value={seoForm.seo_canonical_url ?? ""}
             onChange={(event) =>
-              updatePlatformSettings({
+              updateSectionDraft("seo", {
                 seo_canonical_url: event.target.value.trim() === "" ? null : event.target.value,
               })
             }
@@ -851,19 +897,22 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderEmailSection() {
-    if (!platformSettingsForm) return renderUnavailable();
+    const emailForm = getSectionForm("email");
+    if (!emailForm) return renderUnavailable();
     return (
       <div className="aps-stack">
         <div className="aps-inline-status">
           <StatPill
             label="SMTP"
-            value={platformSettingsForm.smtp_bz_enabled ? "Активен" : "Отключен"}
-            tone={platformSettingsForm.smtp_bz_enabled ? "good" : "muted"}
+            value={emailForm.smtp_bz_enabled ? "Активен" : "Отключен"}
+            tone={emailForm.smtp_bz_enabled ? "good" : "muted"}
           />
           <StatPill
             label="API key"
-            value={platformSettingsForm.smtp_bz_api_key_configured ? "Сохранён" : "Не задан"}
-            tone={platformSettingsForm.smtp_bz_api_key_configured ? "good" : "muted"}
+            value={
+              platformBillingSettings?.smtp_bz_api_key_configured ? "Сохранён" : "Не задан"
+            }
+            tone={platformBillingSettings?.smtp_bz_api_key_configured ? "good" : "muted"}
           />
         </div>
         <FieldGrid>
@@ -871,9 +920,9 @@ export function AdminPlatformSettingsSection({
             <span>Email-уведомления включены</span>
             <input
               type="checkbox"
-              checked={platformSettingsForm.email_notifications_enabled}
+              checked={emailForm.email_notifications_enabled}
               onChange={(event) =>
-                updatePlatformSettings({ email_notifications_enabled: event.target.checked })
+                updateSectionDraft("email", { email_notifications_enabled: event.target.checked })
               }
             />
           </label>
@@ -881,45 +930,45 @@ export function AdminPlatformSettingsSection({
             <span>SMTP.bz включён</span>
             <input
               type="checkbox"
-              checked={platformSettingsForm.smtp_bz_enabled}
+              checked={emailForm.smtp_bz_enabled}
               onChange={(event) =>
-                updatePlatformSettings({ smtp_bz_enabled: event.target.checked })
+                updateSectionDraft("email", { smtp_bz_enabled: event.target.checked })
               }
             />
           </label>
           <label>
             <span>SMTP API URL</span>
             <input
-              value={platformSettingsForm.smtp_bz_api_base_url}
+              value={emailForm.smtp_bz_api_base_url}
               onChange={(event) =>
-                updatePlatformSettings({ smtp_bz_api_base_url: event.target.value })
+                updateSectionDraft("email", { smtp_bz_api_base_url: event.target.value })
               }
             />
           </label>
           <label>
             <span>Email отправителя</span>
             <input
-              value={platformSettingsForm.smtp_bz_sender_email}
+              value={emailForm.smtp_bz_sender_email}
               onChange={(event) =>
-                updatePlatformSettings({ smtp_bz_sender_email: event.target.value })
+                updateSectionDraft("email", { smtp_bz_sender_email: event.target.value })
               }
             />
           </label>
           <label>
             <span>Имя отправителя</span>
             <input
-              value={platformSettingsForm.smtp_bz_sender_name}
+              value={emailForm.smtp_bz_sender_name}
               onChange={(event) =>
-                updatePlatformSettings({ smtp_bz_sender_name: event.target.value })
+                updateSectionDraft("email", { smtp_bz_sender_name: event.target.value })
               }
             />
           </label>
           <label>
             <span>Reply-To</span>
             <input
-              value={platformSettingsForm.smtp_bz_reply_to ?? ""}
+              value={emailForm.smtp_bz_reply_to ?? ""}
               onChange={(event) =>
-                updatePlatformSettings({
+                updateSectionDraft("email", {
                   smtp_bz_reply_to: event.target.value.trim() === "" ? null : event.target.value,
                 })
               }
@@ -928,9 +977,9 @@ export function AdminPlatformSettingsSection({
           <label>
             <span>Тег</span>
             <input
-              value={platformSettingsForm.smtp_bz_tag ?? ""}
+              value={emailForm.smtp_bz_tag ?? ""}
               onChange={(event) =>
-                updatePlatformSettings({
+                updateSectionDraft("email", {
                   smtp_bz_tag: event.target.value.trim() === "" ? null : event.target.value,
                 })
               }
@@ -970,19 +1019,22 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderTelegramSection() {
-    if (!platformSettingsForm) return renderUnavailable();
+    const telegramForm = getSectionForm("telegram");
+    if (!telegramForm) return renderUnavailable();
     return (
       <div className="aps-stack">
         <div className="aps-inline-status">
           <StatPill
             label="Канал"
-            value={platformSettingsForm.telegram_notifications_enabled ? "Активен" : "Отключен"}
-            tone={platformSettingsForm.telegram_notifications_enabled ? "good" : "muted"}
+            value={telegramForm.telegram_notifications_enabled ? "Активен" : "Отключен"}
+            tone={telegramForm.telegram_notifications_enabled ? "good" : "muted"}
           />
           <StatPill
             label="Токен"
-            value={platformSettingsForm.telegram_bot_token_configured ? "Сохранён" : "Не задан"}
-            tone={platformSettingsForm.telegram_bot_token_configured ? "good" : "muted"}
+            value={
+              platformBillingSettings?.telegram_bot_token_configured ? "Сохранён" : "Не задан"
+            }
+            tone={platformBillingSettings?.telegram_bot_token_configured ? "good" : "muted"}
           />
         </div>
         <FieldGrid>
@@ -990,18 +1042,20 @@ export function AdminPlatformSettingsSection({
             <span>Telegram-уведомления включены</span>
             <input
               type="checkbox"
-              checked={platformSettingsForm.telegram_notifications_enabled}
+              checked={telegramForm.telegram_notifications_enabled}
               onChange={(event) =>
-                updatePlatformSettings({ telegram_notifications_enabled: event.target.checked })
+                updateSectionDraft("telegram", {
+                  telegram_notifications_enabled: event.target.checked,
+                })
               }
             />
           </label>
           <label className="aps-field-span-2">
             <span>Telegram API URL</span>
             <input
-              value={platformSettingsForm.telegram_api_base_url}
+              value={telegramForm.telegram_api_base_url}
               onChange={(event) =>
-                updatePlatformSettings({ telegram_api_base_url: event.target.value })
+                updateSectionDraft("telegram", { telegram_api_base_url: event.target.value })
               }
             />
           </label>
@@ -1019,7 +1073,7 @@ export function AdminPlatformSettingsSection({
             />
             <small className="muted-text">
               Для проверки без сохранения вставьте токен сюда и нажмите «Проверить бота». Чтобы записать в
-              БД — «Сохранить изменения» внизу раздела.
+              БД — «Сохранить раздел» внизу.
             </small>
           </label>
         </FieldGrid>
@@ -1063,11 +1117,11 @@ export function AdminPlatformSettingsSection({
                 (telegramBotInfo.username ? `@${telegramBotInfo.username}` : "OK")}
               {telegramBotInfo.token_masked ? ` · токен ${telegramBotInfo.token_masked}` : ""}
             </p>
-          ) : platformSettingsForm.telegram_bot_token_configured ? (
+          ) : platformBillingSettings?.telegram_bot_token_configured ? (
             <p className="muted-text">
               В БД сохранён токен
-              {platformSettingsForm.telegram_bot_token_masked
-                ? ` ${platformSettingsForm.telegram_bot_token_masked}`
+              {platformBillingSettings.telegram_bot_token_masked
+                ? ` ${platformBillingSettings.telegram_bot_token_masked}`
                 : ""}
               . Нажмите «Проверить бота» — если токен отозван в @BotFather, вставьте новый выше.
             </p>
@@ -1083,8 +1137,9 @@ export function AdminPlatformSettingsSection({
   }
 
   function ensureOpsTelegramSettings(): OpsTelegramSettings {
+    const opsForm = getSectionForm("ops-chat");
     return (
-      platformSettingsForm?.ops_telegram ?? {
+      opsForm?.ops_telegram ?? {
         enabled: false,
         chat_id: null,
         topics: [],
@@ -1094,11 +1149,10 @@ export function AdminPlatformSettingsSection({
   }
 
   function updateOpsTelegram(patch: Partial<OpsTelegramSettings>) {
-    if (!platformSettingsForm) return;
-    setPlatformSettingsForm({
-      ...platformSettingsForm,
+    const current = ensureOpsTelegramSettings();
+    updateSectionDraft("ops-chat", {
       ops_telegram: {
-        ...ensureOpsTelegramSettings(),
+        ...current,
         ...patch,
       },
     });
@@ -1191,13 +1245,10 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderOpsChatSection() {
-    if (!platformSettingsForm || !isSuperadmin) return renderUnavailable();
+    if (!getSectionForm("ops-chat") || !isSuperadmin) return renderUnavailable();
     const ops = ensureOpsTelegramSettings();
-    const meta = SETTINGS_SECTIONS.find((item) => item.key === "ops-chat");
-    if (!meta) return null;
 
     return (
-      <SectionShell meta={meta}>
         <div className="aps-field-stack">
           <p className="muted-text">
             Отдельный форум-чат для команды платформы. Мерчанты сюда не попадают — используется тот же
@@ -1318,17 +1369,28 @@ export function AdminPlatformSettingsSection({
           ) : null}
           {opsChatMessage ? <p className="muted-text">{opsChatMessage}</p> : null}
         </div>
-      </SectionShell>
     );
   }
 
   function renderTemplatesSection() {
-    if (!platformSettingsForm) return renderUnavailable();
+    const templatesForm = getSectionForm("templates");
+    if (!templatesForm) return renderUnavailable();
     return (
       <NotificationTemplatesWorkspace
         loadedSettings={platformBillingSettings}
-        platformSettings={platformSettingsForm}
-        setPlatformSettings={setPlatformSettingsForm}
+        platformSettings={templatesForm}
+        setPlatformSettings={(updater) => {
+          const current = getSectionForm("templates");
+          if (!current) return;
+          const next =
+            typeof updater === "function"
+              ? updater(current)
+              : updater;
+          if (!next) return;
+          updateSectionDraft("templates", {
+            notification_templates: next.notification_templates,
+          });
+        }}
         smtpBzApiKey={smtpBzApiKey}
         telegramBotToken={telegramBotToken}
         onPreviewNotificationTemplate={onPreviewNotificationTemplate}
@@ -1338,10 +1400,11 @@ export function AdminPlatformSettingsSection({
   }
 
   function renderEventsSection() {
-    if (!platformSettingsForm) return renderUnavailable();
+    const eventsForm = getSectionForm("events");
+    if (!eventsForm) return renderUnavailable();
     return (
       <div className="aps-events-list">
-        {platformSettingsForm.notification_events.map((item) => (
+        {eventsForm.notification_events.map((item) => (
           <div key={item.code} className="aps-event-row">
             <div className="aps-event-copy">
               <strong>{item.title}</strong>
@@ -1484,31 +1547,14 @@ export function AdminPlatformSettingsSection({
     tenant: renderTenantSection,
   };
 
-  function getSaveButtonLabel(section: SettingsSectionKey) {
-    switch (section) {
-      case "fees":
-        return "Сохранить изменения";
-      case "rates":
-        return "Сохранить курс";
-      case "payouts":
-        return "Сохранить изменения";
-      case "brand":
-        return "Сохранить изменения";
-      case "seo":
-        return "Сохранить изменения";
-      case "email":
-        return "Сохранить изменения";
-      case "telegram":
-        return "Сохранить изменения";
-      case "ops-chat":
-        return "Сохранить служебный чат";
-      case "templates":
-        return "Сохранить изменения";
-      case "events":
-        return "Сохранить изменения";
-      default:
-        return "Сохранить";
-    }
+  function handleDiscardSection(section: SettingsSectionKey) {
+    if (!platformBillingSettings) return;
+    setSectionDrafts((prev) => ({
+      ...prev,
+      [section]: createSectionDrafts(platformBillingSettings, [section])[section],
+    }));
+    if (section === "email") setSmtpBzApiKey("");
+    if (section === "telegram") setTelegramBotToken("");
   }
 
   function renderSectionActions(section: SettingsSectionKey) {
@@ -1516,18 +1562,30 @@ export function AdminPlatformSettingsSection({
       return null;
     }
 
+    const dirty = sectionIsDirty(section);
+    const isSaving = savingSection === section;
+    const isInitialLoading = loading && !platformBillingSettings;
+
     return (
       <div className="aps-inline-actions">
         <button
           className="primary-button"
           type="button"
-          onClick={() => void handleSavePlatformSettings()}
-          disabled={loading || !platformSettingsForm}
+          onClick={() => void handleSaveSection(section)}
+          disabled={isInitialLoading || isSaving || !dirty}
         >
-          {loading ? "Сохраняем..." : getSaveButtonLabel(section)}
+          {isSaving ? "Сохраняем..." : getSaveButtonLabel(section)}
+        </button>
+        <button
+          className="ghost-button"
+          type="button"
+          onClick={() => handleDiscardSection(section)}
+          disabled={isInitialLoading || isSaving || !dirty}
+        >
+          Сбросить
         </button>
         <p className="muted-text aps-save-hint">
-          Кнопка сохраняет все текущие изменения глобальных настроек формы.
+          Сохраняется только этот раздел — остальные настройки не затрагиваются.
         </p>
       </div>
     );
@@ -1537,8 +1595,8 @@ export function AdminPlatformSettingsSection({
     <div className="pw-platform-settings platform-settings-page aps-page">
       <div className="pw-platform-settings-top">
         <p className="muted-text pw-platform-settings-intro">
-          Блоки ниже соответствуют биллингу, курсам, выплатам, бренду, SEO, каналам и шаблонам. Переключение
-          раздела не сбрасывает черновик: по кнопке сохранения уходит вся текущая форма глобальных настроек.
+          Настройки сгруппированы по четырём блокам: комиссии, тарификация, уведомления и интеграции.
+          Каждый подраздел сохраняется отдельно — можно менять Email, не трогая комиссии и шаблоны.
         </p>
         <div className="pw-platform-settings-stats aps-hero-stats">
           {overviewStats.map((item) => (
@@ -1552,72 +1610,123 @@ export function AdminPlatformSettingsSection({
         </div>
       </div>
 
+      {sectionSaveMessage ? (
+        <p className="aps-section-save-message muted-text" role="status">
+          {sectionSaveMessage}
+        </p>
+      ) : null}
+
       <div className="aps-layout">
         <aside className="aps-sidebar">
           <div className="aps-sidebar-card">
-            <p className="eyebrow">Разделы</p>
-            <nav className="aps-nav" aria-label="Навигация по настройкам">
-              {visibleSections.map((section) => (
-                <button
-                  key={section.key}
-                  type="button"
-                  className={`aps-nav-link ${activeSection === section.key ? "active" : ""}`}
-                  onClick={() => setActiveSection(section.key)}
-                >
-                  <span className="aps-nav-index">{section.icon}</span>
-                  <span className="aps-nav-copy">
-                    <strong>{section.label}</strong>
-                    <span>{section.description}</span>
-                  </span>
-                </button>
+            <p className="eyebrow">Категории</p>
+            <nav className="aps-nav aps-nav-grouped" aria-label="Навигация по настройкам">
+              {visibleGroups.map((group) => (
+                <div key={group.key} className="aps-nav-group">
+                  <button
+                    type="button"
+                    className={`aps-nav-group-trigger ${activeGroup === group.key ? "active" : ""}`}
+                    onClick={() => {
+                      setActiveGroup(group.key);
+                      const firstSection = group.sections[0];
+                      if (firstSection) handleSelectSection(firstSection);
+                    }}
+                  >
+                    <strong>{group.label}</strong>
+                    <span>{group.description}</span>
+                  </button>
+                  <div className="aps-nav-group-items">
+                    {group.sections.map((sectionKey) => {
+                      const section = getSectionMeta(sectionKey);
+                      const dirty = sectionIsDirty(sectionKey);
+                      return (
+                        <button
+                          key={section.key}
+                          type="button"
+                          className={`aps-nav-link ${activeSection === section.key ? "active" : ""}`}
+                          onClick={() => handleSelectSection(section.key)}
+                        >
+                          <span className="aps-nav-index">{section.icon}</span>
+                          <span className="aps-nav-copy">
+                            <strong>
+                              {section.label}
+                              {dirty ? <span className="aps-nav-dirty" aria-hidden /> : null}
+                            </strong>
+                            <span>{section.description}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
             </nav>
             <p className="muted-text aps-sidebar-note">
-              Переключайте разделы для редактирования, затем сохраняйте все текущие изменения формы.
+              Несохранённые разделы отмечены точкой. «Сбросить» возвращает значения с сервера.
             </p>
           </div>
         </aside>
 
         <div className="aps-main">
           <div className="aps-mobile-sections">
-            {visibleSections.map((section) => (
-              <div key={section.key} className="aps-mobile-item">
-                <button
-                  type="button"
-                  className="aps-mobile-trigger"
-                  aria-expanded={expandedSections.has(section.key)}
-                  onClick={() => toggleMobileSection(section.key)}
-                >
-                  <span className="aps-mobile-trigger-copy">
-                    <span className="aps-section-mark">{section.icon}</span>
-                    <span>
-                      <strong>{section.label}</strong>
-                      <small>{section.description}</small>
-                    </span>
-                  </span>
-                  <span className="aps-mobile-chevron">⌄</span>
-                </button>
-                {expandedSections.has(section.key) ? (
-                  <div className="aps-mobile-body">
-                    <SectionShell meta={section} actions={renderSectionActions(section.key)}>
-                      {renderSectionContent[section.key]()}
-                    </SectionShell>
-                  </div>
-                ) : null}
+            {visibleGroups.map((group) => (
+              <div key={group.key} className="aps-mobile-group">
+                <p className="aps-mobile-group-label">{group.label}</p>
+                {group.sections.map((sectionKey) => {
+                  const section = getSectionMeta(sectionKey);
+                  return (
+                    <div key={section.key} className="aps-mobile-item">
+                      <button
+                        type="button"
+                        className="aps-mobile-trigger"
+                        aria-expanded={expandedSections.has(section.key)}
+                        onClick={() => toggleMobileSection(section.key)}
+                      >
+                        <span className="aps-mobile-trigger-copy">
+                          <span className="aps-section-mark">{section.icon}</span>
+                          <span>
+                            <strong>
+                              {section.label}
+                              {sectionIsDirty(section.key) ? (
+                                <span className="aps-section-dirty">Изменено</span>
+                              ) : null}
+                            </strong>
+                            <small>{section.description}</small>
+                          </span>
+                        </span>
+                        <span className="aps-mobile-chevron">⌄</span>
+                      </button>
+                      {expandedSections.has(section.key) ? (
+                        <div className="aps-mobile-body">
+                          <SectionShell
+                            meta={section}
+                            dirty={sectionIsDirty(section.key)}
+                            actions={renderSectionActions(section.key)}
+                          >
+                            {renderSectionContent[section.key]()}
+                          </SectionShell>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
 
           <div className="aps-desktop-sections">
-            {visibleSections.filter((section) => section.key === activeSection).map((section) => (
-              <SectionShell
-                key={section.key}
-                meta={section}
-                actions={renderSectionActions(section.key)}
-              >
-                {renderSectionContent[section.key]()}
-              </SectionShell>
-            ))}
+            {visibleSections
+              .filter((section) => section.key === activeSection)
+              .map((section) => (
+                <SectionShell
+                  key={section.key}
+                  meta={section}
+                  dirty={sectionIsDirty(section.key)}
+                  actions={renderSectionActions(section.key)}
+                >
+                  {renderSectionContent[section.key]()}
+                </SectionShell>
+              ))}
           </div>
         </div>
       </div>
