@@ -4,6 +4,15 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.15.9] — 2026-06-10
+
+### Исправлено
+
+- **Crypto-Cash**: добавлен отсутствующий import `get_api_usage_service` в `crypto_cash.py` — исходящие запросы к провайдеру больше не падают с `NameError`.
+- **Split deploy (API)**: `cryptoprocessing-remote.service` слушает `0.0.0.0:8000` — после `update-server-api.sh` сайт не получает 502 из‑за недоступного upstream.
+
+---
+
 ## [0.15.8] — 2026-06-10
 
 ### Изменено
