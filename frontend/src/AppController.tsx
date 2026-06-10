@@ -467,13 +467,28 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     };
   }, [token, user, selectedTenantId, selectedInvoiceId]);
 
+  async function loadMerchantDeferredData(accessToken: string) {
+    const [accountingSummary, ratesResponse, webhookItems, notificationSettings, twoFactor] =
+      await Promise.all([
+        safeLoad(() => fetchClientAccountingSummary(accessToken), null),
+        safeLoad(() => fetchRates(accessToken), { items: [] }),
+        safeLoad(() => fetchWebhookConfigs(accessToken), []),
+        safeLoad(() => fetchClientNotificationSettings(accessToken), null),
+        safeLoad(() => fetchTwoFactorStatus(accessToken), null),
+      ]);
+    setClientAccounting(accountingSummary);
+    setRates(ratesResponse.items);
+    setWebhookConfigs(webhookItems);
+    setClientNotificationSettings(notificationSettings);
+    setTwoFactorStatus(twoFactor);
+  }
+
   async function loadSession(accessToken: string) {
     try {
       setLoading(true);
       setError(null);
       const currentUser = await fetchCurrentUser(accessToken);
       setUser(currentUser);
-      setTwoFactorStatus(await safeLoad(() => fetchTwoFactorStatus(accessToken), null));
       setTwoFactorSetup(null);
       setClientNotificationSettings(null);
 
@@ -625,7 +640,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       const onboardingStatus = await fetchOnboardingStatus(accessToken);
       setOnboarding(onboardingStatus);
       if (onboardingStatus.tenant_status === "approved") {
-        const [projectItems, apiKeyItems, invoiceItems, balanceInfo, transactionItems, payoutItems, accountingSummary, ratesResponse, webhookItems, notificationSettings] =
+        const [projectItems, apiKeyItems, invoiceItems, balanceInfo, transactionItems, payoutItems] =
           await Promise.all([
             fetchProjects(accessToken),
             fetchApiKeys(accessToken),
@@ -633,10 +648,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
             fetchBalance(accessToken),
             fetchClientTransactions(accessToken),
             fetchClientPayouts(accessToken),
-            fetchClientAccountingSummary(accessToken),
-            fetchRates(accessToken),
-            fetchWebhookConfigs(accessToken),
-            fetchClientNotificationSettings(accessToken),
           ]);
         setProjects(projectItems);
         setApiKeys(apiKeyItems);
@@ -644,19 +655,15 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
         setBalance(balanceInfo);
         setClientTransactions(transactionItems);
         setPayouts(payoutItems);
-        setClientAccounting(accountingSummary);
-        setRates(ratesResponse.items);
-        setWebhookConfigs(webhookItems);
-        setClientNotificationSettings(notificationSettings);
         if (invoiceItems.length > 0) {
-          const invoiceId = selectedClientInvoiceId ?? invoiceItems[0].id;
-          setSelectedClientInvoiceId(invoiceId);
-          setSelectedClientInvoiceDetail(await fetchClientInvoiceDetail(accessToken, invoiceId));
+          setSelectedClientInvoiceId(selectedClientInvoiceId ?? invoiceItems[0].id);
         } else {
           setSelectedClientInvoiceId(null);
-          setSelectedClientInvoiceDetail(null);
-          setIsClientInvoiceModalOpen(false);
         }
+        setSelectedClientInvoiceDetail(null);
+        setIsClientInvoiceModalOpen(false);
+        setLoading(false);
+        void loadMerchantDeferredData(accessToken);
       } else {
         setProjects([]);
         setApiKeys([]);

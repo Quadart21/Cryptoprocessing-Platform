@@ -74,7 +74,6 @@ export function ReceivableList({
     if (!canSyncInvoices || !onRefreshInvoices || !hasActiveInvoiceStatus(invoices)) {
       return;
     }
-    onRefreshInvoices();
     const timer = window.setInterval(onRefreshInvoices, POLL_ACTIVE_INVOICES_MS);
     return () => window.clearInterval(timer);
   }, [canSyncInvoices, onRefreshInvoices, invoices]);

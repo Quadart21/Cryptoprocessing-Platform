@@ -1,7 +1,6 @@
-from collections import defaultdict
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -22,6 +21,9 @@ from app.services.billing_policy_service import BillingPolicyService
 from app.services.cache_service import get_cache_service
 from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.statistics_exclusion_service import StatisticsExclusionService
+
+_ZERO = Decimal("0")
+_PAID_STATUSES = ("paid", "confirmed")
 
 
 class AccountingService:
@@ -45,71 +47,115 @@ class AccountingService:
             except Exception:
                 cache.delete(cache_key)
 
-        invoice_stmt = select(Invoice)
-        if tenant_id is not None:
-            invoice_stmt = invoice_stmt.where(Invoice.tenant_id == tenant_id)
-        else:
-            excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
-            if excluded:
-                invoice_stmt = invoice_stmt.where(Invoice.tenant_id.not_in(excluded))
+        invoice_filters = await self._invoice_filters(tenant_id)
+        latest_tx = self._latest_transaction_subquery()
 
-        invoices = list((await self.db.scalars(invoice_stmt)).all())
-        invoice_ids = [invoice.id for invoice in invoices]
-        transactions_by_invoice: dict[str, Transaction] = {}
-        if invoice_ids:
-            transaction_rows = list(
-                (
-                    await self.db.scalars(
-                        select(Transaction).where(Transaction.invoice_id.in_(invoice_ids))
-                    )
-                ).all()
+        status_rows = (
+            await self.db.execute(
+                select(Invoice.status, func.count())
+                .where(*invoice_filters)
+                .group_by(Invoice.status)
             )
-            transactions_by_invoice = {
-                transaction.invoice_id: transaction for transaction in transaction_rows
-            }
+        ).all()
+        status_counts = {status: count for status, count in status_rows}
 
-        invoices_total_count = len(invoices)
-        invoices_paid = [invoice for invoice in invoices if invoice.status in {"paid", "confirmed"}]
-        invoices_confirmed = [invoice for invoice in invoices if invoice.status == "confirmed"]
-        invoices_failed = [invoice for invoice in invoices if invoice.status == "failed"]
-        invoices_expired = [
-            invoice for invoice in invoices if invoice.status in {"expired", "cancelled"}
-        ]
+        invoices_total_count = sum(status_counts.values())
+        invoices_paid_count = sum(status_counts.get(status, 0) for status in _PAID_STATUSES)
+        invoices_confirmed_count = status_counts.get("confirmed", 0)
+        invoices_failed_count = status_counts.get("failed", 0)
+        invoices_expired_count = sum(
+            status_counts.get(status, 0) for status in ("expired", "cancelled")
+        )
 
-        invoices_total_amount = Decimal("0")
-        invoices_paid_amount = Decimal("0")
-        invoices_confirmed_amount = Decimal("0")
-        gross_amount = Decimal("0")
-        provider_fee_amount = Decimal("0")
-        platform_fee_amount = Decimal("0")
-        turnover_fee_amount = Decimal("0")
-        net_amount = Decimal("0")
+        invoice_value = case(
+            (
+                and_(
+                    Invoice.status.in_(_PAID_STATUSES),
+                    latest_tx.c.gross_amount.is_not(None),
+                    latest_tx.c.gross_amount > 0,
+                ),
+                latest_tx.c.gross_amount,
+            ),
+            else_=Invoice.amount_fiat,
+        )
 
-        from app.services.invoice_service import InvoiceService
+        invoices_total_amount = Decimal(
+            (
+                await self.db.scalar(
+                    select(func.coalesce(func.sum(invoice_value), 0))
+                    .select_from(Invoice)
+                    .outerjoin(latest_tx, latest_tx.c.invoice_id == Invoice.id)
+                    .where(*invoice_filters)
+                )
+            )
+            or 0
+        )
 
-        invoice_service = InvoiceService(self.db)
+        paid_financials = (
+            await self.db.execute(
+                select(
+                    func.coalesce(func.sum(latest_tx.c.gross_amount), 0),
+                    func.coalesce(func.sum(latest_tx.c.provider_fee), 0),
+                    func.coalesce(func.sum(latest_tx.c.platform_fee), 0),
+                    func.coalesce(func.sum(latest_tx.c.turnover_fee), 0),
+                    func.coalesce(func.sum(latest_tx.c.net_amount), 0),
+                    func.count(),
+                )
+                .select_from(Invoice)
+                .join(latest_tx, latest_tx.c.invoice_id == Invoice.id)
+                .where(*invoice_filters)
+                .where(Invoice.status.in_(_PAID_STATUSES))
+                .where(latest_tx.c.gross_amount > 0)
+            )
+        ).one()
 
-        for invoice in invoices:
-            transaction = transactions_by_invoice.get(invoice.id)
-            if (
-                invoice.status in {"paid", "confirmed"}
-                and transaction is not None
-                and transaction.gross_amount > Decimal("0")
-            ):
-                fiat_value = Decimal(transaction.gross_amount)
-            else:
-                fiat_value = Decimal(invoice.amount_fiat)
-            invoices_total_amount += fiat_value
+        gross_amount = Decimal(paid_financials[0] or 0)
+        provider_fee_amount = Decimal(paid_financials[1] or 0)
+        platform_fee_amount = Decimal(paid_financials[2] or 0)
+        turnover_fee_amount = Decimal(paid_financials[3] or 0)
+        net_amount = Decimal(paid_financials[4] or 0)
+        settled_paid_count = int(paid_financials[5] or 0)
 
-        for invoice in invoices_paid:
-            transaction = transactions_by_invoice.get(invoice.id)
-            if transaction is not None and transaction.gross_amount > Decimal("0"):
-                fiat_value = Decimal(transaction.gross_amount)
-                provider_fee = Decimal(transaction.provider_fee)
-                platform_fee = Decimal(transaction.platform_fee)
-                turnover_fee = Decimal(transaction.turnover_fee)
-                invoice_net = Decimal(transaction.net_amount)
-            else:
+        invoices_paid_amount = gross_amount
+        invoices_confirmed_amount = Decimal(
+            (
+                await self.db.scalar(
+                    select(
+                        func.coalesce(
+                            func.sum(
+                                case(
+                                    (
+                                        latest_tx.c.gross_amount > 0,
+                                        latest_tx.c.gross_amount,
+                                    ),
+                                    else_=Invoice.amount_fiat,
+                                )
+                            ),
+                            0,
+                        )
+                    )
+                    .select_from(Invoice)
+                    .outerjoin(latest_tx, latest_tx.c.invoice_id == Invoice.id)
+                    .where(*invoice_filters)
+                    .where(Invoice.status == "confirmed")
+                )
+            )
+            or 0
+        )
+
+        unsettled_paid = await self.db.scalars(
+            select(Invoice)
+            .outerjoin(latest_tx, latest_tx.c.invoice_id == Invoice.id)
+            .where(*invoice_filters)
+            .where(Invoice.status.in_(_PAID_STATUSES))
+            .where(or_(latest_tx.c.invoice_id.is_(None), latest_tx.c.gross_amount <= 0))
+        )
+        unsettled_invoices = list(unsettled_paid.all())
+        if unsettled_invoices:
+            from app.services.invoice_service import InvoiceService
+
+            invoice_service = InvoiceService(self.db)
+            for invoice in unsettled_invoices:
                 try:
                     fiat_value = await invoice_service.resolve_accounting_gross_amount(
                         amount_crypto=Decimal(invoice.amount_crypto),
@@ -129,46 +175,42 @@ class AccountingService:
                     gross_amount=fiat_value,
                     fiat_currency=invoice.fiat_currency,
                 )
-            invoices_paid_amount += fiat_value
-            gross_amount += fiat_value
-            provider_fee_amount += provider_fee
-            platform_fee_amount += platform_fee
-            turnover_fee_amount += turnover_fee
-            net_amount += invoice_net
-
-        for invoice in invoices_confirmed:
-            transaction = transactions_by_invoice.get(invoice.id)
-            if transaction is not None and transaction.gross_amount > Decimal("0"):
-                fiat_value = Decimal(transaction.gross_amount)
-            else:
-                try:
-                    fiat_value = await invoice_service.resolve_accounting_gross_amount(
-                        amount_crypto=Decimal(invoice.amount_crypto),
-                        crypto_currency=invoice.crypto_currency,
-                        fiat_currency=invoice.fiat_currency,
-                        exchange_rate_markup=exchange_rate_markup,
-                    )
-                except ValueError:
-                    fiat_value = Decimal(invoice.amount_fiat)
-            invoices_confirmed_amount += fiat_value
+                invoices_paid_amount += fiat_value
+                gross_amount += fiat_value
+                provider_fee_amount += provider_fee
+                platform_fee_amount += platform_fee
+                turnover_fee_amount += turnover_fee
+                net_amount += invoice_net
+                if invoice.status == "confirmed":
+                    invoices_confirmed_amount += fiat_value
 
         total_platform_revenue_amount = platform_fee_amount + turnover_fee_amount
+        paid_count_for_average = settled_paid_count + len(unsettled_invoices)
         average_invoice_amount = (
-            (invoices_paid_amount / len(invoices_paid))
-            if len(invoices_paid) > 0
-            else Decimal("0")
+            (invoices_paid_amount / paid_count_for_average)
+            if paid_count_for_average > 0
+            else _ZERO
         )
 
-        crypto_amounts = await self._calculate_crypto_amounts(invoices, exchange_rate_markup)
+        crypto_rows = (
+            await self.db.execute(
+                select(Invoice.crypto_currency, func.coalesce(func.sum(Invoice.amount_crypto), 0))
+                .where(*invoice_filters)
+                .where(Invoice.status.in_(_PAID_STATUSES))
+                .where(Invoice.amount_crypto > 0)
+                .group_by(Invoice.crypto_currency)
+            )
+        ).all()
+        crypto_amounts = await self._crypto_amounts_from_totals(crypto_rows, exchange_rate_markup)
         total_usd_value = self._calculate_total_usd_value(crypto_amounts)
 
         payload = AccountingSummaryResponse(
             tenant_id=tenant_id,
             invoices_total_count=invoices_total_count,
-            invoices_paid_count=len(invoices_paid),
-            invoices_confirmed_count=len(invoices_confirmed),
-            invoices_failed_count=len(invoices_failed),
-            invoices_expired_count=len(invoices_expired),
+            invoices_paid_count=invoices_paid_count,
+            invoices_confirmed_count=invoices_confirmed_count,
+            invoices_failed_count=invoices_failed_count,
+            invoices_expired_count=invoices_expired_count,
             invoices_total_amount=invoices_total_amount,
             invoices_paid_amount=invoices_paid_amount,
             invoices_confirmed_amount=invoices_confirmed_amount,
@@ -222,11 +264,11 @@ class AccountingService:
             bucket = per_tenant.setdefault(
                 tenant_key,
                 {
-                    "available": Decimal("0"),
-                    "pending": Decimal("0"),
-                    "frozen": Decimal("0"),
-                    "locked": Decimal("0"),
-                    "withdrawn": Decimal("0"),
+                    "available": _ZERO,
+                    "pending": _ZERO,
+                    "frozen": _ZERO,
+                    "locked": _ZERO,
+                    "withdrawn": _ZERO,
                 },
             )
             bucket["available"] = Decimal(bucket["available"]) + Decimal(row.available_amount)
@@ -251,7 +293,7 @@ class AccountingService:
         pending_payouts = list((await self.db.scalars(payout_stmt)).all())
         payouts_pending_amount = sum(
             (Decimal(item.amount_requested) for item in pending_payouts),
-            Decimal("0"),
+            _ZERO,
         )
 
         tenant_stmt = select(Tenant)
@@ -294,7 +336,7 @@ class AccountingService:
             1 for tenant in tenants if tenant.status in {"approved", "active"}
         )
         tenants_with_balance_count = sum(
-            1 for item in tenant_snapshots if Decimal(item.on_accounts) > Decimal("0")
+            1 for item in tenant_snapshots if Decimal(item.on_accounts) > _ZERO
         )
 
         from app.services.platform_earnings_service import PlatformEarningsService
@@ -331,36 +373,72 @@ class AccountingService:
         )
         return payload
 
-    async def _calculate_crypto_amounts(
+    async def _invoice_filters(self, tenant_id: str | None) -> list:
+        if tenant_id is not None:
+            return [Invoice.tenant_id == tenant_id]
+        excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
+        if excluded:
+            return [Invoice.tenant_id.not_in(excluded)]
+        return []
+
+    def _latest_transaction_subquery(self):
+        latest_created = (
+            select(
+                Transaction.invoice_id.label("invoice_id"),
+                func.max(Transaction.created_at).label("created_at"),
+            )
+            .group_by(Transaction.invoice_id)
+            .subquery("latest_tx_created")
+        )
+        return (
+            select(
+                Transaction.invoice_id.label("invoice_id"),
+                Transaction.gross_amount.label("gross_amount"),
+                Transaction.provider_fee.label("provider_fee"),
+                Transaction.platform_fee.label("platform_fee"),
+                Transaction.turnover_fee.label("turnover_fee"),
+                Transaction.net_amount.label("net_amount"),
+            )
+            .join(
+                latest_created,
+                and_(
+                    Transaction.invoice_id == latest_created.c.invoice_id,
+                    Transaction.created_at == latest_created.c.created_at,
+                ),
+            )
+            .subquery("latest_tx")
+        )
+
+    async def _crypto_amounts_from_totals(
         self,
-        invoices: list[Invoice],
+        crypto_rows: list,
         exchange_rate_markup: Decimal,
     ) -> list[CryptoAmount]:
-        crypto_totals: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
-
-        for invoice in invoices:
-            if invoice.status in {"paid", "confirmed"} and invoice.amount_crypto and invoice.crypto_currency:
-                currency = invoice.crypto_currency.upper()
-                crypto_totals[currency] += invoice.amount_crypto
-
         rate_service = get_exchange_rate_service()
-        markup_percent = exchange_rate_markup
-
-        result = []
-        for currency, amount in sorted(crypto_totals.items()):
-            if amount > 0:
-                usd_value = await rate_service.convert_to_fiat(amount, currency, "USD", markup_percent)
-                usd = usd_value if usd_value is not None else Decimal("0")
-                result.append(CryptoAmount(
-                    currency=currency,
-                    amount=amount.quantize(Decimal("0.00000001")),
+        result: list[CryptoAmount] = []
+        for currency, amount in sorted(crypto_rows, key=lambda row: row[0]):
+            crypto_amount = Decimal(amount or 0)
+            if crypto_amount <= 0:
+                continue
+            normalized_currency = str(currency).upper()
+            usd_value = await rate_service.convert_to_fiat(
+                crypto_amount,
+                normalized_currency,
+                "USD",
+                exchange_rate_markup,
+            )
+            usd = usd_value if usd_value is not None else _ZERO
+            result.append(
+                CryptoAmount(
+                    currency=normalized_currency,
+                    amount=crypto_amount.quantize(Decimal("0.00000001")),
                     usd_value=usd,
-                ))
-
+                )
+            )
         return result
 
     def _calculate_total_usd_value(self, crypto_amounts: list[CryptoAmount]) -> Decimal:
-        return sum((ca.usd_value for ca in crypto_amounts), Decimal("0"))
+        return sum((ca.usd_value for ca in crypto_amounts), _ZERO)
 
     @classmethod
     def invalidate_cache(cls, tenant_id: str | None = None) -> None:
