@@ -6,15 +6,23 @@ import { invoiceAccountingReady } from "../../utils/invoiceAccounting";
 type InvoiceSettlementBreakdownProps = {
   settlement: InvoiceSettlement | null | undefined;
   invoiceStatus: string;
+  exchangeRate?: string | null;
+  exchangeRateCurrency?: string | null;
 };
 
 function formatMoney(amount: string, currency: string): string {
   return `${formatDecimal(amount)} ${currency}`;
 }
 
+function formatRate(value: string, currency: string): string {
+  return `${formatDecimal(value, { maxFractionDigits: 8 })} ${currency}`;
+}
+
 export function InvoiceSettlementBreakdown({
   settlement,
   invoiceStatus,
+  exchangeRate,
+  exchangeRateCurrency,
 }: InvoiceSettlementBreakdownProps) {
   const { t } = useTranslation();
 
@@ -46,6 +54,12 @@ export function InvoiceSettlementBreakdown({
           <dt>{t("merchant.widgets.invoiceSettlementBreakdown.clientSent")}</dt>
           <dd>{formatMoney(settlement.amount_crypto, settlement.crypto_currency)}</dd>
         </div>
+        {exchangeRate && exchangeRateCurrency ? (
+          <div className="invoice-settlement-row">
+            <dt>{t("common.settlementRate")}</dt>
+            <dd>{formatRate(exchangeRate, exchangeRateCurrency)}</dd>
+          </div>
+        ) : null}
         <div className="invoice-settlement-row invoice-settlement-row--highlight">
           <dt>
             {t("merchant.widgets.invoiceSettlementBreakdown.creditIn", { currency: settlement.currency })}

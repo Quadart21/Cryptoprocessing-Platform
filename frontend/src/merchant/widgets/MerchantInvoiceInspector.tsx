@@ -270,7 +270,12 @@ export function MerchantInvoiceInspector({
             ) : null}
           </div>
 
-          <InvoiceSettlementBreakdown invoiceStatus={invoice.status} settlement={invoice.settlement} />
+          <InvoiceSettlementBreakdown
+            exchangeRate={invoice.transaction_details?.exchange_rate}
+            exchangeRateCurrency={invoice.transaction_details?.exchange_rate_currency}
+            invoiceStatus={invoice.status}
+            settlement={invoice.settlement}
+          />
 
           {showAccounting && invoice.transaction_details ? (
             <InvoiceTransactionDetailsCard details={invoice.transaction_details} />

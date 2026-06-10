@@ -1271,7 +1271,7 @@ async def _map_invoice_detail_response(
         db,
         invoice,
         transaction,
-        include_exchange_rate=False,
+        include_exchange_rate=invoice.status == "confirmed",
         merchant_view=True,
     )
     return InvoiceDetailResponse(

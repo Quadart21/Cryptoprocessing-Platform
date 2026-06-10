@@ -755,6 +755,17 @@ export function AdminClientDetailSection({
                           <span>Сеть</span>
                           <strong>{selectedInvoiceDetail.network}</strong>
                         </div>
+                        {selectedInvoiceDetail.transaction_details?.exchange_rate ? (
+                          <div className="detail-chip">
+                            <span>Курс settlement</span>
+                            <strong>
+                              {formatDecimal(selectedInvoiceDetail.transaction_details.exchange_rate, {
+                                maxFractionDigits: 8,
+                              })}{" "}
+                              {selectedInvoiceDetail.transaction_details.exchange_rate_currency}
+                            </strong>
+                          </div>
+                        ) : null}
                       </div>
                       {selectedInvoiceDetail.transaction_details ? (
                         <InvoiceTransactionDetailsCard
