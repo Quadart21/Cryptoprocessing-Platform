@@ -245,6 +245,19 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
             </div>
           </header>
           <form className="panel-body stack-gap" onSubmit={(event) => void handleSaveSettings(event)}>
+            <ol className="muted-text stack-gap" style={{ margin: 0, paddingLeft: "1.2rem" }}>
+              <li>
+                В Google Cloud Console того же проекта, что и JSON-ключ, включите{" "}
+                <strong>Google Drive API</strong> (
+                <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" rel="noreferrer" target="_blank">
+                  APIs &amp; Services → Library
+                </a>
+                ).
+              </li>
+              <li>Создайте service account, скачайте JSON и вставьте его ниже.</li>
+              <li>Создайте папку в Google Drive и расшарьте её на <code>client_email</code> из JSON (роль «Редактор»).</li>
+              <li>Вставьте ID папки из URL и нажмите «Проверить доступ».</li>
+            </ol>
             <p>
               Статус ключей:{" "}
               <strong>{settings?.google_credentials_configured ? "заданы" : "не заданы"}</strong>

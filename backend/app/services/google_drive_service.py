@@ -103,6 +103,22 @@ class GoogleDriveService:
     def _http_error_message(exc: HttpError) -> str:
         try:
             payload = json.loads(exc.content.decode("utf-8"))
-            return str(payload.get("error", {}).get("message") or exc.reason or "Google Drive error")
+            message = str(payload.get("error", {}).get("message") or exc.reason or "Google Drive error")
         except Exception:
-            return str(exc.reason or "Google Drive error")
+            message = str(exc.reason or "Google Drive error")
+
+        lowered = message.lower()
+        if "has not been used in project" in lowered or "drive.googleapis.com" in lowered and "disabled" in lowered:
+            project_hint = ""
+            if "project " in lowered:
+                tail = message.split("project ", 1)[1]
+                project_id = tail.split(" ", 1)[0].strip().rstrip(".,")
+                if project_id:
+                    project_hint = (
+                        f" Включите API: https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project={project_id}"
+                    )
+            return (
+                "Google Drive API не включён в Google Cloud проекте service account."
+                f"{project_hint} После включения подождите 2–5 минут и повторите."
+            )
+        return message
