@@ -72,8 +72,13 @@ async def test_backup_drive_settings(
     _: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> BackupDriveTestResponse:
-    ok, message, folder_name = await BackupService(db).test_drive_connection()
-    return BackupDriveTestResponse(ok=ok, message=message, folder_name=folder_name)
+    ok, message, folder_name, service_account_email = await BackupService(db).test_drive_connection()
+    return BackupDriveTestResponse(
+        ok=ok,
+        message=message,
+        folder_name=folder_name,
+        service_account_email=service_account_email,
+    )
 
 
 @router.get("/jobs", response_model=list[BackupJobResponse])

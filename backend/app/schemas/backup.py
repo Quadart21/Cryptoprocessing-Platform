@@ -58,3 +58,4 @@ class BackupDriveTestResponse(BaseModel):
     ok: bool
     message: str
     folder_name: str | None = None
+    service_account_email: str | None = None

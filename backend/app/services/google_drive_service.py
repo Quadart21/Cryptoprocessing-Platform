@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
+from io import BytesIO
+from typing import Any
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaFileUpload
+from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -92,49 +95,135 @@ class GoogleDriveService:
             return None
         return decrypt_value(raw)
 
-    def upload_file(self, credentials_json: str, folder_id: str, file_path: str, file_name: str) -> tuple[str, str]:
+    @staticmethod
+    def _build_service(credentials_json: str):
         info = json.loads(credentials_json)
         credentials = service_account.Credentials.from_service_account_info(info, scopes=DRIVE_SCOPES)
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+        client_email = str(info.get("client_email") or "").strip()
+        return service, client_email
+
+    @staticmethod
+    def _drive_execute_with_shared_drive_fallback(action):
+        last_exc: HttpError | None = None
+        for supports_all_drives in (False, True):
+            try:
+                return action(supports_all_drives)
+            except HttpError as exc:
+                last_exc = exc
+                if exc.resp is not None and exc.resp.status == 404 and not supports_all_drives:
+                    continue
+                raise
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("Google Drive request failed.")
+
+    def upload_file(self, credentials_json: str, folder_id: str, file_path: str, file_name: str) -> tuple[str, str]:
+        service, client_email = self._build_service(credentials_json)
         metadata = {"name": file_name, "parents": [folder_id]}
         media = MediaFileUpload(file_path, resumable=True)
-        created = (
-            service.files()
-            .create(
-                body=metadata,
-                media_body=media,
-                fields="id, webViewLink",
-                supportsAllDrives=True,
+
+        def _create(supports_all_drives: bool) -> dict[str, Any]:
+            return (
+                service.files()
+                .create(
+                    body=metadata,
+                    media_body=media,
+                    fields="id, webViewLink",
+                    supportsAllDrives=supports_all_drives,
+                )
+                .execute()
             )
-            .execute()
-        )
+
+        try:
+            created = self._drive_execute_with_shared_drive_fallback(_create)
+        except HttpError as exc:
+            raise ValueError(
+                self._http_error_message(exc, client_email=client_email, folder_id=folder_id),
+            ) from exc
         return str(created["id"]), str(created.get("webViewLink") or "")
 
-    def test_folder_access(self, credentials_json: str, folder_id: str) -> tuple[bool, str, str | None]:
-        info = json.loads(credentials_json)
-        credentials = service_account.Credentials.from_service_account_info(info, scopes=DRIVE_SCOPES)
-        service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+    def test_folder_access(
+        self,
+        credentials_json: str,
+        folder_id: str,
+    ) -> tuple[bool, str, str | None, str | None]:
+        service, client_email = self._build_service(credentials_json)
+        folder_name = self._try_read_folder_name(service, folder_id)
+
+        test_name = f".cryptoprocessing-access-test-{int(time.time())}.txt"
+        test_file_id: str | None = None
+
+        def _create(supports_all_drives: bool) -> dict[str, Any]:
+            return (
+                service.files()
+                .create(
+                    body={"name": test_name, "parents": [folder_id]},
+                    media_body=MediaIoBaseUpload(BytesIO(b"ok"), mimetype="text/plain", resumable=False),
+                    fields="id",
+                    supportsAllDrives=supports_all_drives,
+                )
+                .execute()
+            )
+
         try:
-            folder = (
+            created = self._drive_execute_with_shared_drive_fallback(_create)
+            test_file_id = str(created["id"])
+        except HttpError as exc:
+            message = self._http_error_message(exc, client_email=client_email, folder_id=folder_id)
+            return False, message, folder_name, client_email or None
+
+        if test_file_id:
+            self._try_delete_file(service, test_file_id)
+
+        if folder_name:
+            return True, f"Доступ подтверждён: запись в папку «{folder_name}» работает.", folder_name, client_email or None
+        return (
+            True,
+            "Доступ подтверждён: service account может создавать файлы в указанной папке.",
+            None,
+            client_email or None,
+        )
+
+    def _try_read_folder_name(self, service, folder_id: str) -> str | None:
+        def _get(supports_all_drives: bool) -> dict[str, Any]:
+            return (
                 service.files()
                 .get(
                     fileId=folder_id,
                     fields="id, name, mimeType, trashed",
-                    supportsAllDrives=True,
+                    supportsAllDrives=supports_all_drives,
                 )
                 .execute()
             )
-        except HttpError as exc:
-            message = self._http_error_message(exc)
-            return False, message, None
+
+        try:
+            folder = self._drive_execute_with_shared_drive_fallback(_get)
+        except HttpError:
+            return None
         if folder.get("trashed"):
-            return False, "Папка Google Drive находится в корзине.", None
+            return None
         if folder.get("mimeType") != "application/vnd.google-apps.folder":
-            return False, "Указанный ID не является папкой Google Drive.", None
-        return True, "Доступ к папке подтверждён.", str(folder.get("name") or "")
+            return None
+        return str(folder.get("name") or "") or None
 
     @staticmethod
-    def _http_error_message(exc: HttpError) -> str:
+    def _try_delete_file(service, file_id: str) -> None:
+        def _delete(supports_all_drives: bool) -> None:
+            service.files().delete(fileId=file_id, supportsAllDrives=supports_all_drives).execute()
+
+        try:
+            GoogleDriveService._drive_execute_with_shared_drive_fallback(_delete)
+        except HttpError:
+            logger.warning("Failed to delete Google Drive access test file %s", file_id)
+
+    @staticmethod
+    def _http_error_message(
+        exc: HttpError,
+        *,
+        client_email: str = "",
+        folder_id: str = "",
+    ) -> str:
         try:
             payload = json.loads(exc.content.decode("utf-8"))
             message = str(payload.get("error", {}).get("message") or exc.reason or "Google Drive error")
@@ -149,16 +238,20 @@ class GoogleDriveService:
                 project_id = tail.split(" ", 1)[0].strip().rstrip(".,")
                 if project_id:
                     project_hint = (
-                        f" Включите API: https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project={project_id}"
+                        " Включите API: "
+                        f"https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project={project_id}"
                     )
             return (
                 "Google Drive API не включён в Google Cloud проекте service account."
                 f"{project_hint} После включения подождите 2–5 минут и повторите."
             )
         if exc.resp is not None and exc.resp.status == 404:
+            email_hint = f" Текущий service account: {client_email}." if client_email else ""
+            folder_hint = f" ID папки: {folder_id}." if folder_id else ""
             return (
-                "Папка не найдена или service account не имеет к ней доступа. "
-                "Укажите только ID папки (не полную ссылку), расшарьте папку на email service account "
-                "из JSON (роль «Редактор») и повторите проверку."
+                "Google Drive не даёт записать файл в эту папку."
+                f"{email_hint}{folder_hint} "
+                "Проверьте, что в «Поделиться» указан именно этот email service account с ролью «Редактор». "
+                "Если уже расшарено — удалите доступ, подождите минуту, добавьте снова или создайте новую папку."
             )
         return message

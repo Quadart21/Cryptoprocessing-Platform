@@ -903,6 +903,7 @@ export type BackupDriveTestResponse = {
   ok: boolean;
   message: string;
   folder_name: string | null;
+  service_account_email: string | null;
 };
 
 function formatValidationDetail(detail: unknown): string | null {

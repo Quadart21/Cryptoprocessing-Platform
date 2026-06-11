@@ -209,14 +209,14 @@ class BackupService:
             await self.db.commit()
             return job
 
-    async def test_drive_connection(self) -> tuple[bool, str, str | None]:
+    async def test_drive_connection(self) -> tuple[bool, str, str | None, str | None]:
         row = await self.get_settings()
         folder_id = (row.google_drive_folder_id or "").strip()
         credentials_json = await self.drive.get_decrypted_credentials_json()
         if not folder_id:
-            return False, "Укажите ID папки Google Drive.", None
+            return False, "Укажите ID папки Google Drive.", None, None
         if not credentials_json:
-            return False, "Загрузите JSON ключ service account.", None
+            return False, "Загрузите JSON ключ service account.", None, None
         return self.drive.test_folder_access(credentials_json, folder_id)
 
     async def run_due_scheduled_backups(self) -> int:

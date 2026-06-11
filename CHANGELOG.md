@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.17.4] — 2026-06-11
+
+### Исправлено
+
+- **Google Drive бэкапы**: проверка доступа через реальную запись тестового файла (не только `files.get`); retry для My Drive и Shared Drives; в ошибке показывается email service account.
+
+---
+
 ## [0.17.3] — 2026-06-11
 
 ### Исправлено
