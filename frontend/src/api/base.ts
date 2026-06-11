@@ -854,6 +854,57 @@ export type MerchantSandboxCreateResponse = {
   public_api_base_url: string;
 };
 
+export type BackupScope = "full" | "database" | "backend" | "frontend";
+export type BackupScheduleFrequency = "daily" | "weekly" | "every_6h" | "every_12h";
+export type BackupStatus = "pending" | "running" | "completed" | "failed";
+
+export type BackupSettings = {
+  google_drive_folder_id: string | null;
+  google_credentials_configured: boolean;
+  google_credentials_email: string | null;
+  upload_to_drive_enabled: boolean;
+  schedule_enabled: boolean;
+  schedule_frequency: BackupScheduleFrequency;
+  schedule_hour_utc: number;
+  schedule_weekday: number;
+  schedule_scopes: BackupScope[];
+  local_retention_count: number;
+  last_scheduled_run_at: string | null;
+};
+
+export type BackupSettingsUpdatePayload = {
+  google_drive_folder_id?: string | null;
+  google_service_account_json?: string | null;
+  upload_to_drive_enabled?: boolean;
+  schedule_enabled?: boolean;
+  schedule_frequency?: BackupScheduleFrequency;
+  schedule_hour_utc?: number;
+  schedule_weekday?: number;
+  schedule_scopes?: BackupScope[];
+  local_retention_count?: number;
+};
+
+export type BackupJobItem = {
+  id: string;
+  scope: BackupScope;
+  trigger: "manual" | "scheduled";
+  status: BackupStatus;
+  file_name: string | null;
+  file_size_bytes: number | null;
+  google_drive_file_id: string | null;
+  google_drive_url: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
+
+export type BackupDriveTestResponse = {
+  ok: boolean;
+  message: string;
+  folder_name: string | null;
+};
+
 function formatValidationDetail(detail: unknown): string | null {
   if (!Array.isArray(detail)) {
     return null;

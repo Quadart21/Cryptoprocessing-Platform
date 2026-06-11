@@ -81,6 +81,13 @@ export type {
   SandboxPlatformSettings,
   MerchantSandboxCreatePayload,
   MerchantSandboxCreateResponse,
+  BackupScope,
+  BackupScheduleFrequency,
+  BackupStatus,
+  BackupSettings,
+  BackupSettingsUpdatePayload,
+  BackupJobItem,
+  BackupDriveTestResponse,
 } from "./base";
 
 export { login, fetchCurrentUser, fetchTwoFactorStatus, setupTwoFactor, enableTwoFactor, disableTwoFactor, changeClientPassword } from "./auth";
@@ -169,6 +176,11 @@ export {
   createMerchantSandbox,
   provisionMerchantSandboxDns,
   destroyMerchantSandbox,
+  fetchBackupSettings,
+  updateBackupSettings,
+  testBackupDriveSettings,
+  fetchBackupJobs,
+  createBackupJob,
 } from "./admin";
 export { fetchPublicPages, fetchPublicPageBySlug, fetchSeoSettings } from "./public";
 export type { SeoSettings } from "./base";

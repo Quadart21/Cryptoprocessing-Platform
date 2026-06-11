@@ -13,7 +13,7 @@ def get_celery_app() -> Celery:
         "cryptorocessing",
         broker=settings.redis_url,
         backend=settings.redis_url,
-        include=["app.tasks.invoice_sync", "app.tasks.balance_holds", "app.tasks.ops_telegram"],
+        include=["app.tasks.invoice_sync", "app.tasks.balance_holds", "app.tasks.ops_telegram", "app.tasks.backups"],
     )
     celery_app.conf.update(
         task_serializer="json",
@@ -47,6 +47,10 @@ def get_celery_app() -> Celery:
         "ops-telegram-daily-report": {
             "task": "app.tasks.ops_telegram.send_ops_daily_report",
             "schedule": crontab(hour=6, minute=0),
+        },
+        "platform-backups-scheduler": {
+            "task": "app.tasks.backups.run_scheduled_backups",
+            "schedule": crontab(minute="*/15"),
         },
     }
     return celery_app

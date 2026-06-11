@@ -50,6 +50,11 @@ export const AdminSandboxSectionLazy = lazy(async () => {
   return { default: m.AdminSandboxSection };
 });
 
+export const AdminBackupsSectionLazy = lazy(async () => {
+  const m = await import("./sections/AdminBackupsSection");
+  return { default: m.AdminBackupsSection };
+});
+
 export const PlatformInvoicesPanelLazy = lazy(async () => {
   const m = await import("./sections/AdminPlatformPanels");
   return { default: m.PlatformInvoicesPanel };

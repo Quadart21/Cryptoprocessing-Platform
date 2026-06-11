@@ -687,3 +687,46 @@ export function destroyMerchantSandbox(token: string, sandboxId: string): Promis
     headers: authHeaders(token),
   });
 }
+
+export function fetchBackupSettings(token: string): Promise<import("./base").BackupSettings> {
+  return request<import("./base").BackupSettings>("/admin/backups/settings", {
+    headers: authHeaders(token),
+  });
+}
+
+export function updateBackupSettings(
+  token: string,
+  payload: import("./base").BackupSettingsUpdatePayload,
+): Promise<import("./base").BackupSettings> {
+  return request<import("./base").BackupSettings>("/admin/backups/settings", {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function testBackupDriveSettings(
+  token: string,
+): Promise<import("./base").BackupDriveTestResponse> {
+  return request<import("./base").BackupDriveTestResponse>("/admin/backups/settings/test-drive", {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
+export function fetchBackupJobs(token: string): Promise<import("./base").BackupJobItem[]> {
+  return request<import("./base").BackupJobItem[]>("/admin/backups/jobs", {
+    headers: authHeaders(token),
+  });
+}
+
+export function createBackupJob(
+  token: string,
+  scope: import("./base").BackupScope,
+): Promise<import("./base").BackupJobItem> {
+  return request<import("./base").BackupJobItem>("/admin/backups/jobs", {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ scope }),
+  });
+}

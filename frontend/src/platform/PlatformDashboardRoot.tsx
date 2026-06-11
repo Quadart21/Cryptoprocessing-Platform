@@ -20,6 +20,7 @@ import {
   AdminPlatformSettingsSectionLazy,
   AdminPublicPagesSectionLazy,
   AdminSandboxSectionLazy,
+  AdminBackupsSectionLazy,
   AdminUsersPanelLazy,
   AssetManagementPageLazy,
   PlatformEventsPanelLazy,
@@ -159,6 +160,12 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
   }, [sandboxConsoleEnabled, section]);
 
   useEffect(() => {
+    if (section === "backups" && !sandboxConsoleEnabled) {
+      setSection("overview");
+    }
+  }, [sandboxConsoleEnabled, section]);
+
+  useEffect(() => {
     if (section !== "platform-settings" || platformBillingSettings || !onReloadPlatformSettings) {
       return;
     }
@@ -169,6 +176,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     () =>
       buildAdminMenuGroups(selectedTenantId, {
         sandboxConsole: sandboxConsoleEnabled,
+        backupsConsole: sandboxConsoleEnabled,
       }),
     [sandboxConsoleEnabled, selectedTenantId],
   );
@@ -501,6 +509,12 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                   sandboxes={merchantSandboxes}
                   settings={sandboxPlatformSettings}
                 />
+              </div>
+            ) : null}
+
+            {section === "backups" && sandboxConsoleEnabled ? (
+              <div className="console-section-stack">
+                <AdminBackupsSectionLazy adminToken={adminToken} />
               </div>
             ) : null}
           </Suspense>

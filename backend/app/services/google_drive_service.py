@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+import json
+import logging
+from datetime import datetime, timezone
+
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaFileUpload
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.security import decrypt_value, encrypt_value
+from app.models.backup_settings import BackupSettings
+
+logger = logging.getLogger(__name__)
+
+DRIVE_SCOPES = ("https://www.googleapis.com/auth/drive.file",)
+
+
+class GoogleDriveService:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def get_settings(self) -> BackupSettings:
+        row = await self.db.scalar(select(BackupSettings).where(BackupSettings.code == "default"))
+        if row is None:
+            row = BackupSettings(code="default")
+            self.db.add(row)
+            await self.db.flush()
+        return row
+
+    async def describe_credentials_for_admin(self) -> tuple[bool, str | None]:
+        settings = await self.get_settings()
+        raw = settings.google_service_account_json_encrypted
+        if not raw:
+            return False, None
+        try:
+            payload = json.loads(decrypt_value(raw))
+        except (ValueError, json.JSONDecodeError):
+            return True, None
+        email = str(payload.get("client_email") or "").strip()
+        return True, email or None
+
+    async def set_service_account_json(self, raw_json: str | None) -> BackupSettings:
+        settings = await self.get_settings()
+        if raw_json is None:
+            return settings
+        stripped = raw_json.strip()
+        if not stripped:
+            settings.google_service_account_json_encrypted = None
+        else:
+            try:
+                payload = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError("Service account JSON is invalid.") from exc
+            if payload.get("type") != "service_account":
+                raise ValueError("Expected Google service account JSON.")
+            if not str(payload.get("client_email") or "").strip():
+                raise ValueError("Service account JSON must include client_email.")
+            settings.google_service_account_json_encrypted = encrypt_value(stripped)
+        self.db.add(settings)
+        await self.db.flush()
+        return settings
+
+    async def get_decrypted_credentials_json(self) -> str | None:
+        settings = await self.get_settings()
+        raw = settings.google_service_account_json_encrypted
+        if not raw:
+            return None
+        return decrypt_value(raw)
+
+    def upload_file(self, credentials_json: str, folder_id: str, file_path: str, file_name: str) -> tuple[str, str]:
+        info = json.loads(credentials_json)
+        credentials = service_account.Credentials.from_service_account_info(info, scopes=DRIVE_SCOPES)
+        service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+        metadata = {"name": file_name, "parents": [folder_id]}
+        media = MediaFileUpload(file_path, resumable=True)
+        created = (
+            service.files()
+            .create(body=metadata, media_body=media, fields="id, webViewLink")
+            .execute()
+        )
+        return str(created["id"]), str(created.get("webViewLink") or "")
+
+    def test_folder_access(self, credentials_json: str, folder_id: str) -> tuple[bool, str, str | None]:
+        info = json.loads(credentials_json)
+        credentials = service_account.Credentials.from_service_account_info(info, scopes=DRIVE_SCOPES)
+        service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+        try:
+            folder = service.files().get(fileId=folder_id, fields="id, name, mimeType, trashed").execute()
+        except HttpError as exc:
+            message = self._http_error_message(exc)
+            return False, message, None
+        if folder.get("trashed"):
+            return False, "Папка Google Drive находится в корзине.", None
+        if folder.get("mimeType") != "application/vnd.google-apps.folder":
+            return False, "Указанный ID не является папкой Google Drive.", None
+        return True, "Доступ к папке подтверждён.", str(folder.get("name") or "")
+
+    @staticmethod
+    def _http_error_message(exc: HttpError) -> str:
+        try:
+            payload = json.loads(exc.content.decode("utf-8"))
+            return str(payload.get("error", {}).get("message") or exc.reason or "Google Drive error")
+        except Exception:
+            return str(exc.reason or "Google Drive error")

@@ -4,6 +4,17 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.17.0] — 2026-06-11
+
+### Добавлено
+
+- **Админка → Бэкапы** (только superadmin): мгновенные и запланированные копии фронта, бэка и БД — полные и по отдельности.
+- **Google Drive**: загрузка архивов через service account JSON и ID папки; проверка доступа из консоли.
+- **Celery Beat**: задача расписания каждые 15 минут (ежедневно, еженедельно, каждые 6/12 часов).
+- **Backend API**: `GET/PUT /admin/backups/settings`, `POST /admin/backups/settings/test-drive`, `GET/POST /admin/backups/jobs`.
+
+---
+
 ## [0.16.2] — 2026-06-11
 
 ### Изменено

@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     public_pay_base_url: str = Field(default="", alias="PUBLIC_PAY_BASE_URL")
     public_site_base_url: str = Field(default="", alias="PUBLIC_SITE_BASE_URL")
     brand_uploads_dir: str = Field(default="", alias="BRAND_UPLOADS_DIR")
+    backup_app_dir: str = Field(default="", alias="BACKUP_APP_DIR")
+    backup_work_dir: str = Field(default="", alias="BACKUP_WORK_DIR")
+    pg_dump_bin: str = Field(default="pg_dump", alias="PG_DUMP_BIN")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")
 
     security_fail_fast: bool = Field(default=True, alias="SECURITY_FAIL_FAST")
@@ -309,6 +312,35 @@ class Settings(BaseSettings):
         if base_domain:
             return f"https://admin.{base_domain}"
         return ""
+
+    @property
+    def resolved_backup_app_dir(self) -> Path:
+        raw = self.backup_app_dir.strip()
+        if raw:
+            return Path(raw)
+        return ROOT_ENV_FILE.parent
+
+    @property
+    def resolved_backup_work_dir(self) -> Path:
+        raw = self.backup_work_dir.strip()
+        if raw:
+            return Path(raw)
+        return self.resolved_backup_app_dir / "var" / "backups"
+
+    @property
+    def resolved_backup_backend_dir(self) -> Path:
+        return self.resolved_backup_app_dir / "backend"
+
+    @property
+    def resolved_backup_frontend_dir(self) -> Path:
+        return self.resolved_backup_app_dir / "frontend"
+
+    @property
+    def resolved_brand_uploads_dir(self) -> Path:
+        raw = self.brand_uploads_dir.strip()
+        if raw:
+            return Path(raw)
+        return self.resolved_backup_app_dir / "var" / "brand_uploads"
 
     @property
     def sqlalchemy_database_uri(self) -> str:

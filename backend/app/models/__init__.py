@@ -1,4 +1,5 @@
-from app.models.asset_availability import AssetAvailability
+from app.models.backup_job import BackupJob
+from app.models.backup_settings import BackupSettings
 from app.models.api_key import ApiKey
 from app.models.base import Base
 from app.models.invite_token import InviteToken
@@ -22,6 +23,8 @@ from app.models.user import User
 from app.models.user_session import UserSession
 
 __all__ = [
+    "BackupJob",
+    "BackupSettings",
     "AssetAvailability",
     "ApiKey",
     "Base",
