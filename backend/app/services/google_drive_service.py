@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+import re
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -16,7 +16,28 @@ from app.models.backup_settings import BackupSettings
 
 logger = logging.getLogger(__name__)
 
-DRIVE_SCOPES = ("https://www.googleapis.com/auth/drive.file",)
+DRIVE_SCOPES = ("https://www.googleapis.com/auth/drive",)
+_DRIVE_FOLDER_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{10,}$")
+_DRIVE_FOLDER_URL_RE = re.compile(
+    r"drive\.google\.com/(?:drive/)?(?:u/\d+/)?folders/([a-zA-Z0-9_-]+)",
+    re.IGNORECASE,
+)
+
+
+def normalize_google_drive_folder_id(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    value = raw.strip()
+    if not value:
+        return None
+    url_match = _DRIVE_FOLDER_URL_RE.search(value)
+    if url_match:
+        return url_match.group(1)
+    if value.startswith("http://") or value.startswith("https://"):
+        raise ValueError("Не удалось извлечь ID папки из ссылки Google Drive.")
+    if not _DRIVE_FOLDER_ID_RE.fullmatch(value):
+        raise ValueError("ID папки Google Drive должен содержать только буквы, цифры, _ и -.")
+    return value
 
 
 class GoogleDriveService:
@@ -79,7 +100,12 @@ class GoogleDriveService:
         media = MediaFileUpload(file_path, resumable=True)
         created = (
             service.files()
-            .create(body=metadata, media_body=media, fields="id, webViewLink")
+            .create(
+                body=metadata,
+                media_body=media,
+                fields="id, webViewLink",
+                supportsAllDrives=True,
+            )
             .execute()
         )
         return str(created["id"]), str(created.get("webViewLink") or "")
@@ -89,7 +115,15 @@ class GoogleDriveService:
         credentials = service_account.Credentials.from_service_account_info(info, scopes=DRIVE_SCOPES)
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
         try:
-            folder = service.files().get(fileId=folder_id, fields="id, name, mimeType, trashed").execute()
+            folder = (
+                service.files()
+                .get(
+                    fileId=folder_id,
+                    fields="id, name, mimeType, trashed",
+                    supportsAllDrives=True,
+                )
+                .execute()
+            )
         except HttpError as exc:
             message = self._http_error_message(exc)
             return False, message, None
@@ -120,5 +154,11 @@ class GoogleDriveService:
             return (
                 "Google Drive API не включён в Google Cloud проекте service account."
                 f"{project_hint} После включения подождите 2–5 минут и повторите."
+            )
+        if exc.resp is not None and exc.resp.status == 404:
+            return (
+                "Папка не найдена или service account не имеет к ней доступа. "
+                "Укажите только ID папки (не полную ссылку), расшарьте папку на email service account "
+                "из JSON (роль «Редактор») и повторите проверку."
             )
         return message

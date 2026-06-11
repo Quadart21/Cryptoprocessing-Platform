@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.models.backup_job import BackupJob
 from app.models.backup_settings import BackupSettings
 from app.schemas.backup import BackupSettingsResponse
-from app.services.google_drive_service import GoogleDriveService
+from app.services.google_drive_service import GoogleDriveService, normalize_google_drive_folder_id
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +76,10 @@ class BackupService:
     ) -> BackupSettingsResponse:
         row = await self.get_settings()
         if google_drive_folder_id is not None:
-            cleaned = google_drive_folder_id.strip()
-            row.google_drive_folder_id = cleaned or None
+            if (google_drive_folder_id or "").strip() == "":
+                row.google_drive_folder_id = None
+            else:
+                row.google_drive_folder_id = normalize_google_drive_folder_id(google_drive_folder_id)
         if google_service_account_json is not None or clear_google_credentials:
             if clear_google_credentials or (google_service_account_json or "").strip() == "":
                 row.google_service_account_json_encrypted = None

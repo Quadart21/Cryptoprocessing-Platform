@@ -255,8 +255,15 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
                 ).
               </li>
               <li>Создайте service account, скачайте JSON и вставьте его ниже.</li>
-              <li>Создайте папку в Google Drive и расшарьте её на <code>client_email</code> из JSON (роль «Редактор»).</li>
-              <li>Вставьте ID папки из URL и нажмите «Проверить доступ».</li>
+              <li>
+                Создайте папку в Google Drive и расшарьте её на <code>client_email</code> из JSON (роль «Редактор»).
+                Без шаринга Google вернёт «File not found».
+              </li>
+              <li>
+                Вставьте ID папки из URL (
+                <code>https://drive.google.com/drive/folders/ЭТОТ_ID</code>
+                ) — можно вставить и полную ссылку.
+              </li>
             </ol>
             <p>
               Статус ключей:{" "}
@@ -270,7 +277,7 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
               <input
                 className="input mono-sm"
                 disabled={loading}
-                placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz"
+                placeholder="1IRmz8CG9jSIQdggTAVbvQJJXvnkGyH6I или ссылка на папку"
                 value={folderId}
                 onChange={(event) => setFolderId(event.target.value)}
               />
