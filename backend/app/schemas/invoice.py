@@ -117,6 +117,10 @@ class InvoiceStatusUpdateRequest(BaseModel):
     tx_hash: str | None = Field(default=None, max_length=255)
 
 
+class InvoiceStatusOptionResponse(BaseModel):
+    value: str
+
+
 class BalanceHoldItem(BaseModel):
     transaction_id: str
     invoice_id: str

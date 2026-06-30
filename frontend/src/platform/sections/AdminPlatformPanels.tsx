@@ -8,6 +8,7 @@ import {
   invoiceStatusLabelRu,
   invoiceStatusTone,
 } from "../../utils/invoiceStatus";
+import { InvoiceStatusOverrideControl } from "../components/InvoiceStatusOverrideControl";
 
 const PLATFORM_PANEL_PAGE_SIZE = 10;
 
@@ -76,6 +77,9 @@ type PlatformTransactionsPanelProps = {
   className?: string;
   onRefreshTransactions?: () => void;
   canReconcileTransactions?: boolean;
+  isSuperadmin?: boolean;
+  onUpdateTransactionStatus?: (transactionId: string, status: string) => void;
+  loading?: boolean;
 };
 
 function transactionDisplayStatus(transaction: TransactionItem): string {
@@ -185,6 +189,9 @@ export function PlatformTransactionsPanel({
   className = "panel",
   onRefreshTransactions,
   canReconcileTransactions = false,
+  isSuperadmin = false,
+  onUpdateTransactionStatus,
+  loading = false,
 }: PlatformTransactionsPanelProps) {
   const [page, setPage] = useState(1);
   const totalCount = transactions.length;
@@ -251,6 +258,13 @@ export function PlatformTransactionsPanel({
                 </span>
                 <span>{transaction.paid_at ?? "Не оплачено"}</span>
               </div>
+              {isSuperadmin && onUpdateTransactionStatus ? (
+                <InvoiceStatusOverrideControl
+                  currentStatus={displayStatus}
+                  disabled={loading}
+                  onApply={(status) => onUpdateTransactionStatus(transaction.id, status)}
+                />
+              ) : null}
             </article>
             );
           })

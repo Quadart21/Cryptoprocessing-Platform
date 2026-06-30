@@ -2,6 +2,19 @@
 
 export type InvoiceStatusTone = "success" | "warning" | "danger";
 
+export const PLATFORM_INVOICE_STATUSES = [
+  "pending",
+  "confirming",
+  "paid",
+  "confirmed",
+  "expired",
+  "cancelled",
+  "failed",
+  "aml_frozen",
+] as const;
+
+export type PlatformInvoiceStatus = (typeof PLATFORM_INVOICE_STATUSES)[number];
+
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 
 const INVOICE_STATUS_KEYS: Record<string, string> = {
@@ -12,6 +25,7 @@ const INVOICE_STATUS_KEYS: Record<string, string> = {
   expired: "merchant.invoiceStatus.expired",
   cancelled: "merchant.invoiceStatus.cancelled",
   failed: "merchant.invoiceStatus.failed",
+  aml_frozen: "merchant.invoiceStatus.amlFrozen",
 };
 
 export function invoiceStatusTone(status: string): InvoiceStatusTone {
@@ -19,7 +33,7 @@ export function invoiceStatusTone(status: string): InvoiceStatusTone {
   if (s === "paid" || s === "confirmed") {
     return "success";
   }
-  if (s === "pending" || s === "confirming") {
+  if (s === "pending" || s === "confirming" || s === "aml_frozen") {
     return "warning";
   }
   return "danger";
@@ -41,6 +55,7 @@ export function invoiceStatusLabelRu(status: string): string {
     expired: "Истёк срок",
     cancelled: "Отменён",
     failed: "Ошибка оплаты",
+    aml_frozen: "AML: заморожен",
   };
   return map[s] ?? status;
 }
@@ -52,6 +67,8 @@ export function invoiceDetailBadgeClass(status: string): string {
     case "pending":
       return "invoice-status-badge-pending";
     case "confirming":
+      return "invoice-status-badge-pending";
+    case "aml_frozen":
       return "invoice-status-badge-pending";
     case "paid":
       return "invoice-status-badge-paid";

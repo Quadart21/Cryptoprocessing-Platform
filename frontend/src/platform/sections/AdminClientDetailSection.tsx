@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { CopyableIdentifier } from "../../components/CopyableIdentifier";
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
 import { invoiceCompactPillClass, invoiceStatusLabelRu } from "../../utils/invoiceStatus";
+import { InvoiceStatusOverrideControl } from "../components/InvoiceStatusOverrideControl";
 import {
   findTransactionForInvoice,
   invoiceCanAttemptSettlementRepair,
@@ -52,6 +53,7 @@ type AdminClientDetailSectionProps = {
   onRepairInvoiceSettlement: (invoiceId: string) => void;
   onApprovePayout: (payoutId: string) => void;
   onRejectPayout: (payoutId: string) => void;
+  isSuperadmin?: boolean;
 };
 
 const DETAIL_TABS: Array<{ id: ClientDetailTab; label: string }> = [
@@ -90,6 +92,7 @@ export function AdminClientDetailSection({
   onRepairInvoiceSettlement,
   onApprovePayout,
   onRejectPayout,
+  isSuperadmin = false,
 }: AdminClientDetailSectionProps) {
   const [tenantForm, setTenantForm] = useState<TenantAdminUpdatePayload | null>(null);
   const [projectForms, setProjectForms] = useState<Record<string, ProjectAdminUpdatePayload>>({});
@@ -812,30 +815,18 @@ export function AdminClientDetailSection({
                             Пересчитать settlement
                           </button>
                         ) : null}
-                        <button
-                          className="ghost-button"
-                          onClick={() => onUpdateInvoiceStatus("pending")}
-                          type="button"
-                        >
-                          Ожидает оплату
-                        </button>
-                        <button className="ghost-button" onClick={() => onUpdateInvoiceStatus("paid")} type="button">
-                          Оплачен
-                        </button>
-                        <button
-                          className="primary-button"
-                          onClick={() => onUpdateInvoiceStatus("confirmed")}
-                          type="button"
-                        >
-                          Подтверждён
-                        </button>
-                        <button className="ghost-button" onClick={() => onUpdateInvoiceStatus("failed")} type="button">
-                          Ошибка оплаты
-                        </button>
-                        <button className="ghost-button" onClick={() => onUpdateInvoiceStatus("expired")} type="button">
-                          Истёк срок
-                        </button>
                       </div>
+                      {isSuperadmin ? (
+                        <InvoiceStatusOverrideControl
+                          currentStatus={selectedInvoiceDetail.status}
+                          disabled={loading}
+                          onApply={onUpdateInvoiceStatus}
+                        />
+                      ) : (
+                        <p className="muted-text pw-tabpanel-intro">
+                          Ручная смена статуса доступна только superadmin.
+                        </p>
+                      )}
                       <div className="result-box">
                         <strong>Raw provider payload</strong>
                         <pre className="json-box">{JSON.stringify(selectedInvoiceDetail.raw_provider_payload_json, null, 2)}</pre>

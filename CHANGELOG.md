@@ -4,6 +4,20 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.17.5] — 2026-06-30
+
+### Добавлено
+
+- **Crypto-Cash AML Frozen**: статус `AML Frozen` от провайдера маппится в платформенный `aml_frozen` (заморозка по AML).
+- **Superadmin — смена статуса**: ручная установка любого статуса инвойса/транзакции из списка (`pending`, `confirming`, `paid`, `confirmed`, `expired`, `cancelled`, `failed`, `aml_frozen`) в карточке инвойса клиента и на вкладке «Транзакции».
+- **API**: `POST /admin/transactions/{id}/status`, `GET /admin/invoice-statuses` (только superadmin для смены статуса).
+
+### Изменено
+
+- Ручная смена статуса инвойса (`POST /admin/invoices/{id}/status`) доступна только superadmin; при ручном выборе статус применяется напрямую, без пересчёта подтверждений сети.
+
+---
+
 ## [0.17.4] — 2026-06-11
 
 ### Исправлено

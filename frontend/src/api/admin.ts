@@ -259,6 +259,19 @@ export function updateAdminInvoiceStatus(
   });
 }
 
+export function updateAdminTransactionStatus(
+  token: string,
+  transactionId: string,
+  status: string,
+  txHash?: string,
+): Promise<TransactionItem> {
+  return request<TransactionItem>(`/admin/transactions/${transactionId}/status`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ status, tx_hash: txHash ?? null }),
+  });
+}
+
 /** GET ?sync=1 — синхронизация с провайдером без CORS preflight (POST /sync устарел). */
 export function syncAdminInvoice(token: string, invoiceId: string): Promise<InvoiceAdminDetail> {
   const path = `/admin/invoices/${encodeURIComponent(invoiceId)}?sync=1`;

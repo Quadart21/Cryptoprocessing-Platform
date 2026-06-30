@@ -11,6 +11,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Canonical platform invoice statuses (internal source of truth).
+PLATFORM_INVOICE_STATUSES: tuple[str, ...] = (
+    "pending",
+    "confirming",
+    "paid",
+    "confirmed",
+    "expired",
+    "cancelled",
+    "failed",
+    "aml_frozen",
+)
+
 # Sale statuses where Crypto-Cash credited USDT to merchant balance (data.status).
 # See https://docs.crypto-cash.world/webhooks/structure#значения-статусов
 CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES = frozenset(
@@ -65,6 +77,8 @@ CRYPTO_CASH_STATUS_TO_PLATFORM: dict[str, str] = {
     "declined": "failed",
     "completed": "confirmed",
     "deposit_received": "paid",
+    # AML compliance hold (deposit detected, funds frozen pending review)
+    "amlfrozen": "aml_frozen",
 }
 
 # acquiring::* → data.status по умолчанию, если status отсутствует в payload
@@ -86,7 +100,25 @@ ACQUIRING_EVENT_DEFAULT_STATUS: dict[str, str] = {
 def normalize_provider_status_key(provider_status: str | None) -> str:
     if not provider_status:
         return ""
-    return str(provider_status).strip().lower()
+    return (
+        str(provider_status)
+        .strip()
+        .lower()
+        .replace(" ", "")
+        .replace("-", "")
+        .replace("_", "")
+    )
+
+
+def resolve_platform_status(status: str | None) -> str | None:
+    """Match a platform status or provider alias to a canonical platform status."""
+    if not status:
+        return None
+    key = normalize_provider_status_key(status)
+    for platform_status in PLATFORM_INVOICE_STATUSES:
+        if normalize_provider_status_key(platform_status) == key:
+            return platform_status
+    return None
 
 
 def provider_status_indicates_deposit_credit(provider_status: str | None) -> bool:
@@ -103,7 +135,10 @@ PLATFORM_PAYMENT_IN_FLIGHT = frozenset({"confirming", "paid", "confirmed"})
 
 def normalize_crypto_cash_status(provider_status: str) -> str:
     """Map Crypto-Cash TransactionStatus (PascalCase or lower) to platform invoice status."""
-    normalized = provider_status.strip().lower()
+    platform = resolve_platform_status(provider_status)
+    if platform is not None:
+        return platform
+    normalized = normalize_provider_status_key(provider_status)
     mapped = CRYPTO_CASH_STATUS_TO_PLATFORM.get(normalized)
     if mapped is not None:
         return mapped

@@ -89,6 +89,7 @@ export const merchantExt: TranslationDict = {
       expired: "Expired",
       cancelled: "Cancelled",
       failed: "Payment failed",
+      amlFrozen: "AML frozen",
       notSpecified: "Not specified",
       paymentIncomplete: "Payment incomplete",
       expiryExpired: "Validity period expired",

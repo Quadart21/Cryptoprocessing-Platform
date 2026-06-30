@@ -388,6 +388,33 @@ label.pw-toggle-field input[type="checkbox"] {
   flex-wrap: wrap;
 }
 
+.pw-status-override {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 0.5rem;
+}
+
+.pw-status-override__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 12rem;
+}
+
+.pw-status-override__label span {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.pw-status-override__select {
+  min-width: 12rem;
+}
+
 .pw-tenant-cards-spaced .tenant-card,
 .pw-tenant-cards-compact .tenant-card {
   margin-bottom: 0;

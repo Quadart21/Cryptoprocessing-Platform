@@ -15,10 +15,12 @@ from app.models.transaction import Transaction
 from app.providers.base import ProviderCreateInvoiceRequest
 from app.providers.crypto_cash import CryptoCashProviderError, _provider_item
 from app.providers.crypto_cash_status import (
+    PLATFORM_INVOICE_STATUSES,
     extract_event_type,
     normalize_crypto_cash_status,
     platform_status_indicates_payment,
     resolve_crypto_cash_status,
+    resolve_platform_status,
 )
 from app.providers.factory import get_payment_provider
 from app.schemas.invoice import InvoiceCreateRequest
@@ -541,6 +543,14 @@ class InvoiceService:
             stored_payload,
             provider_deal_finalized=provider_deal_finalized,
         )
+        if source == "manual":
+            manual_status = resolve_platform_status(provider_status)
+            if manual_status is None:
+                raise ValueError(
+                    f"Unknown invoice status {provider_status!r}. "
+                    f"Allowed: {', '.join(PLATFORM_INVOICE_STATUSES)}."
+                )
+            effective_status = manual_status
 
         if previous_status == effective_status and not self._provider_meta_changed(
             invoice,

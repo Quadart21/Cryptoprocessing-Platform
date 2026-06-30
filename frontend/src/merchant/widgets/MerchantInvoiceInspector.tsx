@@ -27,6 +27,7 @@ const INVOICE_STATUS_KEYS = [
   "expired",
   "cancelled",
   "failed",
+  "aml_frozen",
 ] as const;
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;

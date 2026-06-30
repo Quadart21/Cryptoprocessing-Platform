@@ -15,6 +15,7 @@ from app.api.deps import (
     require_superadmin,
     user_permissions,
 )
+from app.providers.crypto_cash_status import PLATFORM_INVOICE_STATUSES
 from app.core.rbac import has_permission, list_role_definitions
 from app.models.invoice import Invoice
 from app.models.invite_token import InviteToken
@@ -68,6 +69,7 @@ from app.schemas.api_usage import ApiUsageCategoryItem, ApiUsageResponse, ApiUsa
 from app.schemas.invoice import (
     InvoiceAdminDetailResponse,
     InvoiceResponse,
+    InvoiceStatusOptionResponse,
     InvoiceStatusUpdateRequest,
     InvoiceTransactionDetailsResponse,
 )
@@ -1725,6 +1727,42 @@ async def get_admin_transaction(
     return _map_transaction_response(transaction, invoice)
 
 
+@router.get("/invoice-statuses", response_model=list[InvoiceStatusOptionResponse])
+async def list_invoice_statuses(
+    _: User = Depends(require_platform_permission("admin.invoices.read")),
+) -> list[InvoiceStatusOptionResponse]:
+    return [InvoiceStatusOptionResponse(value=item) for item in PLATFORM_INVOICE_STATUSES]
+
+
+@router.post("/transactions/{transaction_id}/status", response_model=TransactionResponse)
+async def update_transaction_status(
+    transaction_id: str,
+    payload: InvoiceStatusUpdateRequest,
+    _: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> TransactionResponse:
+    transaction_service = TransactionService(db)
+    transaction = await transaction_service.get_by_id(transaction_id)
+    if transaction is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Транзакция не найдена.")
+    invoice_service = InvoiceService(db)
+    try:
+        invoice = await invoice_service.apply_invoice_status_by_id(
+            invoice_id=str(transaction.invoice_id),
+            provider_status=payload.status,
+            tx_hash=payload.tx_hash,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    refreshed = await transaction_service.get_by_id(transaction_id)
+    if refreshed is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Транзакция не найдена.")
+    return _map_transaction_response(refreshed, invoice)
+
+
 @router.get("/invoices/{invoice_id}", response_model=InvoiceAdminDetailResponse)
 async def get_invoice_detail(
     invoice_id: str,
@@ -1744,7 +1782,7 @@ async def get_invoice_detail(
 async def update_invoice_status(
     invoice_id: str,
     payload: InvoiceStatusUpdateRequest,
-    _: User = Depends(require_platform_permission("admin.invoices.write")),
+    _: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> InvoiceAdminDetailResponse:
     invoice_service = InvoiceService(db)

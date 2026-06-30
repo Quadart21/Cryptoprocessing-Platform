@@ -89,6 +89,7 @@ export const merchantExt: TranslationDict = {
       expired: "Истёк срок",
       cancelled: "Отменён",
       failed: "Ошибка оплаты",
+      amlFrozen: "AML: заморожен",
       notSpecified: "Не указано",
       paymentIncomplete: "Платеж не завершен",
       expiryExpired: "Срок действия истек",

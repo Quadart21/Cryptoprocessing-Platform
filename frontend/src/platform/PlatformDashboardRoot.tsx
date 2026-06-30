@@ -85,6 +85,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     onAdminRevokeApiKey,
     onSelectInvoice,
     onUpdateInvoiceStatus,
+    onUpdateTransactionStatus,
     onSyncInvoice,
     onRepairInvoiceSettlement,
     onUpdatePlatformSettings,
@@ -321,6 +322,9 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                       user.permissions.includes("*") ||
                       user.permissions.includes("admin.invoices.write")
                     }
+                    isSuperadmin={user.role === "superadmin"}
+                    loading={loading}
+                    onUpdateTransactionStatus={onUpdateTransactionStatus}
                   />
                 </section>
               </div>
@@ -405,6 +409,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                   onUpdateInvoiceStatus={onUpdateInvoiceStatus}
                   onSyncInvoice={onSyncInvoice}
                   onRepairInvoiceSettlement={onRepairInvoiceSettlement}
+                  isSuperadmin={user.role === "superadmin"}
                 />
               </div>
             ) : null}

@@ -130,6 +130,7 @@ import {
   type WebhookConfigItem,
   updateAdminAssetAvailability,
   updateAdminInvoiceStatus,
+  updateAdminTransactionStatus,
   updateAdminProject,
   updateAdminTenant,
   updateAdminUser,
@@ -1436,10 +1437,40 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSuccess(`Статус инвойса обновлён: ${invoiceStatusLabelRu(status)}.`);
       const tenantInvoices = await fetchTenantInvoices(token, selectedTenantId);
       setSelectedTenantInvoices(tenantInvoices);
+      setSelectedTenantTransactions(await fetchTenantTransactions(token, selectedTenantId));
       setSelectedInvoiceEvents(await safeLoad(() => fetchInvoiceEvents(token, selectedInvoiceId), []));
       setPlatformEvents(await safeLoad(() => fetchAdminEvents(token), []));
+      setPlatformInvoices(await safeLoad(() => fetchAdminInvoices(token), []));
+      setPlatformTransactions(await safeLoad(() => fetchAdminTransactions(token), []));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось обновить статус инвойса.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdateTransactionStatus(transactionId: string, status: string) {
+    if (!token) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      setNewApiSecret(null);
+      const updated = await updateAdminTransactionStatus(token, transactionId, status);
+      setPlatformTransactions((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      if (selectedTenantId) {
+        setSelectedTenantTransactions(await fetchTenantTransactions(token, selectedTenantId));
+        setSelectedTenantInvoices(await fetchTenantInvoices(token, selectedTenantId));
+      }
+      if (selectedInvoiceId && updated.invoice_id === selectedInvoiceId) {
+        setSelectedInvoiceDetail(await fetchAdminInvoiceDetail(token, selectedInvoiceId));
+        setSelectedInvoiceEvents(await safeLoad(() => fetchInvoiceEvents(token, selectedInvoiceId), []));
+      }
+      setSuccess(`Статус транзакции обновлён: ${invoiceStatusLabelRu(status)}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось обновить статус транзакции.");
     } finally {
       setLoading(false);
     }
@@ -2317,6 +2348,9 @@ return (
           onAdminRevokeApiKey={(apiKeyId) => void handleAdminRevokeApiKey(apiKeyId)}
           onSelectInvoice={(invoiceId) => void handleSelectInvoice(invoiceId)}
           onUpdateInvoiceStatus={(status) => void handleUpdateInvoiceStatus(status)}
+          onUpdateTransactionStatus={(transactionId, status) =>
+            void handleUpdateTransactionStatus(transactionId, status)
+          }
           onSyncInvoice={(invoiceId) => void handleSyncInvoice(invoiceId)}
           onRepairInvoiceSettlement={(invoiceId) => void handleRepairInvoiceSettlement(invoiceId)}
           onUpdatePlatformSettings={handleUpdatePlatformSettings}
