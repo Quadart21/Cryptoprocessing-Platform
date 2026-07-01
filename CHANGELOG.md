@@ -4,6 +4,23 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.18.0] — 2026-07-01
+
+### Добавлено
+
+- **Модули интеграции для вебмастеров** (`integrations/`): готовые заготовки для подключения магазина к Merchant API.
+- **WordPress + WooCommerce**: плагин `noren-payments` — способ оплаты, создание инвойса, редирект на hosted checkout, REST webhook (`/wp-json/noren/v1/webhook`).
+- **DataLife Engine (DLE)**: модуль billing `noren.php`, webhook-обработчик, vendor-библиотека API.
+- **Tilda**: PHP-bridge для Zero Block (секреты только на сервере), HTML-форма оплаты, endpoint webhook.
+- **1С:Предприятие**: примеры BSL — HTTP-сервис (invoice + webhook), общий модуль `NorenAPI`, внешняя обработка «Создать оплату».
+- **Shared PHP**: `NorenApiClient` и `NorenWebhookVerifier` (HMAC `X-Merset-Signature`) для переиспользования в модулях.
+
+### Документация
+
+- `integrations/README.md` — обзор, схема подключения, префиксы `merchant_order_id` (`wc-`, `dle-`, `tilda-`, `1c-`).
+
+---
+
 ## [0.17.5] — 2026-06-30
 
 ### Добавлено
