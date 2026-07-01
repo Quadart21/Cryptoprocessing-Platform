@@ -31,6 +31,11 @@ export const DOCS_PAGE_META: Record<DocsSectionKey, DocsPageMeta> = {
     title: "Webhooks",
     lead: "HMAC signature, payload format, and test delivery.",
   },
+  integrations: {
+    eyebrow: "CMS",
+    title: "CMS modules",
+    lead: "Ready-made plugins for WordPress, DLE, Tilda, and 1C — download, install, connect webhook.",
+  },
   commissions: {
     eyebrow: "Pricing",
     title: "Commissions",
@@ -81,6 +86,12 @@ export const DOCS_SIDEBAR_GROUPS: Array<{ label: string; items: DocsNavItem[] }>
         description: "Signature and payload",
         icon: "⇄",
       },
+      {
+        to: "/integrations",
+        label: "CMS modules",
+        description: "WordPress, DLE, Tilda, 1C",
+        icon: "⬡",
+      },
     ],
   },
   {
@@ -112,6 +123,7 @@ export const DOCS_GUIDE_ORDER: DocsSectionKey[] = [
   "quickstart",
   "checkout",
   "webhooks",
+  "integrations",
   "reference",
   "commissions",
   "faq",
@@ -155,16 +167,22 @@ export const DOCS_HUB_CARDS: Array<{
     icon: "04",
   },
   {
+    to: "/integrations",
+    title: "CMS modules",
+    body: "WordPress, DLE, Tilda, 1C downloads.",
+    icon: "05",
+  },
+  {
     to: "/commissions",
     title: "Commissions",
     body: "0.4%, $0.70 minimum.",
-    icon: "05",
+    icon: "06",
   },
   {
     to: "/faq",
     title: "FAQ",
     body: "Keys, errors, sandbox.",
-    icon: "06",
+    icon: "07",
   },
 ];
 
@@ -174,6 +192,7 @@ export const DOCS_LEGACY_HASH_REDIRECTS: Record<string, string> = {
   "#docs-auth": "/quickstart",
   "#docs-checkout-delivery": "/checkout",
   "#docs-webhooks": "/webhooks",
+  "#docs-integrations": "/integrations",
   "#docs-commissions": "/commissions",
   "#docs-faq": "/faq",
   "#docs-endpoints-table": "/reference",

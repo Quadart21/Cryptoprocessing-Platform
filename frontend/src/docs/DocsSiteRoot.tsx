@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { DocsGuidePage } from "./DocsGuidePage";
+import { DocsIntegrationsPage } from "./DocsIntegrationsPage";
 import { DocsIntroductionPage } from "./DocsIntroductionPage";
 import { DocsLegacyRedirect } from "./DocsLegacyRedirect";
 import { DocsSiteLayout } from "./DocsSiteLayout";
@@ -30,6 +31,7 @@ export function DocsSiteRoot() {
           <Route path="quickstart" element={<DocsGuidePage section="quickstart" />} />
           <Route path="checkout" element={<DocsGuidePage section="checkout" />} />
           <Route path="webhooks" element={<DocsGuidePage section="webhooks" />} />
+          <Route path="integrations" element={<DocsIntegrationsPage />} />
           <Route path="commissions" element={<DocsGuidePage section="commissions" />} />
           <Route path="reference" element={<DocsGuidePage section="reference" />} />
           <Route path="faq" element={<DocsGuidePage section="faq" />} />

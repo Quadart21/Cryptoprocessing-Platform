@@ -10,6 +10,7 @@ import {
 } from "./merchantCommissionDocs";
 import { docsShowsBlock } from "../../types/docsSection";
 import type { DocsSectionKey } from "../../types/docsSection";
+import { IntegrationModulesPanel } from "../../docs/IntegrationModulesPanel";
 import { ApiCodePanel } from "./ApiCodePanel";
 
 export type { DocsSectionKey };
@@ -470,6 +471,7 @@ export function MerchantApiReference({
       { href: "#docs-reference", label: t("merchant.apiDocs.toc.reference") },
       { href: "#docs-cabinet", label: t("merchant.apiDocs.toc.cabinet") },
       { href: "#docs-webhooks", label: t("merchant.apiDocs.toc.webhooks") },
+      { href: "#docs-integrations", label: t("merchant.apiDocs.toc.integrations") },
       { href: "#docs-commissions", label: t("merchant.apiDocs.toc.commissions") },
       { href: "#docs-faq", label: t("merchant.apiDocs.toc.faq") },
     ],
@@ -1146,6 +1148,12 @@ export function MerchantApiReference({
                 </button>
               </div>
             </article>
+          </section>
+          ) : null}
+
+          {!isDocsPresentation ? (
+          <section className="api-docs-section" id="docs-integrations">
+            <IntegrationModulesPanel variant="compact" />
           </section>
           ) : null}
 

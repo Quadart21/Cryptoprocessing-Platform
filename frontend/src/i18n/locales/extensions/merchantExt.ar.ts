@@ -571,6 +571,7 @@ export const merchantExt: TranslationDict = {
         reference: "أمثلة الطلبات",
         cabinet: "لوحة التحكم (JWT)",
         webhooks: "Webhook",
+        integrations: "وحدات CMS",
         commissions: "الرسوم",
         faq: "FAQ",
       },

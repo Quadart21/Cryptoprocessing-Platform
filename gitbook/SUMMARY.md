@@ -10,6 +10,7 @@
 
 * [Checkout: payment page / H2H](checkout.md)
 * [Webhooks](webhooks.md)
+* [CMS modules (WordPress, DLE, Tilda, 1C)](integrations.md)
 
 ## Справочник Merchant API
 

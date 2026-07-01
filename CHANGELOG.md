@@ -4,6 +4,22 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.18.1] — 2026-07-01
+
+### Добавлено
+
+- **Документация → CMS modules** (`/integrations` на docs-сайте): страница с описанием модулей WordPress, DLE, Tilda, 1С и кнопками скачивания ZIP.
+- **Скачивание модулей**: архивы в `/downloads/` — `noren-wordpress.zip`, `noren-dle.zip`, `noren-tilda.zip`, `noren-1c.zip`, `noren-integrations-all.zip`.
+- **Кабинет мерчанта / публичная документация**: блок CMS modules с загрузками и ссылкой на полный гайд.
+- **Скрипт** `ops/scripts/package_integrations.py` и npm-скрипт `package:integrations`.
+
+### Изменено
+
+- Навигация docs-сайта: новый пункт «CMS modules» после Webhooks.
+- GitBook: страница `integrations.md`.
+
+---
+
 ## [0.18.0] — 2026-07-01
 
 ### Добавлено

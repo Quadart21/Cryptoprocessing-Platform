@@ -1393,3 +1393,120 @@
     display: none;
   }
 }
+
+.docs-integration-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--docs-muted);
+  line-height: 1.65;
+}
+
+.docs-integration-steps li + li {
+  margin-top: 0.45rem;
+}
+
+.docs-integration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.docs-integration-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.15rem;
+  border: 1px solid var(--docs-border);
+  border-radius: 1rem;
+  background: var(--docs-panel);
+}
+
+.docs-integration-card-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.docs-integration-card-head h3 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.docs-integration-card-head p {
+  margin: 0.2rem 0 0;
+  color: var(--docs-muted);
+  font-size: 0.86rem;
+}
+
+.docs-integration-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  padding: 0 0.35rem;
+  border-radius: 0.75rem;
+  background: var(--docs-accent-soft);
+  border: 1px solid rgba(0, 163, 255, 0.22);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--docs-accent);
+}
+
+.docs-integration-card-body {
+  margin: 0;
+  color: var(--docs-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.docs-integration-meta {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.docs-integration-meta div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.docs-integration-meta dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--docs-muted);
+}
+
+.docs-integration-meta dd {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.docs-integration-prefix {
+  margin: 0;
+}
+
+.docs-integration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.docs-integration-bundle {
+  margin-top: 1rem;
+}
+
+.docs-integration-full-link {
+  margin-top: 0.65rem;
+  display: inline-flex;
+}
+
+.docs-integration-panel--compact .docs-integration-grid {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 900px) {
+  .docs-integration-grid {
+    grid-template-columns: 1fr;
+  }
+}
