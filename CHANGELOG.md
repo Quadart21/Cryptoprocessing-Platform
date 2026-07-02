@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.19.1] — 2026-07-03
+
+### Исправлено
+
+- **Бэкапы БД (FORCE RLS)**: `PGOPTIONS` не работает для app-пользователя `cryptoprocessing` — добавлены `BACKUP_PG_DUMP_USER` / `BACKUP_PG_DUMP_PASSWORD` (роль `backup_dump` с `BYPASSRLS` на сервере БД).
+
+---
+
 ## [0.19.0] — 2026-07-03
 
 ### Добавлено

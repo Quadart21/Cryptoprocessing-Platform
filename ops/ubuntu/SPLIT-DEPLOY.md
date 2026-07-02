@@ -71,6 +71,27 @@ cd /opt/cryptoprocessing && git pull && sudo API_UPSTREAM=2.26.90.43:8000 bash o
 
 **БД:** миграции запускаются с API (`alembic upgrade head` в `update-server-api.sh`).
 
+**Бэкапы (FORCE RLS):** на сервере БД нужна роль `backup_dump` с `BYPASSRLS` (создаётся в `setup-db.sh`). В `.env` на API:
+
+```env
+BACKUP_PG_DUMP_USER=backup_dump
+BACKUP_PG_DUMP_PASSWORD=...
+```
+
+Если БД уже развёрнута без этой роли — на `2.26.88.44`:
+
+```bash
+sudo -u postgres psql -d cryptoprocessing -v ON_ERROR_STOP=1 <<'SQL'
+CREATE ROLE backup_dump WITH LOGIN PASSWORD 'ВАШ_ПАРОЛЬ' BYPASSRLS;
+GRANT CONNECT ON DATABASE cryptoprocessing TO backup_dump;
+GRANT USAGE ON SCHEMA public TO backup_dump;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO backup_dump;
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO backup_dump;
+SQL
+```
+
+Добавьте в `pg_hba.conf` строку для `backup_dump` с IP API (`2.26.90.43/32`), `systemctl reload postgresql`, затем переменные в `.env` API и `systemctl restart cryptoprocessing-celery-worker`.
+
 ## Переменные
 
 | Скрипт | Ключевые переменные |

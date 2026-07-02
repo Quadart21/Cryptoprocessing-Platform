@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     postgres_db: str = Field(default="cryptoprocessing", alias="POSTGRES_DB")
     postgres_user: str = Field(default="postgres", alias="POSTGRES_USER")
     postgres_password: str = Field(default="postgres", alias="POSTGRES_PASSWORD")
+    backup_pg_dump_user: str = Field(default="", alias="BACKUP_PG_DUMP_USER")
+    backup_pg_dump_password: str = Field(default="", alias="BACKUP_PG_DUMP_PASSWORD")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     db_pool_size: int = Field(default=20, alias="DB_POOL_SIZE")
     db_max_overflow: int = Field(default=30, alias="DB_MAX_OVERFLOW")
@@ -329,6 +331,18 @@ class Settings(BaseSettings):
         if not prefix.startswith("/"):
             prefix = f"/{prefix}"
         return f"{raw}{prefix}/admin/backups/settings/google-oauth/callback"
+
+    def resolve_pg_dump_credentials(self) -> tuple[str, str, bool]:
+        """Return (user, password, uses_bypass_rls_role).
+
+        FORCE RLS ignores PGOPTIONS for the normal app DB user. Use BACKUP_PG_DUMP_*
+        with a role that has BYPASSRLS (see setup-db.sh: backup_dump).
+        """
+        backup_user = self.backup_pg_dump_user.strip()
+        backup_password = self.backup_pg_dump_password
+        if backup_user and backup_password:
+            return backup_user, backup_password, True
+        return self.postgres_user, self.postgres_password, False
 
     @property
     def resolved_backup_app_dir(self) -> Path:

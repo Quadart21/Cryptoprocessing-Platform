@@ -301,11 +301,13 @@ class BackupService:
                 tar.add(item, arcname=item.name)
 
     def _dump_database(self, output_path: Path) -> None:
+        dump_user, dump_password, uses_bypass_role = settings.resolve_pg_dump_credentials()
         env = os.environ.copy()
-        env["PGPASSWORD"] = settings.postgres_password
-        # Tenant tables use FORCE ROW LEVEL SECURITY; pg_dump must bypass policies via
-        # the same superadmin session flag the app uses during schema sync.
-        env["PGOPTIONS"] = "-c app.is_superadmin=on"
+        env["PGPASSWORD"] = dump_password
+        # Custom GUC via PGOPTIONS works only for superusers. FORCE RLS blocks the app DB user
+        # even with app.is_superadmin=on — use BACKUP_PG_DUMP_* (BYPASSRLS role) instead.
+        if not uses_bypass_role:
+            env["PGOPTIONS"] = "-c app.is_superadmin=on"
         cmd = [
             settings.pg_dump_bin,
             "-h",
@@ -313,7 +315,7 @@ class BackupService:
             "-p",
             str(settings.postgres_port),
             "-U",
-            settings.postgres_user,
+            dump_user,
             "-d",
             settings.postgres_db,
             "-F",
@@ -324,6 +326,11 @@ class BackupService:
         result = subprocess.run(cmd, env=env, capture_output=True, text=True, check=False)
         if result.returncode != 0:
             detail = (result.stderr or result.stdout or "pg_dump failed").strip()
+            if not uses_bypass_role and "row-level security policy" in detail.lower():
+                detail += (
+                    " Настройте роль backup_dump (BYPASSRLS) на сервере БД и укажите "
+                    "BACKUP_PG_DUMP_USER / BACKUP_PG_DUMP_PASSWORD в .env на API-сервере."
+                )
             raise RuntimeError(f"Database dump failed: {detail}")
 
     @staticmethod

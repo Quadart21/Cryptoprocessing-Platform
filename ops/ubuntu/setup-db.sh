@@ -66,6 +66,28 @@ main() {
   sudo -u postgres psql -v ON_ERROR_STOP=1 -d postgres \
     -c "GRANT ALL PRIVILEGES ON DATABASE \"${POSTGRES_DB}\" TO \"${POSTGRES_USER}\";"
 
+  local backup_dump_user="${BACKUP_DUMP_USER:-backup_dump}"
+  local backup_dump_password="${BACKUP_DUMP_PASSWORD:-${POSTGRES_PASSWORD}}"
+  local backup_pass_sql_escaped="${backup_dump_password//\'/\'\'}"
+  split_log "Creating backup dump role (${backup_dump_user}, BYPASSRLS)"
+  local backup_role_exists
+  backup_role_exists="$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${backup_dump_user}'" | tr -d '[:space:]')"
+  if [[ "${backup_role_exists}" == "1" ]]; then
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -d postgres \
+      -c "ALTER ROLE \"${backup_dump_user}\" WITH LOGIN PASSWORD '${backup_pass_sql_escaped}' BYPASSRLS;"
+  else
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -d postgres \
+      -c "CREATE ROLE \"${backup_dump_user}\" WITH LOGIN PASSWORD '${backup_pass_sql_escaped}' BYPASSRLS;"
+  fi
+  sudo -u postgres psql -v ON_ERROR_STOP=1 -d "${POSTGRES_DB}" <<EOF
+GRANT CONNECT ON DATABASE "${POSTGRES_DB}" TO "${backup_dump_user}";
+GRANT USAGE ON SCHEMA public TO "${backup_dump_user}";
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO "${backup_dump_user}";
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO "${backup_dump_user}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO "${backup_dump_user}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON SEQUENCES TO "${backup_dump_user}";
+EOF
+
   split_log "Configuring listen_addresses and pg_hba"
   if [[ -f "${PG_CONF}" ]]; then
     if grep -q "^listen_addresses" "${PG_CONF}"; then
@@ -78,8 +100,12 @@ main() {
   fi
 
   local hba_line="host  ${POSTGRES_DB}  ${POSTGRES_USER}  ${API_SERVER_IP}/32  scram-sha-256"
+  local backup_hba_line="host  ${POSTGRES_DB}  ${backup_dump_user}  ${API_SERVER_IP}/32  scram-sha-256"
   if [[ -f "${PG_HBA}" ]] && ! grep -qF "${hba_line}" "${PG_HBA}"; then
     echo "${hba_line}" >>"${PG_HBA}"
+  fi
+  if [[ -f "${PG_HBA}" ]] && ! grep -qF "${backup_hba_line}" "${PG_HBA}"; then
+    echo "${backup_hba_line}" >>"${PG_HBA}"
   fi
 
   systemctl enable --now postgresql
@@ -101,7 +127,12 @@ Host:     ${DB_LISTEN_IP}
 Database: ${POSTGRES_DB}
 User:     ${POSTGRES_USER}
 Password: ${POSTGRES_PASSWORD}
+Backup:   ${backup_dump_user} / ${backup_dump_password}
 Allowed:  ${API_SERVER_IP}/32
+
+Add to API .env:
+  BACKUP_PG_DUMP_USER=${backup_dump_user}
+  BACKUP_PG_DUMP_PASSWORD=${backup_dump_password}
 
 Test from API server:
   PGPASSWORD='${POSTGRES_PASSWORD}' psql -h ${DB_LISTEN_IP} -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c 'SELECT 1'
