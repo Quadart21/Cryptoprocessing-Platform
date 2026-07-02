@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.18.5] — 2026-07-03
+
+### Исправлено
+
+- **Google Drive (бэкапы)**: при 403 проверка показывает фактическую роль service account в папке и код ошибки Google; CLI-скрипт `ops/scripts/test_google_drive_access.py`.
+
+---
+
 ## [0.18.4] — 2026-07-03
 
 ### Исправлено

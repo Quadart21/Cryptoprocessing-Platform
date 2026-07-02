@@ -20,6 +20,14 @@ from app.models.backup_settings import BackupSettings
 logger = logging.getLogger(__name__)
 
 DRIVE_SCOPES = ("https://www.googleapis.com/auth/drive",)
+_DRIVE_ROLE_LABELS = {
+    "owner": "Владелец",
+    "organizer": "Организатор",
+    "fileOrganizer": "Организатор файлов",
+    "writer": "Редактор",
+    "commenter": "Комментатор",
+    "reader": "Читатель",
+}
 _DRIVE_FOLDER_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{10,}$")
 _DRIVE_FOLDER_URL_RE = re.compile(
     r"drive\.google\.com/(?:drive/)?(?:u/\d+/)?folders/([a-zA-Z0-9_-]+)",
@@ -200,11 +208,13 @@ class GoogleDriveService:
             created = self._drive_execute_with_shared_drive_fallback(_create)
             test_file_id = str(created["id"])
         except HttpError as exc:
+            role_hint = self._describe_service_account_folder_role(service, folder_id, client_email)
             message = self._http_error_message(
                 exc,
                 client_email=client_email,
                 folder_id=folder_id,
                 project_id=project_id,
+                folder_role_hint=role_hint,
             )
             return False, message, folder_name, client_email or None
 
@@ -285,20 +295,67 @@ class GoogleDriveService:
             logger.warning("Failed to delete Google Drive access test file %s", file_id)
 
     @staticmethod
+    def _describe_service_account_folder_role(
+        service,
+        folder_id: str,
+        client_email: str,
+    ) -> str | None:
+        if not client_email:
+            return None
+
+        def _list(supports_all_drives: bool) -> dict[str, Any]:
+            return (
+                service.permissions()
+                .list(
+                    fileId=folder_id,
+                    fields="permissions(emailAddress,role,type,deleted)",
+                    supportsAllDrives=supports_all_drives,
+                )
+                .execute()
+            )
+
+        try:
+            result = GoogleDriveService._drive_execute_with_shared_drive_fallback(_list)
+        except HttpError:
+            return None
+
+        email_lower = client_email.lower()
+        for permission in result.get("permissions", []):
+            if permission.get("deleted"):
+                continue
+            perm_email = str(permission.get("emailAddress") or "").lower()
+            if perm_email == email_lower:
+                role = str(permission.get("role") or "")
+                return _DRIVE_ROLE_LABELS.get(role, role or "неизвестно")
+        return "не найден в списке прав папки"
+
+    @staticmethod
+    def _extract_google_error_details(exc: HttpError) -> tuple[str, list[str]]:
+        try:
+            payload = json.loads(exc.content.decode("utf-8"))
+            error = payload.get("error", {})
+            message = str(error.get("message") or exc.reason or "Google Drive error")
+            reasons = [
+                str(item.get("reason") or "")
+                for item in error.get("errors", [])
+                if item.get("reason")
+            ]
+            return message, reasons
+        except Exception:
+            return str(exc.reason or "Google Drive error"), []
+
+    @staticmethod
     def _http_error_message(
         exc: HttpError,
         *,
         client_email: str = "",
         folder_id: str = "",
         project_id: str = "",
+        folder_role_hint: str | None = None,
     ) -> str:
-        try:
-            payload = json.loads(exc.content.decode("utf-8"))
-            message = str(payload.get("error", {}).get("message") or exc.reason or "Google Drive error")
-        except Exception:
-            message = str(exc.reason or "Google Drive error")
-
+        message, reasons = GoogleDriveService._extract_google_error_details(exc)
         lowered = message.lower()
+        reason_text = ", ".join(reasons) if reasons else ""
         if "has not been used in project" in lowered or "drive.googleapis.com" in lowered and "disabled" in lowered:
             project_hint = ""
             if "project " in lowered:
@@ -331,10 +388,31 @@ class GoogleDriveService:
             )
         if exc.resp is not None and exc.resp.status in {403, 401}:
             email_hint = f" Service account: {client_email}." if client_email else ""
+            role_hint = ""
+            if folder_role_hint:
+                role_hint = f" Роль SA в папке по API: «{folder_role_hint}»."
+            quota_hint = ""
+            if "storagequotaexceeded" in lowered or "storageQuotaExceeded" in reasons:
+                quota_hint = (
+                    " У service account нет своего диска — папка должна быть расшарена как «Редактор», "
+                    "тогда квота берётся у владельца папки. Проверьте, что на drive.google.com у "
+                    "quadart21@gmail.com есть свободное место."
+                )
+            elif folder_role_hint == "Читатель":
+                role_hint = (
+                    f"{role_hint} Смените роль на «Редактор» в «Поделиться» и подождите 1–2 минуты."
+                )
+            elif folder_role_hint == "не найден в списке прав папки":
+                role_hint = (
+                    f"{role_hint} В Google Drive → «Поделиться» добавьте email SA с ролью «Редактор»."
+                )
+            detail_hint = f" Код Google: {reason_text}." if reason_text else ""
             return (
                 "Недостаточно прав для записи в папку Google Drive."
-                f"{email_hint} "
-                "Нужна роль «Редактор» (не «Читатель»). "
-                "Для общего диска Google Workspace добавьте service account участником диска."
+                f"{email_hint}{role_hint}{quota_hint}{detail_hint} "
+                "Нужна роль «Редактор» (writer), не «Читатель». "
+                "GCP IAM (Owner) не заменяет шаринг папки на drive.google.com."
             )
+        if reason_text:
+            return f"{message} ({reason_text})"
         return message
