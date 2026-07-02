@@ -105,18 +105,32 @@ class GoogleDriveService:
 
     @staticmethod
     def _drive_execute_with_shared_drive_fallback(action):
+        # Folders live on the user's Drive, not on the service account's Drive — try
+        # shared-drive mode first (supportsAllDrives=True), then fall back.
         last_exc: HttpError | None = None
-        for supports_all_drives in (False, True):
+        for supports_all_drives in (True, False):
             try:
                 return action(supports_all_drives)
             except HttpError as exc:
                 last_exc = exc
-                if exc.resp is not None and exc.resp.status == 404 and not supports_all_drives:
+                if exc.resp is not None and exc.resp.status == 404 and supports_all_drives:
                     continue
                 raise
         if last_exc is not None:
             raise last_exc
         raise RuntimeError("Google Drive request failed.")
+
+    @staticmethod
+    def _verify_drive_api(service, *, client_email: str = "", project_id: str = "") -> str | None:
+        try:
+            service.about().get(fields="user").execute()
+        except HttpError as exc:
+            return GoogleDriveService._http_error_message(
+                exc,
+                client_email=client_email,
+                project_id=project_id,
+            )
+        return None
 
     def upload_file(self, credentials_json: str, folder_id: str, file_path: str, file_name: str) -> tuple[str, str]:
         service, client_email = self._build_service(credentials_json)
@@ -149,10 +163,20 @@ class GoogleDriveService:
         folder_id: str,
     ) -> tuple[bool, str, str | None, str | None]:
         service, client_email = self._build_service(credentials_json)
+        project_id = str(json.loads(credentials_json).get("project_id") or "").strip()
+        api_error = self._verify_drive_api(
+            service,
+            client_email=client_email,
+            project_id=project_id,
+        )
+        if api_error:
+            return False, api_error, None, client_email or None
+
         folder_name, probe_error = self._probe_folder(
             service,
             folder_id,
             client_email=client_email,
+            project_id=project_id,
         )
         if probe_error:
             return False, probe_error, None, client_email or None
@@ -176,7 +200,12 @@ class GoogleDriveService:
             created = self._drive_execute_with_shared_drive_fallback(_create)
             test_file_id = str(created["id"])
         except HttpError as exc:
-            message = self._http_error_message(exc, client_email=client_email, folder_id=folder_id)
+            message = self._http_error_message(
+                exc,
+                client_email=client_email,
+                folder_id=folder_id,
+                project_id=project_id,
+            )
             return False, message, folder_name, client_email or None
 
         if test_file_id:
@@ -197,6 +226,7 @@ class GoogleDriveService:
         folder_id: str,
         *,
         client_email: str = "",
+        project_id: str = "",
     ) -> tuple[str | None, str | None]:
         def _get(supports_all_drives: bool) -> dict[str, Any]:
             return (
@@ -212,7 +242,12 @@ class GoogleDriveService:
         try:
             folder = self._drive_execute_with_shared_drive_fallback(_get)
         except HttpError as exc:
-            return None, self._http_error_message(exc, client_email=client_email, folder_id=folder_id)
+            return None, self._http_error_message(
+                exc,
+                client_email=client_email,
+                folder_id=folder_id,
+                project_id=project_id,
+            )
 
         if folder.get("trashed"):
             return None, "Папка находится в корзине Google Drive. Восстановите её и повторите проверку."
@@ -255,6 +290,7 @@ class GoogleDriveService:
         *,
         client_email: str = "",
         folder_id: str = "",
+        project_id: str = "",
     ) -> str:
         try:
             payload = json.loads(exc.content.decode("utf-8"))
@@ -284,12 +320,14 @@ class GoogleDriveService:
         ):
             email_hint = f" Service account: {client_email}." if client_email else ""
             folder_hint = f" ID папки: {folder_id}." if folder_id else ""
+            project_hint = f" GCP-проект: {project_id}." if project_id else ""
             return (
                 "Google Drive не видит эту папку для service account."
-                f"{email_hint}{folder_hint} "
-                "Откройте папку в Google Drive → «Поделиться» → добавьте email service account с ролью «Редактор». "
-                "У service account нет своего диска: без шаринга Google отвечает «File not found». "
-                "Если доступ уже выдан — удалите его, подождите 1–2 минуты и добавьте снова."
+                f"{email_hint}{folder_hint}{project_hint} "
+                "Добавьте email service account в «Поделиться» с ролью «Редактор». "
+                "Общий доступ по ссылке service account не использует — нужен именно email в списке пользователей. "
+                "Если SA уже в списке — удалите обе записи, подождите 1–2 минуты, добавьте одну с ролью «Редактор», "
+                "или создайте новую папку и расшарьте только на quadart21@gmail.com и service account."
             )
         if exc.resp is not None and exc.resp.status in {403, 401}:
             email_hint = f" Service account: {client_email}." if client_email else ""
