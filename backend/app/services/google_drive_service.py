@@ -149,7 +149,13 @@ class GoogleDriveService:
         folder_id: str,
     ) -> tuple[bool, str, str | None, str | None]:
         service, client_email = self._build_service(credentials_json)
-        folder_name = self._try_read_folder_name(service, folder_id)
+        folder_name, probe_error = self._probe_folder(
+            service,
+            folder_id,
+            client_email=client_email,
+        )
+        if probe_error:
+            return False, probe_error, None, client_email or None
 
         test_name = f".cryptoprocessing-access-test-{int(time.time())}.txt"
         test_file_id: str | None = None
@@ -185,13 +191,19 @@ class GoogleDriveService:
             client_email or None,
         )
 
-    def _try_read_folder_name(self, service, folder_id: str) -> str | None:
+    def _probe_folder(
+        self,
+        service,
+        folder_id: str,
+        *,
+        client_email: str = "",
+    ) -> tuple[str | None, str | None]:
         def _get(supports_all_drives: bool) -> dict[str, Any]:
             return (
                 service.files()
                 .get(
                     fileId=folder_id,
-                    fields="id, name, mimeType, trashed",
+                    fields="id, name, mimeType, trashed, shortcutDetails",
                     supportsAllDrives=supports_all_drives,
                 )
                 .execute()
@@ -199,13 +211,33 @@ class GoogleDriveService:
 
         try:
             folder = self._drive_execute_with_shared_drive_fallback(_get)
-        except HttpError:
-            return None
+        except HttpError as exc:
+            return None, self._http_error_message(exc, client_email=client_email, folder_id=folder_id)
+
         if folder.get("trashed"):
+            return None, "Папка находится в корзине Google Drive. Восстановите её и повторите проверку."
+
+        mime_type = str(folder.get("mimeType") or "")
+        if mime_type == "application/vnd.google-apps.shortcut":
+            target_id = str(folder.get("shortcutDetails", {}).get("targetId") or "").strip()
+            if target_id:
+                return None, (
+                    "Указан ярлык Google Drive, а не сама папка. "
+                    f"Используйте ID целевой папки: {target_id}."
+                )
+            return None, "Указан ярлык Google Drive, а не сама папка."
+
+        if mime_type != "application/vnd.google-apps.folder":
+            item_name = str(folder.get("name") or "файл")
+            return None, f"Указанный ID относится к файлу «{item_name}», а не к папке."
+
+        return str(folder.get("name") or "") or None, None
+
+    def _try_read_folder_name(self, service, folder_id: str) -> str | None:
+        folder_name, probe_error = self._probe_folder(service, folder_id)
+        if probe_error:
             return None
-        if folder.get("mimeType") != "application/vnd.google-apps.folder":
-            return None
-        return str(folder.get("name") or "") or None
+        return folder_name
 
     @staticmethod
     def _try_delete_file(service, file_id: str) -> None:
@@ -245,13 +277,26 @@ class GoogleDriveService:
                 "Google Drive API не включён в Google Cloud проекте service account."
                 f"{project_hint} После включения подождите 2–5 минут и повторите."
             )
-        if exc.resp is not None and exc.resp.status == 404:
-            email_hint = f" Текущий service account: {client_email}." if client_email else ""
+        if (
+            (exc.resp is not None and exc.resp.status == 404)
+            or "file not found" in lowered
+            or "not found" in lowered and folder_id.lower() in lowered
+        ):
+            email_hint = f" Service account: {client_email}." if client_email else ""
             folder_hint = f" ID папки: {folder_id}." if folder_id else ""
             return (
-                "Google Drive не даёт записать файл в эту папку."
+                "Google Drive не видит эту папку для service account."
                 f"{email_hint}{folder_hint} "
-                "Проверьте, что в «Поделиться» указан именно этот email service account с ролью «Редактор». "
-                "Если уже расшарено — удалите доступ, подождите минуту, добавьте снова или создайте новую папку."
+                "Откройте папку в Google Drive → «Поделиться» → добавьте email service account с ролью «Редактор». "
+                "У service account нет своего диска: без шаринга Google отвечает «File not found». "
+                "Если доступ уже выдан — удалите его, подождите 1–2 минуты и добавьте снова."
+            )
+        if exc.resp is not None and exc.resp.status in {403, 401}:
+            email_hint = f" Service account: {client_email}." if client_email else ""
+            return (
+                "Недостаточно прав для записи в папку Google Drive."
+                f"{email_hint} "
+                "Нужна роль «Редактор» (не «Читатель»). "
+                "Для общего диска Google Workspace добавьте service account участником диска."
             )
         return message

@@ -720,10 +720,12 @@ export function updateBackupSettings(
 
 export function testBackupDriveSettings(
   token: string,
+  payload?: import("./base").BackupDriveTestPayload,
 ): Promise<import("./base").BackupDriveTestResponse> {
   return request<import("./base").BackupDriveTestResponse>("/admin/backups/settings/test-drive", {
     method: "POST",
     headers: authHeaders(token),
+    body: JSON.stringify(payload ?? {}),
   });
 }
 

@@ -906,6 +906,10 @@ export type BackupDriveTestResponse = {
   service_account_email: string | null;
 };
 
+export type BackupDriveTestPayload = {
+  google_drive_folder_id?: string | null;
+};
+
 function formatValidationDetail(detail: unknown): string | null {
   if (!Array.isArray(detail)) {
     return null;

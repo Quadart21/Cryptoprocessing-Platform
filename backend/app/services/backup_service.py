@@ -209,9 +209,15 @@ class BackupService:
             await self.db.commit()
             return job
 
-    async def test_drive_connection(self) -> tuple[bool, str, str | None, str | None]:
+    async def test_drive_connection(
+        self,
+        *,
+        google_drive_folder_id: str | None = None,
+    ) -> tuple[bool, str, str | None, str | None]:
         row = await self.get_settings()
-        folder_id = (row.google_drive_folder_id or "").strip()
+        folder_id = (google_drive_folder_id if google_drive_folder_id is not None else row.google_drive_folder_id or "").strip()
+        if google_drive_folder_id is not None and folder_id:
+            folder_id = normalize_google_drive_folder_id(folder_id) or ""
         credentials_json = await self.drive.get_decrypted_credentials_json()
         if not folder_id:
             return False, "Укажите ID папки Google Drive.", None, None

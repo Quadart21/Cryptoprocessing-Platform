@@ -155,7 +155,24 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
     setError(null);
     setMessage(null);
     try {
-      const result = await testBackupDriveSettings(adminToken);
+      if (serviceAccountJson.trim()) {
+        const next = await updateBackupSettings(adminToken, {
+          google_drive_folder_id: folderId.trim() || null,
+          google_service_account_json: serviceAccountJson.trim(),
+          upload_to_drive_enabled: uploadEnabled,
+          schedule_enabled: scheduleEnabled,
+          schedule_frequency: scheduleFrequency,
+          schedule_hour_utc: scheduleHourUtc,
+          schedule_weekday: scheduleWeekday,
+          schedule_scopes: scheduleScopes,
+          local_retention_count: retentionCount,
+        });
+        applySettings(next);
+        setServiceAccountJson("");
+      }
+      const result = await testBackupDriveSettings(adminToken, {
+        google_drive_folder_id: folderId.trim() || null,
+      });
       if (result.ok) {
         setMessage(
           result.folder_name
@@ -256,8 +273,9 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
               </li>
               <li>Создайте service account, скачайте JSON и вставьте его ниже.</li>
               <li>
-                Создайте папку в Google Drive и расшарьте её на <code>client_email</code> из JSON (роль «Редактор»).
-                Без шаринга Google вернёт «File not found».
+                Создайте папку в <strong>своём</strong> Google Drive (не в общем диске без участника SA) и
+                расшарьте её на <code>client_email</code> из JSON (роль «Редактор»).
+                Без шаринга Google вернёт «File not found» — у service account нет личного диска.
               </li>
               <li>
                 Вставьте ID папки из URL (

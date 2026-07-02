@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db, require_superadmin
 from app.models.user import User
 from app.schemas.backup import (
+    BackupDriveTestRequest,
     BackupDriveTestResponse,
     BackupJobCreateRequest,
     BackupJobResponse,
@@ -69,10 +70,14 @@ async def update_backup_settings(
 
 @router.post("/settings/test-drive", response_model=BackupDriveTestResponse)
 async def test_backup_drive_settings(
+    body: BackupDriveTestRequest | None = None,
     _: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> BackupDriveTestResponse:
-    ok, message, folder_name, service_account_email = await BackupService(db).test_drive_connection()
+    folder_override = body.google_drive_folder_id if body is not None else None
+    ok, message, folder_name, service_account_email = await BackupService(db).test_drive_connection(
+        google_drive_folder_id=folder_override,
+    )
     return BackupDriveTestResponse(
         ok=ok,
         message=message,

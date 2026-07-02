@@ -59,3 +59,7 @@ class BackupDriveTestResponse(BaseModel):
     message: str
     folder_name: str | None = None
     service_account_email: str | None = None
+
+
+class BackupDriveTestRequest(BaseModel):
+    google_drive_folder_id: str | None = None
