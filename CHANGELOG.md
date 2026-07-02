@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.18.6] — 2026-07-03
+
+### Исправлено
+
+- **Сборка фронтенда**: устранены циклические чанки `docs-site ↔ landing` и `docs-site ↔ merchant-api-docs` — общие модули вынесены в `shared-public`, интеграции CMS — в `docs-integrations`.
+
+---
+
 ## [0.18.5] — 2026-07-03
 
 ### Исправлено

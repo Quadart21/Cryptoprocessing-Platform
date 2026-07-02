@@ -14,6 +14,20 @@ function platformSectionChunk(path: string): string | undefined {
   return `platform-${match[1].replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}`;
 }
 
+/** Общие модули лендинга и docs-site — отдельно, иначе Rollup ловит цикл landing ↔ docs-site. */
+function sharedPublicChunk(path: string): string | undefined {
+  if (
+    path.includes("/src/brand/") ||
+    path.includes("/src/i18n/") ||
+    path.includes("/src/config/") ||
+    path.includes("/src/types/") ||
+    path.includes("/src/storage")
+  ) {
+    return "shared-public";
+  }
+  return undefined;
+}
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -57,6 +71,20 @@ export default defineConfig({
             return undefined;
           }
 
+          const shared = sharedPublicChunk(s);
+          if (shared) {
+            return shared;
+          }
+
+          if (
+            s.includes("/src/docs/IntegrationModulesPanel") ||
+            s.includes("/src/docs/integrationDownloads")
+          ) {
+            return "docs-integrations";
+          }
+          if (s.includes("/src/screens/client/ApiDocumentationPanel")) {
+            return "merchant-api-docs";
+          }
           if (s.includes("/src/merchant/reference/")) {
             return "merchant-api-docs";
           }
