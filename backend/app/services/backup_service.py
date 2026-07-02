@@ -267,6 +267,9 @@ class BackupService:
     def _dump_database(self, output_path: Path) -> None:
         env = os.environ.copy()
         env["PGPASSWORD"] = settings.postgres_password
+        # Tenant tables use FORCE ROW LEVEL SECURITY; pg_dump must bypass policies via
+        # the same superadmin session flag the app uses during schema sync.
+        env["PGOPTIONS"] = "-c app.is_superadmin=on"
         cmd = [
             settings.pg_dump_bin,
             "-h",

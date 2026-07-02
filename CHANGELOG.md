@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.18.2] — 2026-07-02
+
+### Исправлено
+
+- **Бэкапы БД**: `pg_dump` больше не падает на таблицах с `FORCE ROW LEVEL SECURITY` (`api_keys` и др.) — в сессию дампа передаётся `app.is_superadmin=on`.
+
+---
+
 ## [0.18.1] — 2026-07-01
 
 ### Добавлено
