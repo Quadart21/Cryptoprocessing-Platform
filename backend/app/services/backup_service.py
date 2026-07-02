@@ -45,11 +45,24 @@ class BackupService:
 
     async def get_settings_view(self) -> BackupSettingsResponse:
         row = await self.get_settings()
-        configured, email = await self.drive.describe_credentials_for_admin()
+        oauth_connected, oauth_email = await self.drive.describe_oauth_for_admin()
+        sa_configured, sa_email = await self._describe_service_account_for_admin()
+        auth_mode: str | None = None
+        credentials_email: str | None = None
+        if oauth_connected:
+            auth_mode = "oauth"
+            credentials_email = oauth_email
+        elif sa_configured:
+            auth_mode = "service_account"
+            credentials_email = sa_email
         return BackupSettingsResponse(
             google_drive_folder_id=row.google_drive_folder_id,
-            google_credentials_configured=configured,
-            google_credentials_email=email,
+            google_credentials_configured=oauth_connected or sa_configured,
+            google_credentials_email=credentials_email,
+            google_oauth_configured=self.drive.oauth_configured(),
+            google_oauth_connected=oauth_connected,
+            google_oauth_user_email=oauth_email,
+            google_drive_auth_mode=auth_mode,  # type: ignore[arg-type]
             upload_to_drive_enabled=row.upload_to_drive_enabled,
             schedule_enabled=row.schedule_enabled,
             schedule_frequency=row.schedule_frequency,  # type: ignore[arg-type]
@@ -59,6 +72,20 @@ class BackupService:
             local_retention_count=row.local_retention_count,
             last_scheduled_run_at=row.last_scheduled_run_at,
         )
+
+    async def _describe_service_account_for_admin(self) -> tuple[bool, str | None]:
+        row = await self.get_settings()
+        raw = row.google_service_account_json_encrypted
+        if not raw:
+            return False, None
+        from app.core.security import decrypt_value
+
+        try:
+            payload = json.loads(decrypt_value(raw))
+        except (ValueError, json.JSONDecodeError):
+            return True, None
+        email = str(payload.get("client_email") or "").strip()
+        return True, email or None
 
     async def update_settings(
         self,
@@ -164,14 +191,16 @@ class BackupService:
 
             if settings_row.upload_to_drive_enabled:
                 folder_id = (settings_row.google_drive_folder_id or "").strip()
+                oauth_connected, _oauth_email = await self.drive.describe_oauth_for_admin()
                 credentials_json = await self.drive.get_decrypted_credentials_json()
                 if not folder_id:
                     raise ValueError("Google Drive folder ID is not configured.")
-                if not credentials_json:
-                    raise ValueError("Google service account credentials are not configured.")
+                if not oauth_connected and not credentials_json:
+                    raise ValueError(
+                        "Google Drive is not configured: connect OAuth account or upload service account JSON."
+                    )
                 try:
-                    file_id, web_url = self.drive.upload_file(
-                        credentials_json,
+                    file_id, web_url = await self.drive.upload_file_resolved(
                         folder_id,
                         str(archive_path),
                         archive_name,
@@ -218,12 +247,13 @@ class BackupService:
         folder_id = (google_drive_folder_id if google_drive_folder_id is not None else row.google_drive_folder_id or "").strip()
         if google_drive_folder_id is not None and folder_id:
             folder_id = normalize_google_drive_folder_id(folder_id) or ""
-        credentials_json = await self.drive.get_decrypted_credentials_json()
         if not folder_id:
             return False, "Укажите ID папки Google Drive.", None, None
-        if not credentials_json:
-            return False, "Загрузите JSON ключ service account.", None, None
-        return self.drive.test_folder_access(credentials_json, folder_id)
+        oauth_connected, _oauth_email = await self.drive.describe_oauth_for_admin()
+        credentials_json = await self.drive.get_decrypted_credentials_json()
+        if not oauth_connected and not credentials_json:
+            return False, "Подключите Google аккаунт (OAuth) или загрузите JSON service account.", None, None
+        return await self.drive.test_folder_access_resolved(folder_id)
 
     async def run_due_scheduled_backups(self) -> int:
         row = await self.get_settings()

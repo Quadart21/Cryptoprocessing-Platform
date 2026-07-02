@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     backup_work_dir: str = Field(default="", alias="BACKUP_WORK_DIR")
     pg_dump_bin: str = Field(default="pg_dump", alias="PG_DUMP_BIN")
     api_v1_prefix: str = Field(default="/api/v1", alias="API_V1_PREFIX")
+    google_oauth_client_id: str = Field(default="", alias="GOOGLE_OAUTH_CLIENT_ID")
+    google_oauth_client_secret: str = Field(default="", alias="GOOGLE_OAUTH_CLIENT_SECRET")
 
     security_fail_fast: bool = Field(default=True, alias="SECURITY_FAIL_FAST")
     allow_insecure_defaults_in_local: bool = Field(
@@ -312,6 +314,21 @@ class Settings(BaseSettings):
         if base_domain:
             return f"https://admin.{base_domain}"
         return ""
+
+    @property
+    def google_oauth_configured(self) -> bool:
+        return bool(self.google_oauth_client_id.strip() and self.google_oauth_client_secret.strip())
+
+    def resolve_google_oauth_redirect_uri(self) -> str:
+        raw = (self.public_api_base_url or "").strip().rstrip("/")
+        if not raw:
+            raise ValueError("PUBLIC_API_BASE_URL is required for Google OAuth.")
+        if "://" not in raw:
+            raw = f"https://{raw}"
+        prefix = (self.api_v1_prefix or "/api/v1").strip().rstrip("/")
+        if not prefix.startswith("/"):
+            prefix = f"/{prefix}"
+        return f"{raw}{prefix}/admin/backups/settings/google-oauth/callback"
 
     @property
     def resolved_backup_app_dir(self) -> Path:

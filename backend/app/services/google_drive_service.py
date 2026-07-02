@@ -6,15 +6,20 @@ import re
 import time
 from io import BytesIO
 from typing import Any
+from urllib.parse import urlencode
 
+import requests
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
+from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import decrypt_value, encrypt_value
+from app.core.config import settings
+from app.core.security import encrypt_value, decrypt_value
 from app.models.backup_settings import BackupSettings
 
 logger = logging.getLogger(__name__)
@@ -28,6 +33,8 @@ _DRIVE_ROLE_LABELS = {
     "commenter": "Комментатор",
     "reader": "Читатель",
 }
+_OAUTH_STATE_PURPOSE = "google_drive_oauth"
+_OAUTH_STATE_TTL_SECONDS = 900
 _DRIVE_FOLDER_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{10,}$")
 _DRIVE_FOLDER_URL_RE = re.compile(
     r"drive\.google\.com/(?:drive/)?(?:u/\d+/)?folders/([a-zA-Z0-9_-]+)",
@@ -64,8 +71,11 @@ class GoogleDriveService:
         return row
 
     async def describe_credentials_for_admin(self) -> tuple[bool, str | None]:
-        settings = await self.get_settings()
-        raw = settings.google_service_account_json_encrypted
+        oauth_connected, oauth_email = await self.describe_oauth_for_admin()
+        if oauth_connected:
+            return True, oauth_email
+        settings_row = await self.get_settings()
+        raw = settings_row.google_service_account_json_encrypted
         if not raw:
             return False, None
         try:
@@ -74,6 +84,114 @@ class GoogleDriveService:
             return True, None
         email = str(payload.get("client_email") or "").strip()
         return True, email or None
+
+    async def describe_oauth_for_admin(self) -> tuple[bool, str | None]:
+        settings_row = await self.get_settings()
+        if not settings_row.google_oauth_refresh_token_encrypted:
+            return False, None
+        email = (settings_row.google_oauth_user_email or "").strip()
+        return True, email or None
+
+    async def clear_oauth_credentials(self) -> None:
+        settings_row = await self.get_settings()
+        settings_row.google_oauth_refresh_token_encrypted = None
+        settings_row.google_oauth_user_email = None
+        self.db.add(settings_row)
+        await self.db.flush()
+
+    async def get_oauth_refresh_token(self) -> str | None:
+        settings_row = await self.get_settings()
+        raw = settings_row.google_oauth_refresh_token_encrypted
+        if not raw:
+            return None
+        return decrypt_value(raw)
+
+    async def save_oauth_refresh_token(self, refresh_token: str, user_email: str) -> None:
+        settings_row = await self.get_settings()
+        settings_row.google_oauth_refresh_token_encrypted = encrypt_value(refresh_token)
+        settings_row.google_oauth_user_email = user_email.strip() or None
+        self.db.add(settings_row)
+        await self.db.flush()
+
+    async def resolve_drive_service(self) -> tuple[Any, str, str]:
+        """Return (drive service, identity email, auth mode). Prefers OAuth for personal Gmail."""
+        oauth_refresh = await self.get_oauth_refresh_token()
+        if oauth_refresh:
+            service, email = self._build_service_from_oauth_refresh(oauth_refresh)
+            return service, email, "oauth"
+        credentials_json = await self.get_decrypted_credentials_json()
+        if credentials_json:
+            service, email = self._build_service_from_service_account(credentials_json)
+            return service, email, "service_account"
+        raise ValueError(
+            "Подключите Google аккаунт (OAuth) или загрузите JSON service account для Google Drive."
+        )
+
+    @staticmethod
+    def oauth_configured() -> bool:
+        return settings.google_oauth_configured
+
+    @staticmethod
+    def create_oauth_state_token() -> str:
+        return jwt.encode(
+            {
+                "purpose": _OAUTH_STATE_PURPOSE,
+                "exp": int(time.time()) + _OAUTH_STATE_TTL_SECONDS,
+            },
+            settings.effective_jwt_secret,
+            algorithm="HS256",
+        )
+
+    @staticmethod
+    def verify_oauth_state_token(state: str) -> bool:
+        try:
+            payload = jwt.decode(state, settings.effective_jwt_secret, algorithms=["HS256"])
+        except JWTError:
+            return False
+        return payload.get("purpose") == _OAUTH_STATE_PURPOSE
+
+    def build_oauth_authorization_url(self, state: str) -> str:
+        if not settings.google_oauth_configured:
+            raise ValueError("Google OAuth client is not configured on the server.")
+        query = urlencode(
+            {
+                "client_id": settings.google_oauth_client_id,
+                "redirect_uri": settings.resolve_google_oauth_redirect_uri(),
+                "response_type": "code",
+                "scope": " ".join(DRIVE_SCOPES),
+                "access_type": "offline",
+                "prompt": "consent",
+                "include_granted_scopes": "true",
+                "state": state,
+            }
+        )
+        return f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
+
+    def exchange_oauth_code(self, code: str) -> tuple[str, str]:
+        if not settings.google_oauth_configured:
+            raise ValueError("Google OAuth client is not configured on the server.")
+        response = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": settings.google_oauth_client_id,
+                "client_secret": settings.google_oauth_client_secret,
+                "redirect_uri": settings.resolve_google_oauth_redirect_uri(),
+                "grant_type": "authorization_code",
+            },
+            timeout=30,
+        )
+        if response.status_code >= 400:
+            raise ValueError(f"Google OAuth token exchange failed: {response.text[:240]}")
+        payload = response.json()
+        refresh_token = str(payload.get("refresh_token") or "").strip()
+        if not refresh_token:
+            raise ValueError(
+                "Google не вернул refresh token. Отключите доступ приложения в "
+                "https://myaccount.google.com/permissions и подключите снова."
+            )
+        service, email = self._build_service_from_oauth_refresh(refresh_token)
+        return refresh_token, email
 
     async def set_service_account_json(self, raw_json: str | None) -> BackupSettings:
         settings = await self.get_settings()
@@ -104,11 +222,34 @@ class GoogleDriveService:
         return decrypt_value(raw)
 
     @staticmethod
-    def _build_service(credentials_json: str):
+    def _build_service_from_service_account(credentials_json: str):
         info = json.loads(credentials_json)
         credentials = service_account.Credentials.from_service_account_info(info, scopes=DRIVE_SCOPES)
         service = build("drive", "v3", credentials=credentials, cache_discovery=False)
         client_email = str(info.get("client_email") or "").strip()
+        project_id = str(info.get("project_id") or "").strip()
+        return service, client_email, project_id
+
+    @staticmethod
+    def _build_service_from_oauth_refresh(refresh_token: str):
+        credentials = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.google_oauth_client_id,
+            client_secret=settings.google_oauth_client_secret,
+            scopes=list(DRIVE_SCOPES),
+        )
+        service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+        about = service.about().get(fields="user").execute()
+        email = str(about.get("user", {}).get("emailAddress") or "").strip()
+        return service, email
+
+    @staticmethod
+    def _build_service(credentials_json: str):
+        service, client_email, _project_id = GoogleDriveService._build_service_from_service_account(
+            credentials_json
+        )
         return service, client_email
 
     @staticmethod
@@ -140,8 +281,18 @@ class GoogleDriveService:
             )
         return None
 
-    def upload_file(self, credentials_json: str, folder_id: str, file_path: str, file_name: str) -> tuple[str, str]:
-        service, client_email = self._build_service(credentials_json)
+    async def upload_file_resolved(
+        self,
+        folder_id: str,
+        file_path: str,
+        file_name: str,
+    ) -> tuple[str, str]:
+        service, client_email, auth_mode = await self.resolve_drive_service()
+        project_id = ""
+        if auth_mode == "service_account":
+            credentials_json = await self.get_decrypted_credentials_json()
+            if credentials_json:
+                project_id = str(json.loads(credentials_json).get("project_id") or "").strip()
         metadata = {"name": file_name, "parents": [folder_id]}
         media = MediaFileUpload(file_path, resumable=True)
 
@@ -161,9 +312,36 @@ class GoogleDriveService:
             created = self._drive_execute_with_shared_drive_fallback(_create)
         except HttpError as exc:
             raise ValueError(
-                self._http_error_message(exc, client_email=client_email, folder_id=folder_id),
+                self._http_error_message(
+                    exc,
+                    client_email=client_email,
+                    folder_id=folder_id,
+                    project_id=project_id,
+                    auth_mode=auth_mode,
+                ),
             ) from exc
         return str(created["id"]), str(created.get("webViewLink") or "")
+
+    async def test_folder_access_resolved(
+        self,
+        folder_id: str,
+    ) -> tuple[bool, str, str | None, str | None]:
+        try:
+            service, client_email, auth_mode = await self.resolve_drive_service()
+        except ValueError as exc:
+            return False, str(exc), None, None
+        project_id = ""
+        if auth_mode == "service_account":
+            credentials_json = await self.get_decrypted_credentials_json()
+            if credentials_json:
+                project_id = str(json.loads(credentials_json).get("project_id") or "").strip()
+        return self._test_folder_access_with_service(
+            service,
+            folder_id,
+            client_email=client_email,
+            project_id=project_id,
+            auth_mode=auth_mode,
+        )
 
     def test_folder_access(
         self,
@@ -172,6 +350,23 @@ class GoogleDriveService:
     ) -> tuple[bool, str, str | None, str | None]:
         service, client_email = self._build_service(credentials_json)
         project_id = str(json.loads(credentials_json).get("project_id") or "").strip()
+        return self._test_folder_access_with_service(
+            service,
+            folder_id,
+            client_email=client_email,
+            project_id=project_id,
+            auth_mode="service_account",
+        )
+
+    def _test_folder_access_with_service(
+        self,
+        service,
+        folder_id: str,
+        *,
+        client_email: str = "",
+        project_id: str = "",
+        auth_mode: str = "service_account",
+    ) -> tuple[bool, str, str | None, str | None]:
         api_error = self._verify_drive_api(
             service,
             client_email=client_email,
@@ -215,6 +410,7 @@ class GoogleDriveService:
                 folder_id=folder_id,
                 project_id=project_id,
                 folder_role_hint=role_hint,
+                auth_mode=auth_mode,
             )
             return False, message, folder_name, client_email or None
 
@@ -352,6 +548,7 @@ class GoogleDriveService:
         folder_id: str = "",
         project_id: str = "",
         folder_role_hint: str | None = None,
+        auth_mode: str = "service_account",
     ) -> str:
         message, reasons = GoogleDriveService._extract_google_error_details(exc)
         lowered = message.lower()
@@ -393,11 +590,18 @@ class GoogleDriveService:
                 role_hint = f" Роль SA в папке по API: «{folder_role_hint}»."
             quota_hint = ""
             if "storagequotaexceeded" in lowered or "storageQuotaExceeded" in reasons:
-                quota_hint = (
-                    " У service account нет своего диска — папка должна быть расшарена как «Редактор», "
-                    "тогда квота берётся у владельца папки. Проверьте, что на drive.google.com у "
-                    "quadart21@gmail.com есть свободное место."
-                )
+                if auth_mode == "service_account":
+                    quota_hint = (
+                        " У новых service account Google с 2025 года квота Drive = 0 байт — "
+                        "даже в расшаренную папку личного Gmail загрузка не работает. "
+                        "Подключите Google аккаунт (OAuth) в настройках бэкапов — "
+                        "файлы будут загружаться от вашего имени и использовать ваши 15 ГБ."
+                    )
+                else:
+                    quota_hint = (
+                        " Проверьте свободное место на Google Drive у подключённого аккаунта "
+                        f"{client_email}."
+                    )
             elif folder_role_hint == "Читатель":
                 role_hint = (
                     f"{role_hint} Смените роль на «Редактор» в «Поделиться» и подождите 1–2 минуты."

@@ -858,10 +858,16 @@ export type BackupScope = "full" | "database" | "backend" | "frontend";
 export type BackupScheduleFrequency = "daily" | "weekly" | "every_6h" | "every_12h";
 export type BackupStatus = "pending" | "running" | "completed" | "failed";
 
+export type BackupDriveAuthMode = "oauth" | "service_account";
+
 export type BackupSettings = {
   google_drive_folder_id: string | null;
   google_credentials_configured: boolean;
   google_credentials_email: string | null;
+  google_oauth_configured: boolean;
+  google_oauth_connected: boolean;
+  google_oauth_user_email: string | null;
+  google_drive_auth_mode: BackupDriveAuthMode | null;
   upload_to_drive_enabled: boolean;
   schedule_enabled: boolean;
   schedule_frequency: BackupScheduleFrequency;
@@ -908,6 +914,10 @@ export type BackupDriveTestResponse = {
 
 export type BackupDriveTestPayload = {
   google_drive_folder_id?: string | null;
+};
+
+export type BackupGoogleOAuthStartResponse = {
+  authorization_url: string;
 };
 
 function formatValidationDetail(detail: unknown): string | null {

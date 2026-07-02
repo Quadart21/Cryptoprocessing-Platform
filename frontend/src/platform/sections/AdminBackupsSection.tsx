@@ -8,8 +8,10 @@ import type {
 } from "../../api/base";
 import {
   createBackupJob,
+  disconnectBackupGoogleOAuth,
   fetchBackupJobs,
   fetchBackupSettings,
+  startBackupGoogleOAuth,
   testBackupDriveSettings,
   updateBackupSettings,
 } from "../../api/admin";
@@ -107,6 +109,20 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
   }, [reload]);
 
   useEffect(() => {
+    function onOAuthMessage(event: MessageEvent) {
+      if (event.data?.type !== "google-drive-oauth") return;
+      if (event.data.ok) {
+        setMessage("Google аккаунт подключён для бэкапов.");
+        void reload();
+      } else {
+        setError("Не удалось подключить Google аккаунт.");
+      }
+    }
+    window.addEventListener("message", onOAuthMessage);
+    return () => window.removeEventListener("message", onOAuthMessage);
+  }, [reload]);
+
+  useEffect(() => {
     if (!adminToken || !hasActiveJobs) return;
     const timer = window.setInterval(() => {
       void fetchBackupJobs(adminToken)
@@ -147,6 +163,37 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
   async function handleSaveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await saveSettings();
+  }
+
+  async function handleConnectGoogleOAuth() {
+    if (!adminToken || loading) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const { authorization_url: authorizationUrl } = await startBackupGoogleOAuth(adminToken);
+      window.open(authorizationUrl, "google-drive-oauth", "width=520,height=720");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось начать OAuth Google Drive.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDisconnectGoogleOAuth() {
+    if (!adminToken || loading) return;
+    if (!window.confirm("Отключить Google аккаунт для бэкапов?")) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const next = await disconnectBackupGoogleOAuth(adminToken);
+      applySettings(next);
+      setMessage("Google аккаунт отключён.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отключить Google аккаунт.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleTestDrive() {
@@ -257,39 +304,101 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
             <div>
               <h3>Google Drive</h3>
               <p className="muted-text">
-                Service account JSON и ID папки. Папку нужно расшарить на email service account с правом редактора.
+                Для личного Gmail используйте OAuth (ваша квота 15 ГБ). Service account с 2025 года не может
+                загружать файлы в «Мой диск».
               </p>
             </div>
           </header>
           <form className="panel-body stack-gap" onSubmit={(event) => void handleSaveSettings(event)}>
             <ol className="muted-text stack-gap" style={{ margin: 0, paddingLeft: "1.2rem" }}>
               <li>
-                В Google Cloud Console того же проекта, что и JSON-ключ, включите{" "}
-                <strong>Google Drive API</strong> (
-                <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" rel="noreferrer" target="_blank">
-                  APIs &amp; Services → Library
-                </a>
-                ).
-              </li>
-              <li>Создайте service account, скачайте JSON и вставьте его ниже.</li>
-              <li>
-                Создайте папку в <strong>своём</strong> Google Drive (не в общем диске без участника SA) и
-                расшарьте её на <code>client_email</code> из JSON (роль «Редактор»).
-                Без шаринга Google вернёт «File not found» — у service account нет личного диска.
+                Создайте папку в <strong>Мой диск</strong> (например <code>Noren Backups</code>) и скопируйте ID из URL.
               </li>
               <li>
-                Вставьте ID папки из URL (
-                <code>https://drive.google.com/drive/folders/ЭТОТ_ID</code>
-                ) — можно вставить и полную ссылку.
+                Нажмите <strong>«Подключить Google аккаунт»</strong> и войдите как <code>quadart21@gmail.com</code>.
+                Шаринг папки на service account для личного Gmail больше не нужен.
+              </li>
+              <li>
+                На сервере в <code>.env</code> задайте <code>GOOGLE_OAUTH_CLIENT_ID</code> и{" "}
+                <code>GOOGLE_OAUTH_CLIENT_SECRET</code> (OAuth client типа Web в Google Cloud Console).
               </li>
             </ol>
             <p>
-              Статус ключей:{" "}
-              <strong>{settings?.google_credentials_configured ? "заданы" : "не заданы"}</strong>
-              {settings?.google_credentials_email ? (
+              Авторизация Drive:{" "}
+              <strong>
+                {settings?.google_oauth_connected
+                  ? "OAuth подключён"
+                  : settings?.google_drive_auth_mode === "service_account"
+                    ? "service account"
+                    : "не настроена"}
+              </strong>
+              {settings?.google_oauth_user_email ? (
+                <span className="muted-text mono-sm"> ({settings.google_oauth_user_email})</span>
+              ) : settings?.google_credentials_email ? (
                 <span className="muted-text mono-sm"> ({settings.google_credentials_email})</span>
               ) : null}
             </p>
+            <div className="btn-row">
+              <button
+                className="btn btn-primary"
+                disabled={loading || !settings?.google_oauth_configured}
+                type="button"
+                onClick={() => void handleConnectGoogleOAuth()}
+              >
+                Подключить Google аккаунт
+              </button>
+              <button
+                className="btn btn-secondary"
+                disabled={loading || !settings?.google_oauth_connected}
+                type="button"
+                onClick={() => void handleDisconnectGoogleOAuth()}
+              >
+                Отключить OAuth
+              </button>
+            </div>
+            {!settings?.google_oauth_configured ? (
+              <p className="muted-text">
+                OAuth на сервере не настроен — попросите добавить GOOGLE_OAUTH_CLIENT_ID/SECRET в .env.
+              </p>
+            ) : null}
+            <details className="muted-text">
+              <summary>Service account (устарело для личного Gmail)</summary>
+              <div className="stack-gap" style={{ marginTop: "0.75rem" }}>
+                <p>
+                  Новые service account не могут писать в папки личного Gmail (ошибка storageQuotaExceeded).
+                  Оставлено для Google Workspace / Shared Drives.
+                </p>
+                <label className="form-field">
+                  <span>JSON service account (оставьте пустым, чтобы не менять)</span>
+                  <textarea
+                    className="input"
+                    disabled={loading}
+                    rows={4}
+                    value={serviceAccountJson}
+                    onChange={(event) => setServiceAccountJson(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  disabled={loading || !settings?.google_credentials_configured || settings.google_drive_auth_mode !== "service_account"}
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Удалить сохранённый JSON service account?")) {
+                      void updateBackupSettings(adminToken!, { google_service_account_json: "" })
+                        .then((next) => {
+                          applySettings(next);
+                          setMessage("JSON service account удалён.");
+                        })
+                        .catch((err) => {
+                          setError(err instanceof Error ? err.message : "Не удалось удалить ключ.");
+                        });
+                    }
+                  }}
+                >
+                  Очистить service account JSON
+                </button>
+              </div>
+            </details>
             <label className="form-field">
               <span>ID папки Google Drive</span>
               <input
@@ -298,16 +407,6 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
                 placeholder="1IRmz8CG9jSIQdggTAVbvQJJXvnkGyH6I или ссылка на папку"
                 value={folderId}
                 onChange={(event) => setFolderId(event.target.value)}
-              />
-            </label>
-            <label className="form-field">
-              <span>JSON service account (оставьте пустым, чтобы не менять)</span>
-              <textarea
-                className="input"
-                disabled={loading}
-                rows={6}
-                value={serviceAccountJson}
-                onChange={(event) => setServiceAccountJson(event.target.value)}
               />
             </label>
             <label className="form-check">
@@ -330,25 +429,6 @@ export function AdminBackupsSection({ adminToken }: AdminBackupsSectionProps) {
                 onClick={() => void handleTestDrive()}
               >
                 Проверить доступ
-              </button>
-              <button
-                className="btn btn-secondary"
-                disabled={loading || !settings?.google_credentials_configured}
-                type="button"
-                onClick={() => {
-                  if (window.confirm("Удалить сохранённый JSON service account?")) {
-                    void updateBackupSettings(adminToken, { google_service_account_json: "" })
-                      .then((next) => {
-                        applySettings(next);
-                        setMessage("JSON service account удалён.");
-                      })
-                      .catch((err) => {
-                        setError(err instanceof Error ? err.message : "Не удалось удалить ключ.");
-                      });
-                  }
-                }}
-              >
-                Очистить ключ
               </button>
             </div>
           </form>

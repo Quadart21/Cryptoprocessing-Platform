@@ -4,6 +4,19 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.19.0] — 2026-07-03
+
+### Добавлено
+
+- **Google Drive (бэкапы)**: OAuth-подключение личного Google аккаунта для загрузки в «Мой диск» — обход ограничения service account (квота 0 байт с 2025 года).
+- Переменные `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`, кнопки «Подключить Google аккаунт» и «Отключить OAuth» в админке.
+
+### Изменено
+
+- Бэкапы в Drive предпочитают OAuth; service account оставлен для Workspace / Shared Drives.
+
+---
+
 ## [0.18.6] — 2026-07-03
 
 ### Исправлено

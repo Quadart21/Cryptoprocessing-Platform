@@ -405,6 +405,14 @@ DDL_PATCHES = [
     SET notification_logo_url = '/uploads/brand/logo.png'
     WHERE notification_logo_url IS NULL OR TRIM(notification_logo_url) = ''
     """,
+    """
+    ALTER TABLE backup_settings
+    ADD COLUMN IF NOT EXISTS google_oauth_refresh_token_encrypted TEXT
+    """,
+    """
+    ALTER TABLE backup_settings
+    ADD COLUMN IF NOT EXISTS google_oauth_user_email VARCHAR(255)
+    """,
 ]
 
 RLS_TENANT_TABLES = [

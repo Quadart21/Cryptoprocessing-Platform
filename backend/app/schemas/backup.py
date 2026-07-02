@@ -7,12 +7,17 @@ BackupScope = Literal["full", "database", "backend", "frontend"]
 BackupTrigger = Literal["manual", "scheduled"]
 BackupStatus = Literal["pending", "running", "completed", "failed"]
 BackupScheduleFrequency = Literal["daily", "weekly", "every_6h", "every_12h"]
+BackupDriveAuthMode = Literal["oauth", "service_account"]
 
 
 class BackupSettingsResponse(BaseModel):
     google_drive_folder_id: str | None = None
     google_credentials_configured: bool = False
     google_credentials_email: str | None = None
+    google_oauth_configured: bool = False
+    google_oauth_connected: bool = False
+    google_oauth_user_email: str | None = None
+    google_drive_auth_mode: BackupDriveAuthMode | None = None
     upload_to_drive_enabled: bool = True
     schedule_enabled: bool = False
     schedule_frequency: BackupScheduleFrequency = "daily"
@@ -63,3 +68,7 @@ class BackupDriveTestResponse(BaseModel):
 
 class BackupDriveTestRequest(BaseModel):
     google_drive_folder_id: str | None = None
+
+
+class BackupGoogleOAuthStartResponse(BaseModel):
+    authorization_url: str

@@ -729,6 +729,24 @@ export function testBackupDriveSettings(
   });
 }
 
+export function startBackupGoogleOAuth(
+  token: string,
+): Promise<import("./base").BackupGoogleOAuthStartResponse> {
+  return request<import("./base").BackupGoogleOAuthStartResponse>(
+    "/admin/backups/settings/google-oauth/start",
+    {
+      headers: authHeaders(token),
+    },
+  );
+}
+
+export function disconnectBackupGoogleOAuth(token: string): Promise<import("./base").BackupSettings> {
+  return request<import("./base").BackupSettings>("/admin/backups/settings/google-oauth/disconnect", {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
 export function fetchBackupJobs(token: string): Promise<import("./base").BackupJobItem[]> {
   return request<import("./base").BackupJobItem[]>("/admin/backups/jobs", {
     headers: authHeaders(token),

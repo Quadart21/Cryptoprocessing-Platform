@@ -13,6 +13,8 @@ class BackupSettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     code: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
     google_drive_folder_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     google_service_account_json_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    google_oauth_refresh_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    google_oauth_user_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     upload_to_drive_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     schedule_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     schedule_frequency: Mapped[str] = mapped_column(String(32), nullable=False, default="daily")
