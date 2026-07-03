@@ -45,11 +45,6 @@ export const AssetManagementPageLazy = lazy(async () => {
   return { default: m.AssetManagementPage };
 });
 
-export const AdminSandboxSectionLazy = lazy(async () => {
-  const m = await import("./sections/AdminSandboxSection");
-  return { default: m.AdminSandboxSection };
-});
-
 export const AdminBackupsSectionLazy = lazy(async () => {
   const m = await import("./sections/AdminBackupsSection");
   return { default: m.AdminBackupsSection };

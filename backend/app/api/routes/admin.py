@@ -131,11 +131,9 @@ from app.services.user_service import UserService
 
 from fastapi import APIRouter
 
-from app.api.routes.admin_sandbox import router as admin_sandbox_router
 from app.api.routes.admin_backups import router as admin_backups_router
 
 router = APIRouter()
-router.include_router(admin_sandbox_router, prefix="/sandbox", tags=["admin-sandbox"])
 router.include_router(admin_backups_router, prefix="/backups", tags=["admin-backups"])
 
 

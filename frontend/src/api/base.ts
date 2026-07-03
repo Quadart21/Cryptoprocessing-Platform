@@ -811,48 +811,6 @@ export type PublicPageListResponse = {
   items: PublicPageNavigationItem[];
 };
 
-export type MerchantSandboxSummary = {
-  id: string;
-  tenant_id: string;
-  project_id: string | null;
-  label: string;
-  dns_parent_zone: string;
-  desired_subdomain: string;
-  status: string;
-  public_base_url: string | null;
-  tenant_name: string;
-  created_at: string;
-  origin_ipv4: string | null;
-  agent_public_id: string | null;
-};
-
-export type SandboxPlatformSettings = {
-  cloudflare_token_configured: boolean;
-  cloudflare_token_masked: string | null;
-};
-
-export type MerchantSandboxCreatePayload = {
-  label: string;
-  dns_parent_zone: string;
-  desired_subdomain: string;
-};
-
-export type MerchantSandboxCreateResponse = {
-  id: string;
-  tenant_id: string;
-  project_id: string;
-  label: string;
-  dns_parent_zone: string;
-  desired_subdomain: string;
-  status: string;
-  enrollment_token: string;
-  enrollment_expires_at: string;
-  api_public_key: string;
-  api_secret_key: string;
-  owner_email: string;
-  owner_password: string;
-  public_api_base_url: string;
-};
 
 export type BackupScope = "full" | "database" | "backend" | "frontend";
 export type BackupScheduleFrequency = "daily" | "weekly" | "every_6h" | "every_12h";

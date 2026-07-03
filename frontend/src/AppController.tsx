@@ -5,10 +5,8 @@ import {
   deleteAdminUser,
   createClientPayout,
   createInvoice,
-  createMerchantSandbox,
   createTenant,
   deleteAdminTenant,
-  destroyMerchantSandbox,
   disableTwoFactor,
   enableTwoFactor,
   fetchAdminAssets,
@@ -30,15 +28,12 @@ import {
   fetchClientTransactions,
   fetchCurrentUser,
   fetchInvoiceEvents,
-  fetchMerchantSandboxes,
   fetchInvoices,
   fetchOnboardingStatus,
   fetchPlatformAccountingOverview,
   recordPlatformEarningsWithdrawal,
-  fetchSandboxPlatformSettings,
   fetchPlatformBillingSettings,
   fetchPlatformExchangeRate,
-  provisionMerchantSandboxDns,
   refreshPlatformExchangeRate,
   fetchProjects,
   fetchRates,
@@ -88,9 +83,6 @@ import {
   type InvoiceAdminDetail,
   type InvoiceDetail,
   type InvoiceItem,
-  type MerchantSandboxCreatePayload,
-  type MerchantSandboxCreateResponse,
-  type MerchantSandboxSummary,
   type MerchantNotificationSettings,
   type NotificationTemplatePreview,
   type NotificationTemplatePreviewPayload,
@@ -109,7 +101,6 @@ import {
   type ProviderEventItem,
   type PublicPageItem,
   type RateItem,
-  type SandboxPlatformSettings,
   type RegistrationPayload,
   type SmtpBzTestPayload,
   type SmtpBzTestResponse,
@@ -135,7 +126,6 @@ import {
   updateAdminTenant,
   updateAdminUser,
   updateClientNotificationSettings,
-  updateSandboxPlatformSettings,
   updatePlatformBillingSettings,
   uploadPlatformBrandLogo,
   deletePlatformBrandLogo,
@@ -258,11 +248,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     useState<TenantBillingPolicy | null>(null);
   const [adminAssetRates, setAdminAssetRates] = useState<RateItem[]>([]);
   const [adminPublicPages, setAdminPublicPages] = useState<PublicPageItem[]>([]);
-  const [merchantSandboxes, setMerchantSandboxes] = useState<MerchantSandboxSummary[]>([]);
-  const [sandboxPlatformSettings, setSandboxPlatformSettings] =
-    useState<SandboxPlatformSettings | null>(null);
-  const [lastMerchantSandboxCreate, setLastMerchantSandboxCreate] =
-    useState<MerchantSandboxCreateResponse | null>(null);
   const [adminUsers, setAdminUsers] = useState<AdminUserItem[]>([]);
   const [roleDefinitions, setRoleDefinitions] = useState<UserRoleDefinition[]>([]);
   const [twoFactorStatus, setTwoFactorStatus] = useState<TwoFactorStatus | null>(null);
@@ -586,23 +571,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
           setSelectedInvoiceDetail(null);
           setSelectedInvoiceEvents([]);
         }
-        if (currentUser.role === "superadmin") {
-          try {
-            const [sandboxList, sbSettings] = await Promise.all([
-              fetchMerchantSandboxes(accessToken),
-              fetchSandboxPlatformSettings(accessToken),
-            ]);
-            setMerchantSandboxes(sandboxList);
-            setSandboxPlatformSettings(sbSettings);
-          } catch {
-            setMerchantSandboxes([]);
-            setSandboxPlatformSettings(null);
-          }
-        } else {
-          setMerchantSandboxes([]);
-          setSandboxPlatformSettings(null);
-        }
-        setLastMerchantSandboxCreate(null);
         setOnboarding(null);
         setProjects([]);
         setApiKeys([]);
@@ -631,9 +599,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setAdminPublicPages([]);
       setAdminUsers([]);
       setRoleDefinitions([]);
-      setMerchantSandboxes([]);
-      setSandboxPlatformSettings(null);
-      setLastMerchantSandboxCreate(null);
       setSelectedInvoiceId(null);
       setSelectedInvoiceDetail(null);
       setSelectedInvoiceEvents([]);
@@ -1738,97 +1703,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     }
   }
 
-  async function handleRefreshMerchantSandboxes() {
-    if (!token || user?.role !== "superadmin") return;
-    try {
-      setLoading(true);
-      setError(null);
-      const [list, cfg] = await Promise.all([
-        fetchMerchantSandboxes(token),
-        fetchSandboxPlatformSettings(token),
-      ]);
-      setMerchantSandboxes(list);
-      setSandboxPlatformSettings(cfg);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось загрузить данные песочниц.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleCreateMerchantSandbox(payload: MerchantSandboxCreatePayload) {
-    if (!token || user?.role !== "superadmin") return;
-    try {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-      const created = await createMerchantSandbox(token, payload);
-      setLastMerchantSandboxCreate(created);
-      setMerchantSandboxes(await fetchMerchantSandboxes(token));
-      setSandboxPlatformSettings(await fetchSandboxPlatformSettings(token));
-      setSuccess("Песочница создана. Сохраните секреты из блока ниже.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось создать песочницу.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleUpdateSandboxPlatformSettings(cloudflareApiToken: string | null | undefined) {
-    if (!token || user?.role !== "superadmin") return;
-    try {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-      const next = await updateSandboxPlatformSettings(
-        token,
-        cloudflareApiToken === undefined ? {} : { cloudflare_api_token: cloudflareApiToken },
-      );
-      setSandboxPlatformSettings(next);
-      setSuccess("Настройки DNS песочницы обновлены.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить токен Cloudflare.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleProvisionMerchantSandboxDns(sandboxId: string, ipv4: string) {
-    if (!token || user?.role !== "superadmin") return;
-    try {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-      await provisionMerchantSandboxDns(token, sandboxId, { ipv4 });
-      setMerchantSandboxes(await fetchMerchantSandboxes(token));
-      setSuccess("DNS и webhook для песочницы обновлены.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось провижинить DNS.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleDestroyMerchantSandbox(sandboxId: string) {
-    if (!token || user?.role !== "superadmin") return;
-    try {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
-      await destroyMerchantSandbox(token, sandboxId);
-      setMerchantSandboxes(await fetchMerchantSandboxes(token));
-      setSuccess("Песочница удалена.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось удалить песочницу.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleDismissMerchantSandboxCreate() {
-    setLastMerchantSandboxCreate(null);
-  }
-
   async function handleFetchPlatformExchangeRate(currency: string) {
     if (!token) {
       throw new Error("Требуется авторизация.");
@@ -2380,16 +2254,6 @@ return (
           onApprovePayout={(payoutId) => void handleApprovePayout(payoutId)}
           onRejectPayout={(payoutId) => void handleRejectPayout(payoutId)}
           onCloseSecretModal={() => setNewApiSecret(null)}
-          sandboxConsoleEnabled={user.role === "superadmin"}
-          merchantSandboxes={merchantSandboxes}
-          sandboxPlatformSettings={sandboxPlatformSettings}
-          lastMerchantSandboxCreate={lastMerchantSandboxCreate}
-          onRefreshMerchantSandboxes={() => void handleRefreshMerchantSandboxes()}
-          onCreateMerchantSandbox={(payload) => void handleCreateMerchantSandbox(payload)}
-          onUpdateSandboxPlatformSettings={(t) => void handleUpdateSandboxPlatformSettings(t)}
-          onProvisionMerchantSandboxDns={(id, ip) => void handleProvisionMerchantSandboxDns(id, ip)}
-          onDestroyMerchantSandbox={(id) => void handleDestroyMerchantSandbox(id)}
-          onDismissMerchantSandboxCreate={handleDismissMerchantSandboxCreate}
           onRecordPlatformWithdrawal={(payload) => handleRecordPlatformWithdrawal(payload)}
           onLoadPlatformAccounting={loadPlatformAccounting}
           onLoadPlatformInvoices={loadPlatformInvoices}

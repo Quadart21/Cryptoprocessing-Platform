@@ -10,16 +10,12 @@ import type {
   CurrentUser,
   InvoiceAdminDetail,
   InvoiceItem,
-  MerchantSandboxCreatePayload,
-  MerchantSandboxCreateResponse,
-  MerchantSandboxSummary,
   PayoutRequestItem,
   PlatformBillingSettings,
   NotificationTemplatePreview,
   NotificationTemplatePreviewPayload,
   NotificationTemplateTestPayload,
   NotificationTemplateTestResponse,
-  SandboxPlatformSettings,
   ExchangeRateLookup,
   ExchangeRateRefresh,
   ProviderEventItem,
@@ -59,7 +55,6 @@ export type AdminSection =
   | "platform-settings"
   | "public-pages"
   | "assets"
-  | "sandbox"
   | "backups"
   | "team"
   | "security";
@@ -82,7 +77,7 @@ export const ADMIN_MENU_ITEMS: DashboardRailItem[] = [
 ];
 
 export function isAdminSection(value: string): value is Exclude<AdminSection, "client-detail"> {
-  if (value === "sandbox" || value === "accounting" || value === "backups") {
+  if (value === "accounting" || value === "backups") {
     return true;
   }
   return ADMIN_MENU_ITEMS.some((item) => item.key === value);
@@ -124,10 +119,6 @@ export type AdminDashboardProps = {
   selectedInvoiceId: string | null;
   selectedInvoiceDetail: InvoiceAdminDetail | null;
   selectedInvoiceEvents: ProviderEventItem[];
-  sandboxConsoleEnabled: boolean;
-  merchantSandboxes: MerchantSandboxSummary[];
-  sandboxPlatformSettings: SandboxPlatformSettings | null;
-  lastMerchantSandboxCreate: MerchantSandboxCreateResponse | null;
   onLogout: () => void;
   onCreateTenant: (event: FormEvent<HTMLFormElement>) => void;
   onTenantFormChange: (next: TenantCreatePayload) => void;
@@ -196,10 +187,4 @@ export type AdminDashboardProps = {
   onLoadPlatformInvoices: () => Promise<void>;
   onLoadPlatformTransactions: () => Promise<void>;
   onCloseSecretModal: () => void;
-  onRefreshMerchantSandboxes: () => void;
-  onCreateMerchantSandbox: (payload: MerchantSandboxCreatePayload) => void;
-  onUpdateSandboxPlatformSettings: (cloudflareApiToken: string | null | undefined) => void;
-  onProvisionMerchantSandboxDns: (sandboxId: string, ipv4: string) => void;
-  onDestroyMerchantSandbox: (sandboxId: string) => void;
-  onDismissMerchantSandboxCreate: () => void;
 };

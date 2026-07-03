@@ -19,7 +19,6 @@ import {
   AdminPlatformPayoutsPanelLazy,
   AdminPlatformSettingsSectionLazy,
   AdminPublicPagesSectionLazy,
-  AdminSandboxSectionLazy,
   AdminBackupsSectionLazy,
   AdminUsersPanelLazy,
   AssetManagementPageLazy,
@@ -116,17 +115,9 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     onRejectPayout,
     onRecordPlatformWithdrawal,
     onCloseSecretModal,
-    sandboxConsoleEnabled,
-    merchantSandboxes,
-    sandboxPlatformSettings,
-    lastMerchantSandboxCreate,
-    onRefreshMerchantSandboxes,
-    onCreateMerchantSandbox,
-    onUpdateSandboxPlatformSettings,
-    onProvisionMerchantSandboxDns,
-    onDestroyMerchantSandbox,
-    onDismissMerchantSandboxCreate,
   } = props;
+
+  const backupsConsoleEnabled = true;
 
   const [section, setSection] = useState<AdminSection>("overview");
 
@@ -155,16 +146,10 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
   }, [section, selectedTenantId]);
 
   useEffect(() => {
-    if (section === "sandbox" && !sandboxConsoleEnabled) {
+    if (section === "backups" && !backupsConsoleEnabled) {
       setSection("overview");
     }
-  }, [sandboxConsoleEnabled, section]);
-
-  useEffect(() => {
-    if (section === "backups" && !sandboxConsoleEnabled) {
-      setSection("overview");
-    }
-  }, [sandboxConsoleEnabled, section]);
+  }, [backupsConsoleEnabled, section]);
 
   useEffect(() => {
     if (section !== "platform-settings" || platformBillingSettings || !onReloadPlatformSettings) {
@@ -176,10 +161,9 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
   const adminMenuGroups = useMemo<DashboardRailGroup[]>(
     () =>
       buildAdminMenuGroups(selectedTenantId, {
-        sandboxConsole: sandboxConsoleEnabled,
-        backupsConsole: sandboxConsoleEnabled,
+        backupsConsole: backupsConsoleEnabled,
       }),
-    [sandboxConsoleEnabled, selectedTenantId],
+    [backupsConsoleEnabled, selectedTenantId],
   );
 
   const selectedTenantName =
@@ -500,24 +484,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
               </div>
             ) : null}
 
-            {section === "sandbox" && sandboxConsoleEnabled ? (
-              <div className="console-section-stack">
-                <AdminSandboxSectionLazy
-                  lastCreate={lastMerchantSandboxCreate}
-                  loading={loading}
-                  onCreate={onCreateMerchantSandbox}
-                  onDestroy={onDestroyMerchantSandbox}
-                  onDismissCreate={onDismissMerchantSandboxCreate}
-                  onProvisionDns={onProvisionMerchantSandboxDns}
-                  onRefresh={onRefreshMerchantSandboxes}
-                  onUpdateCfToken={onUpdateSandboxPlatformSettings}
-                  sandboxes={merchantSandboxes}
-                  settings={sandboxPlatformSettings}
-                />
-              </div>
-            ) : null}
-
-            {section === "backups" && sandboxConsoleEnabled ? (
+            {section === "backups" && backupsConsoleEnabled ? (
               <div className="console-section-stack">
                 <AdminBackupsSectionLazy adminToken={adminToken} />
               </div>

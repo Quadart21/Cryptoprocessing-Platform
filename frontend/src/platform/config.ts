@@ -7,7 +7,7 @@ export type AdminHub = "monitoring" | "clients" | "management";
 const ADMIN_HUB_SECTIONS: Record<AdminHub, AdminSection[]> = {
   monitoring: ["overview", "accounting", "invoices", "transactions", "payouts", "events", "api-traffic"],
   clients: ["requests", "clients", "client-detail"],
-  management: ["platform-settings", "public-pages", "assets", "sandbox", "backups", "team", "security"],
+  management: ["platform-settings", "public-pages", "assets", "backups", "team", "security"],
 };
 
 export const ADMIN_HUB_DEFAULT_SECTION: Record<AdminHub, AdminSection> = {
@@ -99,11 +99,6 @@ export const ADMIN_SECTION_META: Record<
     title: "Токены и сети",
     description: "Доступность активов для клиентов.",
   },
-  sandbox: {
-    group: "Управление",
-    title: "Песочницы мерчантов",
-    description: "Тестовые стенды: DNS Cloudflare, агент на VPS, без смешения с боевой статистикой.",
-  },
   backups: {
     group: "Управление",
     title: "Бэкапы платформы",
@@ -123,12 +118,8 @@ export const ADMIN_SECTION_META: Record<
 
 export function buildAdminMenuGroups(
   selectedTenantId: string | null,
-  opts?: { sandboxConsole?: boolean; backupsConsole?: boolean },
+  opts?: { backupsConsole?: boolean },
 ): DashboardRailGroup[] {
-  const sandboxItem =
-    opts?.sandboxConsole === true
-      ? [{ key: "sandbox" as const, label: "Песочницы" }]
-      : [];
   const backupsItem =
     opts?.backupsConsole === true ? [{ key: "backups" as const, label: "Бэкапы" }] : [];
 
@@ -166,7 +157,6 @@ export function buildAdminMenuGroups(
         { key: "platform-settings", label: "Настройки" },
         { key: "public-pages", label: "Страницы" },
         { key: "assets", label: "Токены" },
-        ...sandboxItem,
         ...backupsItem,
         { key: "team", label: "Команда" },
         { key: "security", label: "Безопасность" },
