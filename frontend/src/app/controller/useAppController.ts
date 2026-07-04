@@ -533,9 +533,7 @@ export function useAppController() {
       const result = await createAdminUser(token, payload);
       setAdminUsers(await fetchAdminUsers(token, { scope: "platform" }));
       setSuccess(
-        result.invite_token
-          ? `Пользователь создан. Invite token: ${result.invite_token}`
-          : `Пользователь создан: ${result.user.email}`,
+        `Пользователь ${result.user.email} создан. Данные для входа отправлены на указанную почту.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось создать пользователя.");

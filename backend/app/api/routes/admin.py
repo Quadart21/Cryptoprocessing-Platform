@@ -16,7 +16,7 @@ from app.api.deps import (
     user_permissions,
 )
 from app.providers.crypto_cash_status import PLATFORM_INVOICE_STATUSES
-from app.core.rbac import has_permission, list_role_definitions
+from app.core.rbac import get_role_definition, has_permission, list_role_definitions
 from app.models.invoice import Invoice
 from app.models.invite_token import InviteToken
 from app.models.api_key import ApiKey
@@ -142,6 +142,49 @@ def _generate_temporary_password(length: int = 14) -> str:
     return "".join(choice(alphabet) for _ in range(length))
 
 
+async def _notify_user_access_credentials(
+    notification_service: NotificationService,
+    user: User,
+    *,
+    plain_password: str,
+    invite_token: str | None = None,
+    tenant_name: str | None = None,
+) -> None:
+    role_definition = get_role_definition(user.role)
+    role_label = role_definition.label if role_definition else user.role
+
+    lines = [
+        f"Имя: {user.full_name}",
+        f"Email (логин): {user.email}",
+        f"Временный пароль: {plain_password}",
+        f"Роль: {role_label}",
+    ]
+    if tenant_name:
+        lines.insert(1, f"Клиент: {tenant_name}")
+    if invite_token:
+        lines.append(f"Invite token: {invite_token}")
+    lines.append("Рекомендуем сменить пароль после первого входа.")
+
+    extra_context: dict[str, str] = {
+        "temporary_password": plain_password,
+        "user_role": role_label,
+    }
+    if invite_token:
+        extra_context["invite_token"] = invite_token
+        extra_context["recovery_token"] = f"\nInvite token: {invite_token}"
+    if tenant_name:
+        extra_context["tenant_name"] = tenant_name
+
+    await notification_service.notify_user(
+        user,
+        event_code=NotificationService.EVENT_PASSWORD_GENERATED,
+        subject="Данные для входа в консоль",
+        lines=lines,
+        context=extra_context,
+        force_email=True,
+    )
+
+
 @router.get("/health")
 async def admin_health() -> dict[str, str]:
     return {"status": "ok", "scope": "admin"}
@@ -183,9 +226,16 @@ async def create_tenant(
     auth_service = AuthService(db)
     notification_service = NotificationService(db)
 
+    user_service = UserService(db)
+
     try:
         tenant, owner, project_id, api_public_key, api_secret_key = (
             await tenant_service.create_tenant_with_owner(payload)
+        )
+        owner_password = _generate_temporary_password()
+        owner = await user_service.update_user(
+            owner.id,
+            {"password": owner_password, "status": "invited"},
         )
         invite_token = await auth_service.create_invite(owner)
     except Exception as exc:
@@ -195,6 +245,13 @@ async def create_tenant(
             detail=f"Не удалось создать tenant: {exc}",
         ) from exc
 
+    await _notify_user_access_credentials(
+        notification_service,
+        owner,
+        plain_password=owner_password,
+        invite_token=invite_token,
+        tenant_name=tenant.name,
+    )
     await notification_service.notify_user(
         owner,
         event_code=NotificationService.EVENT_API_KEY_GENERATED,
@@ -205,6 +262,7 @@ async def create_tenant(
             f"Secret key: {api_secret_key}",
             f"Invite token: {invite_token}",
         ],
+        force_email=True,
     )
 
     return TenantCreateResponse(
@@ -281,6 +339,8 @@ async def create_user(
 ) -> UserCreateResponse:
     user_service = UserService(db)
     auth_service = AuthService(db)
+    notification_service = NotificationService(db)
+    plain_password = payload.password or _generate_temporary_password()
 
     try:
         user = await user_service.create_user(
@@ -289,7 +349,7 @@ async def create_user(
             role=payload.role,
             tenant_id=payload.tenant_id,
             status=payload.status,
-            password=payload.password,
+            password=plain_password,
         )
         invite_token = await auth_service.create_invite(user) if payload.create_invite else None
     except ValueError as exc:
@@ -297,6 +357,13 @@ async def create_user(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == user.tenant_id)) if user.tenant_id else None
+    await _notify_user_access_credentials(
+        notification_service,
+        user,
+        plain_password=plain_password,
+        invite_token=invite_token,
+        tenant_name=tenant_name,
+    )
     return UserCreateResponse(
         user=_map_user_summary(user=user, tenant_name=tenant_name),
         invite_token=invite_token,
