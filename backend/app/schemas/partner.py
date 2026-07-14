@@ -154,14 +154,34 @@ class AdminTenantReferralUpdateRequest(BaseModel):
 
 
 class AffiliateSettingsResponse(BaseModel):
+    # Legacy flat fields (kept for compatibility with older UI clients).
     affiliate_commission_percent: Decimal
     affiliate_hold_days: int
     affiliate_min_payout_usdt: Decimal
     affiliate_cookie_days: int
+    # Full ultra-wide config for superadmin.
+    config: dict
 
 
 class AffiliateSettingsUpdateRequest(BaseModel):
-    affiliate_commission_percent: Decimal = Field(ge=0, le=100)
-    affiliate_hold_days: int = Field(ge=0, le=365)
-    affiliate_min_payout_usdt: Decimal = Field(ge=0)
-    affiliate_cookie_days: int = Field(ge=1, le=365)
+    # Accept either legacy flat fields or full config dict (or both; config wins).
+    affiliate_commission_percent: Decimal | None = Field(default=None, ge=0, le=100)
+    affiliate_hold_days: int | None = Field(default=None, ge=0, le=365)
+    affiliate_min_payout_usdt: Decimal | None = Field(default=None, ge=0)
+    affiliate_cookie_days: int | None = Field(default=None, ge=1, le=730)
+    config: dict | None = None
+
+
+class PublicAffiliateConfigResponse(BaseModel):
+    program_enabled: bool
+    public_apply_enabled: bool
+    cookie_days: int
+    click_mode: str
+    default_payout_network: str
+    allowed_payout_networks: list[str]
+    require_payout_address_on_apply: bool
+    commission_percent: Decimal
+    hold_days: int
+    min_payout_usdt: Decimal
+    attribution_mode: str
+    attribution_days: int

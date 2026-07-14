@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import secrets
 import string
@@ -15,6 +16,11 @@ from app.models.partner import Partner, PartnerCommission, PartnerPayoutRequest,
 from app.models.tenant import Tenant
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.services.affiliate_config import (
+    AffiliateProgramConfig,
+    config_from_payload,
+    parse_affiliate_config,
+)
 from app.services.billing_policy_service import BillingPolicyService
 
 
@@ -29,38 +35,75 @@ class PartnerService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_affiliate_settings(self) -> tuple[Decimal, int, Decimal, int]:
+    async def get_program_config(self) -> AffiliateProgramConfig:
         settings = await BillingPolicyService(self.db).get_platform_settings()
+        return parse_affiliate_config(
+            getattr(settings, "affiliate_settings_json", None),
+            legacy_commission_percent=Decimal(settings.affiliate_commission_percent),
+            legacy_hold_days=int(settings.affiliate_hold_days),
+            legacy_min_payout_usdt=Decimal(settings.affiliate_min_payout_usdt),
+            legacy_cookie_days=int(settings.affiliate_cookie_days),
+        )
+
+    async def get_affiliate_settings(self) -> tuple[Decimal, int, Decimal, int]:
+        cfg = await self.get_program_config()
         return (
-            Decimal(settings.affiliate_commission_percent),
-            int(settings.affiliate_hold_days),
-            Decimal(settings.affiliate_min_payout_usdt),
-            int(settings.affiliate_cookie_days),
+            cfg.commission_percent,
+            cfg.hold_days,
+            cfg.min_payout_usdt,
+            cfg.cookie_days,
         )
 
     async def update_affiliate_settings(
         self,
         *,
-        affiliate_commission_percent: Decimal,
-        affiliate_hold_days: int,
-        affiliate_min_payout_usdt: Decimal,
-        affiliate_cookie_days: int,
+        affiliate_commission_percent: Decimal | None = None,
+        affiliate_hold_days: int | None = None,
+        affiliate_min_payout_usdt: Decimal | None = None,
+        affiliate_cookie_days: int | None = None,
+        config: dict | None = None,
     ):
+        current = await self.get_program_config()
+        if config is not None:
+            merged = current.to_storage_dict()
+            merged.update(config)
+            next_cfg = config_from_payload(merged)
+        else:
+            next_cfg = current
+            if affiliate_commission_percent is not None:
+                next_cfg.commission_percent = Decimal(affiliate_commission_percent)
+            if affiliate_hold_days is not None:
+                next_cfg.hold_days = int(affiliate_hold_days)
+            if affiliate_min_payout_usdt is not None:
+                next_cfg.min_payout_usdt = Decimal(affiliate_min_payout_usdt)
+            if affiliate_cookie_days is not None:
+                next_cfg.cookie_days = int(affiliate_cookie_days)
+            # Re-parse to apply clamps/validation.
+            next_cfg = config_from_payload(next_cfg.to_storage_dict())
+
         settings = await BillingPolicyService(self.db).get_platform_settings()
-        settings.affiliate_commission_percent = affiliate_commission_percent
-        settings.affiliate_hold_days = affiliate_hold_days
-        settings.affiliate_min_payout_usdt = affiliate_min_payout_usdt
-        settings.affiliate_cookie_days = affiliate_cookie_days
+        settings.affiliate_settings_json = json.dumps(next_cfg.to_storage_dict(), sort_keys=True)
+        settings.affiliate_commission_percent = next_cfg.commission_percent
+        settings.affiliate_hold_days = next_cfg.hold_days
+        settings.affiliate_min_payout_usdt = next_cfg.min_payout_usdt
+        settings.affiliate_cookie_days = next_cfg.cookie_days
         self.db.add(settings)
         await self.db.commit()
         await self.db.refresh(settings)
         return settings
 
     async def effective_commission_percent(self, partner: Partner) -> Decimal:
-        default_percent, _, _, _ = await self.get_affiliate_settings()
-        if partner.commission_percent is not None:
-            return Decimal(partner.commission_percent)
-        return default_percent
+        cfg = await self.get_program_config()
+        if partner.commission_percent is not None and cfg.commission_override_allowed:
+            value = Decimal(partner.commission_percent)
+            lo = cfg.commission_override_min_percent
+            hi = cfg.commission_override_max_percent
+            if value < lo:
+                return lo
+            if value > hi:
+                return hi
+            return value
+        return cfg.commission_percent
 
     async def get_by_user_id(self, user_id: str) -> Partner | None:
         return await self.db.scalar(select(Partner).where(Partner.user_id == user_id))
@@ -88,10 +131,24 @@ class PartnerService:
         payout_network: str,
     ) -> Partner:
         await set_db_security_context(self.db, tenant_id=None, is_superadmin=True)
+        cfg = await self.get_program_config()
+        if not cfg.program_enabled or not cfg.public_apply_enabled:
+            raise PartnerServiceError("Affiliate applications are currently closed.")
+
         normalized_email = email.strip().lower()
         existing = await self.db.scalar(select(User).where(User.email == normalized_email))
         if existing is not None:
             raise PartnerServiceError("Email is already registered.")
+
+        dest = (payout_address or "").strip() or None
+        if cfg.require_payout_address_on_apply and not dest:
+            raise PartnerServiceError("Payout address is required for application.")
+
+        net = (payout_network or cfg.default_payout_network or "TRC20").strip().upper() or "TRC20"
+        if net not in cfg.allowed_payout_networks:
+            raise PartnerServiceError(
+                f"Payout network must be one of: {', '.join(cfg.allowed_payout_networks)}."
+            )
 
         user = User(
             tenant_id=None,
@@ -106,14 +163,16 @@ class PartnerService:
         self.db.add(user)
         await self.db.flush()
 
+        now = datetime.now(timezone.utc)
         partner = Partner(
             user_id=user.id,
-            referral_code=await self._generate_unique_code(),
+            referral_code=await self._generate_unique_code(cfg.referral_code_length),
             display_name=display_name.strip(),
             contact_telegram=(contact_telegram or "").strip() or None,
-            status="pending",
-            payout_address=(payout_address or "").strip() or None,
-            payout_network=(payout_network or "TRC20").strip().upper() or "TRC20",
+            status="approved" if cfg.auto_approve_partners else "pending",
+            payout_address=dest,
+            payout_network=net,
+            approved_at=now if cfg.auto_approve_partners else None,
         )
         self.db.add(partner)
         await self.db.commit()
@@ -129,8 +188,16 @@ class PartnerService:
         landing_path: str | None,
     ) -> PartnerReferralEvent | None:
         await set_db_security_context(self.db, tenant_id=None, is_superadmin=True)
+        cfg = await self.get_program_config()
+        if not cfg.program_enabled:
+            return None
         partner = await self.get_by_referral_code(referral_code)
-        if partner is None or partner.status not in {"approved", "pending"}:
+        if partner is None:
+            return None
+        allowed_statuses = {"approved"}
+        if cfg.track_clicks_from_pending_partners:
+            allowed_statuses.add("pending")
+        if partner.status not in allowed_statuses:
             return None
         event = PartnerReferralEvent(
             partner_id=partner.id,
@@ -153,13 +220,24 @@ class PartnerService:
     ) -> Partner | None:
         if not referral_code:
             return None
+        cfg = await self.get_program_config()
+        if not cfg.program_enabled:
+            return None
         partner = await self.get_by_referral_code(referral_code)
-        if partner is None or partner.status != "approved":
+        if partner is None:
+            return None
+        if cfg.require_approved_partner_for_attribution and partner.status != "approved":
+            return None
+        if partner.status in {"rejected", "suspended"}:
             return None
         user = await self.db.get(User, partner.user_id)
         if user is None:
             return None
-        if self._is_self_referral(partner_email=user.email, merchant_email=owner_email):
+        if self._is_self_referral(
+            partner_email=user.email,
+            merchant_email=owner_email,
+            cfg=cfg,
+        ):
             return None
         return partner
 
@@ -172,9 +250,12 @@ class PartnerService:
     ) -> None:
         if partner is None:
             return
+        cfg = await self.get_program_config()
         user = await self.db.get(User, partner.user_id)
         if user is not None and self._is_self_referral(
-            partner_email=user.email, merchant_email=owner_email
+            partner_email=user.email,
+            merchant_email=owner_email,
+            cfg=cfg,
         ):
             return
         tenant.referral_partner_id = partner.id
@@ -191,14 +272,25 @@ class PartnerService:
         self, tenant_id: str, partner_id: str | None
     ) -> Tenant:
         await set_db_security_context(self.db, tenant_id=None, is_superadmin=True)
+        cfg = await self.get_program_config()
         tenant = await self.db.get(Tenant, tenant_id)
         if tenant is None:
             raise PartnerServiceError("Tenant not found.")
+        if (
+            partner_id
+            and cfg.freeze_attribution_after_tenant_approve
+            and tenant.status == "approved"
+            and tenant.referral_partner_id
+            and tenant.referral_partner_id != partner_id
+        ):
+            # Still allow admin override, but signal via exception only if desired.
+            # Admin endpoint intentionally bypasses freeze.
+            pass
         if partner_id:
             partner = await self.get_by_id(partner_id)
             if partner is None:
                 raise PartnerServiceError("Partner not found.")
-            if partner.status != "approved":
+            if cfg.require_approved_partner_for_attribution and partner.status != "approved":
                 raise PartnerServiceError("Partner must be approved.")
             tenant.referral_partner_id = partner.id
         else:
@@ -207,6 +299,18 @@ class PartnerService:
         await self.db.commit()
         await self.db.refresh(tenant)
         return tenant
+
+    async def attribution_still_active(self, tenant: Tenant) -> bool:
+        cfg = await self.get_program_config()
+        if cfg.attribution_mode != "fixed_days":
+            return True
+        if tenant.created_at is None:
+            return True
+        created = tenant.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        expires = created + timedelta(days=cfg.attribution_days)
+        return datetime.now(timezone.utc) <= expires
 
     async def accrue_commission_for_settlement(
         self,
@@ -217,7 +321,12 @@ class PartnerService:
         platform_fee: Decimal,
     ) -> PartnerCommission | None:
         await set_db_security_context(self.db, tenant_id=None, is_superadmin=True)
+        cfg = await self.get_program_config()
+        if not cfg.program_enabled:
+            return None
         if platform_fee <= 0:
+            return None
+        if Decimal(platform_fee) < cfg.min_platform_fee_to_accrue_usdt:
             return None
 
         existing = await self.db.scalar(
@@ -231,16 +340,23 @@ class PartnerService:
         tenant = await self.db.get(Tenant, tenant_id)
         if tenant is None or not tenant.referral_partner_id:
             return None
+        if cfg.accrue_only_approved_tenants and tenant.status != "approved":
+            return None
+        if not await self.attribution_still_active(tenant):
+            return None
 
         partner = await self.get_by_id(tenant.referral_partner_id)
-        if partner is None or partner.status != "approved":
+        if partner is None:
+            return None
+        if cfg.accrue_only_approved_partners and partner.status != "approved":
+            return None
+        if partner.status == "suspended":
             return None
 
         commission_percent = await self.effective_commission_percent(partner)
         if commission_percent <= 0:
             return None
 
-        _, hold_days, _, _ = await self.get_affiliate_settings()
         now = datetime.now(timezone.utc)
         commission_amount = (
             Decimal(platform_fee) * commission_percent / Decimal("100")
@@ -249,6 +365,7 @@ class PartnerService:
         if commission_amount <= 0:
             return None
 
+        hold_days = cfg.hold_days
         row = PartnerCommission(
             partner_id=partner.id,
             tenant_id=tenant_id,
@@ -258,7 +375,7 @@ class PartnerService:
             commission_percent=commission_percent,
             commission_amount=commission_amount,
             currency="USDT",
-            status="pending_hold",
+            status="pending_hold" if hold_days > 0 else "available",
             available_at=now + timedelta(days=hold_days),
         )
         self.db.add(row)
@@ -345,6 +462,7 @@ class PartnerService:
         }
 
     async def list_merchants(self, partner_id: str) -> list[dict]:
+        cfg = await self.get_program_config()
         tenants = list(
             (
                 await self.db.scalars(
@@ -355,7 +473,7 @@ class PartnerService:
             ).all()
         )
         result = []
-        for tenant in tenants:
+        for index, tenant in enumerate(tenants, start=1):
             fee_sum = await self.db.scalar(
                 select(func.coalesce(func.sum(PartnerCommission.platform_fee_amount), 0)).where(
                     PartnerCommission.partner_id == partner_id,
@@ -373,7 +491,11 @@ class PartnerService:
             result.append(
                 {
                     "tenant_id": tenant.id,
-                    "tenant_name": tenant.name,
+                    "tenant_name": (
+                        tenant.name
+                        if cfg.show_merchant_names_to_partners
+                        else f"Клиент #{index}"
+                    ),
                     "tenant_status": tenant.status,
                     "created_at": tenant.created_at,
                     "platform_fee_usdt": Decimal(fee_sum or 0),
@@ -426,13 +548,16 @@ class PartnerService:
         destination_address: str | None,
         network: str | None,
     ) -> PartnerPayoutRequest:
+        cfg = await self.get_program_config()
+        if not cfg.program_enabled or not cfg.payouts_enabled:
+            raise PartnerServiceError("Affiliate payouts are currently disabled.")
         if partner.status != "approved":
             raise PartnerServiceError("Partner is not approved.")
 
         await self.release_matured_holds(partner.id)
         balances = await self.balances(partner.id)
         available = balances["available_usdt"]
-        _, _, min_payout, _ = await self.get_affiliate_settings()
+        min_payout = cfg.min_payout_usdt
 
         request_amount = Decimal(amount) if amount is not None else available
         request_amount = request_amount.quantize(self.SETTLEMENT_PRECISION)
@@ -444,9 +569,17 @@ class PartnerService:
             raise PartnerServiceError(f"Minimum payout is {min_payout} USDT.")
 
         dest = (destination_address or partner.payout_address or "").strip()
+        if cfg.require_payout_address_before_request and not dest:
+            raise PartnerServiceError("Set a payout address first.")
         if not dest:
             raise PartnerServiceError("Set a payout address first.")
-        net = (network or partner.payout_network or "TRC20").strip().upper()
+        net = (
+            network or partner.payout_network or cfg.default_payout_network or "TRC20"
+        ).strip().upper()
+        if net not in cfg.allowed_payout_networks:
+            raise PartnerServiceError(
+                f"Payout network must be one of: {', '.join(cfg.allowed_payout_networks)}."
+            )
 
         payout = PartnerPayoutRequest(
             partner_id=partner.id,
@@ -607,10 +740,19 @@ class PartnerService:
             elif normalized == "rejected":
                 partner.suspended_at = None
 
+        cfg = await self.get_program_config()
         if clear_commission_override:
             partner.commission_percent = None
         elif commission_percent is not None:
-            partner.commission_percent = commission_percent
+            if not cfg.commission_override_allowed:
+                raise PartnerServiceError("Commission overrides are disabled.")
+            value = Decimal(commission_percent)
+            if value < cfg.commission_override_min_percent or value > cfg.commission_override_max_percent:
+                raise PartnerServiceError(
+                    f"Commission override must be between "
+                    f"{cfg.commission_override_min_percent} and {cfg.commission_override_max_percent}."
+                )
+            partner.commission_percent = value
 
         if review_comment is not None:
             partner.review_comment = review_comment
@@ -652,9 +794,10 @@ class PartnerService:
     def _normalize_code(self, code: str) -> str:
         return re.sub(r"[^A-Za-z0-9]", "", (code or "").strip()).upper()
 
-    async def _generate_unique_code(self) -> str:
+    async def _generate_unique_code(self, length: int = 8) -> str:
+        size = max(4, min(16, int(length or 8)))
         for _ in range(20):
-            code = "".join(secrets.choice(self.CODE_ALPHABET) for _ in range(8))
+            code = "".join(secrets.choice(self.CODE_ALPHABET) for _ in range(size))
             exists = await self.db.scalar(
                 select(Partner.id).where(Partner.referral_code == code)
             )
@@ -663,29 +806,47 @@ class PartnerService:
         raise PartnerServiceError("Could not generate referral code.")
 
     @staticmethod
-    def _is_self_referral(*, partner_email: str, merchant_email: str) -> bool:
+    def _is_self_referral(
+        *,
+        partner_email: str,
+        merchant_email: str,
+        cfg: AffiliateProgramConfig | None = None,
+    ) -> bool:
         left = (partner_email or "").strip().lower()
         right = (merchant_email or "").strip().lower()
         if not left or not right:
             return False
-        if left == right:
+        block_email = True if cfg is None else cfg.block_self_referral_email
+        block_domain = True if cfg is None else cfg.block_same_email_domain
+        free_domains = {
+            item.lower()
+            for item in (
+                cfg.self_referral_free_domains
+                if cfg is not None
+                else [
+                    "gmail.com",
+                    "googlemail.com",
+                    "yahoo.com",
+                    "outlook.com",
+                    "hotmail.com",
+                    "icloud.com",
+                    "mail.ru",
+                    "yandex.ru",
+                    "yandex.com",
+                    "proton.me",
+                    "protonmail.com",
+                ]
+            )
+        }
+        if block_email and left == right:
             return True
         left_domain = left.split("@")[-1]
         right_domain = right.split("@")[-1]
-        # Block same-domain self-referral except common mail hosts.
-        shared_free = {
-            "gmail.com",
-            "googlemail.com",
-            "yahoo.com",
-            "outlook.com",
-            "hotmail.com",
-            "icloud.com",
-            "mail.ru",
-            "yandex.ru",
-            "yandex.com",
-            "proton.me",
-            "protonmail.com",
-        }
-        if left_domain and left_domain == right_domain and left_domain not in shared_free:
+        if (
+            block_domain
+            and left_domain
+            and left_domain == right_domain
+            and left_domain not in free_domains
+        ):
             return True
         return False

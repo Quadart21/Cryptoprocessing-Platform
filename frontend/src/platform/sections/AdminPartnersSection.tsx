@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import {
+  DEFAULT_AFFILIATE_CONFIG,
   fetchAdminPartnerDetail,
   fetchAdminPartnerPayouts,
   fetchAdminPartners,
@@ -10,20 +11,25 @@ import {
   updateAffiliateSettings,
   type AdminPartnerDetail,
   type AdminPartnerListItem,
-  type AffiliateSettings,
+  type AffiliateProgramConfig,
   type PartnerPayoutRow,
 } from "../../api/partner";
 import { formatDecimal } from "../../utils/format";
+import { AdminAffiliateSettingsForm } from "./AdminAffiliateSettingsForm";
 
 type AdminPartnersSectionProps = {
   adminToken: string | null;
+  isSuperadmin?: boolean;
 };
 
 function money(value: number | string | null | undefined): string {
   return formatDecimal(Number(value ?? 0));
 }
 
-export function AdminPartnersSection({ adminToken }: AdminPartnersSectionProps) {
+export function AdminPartnersSection({
+  adminToken,
+  isSuperadmin = false,
+}: AdminPartnersSectionProps) {
   const [partners, setPartners] = useState<AdminPartnerListItem[]>([]);
   const [payouts, setPayouts] = useState<PartnerPayoutRow[]>([]);
   const [selected, setSelected] = useState<AdminPartnerDetail | null>(null);
@@ -31,12 +37,7 @@ export function AdminPartnersSection({ adminToken }: AdminPartnersSectionProps) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [settings, setSettings] = useState<AffiliateSettings>({
-    affiliate_commission_percent: 25,
-    affiliate_hold_days: 14,
-    affiliate_min_payout_usdt: 50,
-    affiliate_cookie_days: 60,
-  });
+  const [config, setConfig] = useState<AffiliateProgramConfig>(DEFAULT_AFFILIATE_CONFIG);
   const [commissionInput, setCommissionInput] = useState("");
 
   const reload = useCallback(async () => {
@@ -51,7 +52,7 @@ export function AdminPartnersSection({ adminToken }: AdminPartnersSectionProps) 
       ]);
       setPartners(partnerRows);
       setPayouts(payoutRows);
-      setSettings(settingsRow);
+      setConfig({ ...DEFAULT_AFFILIATE_CONFIG, ...(settingsRow.config ?? {}) });
       if (selectedId) {
         const detail = await fetchAdminPartnerDetail(adminToken, selectedId);
         setSelected(detail);
@@ -131,12 +132,12 @@ export function AdminPartnersSection({ adminToken }: AdminPartnersSectionProps) 
 
   async function saveSettings(event: FormEvent) {
     event.preventDefault();
-    if (!adminToken) return;
+    if (!adminToken || !isSuperadmin) return;
     setBusy(true);
     try {
-      const updated = await updateAffiliateSettings(adminToken, settings);
-      setSettings(updated);
-      setSuccess("Настройки affiliate сохранены.");
+      const updated = await updateAffiliateSettings(adminToken, { config });
+      setConfig({ ...DEFAULT_AFFILIATE_CONFIG, ...(updated.config ?? {}) });
+      setSuccess("Ультранастройки партнёрки сохранены.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось сохранить настройки.");
     } finally {
@@ -162,61 +163,14 @@ export function AdminPartnersSection({ adminToken }: AdminPartnersSectionProps) 
     <div className="console-section-stack">
       {success ? <p className="success-text">{success}</p> : null}
       {error ? <p className="error-text">{error}</p> : null}
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">Affiliate</p>
-            <h2>Глобальные настройки программы</h2>
-          </div>
-        </div>
-        <form className="form-grid" onSubmit={saveSettings}>
-          <label>
-            % от platform fee
-            <input
-              type="number"
-              step="0.01"
-              value={settings.affiliate_commission_percent}
-              onChange={(e) =>
-                setSettings({ ...settings, affiliate_commission_percent: e.target.value })
-              }
-            />
-          </label>
-          <label>
-            Hold (дни)
-            <input
-              type="number"
-              value={settings.affiliate_hold_days}
-              onChange={(e) =>
-                setSettings({ ...settings, affiliate_hold_days: Number(e.target.value) })
-              }
-            />
-          </label>
-          <label>
-            Мин. выплата USDT
-            <input
-              type="number"
-              step="0.01"
-              value={settings.affiliate_min_payout_usdt}
-              onChange={(e) =>
-                setSettings({ ...settings, affiliate_min_payout_usdt: e.target.value })
-              }
-            />
-          </label>
-          <label>
-            Cookie window (дни)
-            <input
-              type="number"
-              value={settings.affiliate_cookie_days}
-              onChange={(e) =>
-                setSettings({ ...settings, affiliate_cookie_days: Number(e.target.value) })
-              }
-            />
-          </label>
-          <button type="submit" className="primary-button" disabled={busy}>
-            Сохранить настройки
-          </button>
-        </form>
-      </section>
+
+      <AdminAffiliateSettingsForm
+        config={config}
+        busy={busy}
+        canEdit={isSuperadmin}
+        onChange={setConfig}
+        onSubmit={saveSettings}
+      />
 
       <section className="dashboard-grid client-grid">
         <section className="panel">
@@ -324,7 +278,7 @@ export function AdminPartnersSection({ adminToken }: AdminPartnersSectionProps) 
                   <input
                     value={commissionInput}
                     onChange={(e) => setCommissionInput(e.target.value)}
-                    placeholder={String(settings.affiliate_commission_percent)}
+                    placeholder={String(config.commission_percent)}
                   />
                 </label>
                 <button type="submit" className="primary-button" disabled={busy}>

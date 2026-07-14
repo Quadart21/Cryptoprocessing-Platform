@@ -3,7 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db, require_any_platform_permission, require_platform_permission
+from app.api.deps import (
+    get_db,
+    require_any_platform_permission,
+    require_platform_permission,
+    require_superadmin,
+)
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.partner import (
@@ -54,32 +59,38 @@ async def get_affiliate_settings(
     _: User = Depends(require_any_platform_permission("admin.partners.read", "admin.billing.read")),
     db: AsyncSession = Depends(get_db),
 ) -> AffiliateSettingsResponse:
-    percent, hold_days, min_payout, cookie_days = await PartnerService(db).get_affiliate_settings()
+    service = PartnerService(db)
+    cfg = await service.get_program_config()
     return AffiliateSettingsResponse(
-        affiliate_commission_percent=percent,
-        affiliate_hold_days=hold_days,
-        affiliate_min_payout_usdt=min_payout,
-        affiliate_cookie_days=cookie_days,
+        affiliate_commission_percent=cfg.commission_percent,
+        affiliate_hold_days=cfg.hold_days,
+        affiliate_min_payout_usdt=cfg.min_payout_usdt,
+        affiliate_cookie_days=cfg.cookie_days,
+        config=cfg.to_admin_dict(),
     )
 
 
 @router.put("/settings", response_model=AffiliateSettingsResponse)
 async def update_affiliate_settings(
     payload: AffiliateSettingsUpdateRequest,
-    _: User = Depends(require_any_platform_permission("admin.partners.write", "admin.billing.write")),
+    _: User = Depends(require_superadmin),
     db: AsyncSession = Depends(get_db),
 ) -> AffiliateSettingsResponse:
-    await PartnerService(db).update_affiliate_settings(
+    service = PartnerService(db)
+    await service.update_affiliate_settings(
         affiliate_commission_percent=payload.affiliate_commission_percent,
         affiliate_hold_days=payload.affiliate_hold_days,
         affiliate_min_payout_usdt=payload.affiliate_min_payout_usdt,
         affiliate_cookie_days=payload.affiliate_cookie_days,
+        config=payload.config,
     )
+    cfg = await service.get_program_config()
     return AffiliateSettingsResponse(
-        affiliate_commission_percent=payload.affiliate_commission_percent,
-        affiliate_hold_days=payload.affiliate_hold_days,
-        affiliate_min_payout_usdt=payload.affiliate_min_payout_usdt,
-        affiliate_cookie_days=payload.affiliate_cookie_days,
+        affiliate_commission_percent=cfg.commission_percent,
+        affiliate_hold_days=cfg.hold_days,
+        affiliate_min_payout_usdt=cfg.min_payout_usdt,
+        affiliate_cookie_days=cfg.cookie_days,
+        config=cfg.to_admin_dict(),
     )
 
 

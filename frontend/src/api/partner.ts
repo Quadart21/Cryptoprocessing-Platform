@@ -81,11 +81,113 @@ export type PartnerPayoutRow = {
   processed_at: string | null;
 };
 
+export type AffiliateProgramConfig = {
+  program_enabled: boolean;
+  public_apply_enabled: boolean;
+  auto_approve_partners: boolean;
+  partner_cabinet_when_pending: boolean;
+  commission_percent: number | string;
+  commission_override_allowed: boolean;
+  commission_override_min_percent: number | string;
+  commission_override_max_percent: number | string;
+  attribution_mode: "lifetime" | "fixed_days" | string;
+  attribution_days: number;
+  cookie_days: number;
+  click_mode: "last_click" | "first_click" | string;
+  freeze_attribution_after_tenant_approve: boolean;
+  track_clicks_from_pending_partners: boolean;
+  require_approved_partner_for_attribution: boolean;
+  hold_days: number;
+  accrue_only_approved_partners: boolean;
+  accrue_only_approved_tenants: boolean;
+  min_platform_fee_to_accrue_usdt: number | string;
+  payouts_enabled: boolean;
+  min_payout_usdt: number | string;
+  default_payout_network: string;
+  allowed_payout_networks: string[];
+  require_payout_address_on_apply: boolean;
+  require_payout_address_before_request: boolean;
+  block_self_referral_email: boolean;
+  block_same_email_domain: boolean;
+  self_referral_free_domains: string[];
+  referral_code_length: number;
+  show_merchant_names_to_partners: boolean;
+  show_funnel_clicks_to_partners: boolean;
+  cpa_enabled: boolean;
+  cpa_amount_usdt: number | string;
+  cpa_trigger: "approved" | "first_volume" | string;
+};
+
 export type AffiliateSettings = {
   affiliate_commission_percent: number | string;
   affiliate_hold_days: number;
   affiliate_min_payout_usdt: number | string;
   affiliate_cookie_days: number;
+  config: AffiliateProgramConfig;
+};
+
+export type PublicAffiliateConfig = {
+  program_enabled: boolean;
+  public_apply_enabled: boolean;
+  cookie_days: number;
+  click_mode: string;
+  default_payout_network: string;
+  allowed_payout_networks: string[];
+  require_payout_address_on_apply: boolean;
+  commission_percent: number | string;
+  hold_days: number;
+  min_payout_usdt: number | string;
+  attribution_mode: string;
+  attribution_days: number;
+};
+
+export const DEFAULT_AFFILIATE_CONFIG: AffiliateProgramConfig = {
+  program_enabled: true,
+  public_apply_enabled: true,
+  auto_approve_partners: false,
+  partner_cabinet_when_pending: true,
+  commission_percent: 25,
+  commission_override_allowed: true,
+  commission_override_min_percent: 0,
+  commission_override_max_percent: 100,
+  attribution_mode: "lifetime",
+  attribution_days: 365,
+  cookie_days: 60,
+  click_mode: "last_click",
+  freeze_attribution_after_tenant_approve: true,
+  track_clicks_from_pending_partners: true,
+  require_approved_partner_for_attribution: true,
+  hold_days: 14,
+  accrue_only_approved_partners: true,
+  accrue_only_approved_tenants: true,
+  min_platform_fee_to_accrue_usdt: 0,
+  payouts_enabled: true,
+  min_payout_usdt: 50,
+  default_payout_network: "TRC20",
+  allowed_payout_networks: ["TRC20", "ERC20", "BEP20"],
+  require_payout_address_on_apply: false,
+  require_payout_address_before_request: true,
+  block_self_referral_email: true,
+  block_same_email_domain: true,
+  self_referral_free_domains: [
+    "gmail.com",
+    "googlemail.com",
+    "yahoo.com",
+    "outlook.com",
+    "hotmail.com",
+    "icloud.com",
+    "mail.ru",
+    "yandex.ru",
+    "yandex.com",
+    "proton.me",
+    "protonmail.com",
+  ],
+  referral_code_length: 8,
+  show_merchant_names_to_partners: true,
+  show_funnel_clicks_to_partners: true,
+  cpa_enabled: false,
+  cpa_amount_usdt: 0,
+  cpa_trigger: "first_volume",
 };
 
 export type AdminPartnerListItem = {
@@ -120,12 +222,24 @@ export type AdminPartnerDetail = AdminPartnerListItem & {
 const REF_STORAGE_KEY = "affiliate_ref_code";
 const REF_STORED_AT_KEY = "affiliate_ref_stored_at";
 
-export function storeAffiliateRef(code: string): void {
+export function storeAffiliateRef(
+  code: string,
+  clickMode: "last_click" | "first_click" | string = "last_click",
+): void {
   const normalized = code.trim().toUpperCase();
   if (!normalized) return;
+  if (clickMode === "first_click") {
+    const existing = localStorage.getItem(REF_STORAGE_KEY);
+    if (existing) return;
+  }
   localStorage.setItem(REF_STORAGE_KEY, normalized);
   localStorage.setItem(REF_STORED_AT_KEY, String(Date.now()));
 }
+
+export function fetchPublicAffiliateConfig(): Promise<PublicAffiliateConfig> {
+  return request<PublicAffiliateConfig>("/public/affiliate", {});
+}
+
 
 export function readAffiliateRef(cookieDays = 60): string | null {
   const code = localStorage.getItem(REF_STORAGE_KEY);
@@ -264,7 +378,7 @@ export function fetchAffiliateSettings(token: string): Promise<AffiliateSettings
 
 export function updateAffiliateSettings(
   token: string,
-  payload: AffiliateSettings,
+  payload: { config: AffiliateProgramConfig },
 ): Promise<AffiliateSettings> {
   return request<AffiliateSettings>("/admin/partners/settings", {
     method: "PUT",

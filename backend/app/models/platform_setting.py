@@ -115,7 +115,7 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         default='["application_submitted","application_approved","application_rejected","payout_requested","payout_approved","payout_rejected","invoice_paid","invoice_confirmed","provider_alert","tenant_password_reset","tenant_2fa_reset","sandbox_created","sandbox_ready","daily_report"]',
     )
-    # Affiliate program defaults (rev-share of platform_fee).
+    # Affiliate program defaults (rev-share of platform_fee) — mirrored into JSON for legacy reads.
     affiliate_commission_percent: Mapped[Decimal] = mapped_column(
         Numeric(10, 4), nullable=False, default=Decimal("25.0000")
     )
@@ -124,3 +124,5 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Numeric(18, 8), nullable=False, default=Decimal("50")
     )
     affiliate_cookie_days: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    # Full superadmin affiliate knobs (JSON). Canonical source for all tunable options.
+    affiliate_settings_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")

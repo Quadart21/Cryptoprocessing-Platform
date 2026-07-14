@@ -4,6 +4,15 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.20.1] — 2026-07-14
+
+### Добавлено
+
+- **Affiliate ultra-settings (superadmin)**: полный конфиг программы — экономика, атрибуция (lifetime/fixed_days, first/last click), hold, выплаты/сети, антифрод, UX партнёра, CPA-заготовка; сохранение только у `superadmin`.
+- Публичный endpoint `GET /public/affiliate` для cookie/click mode на лендинге.
+
+---
+
 ## [0.20.0] — 2026-07-14
 
 ### Добавлено

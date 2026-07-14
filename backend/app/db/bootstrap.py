@@ -430,6 +430,10 @@ DDL_PATCHES = [
     ADD COLUMN IF NOT EXISTS affiliate_cookie_days INTEGER NOT NULL DEFAULT 60
     """,
     """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS affiliate_settings_json TEXT NOT NULL DEFAULT '{}'
+    """,
+    """
     ALTER TABLE tenants
     ADD COLUMN IF NOT EXISTS referral_partner_id UUID
     """,

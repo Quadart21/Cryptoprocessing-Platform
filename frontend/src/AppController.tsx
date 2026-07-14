@@ -162,6 +162,7 @@ import {
 } from "./constants/forms";
 import {
   applyAsPartner,
+  fetchPublicAffiliateConfig,
   readAffiliateRef,
   storeAffiliateRef,
   trackAffiliateClick,
@@ -341,8 +342,17 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
     if (!ref) return;
-    storeAffiliateRef(ref);
-    void trackAffiliateClick(ref, window.location.pathname).catch(() => undefined);
+    void (async () => {
+      let clickMode: string = "last_click";
+      try {
+        const publicCfg = await fetchPublicAffiliateConfig();
+        clickMode = publicCfg.click_mode || "last_click";
+      } catch {
+        // fallback last_click
+      }
+      storeAffiliateRef(ref, clickMode);
+      void trackAffiliateClick(ref, window.location.pathname).catch(() => undefined);
+    })();
   }, []);
 
   useEffect(() => {
@@ -748,7 +758,15 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setError(null);
       setSuccess(null);
       setNewApiSecret(null);
-      const referralCode = readAffiliateRef() || registrationForm.referral_code || undefined;
+      let cookieDays = 60;
+      try {
+        const publicCfg = await fetchPublicAffiliateConfig();
+        cookieDays = publicCfg.cookie_days || 60;
+      } catch {
+        // keep default
+      }
+      const referralCode =
+        readAffiliateRef(cookieDays) || registrationForm.referral_code || undefined;
       const result = await register({
         ...registrationForm,
         referral_code: referralCode || undefined,

@@ -368,7 +368,10 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
 
             {section === "partners" ? (
               <div className="console-section-stack">
-                <AdminPartnersSectionLazy adminToken={adminToken} />
+                <AdminPartnersSectionLazy
+                  adminToken={adminToken}
+                  isSuperadmin={user.role === "superadmin"}
+                />
               </div>
             ) : null}
 

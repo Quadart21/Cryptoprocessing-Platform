@@ -111,10 +111,15 @@ async def partner_dashboard(
     if partner is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner profile not found.")
 
-    default_percent, hold_days, min_payout, cookie_days = await service.get_affiliate_settings()
+    cfg = await service.get_program_config()
     commission_percent = await service.effective_commission_percent(partner)
     balances = await service.balances(partner.id)
     funnel = await service.funnel_stats(partner.id)
+    if partner.status != "approved" and not cfg.partner_cabinet_when_pending:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Partner cabinet is available only after approval.",
+        )
 
     return PartnerMeResponse(
         partner_id=partner.id,
@@ -126,18 +131,18 @@ async def partner_dashboard(
         status=partner.status,
         referral_code=partner.referral_code,
         referral_link_path=f"/?ref={partner.referral_code}",
-        commission_percent=commission_percent if partner.status == "approved" else default_percent,
+        commission_percent=commission_percent if partner.status == "approved" else cfg.commission_percent,
         payout_address=partner.payout_address,
         payout_network=partner.payout_network,
         review_comment=partner.review_comment,
-        hold_days=hold_days,
-        min_payout_usdt=min_payout,
-        cookie_days=cookie_days,
+        hold_days=cfg.hold_days,
+        min_payout_usdt=cfg.min_payout_usdt,
+        cookie_days=cfg.cookie_days,
         pending_hold_usdt=balances["pending_hold_usdt"],
         available_usdt=balances["available_usdt"],
         paid_usdt=balances["paid_usdt"],
         locked_payout_usdt=balances["locked_payout_usdt"],
-        clicks=funnel["clicks"],
+        clicks=funnel["clicks"] if cfg.show_funnel_clicks_to_partners else 0,
         registrations=funnel["registrations"],
         approved_merchants=funnel["approved_merchants"],
         merchants_with_volume=funnel["merchants_with_volume"],
