@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -15,3 +15,6 @@ class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     timezone: Mapped[str] = mapped_column(String(100), nullable=False, default="UTC")
     base_currency: Mapped[str] = mapped_column(String(10), nullable=False, default="USD")
     plan: Mapped[str] = mapped_column(String(50), nullable=False, default="default")
+    referral_partner_id: Mapped[str | None] = mapped_column(
+        ForeignKey("partners.id"), nullable=True, index=True
+    )

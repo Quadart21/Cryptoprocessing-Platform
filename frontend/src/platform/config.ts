@@ -6,7 +6,7 @@ export type AdminHub = "monitoring" | "clients" | "management";
 
 const ADMIN_HUB_SECTIONS: Record<AdminHub, AdminSection[]> = {
   monitoring: ["overview", "accounting", "invoices", "transactions", "payouts", "events", "api-traffic"],
-  clients: ["requests", "clients", "client-detail"],
+  clients: ["requests", "clients", "client-detail", "partners"],
   management: ["platform-settings", "public-pages", "assets", "backups", "team", "security"],
 };
 
@@ -84,6 +84,11 @@ export const ADMIN_SECTION_META: Record<
     title: "Карточка клиента",
     description: "Проекты, ключи, инвойсы, операции и выплаты в одном месте.",
   },
+  partners: {
+    group: "Клиенты",
+    title: "Партнёры (affiliate)",
+    description: "Модерация внешних партнёров, ставки, начисления и выплаты.",
+  },
   "platform-settings": {
     group: "Управление",
     title: "Настройки платформы",
@@ -148,6 +153,7 @@ export function buildAdminMenuGroups(
           label: "Карточка",
           disabled: !selectedTenantId,
         },
+        { key: "partners", label: "Партнёры" },
       ],
     },
     {

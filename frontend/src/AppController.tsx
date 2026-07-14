@@ -146,6 +146,7 @@ import {
   ClientDashboardLazy,
   LandingPageLazy,
   OnboardingScreenLazy,
+  PartnerDashboardLazy,
   PublicCmsPageLazy,
   PublicDocsPageLazy,
 } from "./app/controller/lazyScreens";
@@ -153,11 +154,18 @@ import {
   createMerchantOrderId,
   initialInvoiceForm,
   initialLoginForm,
+  initialPartnerApplyForm,
   initialPayoutForm,
   initialRegistrationForm,
   initialTenantForm,
   initialWebhookForm,
 } from "./constants/forms";
+import {
+  applyAsPartner,
+  readAffiliateRef,
+  storeAffiliateRef,
+  trackAffiliateClick,
+} from "./api/partner";
 import { useAdminPublicPagesCrud } from "./hooks/useAdminPublicPagesCrud";
 import { useClientDashboard } from "./hooks/useClientDashboard";
 import { usePublicSiteNavigation } from "./hooks/usePublicSiteNavigation";
@@ -178,6 +186,10 @@ function isPlatformRole(role: string): boolean {
   return PLATFORM_ROLES.has(role);
 }
 
+function isAffiliateRole(role: string): boolean {
+  return role === "affiliate";
+}
+
 type AppControllerProps = {
   siteScope?: "default" | "admin";
 };
@@ -185,7 +197,8 @@ type AppControllerProps = {
 export function AppController({ siteScope = "default" }: AppControllerProps) {
   const flash = useFlashMessages();
   const adminHost = siteScope === "admin" || isAdminSubdomain();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "partner">("login");
+  const [partnerForm, setPartnerForm] = useState(initialPartnerApplyForm);
   const { token, user, setUser, applyAccessToken, applyCsrfToken, clearSession, csrfToken } = useSession();
   const { publicRoute, publicNavigationItems, publicPageDetail, openPublicPage } =
     usePublicSiteNavigation({ authenticated: Boolean(token) && !adminHost });
@@ -322,6 +335,15 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     }
     void loadSession(token);
   }, [token]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (!ref) return;
+    storeAffiliateRef(ref);
+    void trackAffiliateClick(ref, window.location.pathname).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -477,6 +499,19 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setUser(currentUser);
       setTwoFactorSetup(null);
       setClientNotificationSettings(null);
+
+      if (isAffiliateRole(currentUser.role)) {
+        setOnboarding(null);
+        setProjects([]);
+        setApiKeys([]);
+        setInvoices([]);
+        setPayouts([]);
+        setBalance(null);
+        setRates([]);
+        setWebhookConfigs([]);
+        setTenants([]);
+        return;
+      }
 
       if (isPlatformRole(currentUser.role)) {
         const { csrf_token } = await fetchCsrfToken(accessToken);
@@ -700,7 +735,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     setLoginForm((current) => ({ ...current, otp_code: "" }));
   }
 
-  function handleAuthModeChange(next: "login" | "register") {
+  function handleAuthModeChange(next: "login" | "register" | "partner") {
     setMode(next);
     setLoginStep("credentials");
     setError(null);
@@ -713,7 +748,11 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setError(null);
       setSuccess(null);
       setNewApiSecret(null);
-      const result = await register(registrationForm);
+      const referralCode = readAffiliateRef() || registrationForm.referral_code || undefined;
+      const result = await register({
+        ...registrationForm,
+        referral_code: referralCode || undefined,
+      });
       setSuccess(result.message);
       setMode("login");
       setLoginForm({
@@ -724,6 +763,28 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setRegistrationForm(initialRegistrationForm);
     } catch (err) {
       setError(flash.projectConnectFailed(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePartnerApply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const result = await applyAsPartner(partnerForm);
+      setSuccess(result.message);
+      setMode("login");
+      setLoginForm({
+        email: partnerForm.email,
+        password: partnerForm.password,
+        otp_code: "",
+      });
+      setPartnerForm(initialPartnerApplyForm);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось подать заявку партнёра.");
     } finally {
       setLoading(false);
     }
@@ -2095,7 +2156,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setAdminPublicPages,
     });
 
-  if (adminHost && user && !isPlatformRole(user.role)) {
+  if (adminHost && user && !isPlatformRole(user.role) && !isAffiliateRole(user.role)) {
     return <AppRouteFallback />;
   }
 
@@ -2151,11 +2212,14 @@ return (
             passwordRecoveryEmail={passwordRecoveryEmail}
             passwordResetForm={passwordResetForm}
             registrationForm={registrationForm}
+            partnerForm={partnerForm}
             onModeChange={handleAuthModeChange}
             onLoginFormChange={setLoginForm}
             onPasswordRecoveryEmailChange={setPasswordRecoveryEmail}
             onPasswordResetFormChange={setPasswordResetForm}
             onRegistrationFormChange={setRegistrationForm}
+            onPartnerFormChange={setPartnerForm}
+            onPartnerApply={handlePartnerApply}
             onLogin={handleLogin}
             onLoginTwoFactor={handleLoginTwoFactor}
             onBackToLoginCredentials={handleBackToLoginCredentials}
@@ -2169,7 +2233,9 @@ return (
             onOpenPublicPage={(slug) => openPublicPage("cms", slug)}
           />
         )
-) : isPlatformRole(user.role) ? (
+) : isAffiliateRole(user.role) ? (
+        <PartnerDashboardLazy token={token} user={user} onLogout={handleLogout} />
+      ) : isPlatformRole(user.role) ? (
         <AdminDashboardLazy
           adminToken={token}
           user={user}

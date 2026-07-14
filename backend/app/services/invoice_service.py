@@ -1021,6 +1021,21 @@ class InvoiceService:
                 metadata_json={"percent": "0"},
             )
 
+        try:
+            from app.services.partner_service import PartnerService
+
+            await PartnerService(self.db).accrue_commission_for_settlement(
+                tenant_id=invoice.tenant_id,
+                invoice_id=invoice.id,
+                transaction=transaction,
+                platform_fee=platform_fee,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to accrue affiliate commission for invoice_id=%s",
+                invoice.id,
+            )
+
     async def _freeze_confirmed_settlement(
         self,
         invoice: Invoice,

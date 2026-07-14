@@ -13,6 +13,7 @@ import { ADMIN_SECTION_META, ADMIN_HUB_DEFAULT_SECTION, buildAdminMenuGroups, is
 import {
   AdminClientDetailSectionLazy,
   AdminClientsSectionLazy,
+  AdminPartnersSectionLazy,
   AdminOverviewSectionLazy,
   AdminAccountingSectionLazy,
   AdminPlatformApiUsageSectionLazy,
@@ -362,6 +363,12 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                   onRejectTenant={onRejectTenant}
                   onTenantFormChange={onTenantFormChange}
                 />
+              </div>
+            ) : null}
+
+            {section === "partners" ? (
+              <div className="console-section-stack">
+                <AdminPartnersSectionLazy adminToken={adminToken} />
               </div>
             ) : null}
 

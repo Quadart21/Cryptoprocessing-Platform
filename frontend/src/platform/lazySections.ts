@@ -15,6 +15,11 @@ export const AdminClientsSectionLazy = lazy(async () => {
   return { default: m.AdminClientsSection };
 });
 
+export const AdminPartnersSectionLazy = lazy(async () => {
+  const m = await import("./sections/AdminPartnersSection");
+  return { default: m.AdminPartnersSection };
+});
+
 export const AdminClientDetailSectionLazy = lazy(async () => {
   const m = await import("./sections/AdminClientDetailSection");
   return { default: m.AdminClientDetailSection };

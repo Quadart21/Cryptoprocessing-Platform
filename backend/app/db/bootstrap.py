@@ -413,6 +413,26 @@ DDL_PATCHES = [
     ALTER TABLE backup_settings
     ADD COLUMN IF NOT EXISTS google_oauth_user_email VARCHAR(255)
     """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS affiliate_commission_percent NUMERIC(10, 4) NOT NULL DEFAULT 25.0000
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS affiliate_hold_days INTEGER NOT NULL DEFAULT 14
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS affiliate_min_payout_usdt NUMERIC(18, 8) NOT NULL DEFAULT 50
+    """,
+    """
+    ALTER TABLE platform_settings
+    ADD COLUMN IF NOT EXISTS affiliate_cookie_days INTEGER NOT NULL DEFAULT 60
+    """,
+    """
+    ALTER TABLE tenants
+    ADD COLUMN IF NOT EXISTS referral_partner_id UUID
+    """,
 ]
 
 RLS_TENANT_TABLES = [

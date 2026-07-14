@@ -9,7 +9,7 @@ export type LandingLoginFormState = {
 };
 
 export type LandingPageProps = {
-  mode: "login" | "register";
+  mode: "login" | "register" | "partner";
   loginStep: "credentials" | "two-factor";
   registrationEnabled?: boolean;
   loading: boolean;
@@ -26,7 +26,26 @@ export type LandingPageProps = {
   publicPages: PublicPageNavigationItem[];
   onOpenPublicDocs: () => void;
   onOpenPublicPage: (slug: string) => void;
-  onModeChange: (mode: "login" | "register") => void;
+  onModeChange: (mode: "login" | "register" | "partner") => void;
+  partnerForm?: {
+    email: string;
+    password: string;
+    full_name: string;
+    display_name: string;
+    contact_telegram: string;
+    payout_address: string;
+    payout_network: string;
+  };
+  onPartnerFormChange?: (next: {
+    email: string;
+    password: string;
+    full_name: string;
+    display_name: string;
+    contact_telegram: string;
+    payout_address: string;
+    payout_network: string;
+  }) => void;
+  onPartnerApply?: (event: FormEvent<HTMLFormElement>) => void;
   onLoginFormChange: (next: LandingLoginFormState) => void;
   onPasswordRecoveryEmailChange: (next: string) => void;
   onPasswordResetFormChange: (next: {

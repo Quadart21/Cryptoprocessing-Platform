@@ -29,6 +29,10 @@ TENANT_ROLES = {
     "tenant_viewer",
 }
 
+AFFILIATE_ROLES = {
+    "affiliate",
+}
+
 
 PERMISSION_ADMIN_OVERVIEW_READ = "admin.overview.read"
 PERMISSION_ADMIN_TENANTS_READ = "admin.tenants.read"
@@ -64,6 +68,14 @@ PERMISSION_CLIENT_PAYOUTS_WRITE = "client.payouts.write"
 PERMISSION_CLIENT_USERS_READ = "client.users.read"
 PERMISSION_CLIENT_USERS_WRITE = "client.users.write"
 
+PERMISSION_ADMIN_PARTNERS_READ = "admin.partners.read"
+PERMISSION_ADMIN_PARTNERS_WRITE = "admin.partners.write"
+
+PERMISSION_PARTNER_DASHBOARD_READ = "partner.dashboard.read"
+PERMISSION_PARTNER_PAYOUTS_READ = "partner.payouts.read"
+PERMISSION_PARTNER_PAYOUTS_WRITE = "partner.payouts.write"
+PERMISSION_PARTNER_PROFILE_WRITE = "partner.profile.write"
+
 PERMISSION_SECURITY_2FA_SELF = "security.2fa.self"
 
 
@@ -83,6 +95,15 @@ ALL_ADMIN_PERMISSIONS = {
     PERMISSION_ADMIN_ASSETS_WRITE,
     PERMISSION_ADMIN_PAYOUTS_READ,
     PERMISSION_ADMIN_PAYOUTS_WRITE,
+    PERMISSION_ADMIN_PARTNERS_READ,
+    PERMISSION_ADMIN_PARTNERS_WRITE,
+}
+
+ALL_PARTNER_PERMISSIONS = {
+    PERMISSION_PARTNER_DASHBOARD_READ,
+    PERMISSION_PARTNER_PAYOUTS_READ,
+    PERMISSION_PARTNER_PAYOUTS_WRITE,
+    PERMISSION_PARTNER_PROFILE_WRITE,
 }
 
 ALL_CLIENT_PERMISSIONS = {
@@ -136,6 +157,8 @@ ROLE_DEFINITIONS = {
             PERMISSION_ADMIN_BILLING_WRITE,
             PERMISSION_ADMIN_PAYOUTS_READ,
             PERMISSION_ADMIN_PAYOUTS_WRITE,
+            PERMISSION_ADMIN_PARTNERS_READ,
+            PERMISSION_ADMIN_PARTNERS_WRITE,
             PERMISSION_ADMIN_ASSETS_READ,
             PERMISSION_SECURITY_2FA_SELF,
         ),
@@ -153,10 +176,18 @@ ROLE_DEFINITIONS = {
             PERMISSION_ADMIN_TRANSACTIONS_READ,
             PERMISSION_ADMIN_EVENTS_READ,
             PERMISSION_ADMIN_PAYOUTS_READ,
+            PERMISSION_ADMIN_PARTNERS_READ,
             PERMISSION_ADMIN_ASSETS_READ,
             PERMISSION_ADMIN_BILLING_READ,
             PERMISSION_SECURITY_2FA_SELF,
         ),
+    ),
+    "affiliate": RoleDefinition(
+        role="affiliate",
+        scope="affiliate",
+        label="Партнёр (affiliate)",
+        description="Кабинет внешнего партнёра: рефералы, начисления и выплаты.",
+        permissions=tuple(sorted(ALL_PARTNER_PERMISSIONS | {PERMISSION_SECURITY_2FA_SELF})),
     ),
     "tenant_owner": RoleDefinition(
         role="tenant_owner",
@@ -240,6 +271,10 @@ def is_platform_role(role: str) -> bool:
 
 def is_tenant_role(role: str) -> bool:
     return normalize_role(role) in TENANT_ROLES
+
+
+def is_affiliate_role(role: str) -> bool:
+    return normalize_role(role) in AFFILIATE_ROLES
 
 
 def get_role_definition(role: str) -> RoleDefinition | None:

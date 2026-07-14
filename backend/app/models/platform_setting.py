@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -115,3 +115,12 @@ class PlatformSetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         default='["application_submitted","application_approved","application_rejected","payout_requested","payout_approved","payout_rejected","invoice_paid","invoice_confirmed","provider_alert","tenant_password_reset","tenant_2fa_reset","sandbox_created","sandbox_ready","daily_report"]',
     )
+    # Affiliate program defaults (rev-share of platform_fee).
+    affiliate_commission_percent: Mapped[Decimal] = mapped_column(
+        Numeric(10, 4), nullable=False, default=Decimal("25.0000")
+    )
+    affiliate_hold_days: Mapped[int] = mapped_column(Integer, nullable=False, default=14)
+    affiliate_min_payout_usdt: Mapped[Decimal] = mapped_column(
+        Numeric(18, 8), nullable=False, default=Decimal("50")
+    )
+    affiliate_cookie_days: Mapped[int] = mapped_column(Integer, nullable=False, default=60)

@@ -9,7 +9,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.rbac import get_role_permissions, has_permission, is_platform_role
+from app.core.rbac import (
+    get_role_permissions,
+    has_permission,
+    is_affiliate_role,
+    is_platform_role,
+)
 from app.core.security import decode_token
 from app.db.session import AsyncSessionLocal
 from app.db.tenant import clear_db_security_context, set_db_security_context
@@ -83,7 +88,7 @@ async def _resolve_user_from_credentials(
 
 
 async def _bind_user_security_context(db: AsyncSession, user: User) -> None:
-    if user.role == "superadmin" or is_platform_role(user.role):
+    if user.role == "superadmin" or is_platform_role(user.role) or is_affiliate_role(user.role):
         await set_db_security_context(db, tenant_id=None, is_superadmin=True)
         return
     await set_db_security_context(db, tenant_id=user.tenant_id, is_superadmin=False)
@@ -113,6 +118,11 @@ async def get_client_auth_context(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Platform role cannot use merchant client API.",
+            )
+        if is_affiliate_role(user.role):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Affiliate role cannot use merchant client API.",
             )
         if user.tenant_id is None:
             raise HTTPException(
@@ -227,6 +237,12 @@ async def require_tenant_user(current_user: User = Depends(get_current_user)) ->
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Platform role cannot use tenant cabinet.",
+        )
+
+    if is_affiliate_role(current_user.role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Affiliate role cannot use tenant cabinet.",
         )
 
     if current_user.tenant_id is None:

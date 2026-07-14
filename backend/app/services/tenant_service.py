@@ -81,9 +81,18 @@ class TenantService:
         timezone: str,
         base_currency: str,
         plan: str,
+        referral_code: str | None = None,
     ) -> tuple[Tenant, User, Project]:
         slug_base = self._slugify(company_name) or "tenant"
         slug = await self._build_unique_slug(slug_base)
+
+        from app.services.partner_service import PartnerService
+
+        partner_service = PartnerService(self.db)
+        referral_partner = await partner_service.resolve_partner_for_registration(
+            referral_code=referral_code,
+            owner_email=owner_email,
+        )
 
         tenant = Tenant(
             name=company_name,
@@ -92,6 +101,7 @@ class TenantService:
             timezone=timezone,
             base_currency=base_currency.upper(),
             plan=plan,
+            referral_partner_id=referral_partner.id if referral_partner is not None else None,
         )
         self.db.add(tenant)
         await self.db.flush()
@@ -109,6 +119,13 @@ class TenantService:
             invited_at=datetime.now(dt_timezone.utc),
         )
         self.db.add(owner)
+
+        if referral_partner is not None:
+            await partner_service.attach_tenant_referral(
+                tenant=tenant,
+                partner=referral_partner,
+                owner_email=owner_email,
+            )
 
         project_service = ProjectService(self.db)
         project = await project_service.create_project(

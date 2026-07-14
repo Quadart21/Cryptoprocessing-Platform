@@ -192,6 +192,7 @@ async def register(
     timezone = _normalize_input(payload.get("timezone")) or "Europe/Amsterdam"
     base_currency = _normalize_input(payload.get("base_currency")) or "USD"
     plan = _normalize_input(payload.get("plan")) or "default"
+    referral_code = _normalize_input(payload.get("referral_code")) or None
 
     missing_fields: list[str] = []
     if not company_name:
@@ -237,6 +238,7 @@ async def register(
             timezone=timezone,
             base_currency=base_currency,
             plan=plan,
+            referral_code=referral_code,
         )
     except ValueError as exc:
         await db.rollback()

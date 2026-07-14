@@ -30,6 +30,17 @@ export const initialRegistrationForm: RegistrationPayload = {
   timezone: "Europe/Amsterdam",
   base_currency: "USD",
   plan: "default",
+  referral_code: "",
+};
+
+export const initialPartnerApplyForm = {
+  email: "",
+  password: "",
+  full_name: "",
+  display_name: "",
+  contact_telegram: "",
+  payout_address: "",
+  payout_network: "TRC20",
 };
 
 export const initialInvoiceForm: CreateInvoicePayload = {

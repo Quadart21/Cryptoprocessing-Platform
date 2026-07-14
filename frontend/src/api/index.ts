@@ -88,6 +88,21 @@ export type {
 
 export { login, fetchCurrentUser, fetchTwoFactorStatus, setupTwoFactor, enableTwoFactor, disableTwoFactor, changeClientPassword } from "./auth";
 export {
+  applyAsPartner,
+  trackAffiliateClick,
+  storeAffiliateRef,
+  readAffiliateRef,
+  fetchPartnerDashboard,
+  fetchAdminPartners,
+  fetchAffiliateSettings,
+} from "./partner";
+export type {
+  PartnerDashboard,
+  PartnerApplyPayload,
+  AdminPartnerListItem,
+  AffiliateSettings,
+} from "./partner";
+export {
   register,
   fetchOnboardingStatus,
   fetchProjects,

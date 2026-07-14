@@ -79,12 +79,12 @@ export function buildAppAuthUrl(mode: "login" | "register"): string {
   }
 }
 
-export function readAuthModeFromQuery(): "login" | "register" | null {
+export function readAuthModeFromQuery(): "login" | "register" | "partner" | null {
   if (typeof window === "undefined") {
     return null;
   }
   const auth = new URLSearchParams(window.location.search).get("auth")?.toLowerCase();
-  if (auth === "login" || auth === "register") {
+  if (auth === "login" || auth === "register" || auth === "partner") {
     return auth;
   }
   return null;

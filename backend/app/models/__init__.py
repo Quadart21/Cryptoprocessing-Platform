@@ -7,6 +7,7 @@ from app.models.invoice import Invoice
 from app.models.merchant_sandbox import MerchantSandbox
 from app.models.ledger_entry import LedgerEntry
 from app.models.mixins import TimestampMixin, TenantBoundMixin
+from app.models.partner import Partner, PartnerCommission, PartnerPayoutRequest, PartnerReferralEvent
 from app.models.payout_request import PayoutRequest
 from app.models.platform_earnings_withdrawal import PlatformEarningsWithdrawal
 from app.models.platform_setting import PlatformSetting
@@ -32,6 +33,10 @@ __all__ = [
     "Invoice",
     "MerchantSandbox",
     "LedgerEntry",
+    "Partner",
+    "PartnerCommission",
+    "PartnerPayoutRequest",
+    "PartnerReferralEvent",
     "PayoutRequest",
     "PlatformSetting",
     "PlatformEarningsWithdrawal",

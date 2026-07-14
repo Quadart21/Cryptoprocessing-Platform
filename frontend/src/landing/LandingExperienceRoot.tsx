@@ -22,6 +22,7 @@ export function LandingExperienceRoot(props: LandingPageProps) {
     passwordRecoveryEmail,
     passwordResetForm,
     registrationForm,
+    partnerForm,
     publicPages,
     onOpenPublicDocs,
     onOpenPublicPage,
@@ -30,6 +31,8 @@ export function LandingExperienceRoot(props: LandingPageProps) {
     onPasswordRecoveryEmailChange,
     onPasswordResetFormChange,
     onRegistrationFormChange,
+    onPartnerFormChange,
+    onPartnerApply,
     onLogin,
     onLoginTwoFactor,
     onBackToLoginCredentials,
@@ -138,6 +141,7 @@ export function LandingExperienceRoot(props: LandingPageProps) {
         recoveryMode={recoveryMode}
         registrationEnabled={registrationEnabled}
         registrationForm={registrationForm}
+        partnerForm={partnerForm}
         setAuthOpen={setAuthOpen}
         setRecoveryMode={setRecoveryMode}
         success={success}
@@ -148,6 +152,8 @@ export function LandingExperienceRoot(props: LandingPageProps) {
         onModeChange={onModeChange}
         onPasswordRecoveryEmailChange={onPasswordRecoveryEmailChange}
         onPasswordResetFormChange={onPasswordResetFormChange}
+        onPartnerApply={onPartnerApply}
+        onPartnerFormChange={onPartnerFormChange}
         onRegister={onRegister}
         onRegistrationFormChange={onRegistrationFormChange}
         onRequestPasswordRecovery={onRequestPasswordRecovery}

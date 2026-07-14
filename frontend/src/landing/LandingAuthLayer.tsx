@@ -15,11 +15,14 @@ export type LandingAuthLayerProps = Pick<
   | "passwordRecoveryEmail"
   | "passwordResetForm"
   | "registrationForm"
+  | "partnerForm"
   | "onModeChange"
   | "onLoginFormChange"
   | "onPasswordRecoveryEmailChange"
   | "onPasswordResetFormChange"
   | "onRegistrationFormChange"
+  | "onPartnerFormChange"
+  | "onPartnerApply"
   | "onLogin"
   | "onLoginTwoFactor"
   | "onBackToLoginCredentials"
@@ -46,6 +49,7 @@ export function LandingAuthLayer({
   passwordRecoveryEmail,
   passwordResetForm,
   registrationForm,
+  partnerForm,
   loginStep,
   recoveryMode,
   setRecoveryMode,
@@ -54,6 +58,8 @@ export function LandingAuthLayer({
   onPasswordRecoveryEmailChange,
   onPasswordResetFormChange,
   onRegistrationFormChange,
+  onPartnerFormChange,
+  onPartnerApply,
   onLogin,
   onLoginTwoFactor,
   onBackToLoginCredentials,
@@ -70,26 +76,30 @@ export function LandingAuthLayer({
   }
 
   const mainHeadline =
-    mode === "register" && registrationEnabled
-      ? t("auth.registerTitle")
-      : recoveryMode === "request"
-        ? t("auth.recoveryRequestTitle")
-        : recoveryMode === "reset"
-          ? t("auth.recoveryResetTitle")
-          : loginStep === "two-factor"
-            ? t("auth.twoFactorTitle")
-            : t("auth.loginTitle");
+    mode === "partner"
+      ? "Заявка в партнёрскую программу"
+      : mode === "register" && registrationEnabled
+        ? t("auth.registerTitle")
+        : recoveryMode === "request"
+          ? t("auth.recoveryRequestTitle")
+          : recoveryMode === "reset"
+            ? t("auth.recoveryResetTitle")
+            : loginStep === "two-factor"
+              ? t("auth.twoFactorTitle")
+              : t("auth.loginTitle");
 
   const mainSub =
-    mode === "register" && registrationEnabled
-      ? t("auth.registerSub")
-      : recoveryMode === "request"
-        ? t("auth.recoveryRequestSub")
-        : recoveryMode === "reset"
-          ? t("auth.recoveryResetSub")
-          : loginStep === "two-factor"
-            ? t("auth.twoFactorSub")
-            : t("auth.loginSub");
+    mode === "partner"
+      ? "Рекламируйте платформу и получайте долю от platform fee приведённых клиентов."
+      : mode === "register" && registrationEnabled
+        ? t("auth.registerSub")
+        : recoveryMode === "request"
+          ? t("auth.recoveryRequestSub")
+          : recoveryMode === "reset"
+            ? t("auth.recoveryResetSub")
+            : loginStep === "two-factor"
+              ? t("auth.twoFactorSub")
+              : t("auth.loginSub");
 
   return (
     <div className="lp-auth-overlay" onClick={() => setAuthOpen(false)}>
@@ -118,7 +128,7 @@ export function LandingAuthLayer({
 
             <div className="lp-auth-switch">
               <button
-                className={mode === "login" || !registrationEnabled ? "lp-auth-switch-active" : ""}
+                className={mode === "login" || (!registrationEnabled && mode !== "partner") ? "lp-auth-switch-active" : ""}
                 onClick={() => onModeChange("login")}
                 type="button"
               >
@@ -131,6 +141,13 @@ export function LandingAuthLayer({
                 type="button"
               >
                 {t("auth.tabRegister")}
+              </button>
+              <button
+                className={mode === "partner" ? "lp-auth-switch-active" : ""}
+                onClick={() => onModeChange("partner")}
+                type="button"
+              >
+                Партнёр
               </button>
             </div>
 
@@ -148,7 +165,68 @@ export function LandingAuthLayer({
               </ol>
             ) : null}
 
-            {mode === "login" || !registrationEnabled ? (
+            {mode === "partner" && partnerForm && onPartnerFormChange && onPartnerApply ? (
+              <form className="nc-form" onSubmit={onPartnerApply}>
+                <div className="nc-form-grid">
+                  <label>
+                    <span>Имя</span>
+                    <input
+                      value={partnerForm.full_name}
+                      onChange={(e) => onPartnerFormChange({ ...partnerForm, full_name: e.target.value })}
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>Публичное имя</span>
+                    <input
+                      value={partnerForm.display_name}
+                      onChange={(e) => onPartnerFormChange({ ...partnerForm, display_name: e.target.value })}
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>{t("common.email")}</span>
+                    <input
+                      type="email"
+                      value={partnerForm.email}
+                      onChange={(e) => onPartnerFormChange({ ...partnerForm, email: e.target.value })}
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>{t("common.password")}</span>
+                    <input
+                      type="password"
+                      value={partnerForm.password}
+                      onChange={(e) => onPartnerFormChange({ ...partnerForm, password: e.target.value })}
+                      required
+                      minLength={8}
+                    />
+                  </label>
+                  <label>
+                    <span>Telegram</span>
+                    <input
+                      value={partnerForm.contact_telegram}
+                      onChange={(e) =>
+                        onPartnerFormChange({ ...partnerForm, contact_telegram: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>USDT адрес (опционально)</span>
+                    <input
+                      value={partnerForm.payout_address}
+                      onChange={(e) =>
+                        onPartnerFormChange({ ...partnerForm, payout_address: e.target.value })
+                      }
+                    />
+                  </label>
+                </div>
+                <button className="nc-btn-primary nc-btn-lg" disabled={loading} type="submit">
+                  {loading ? "Отправка…" : "Подать заявку"}
+                </button>
+              </form>
+            ) : mode === "login" || !registrationEnabled ? (
               recoveryMode === "login" && loginStep === "credentials" ? (
                 <form className="nc-form" onSubmit={onLogin}>
                   <label>

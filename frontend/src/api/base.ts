@@ -59,6 +59,7 @@ export type RegistrationPayload = {
   timezone: string;
   base_currency: string;
   plan: string;
+  referral_code?: string;
 };
 
 export type RegistrationResponse = {

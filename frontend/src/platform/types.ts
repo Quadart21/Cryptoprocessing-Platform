@@ -52,6 +52,7 @@ export type AdminSection =
   | "events"
   | "api-traffic"
   | "client-detail"
+  | "partners"
   | "platform-settings"
   | "public-pages"
   | "assets"
@@ -77,7 +78,7 @@ export const ADMIN_MENU_ITEMS: DashboardRailItem[] = [
 ];
 
 export function isAdminSection(value: string): value is Exclude<AdminSection, "client-detail"> {
-  if (value === "accounting" || value === "backups") {
+  if (value === "accounting" || value === "backups" || value === "partners") {
     return true;
   }
   return ADMIN_MENU_ITEMS.some((item) => item.key === value);

@@ -12,6 +12,12 @@ export const ClientDashboardLazy = lazy(async () => {
   return { default: m.ClientDashboard };
 });
 
+/** Кабинет affiliate-партнёра */
+export const PartnerDashboardLazy = lazy(async () => {
+  const m = await import("../../screens/PartnerDashboard");
+  return { default: m.PartnerDashboard };
+});
+
 /** Публичный лендинг (~ landing/*) */
 export const LandingPageLazy = lazy(async () => {
   const m = await import("../../screens/LandingPage");
