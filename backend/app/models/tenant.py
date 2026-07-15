@@ -15,6 +15,13 @@ class Tenant(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     timezone: Mapped[str] = mapped_column(String(100), nullable=False, default="UTC")
     base_currency: Mapped[str] = mapped_column(String(10), nullable=False, default="USD")
     plan: Mapped[str] = mapped_column(String(50), nullable=False, default="default")
+    # use_alter breaks partners→users→tenants→partners cycle for metadata.sort
     referral_partner_id: Mapped[str | None] = mapped_column(
-        ForeignKey("partners.id"), nullable=True, index=True
+        ForeignKey(
+            "partners.id",
+            use_alter=True,
+            name="fk_tenants_referral_partner_id",
+        ),
+        nullable=True,
+        index=True,
     )

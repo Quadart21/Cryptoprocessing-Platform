@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.20.3] — 2026-07-15
+
+### Исправлено
+
+- Убрано SAWarning о цикле FK `partners ↔ users ↔ tenants` при bootstrap (`use_alter` на `tenants.referral_partner_id`).
+
+---
+
 ## [0.20.2] — 2026-07-15
 
 ### Изменено
