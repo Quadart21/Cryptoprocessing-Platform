@@ -138,6 +138,11 @@ class TenantService:
         )
         await self.db.commit()
         await apply_db_security_context(self.db)
+        if referral_partner is not None and tenant.referral_partner_id:
+            await partner_service.notify_partner_merchant_attributed(
+                referral_partner,
+                tenant,
+            )
         return tenant, owner, project
 
     async def approve_tenant(

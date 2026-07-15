@@ -32,6 +32,20 @@ export const TEMPLATE_EVENT_CATEGORIES: TemplateEventCategory[] = [
     label: "Выплаты",
     codes: ["payout_requested", "payout_approved", "payout_rejected"],
   },
+  {
+    id: "partners",
+    label: "Партнёры",
+    codes: [
+      "partner_application_submitted",
+      "partner_application_approved",
+      "partner_application_rejected",
+      "partner_suspended",
+      "partner_merchant_attributed",
+      "partner_payout_requested",
+      "partner_payout_approved",
+      "partner_payout_rejected",
+    ],
+  },
 ];
 
 export const TEMPLATE_EVENT_HINTS: Record<string, string> = {
@@ -48,6 +62,14 @@ export const TEMPLATE_EVENT_HINTS: Record<string, string> = {
   payout_requested: "Мерчант создал заявку на вывод — уведомление админам.",
   payout_approved: "Админ одобрил выплату — сообщение мерчанту.",
   payout_rejected: "Выплата отклонена — сообщение с комментарием модератора.",
+  partner_application_submitted: "Партнёр подал заявку — письмо партнёру о получении заявки.",
+  partner_application_approved: "Партнёр одобрен — доступ к кабинету и рефкоду.",
+  partner_application_rejected: "Заявка партнёра отклонена — с комментарием модератора.",
+  partner_suspended: "Аккаунт партнёра приостановлен.",
+  partner_merchant_attributed: "По рефкоду зарегистрировался мерчант — письмо партнёру.",
+  partner_payout_requested: "Партнёр создал заявку на вывод комиссии.",
+  partner_payout_approved: "Админ одобрил выплату партнёру.",
+  partner_payout_rejected: "Выплата партнёру отклонена — с комментарием.",
 };
 
 export const TEMPLATE_MODE_LABELS: Record<string, { label: string; hint: string }> = {
@@ -103,6 +125,15 @@ export const TEMPLATE_VARIABLE_GROUPS: Array<{ label: string; variables: string[
       "payout_status",
       "destination_address",
       "review_comment",
+    ],
+  },
+  {
+    label: "Партнёры",
+    variables: [
+      "referral_code",
+      "partner_display_name",
+      "partner_status",
+      "merchant_name",
     ],
   },
   { label: "Система", variables: ["utc_now"] },

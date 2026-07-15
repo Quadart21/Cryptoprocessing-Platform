@@ -23,6 +23,7 @@ from app.schemas.partner import (
 )
 from app.schemas.user import CurrentUserResponse
 from app.services.partner_service import PartnerService, PartnerServiceError
+from app.services.platform_ops_notify import notify_platform_ops
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -60,12 +61,31 @@ async def apply_partner(
     except PartnerServiceError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
+    await notify_platform_ops(
+        db,
+        event_code="partner_application_submitted",
+        title="Новая заявка партнёра",
+        lines=[
+            f"Партнёр: {partner.display_name}",
+            f"Email: {payload.email.strip().lower()}",
+            f"Код: {partner.referral_code}",
+            f"Статус: {partner.status}",
+            f"Partner ID: {partner.id}",
+        ],
+        admin_url="/admin/partners",
+    )
+
+    message = (
+        "Application approved. You can sign in to the partner cabinet."
+        if partner.status == "approved"
+        else "Application submitted. You can sign in; the cabinet unlocks after admin approval."
+    )
     return PartnerApplyResponse(
         partner_id=partner.id,
         user_id=partner.user_id,
         status=partner.status,
         referral_code=partner.referral_code,
-        message="Application submitted. You can sign in; the cabinet unlocks after admin approval.",
+        message=message,
     )
 
 

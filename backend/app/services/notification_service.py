@@ -64,6 +64,27 @@ class NotificationService:
     EVENT_PAYOUT_REQUESTED = "payout_requested"
     EVENT_PAYOUT_APPROVED = "payout_approved"
     EVENT_PAYOUT_REJECTED = "payout_rejected"
+    EVENT_PARTNER_APPLICATION_SUBMITTED = "partner_application_submitted"
+    EVENT_PARTNER_APPLICATION_APPROVED = "partner_application_approved"
+    EVENT_PARTNER_APPLICATION_REJECTED = "partner_application_rejected"
+    EVENT_PARTNER_SUSPENDED = "partner_suspended"
+    EVENT_PARTNER_MERCHANT_ATTRIBUTED = "partner_merchant_attributed"
+    EVENT_PARTNER_PAYOUT_REQUESTED = "partner_payout_requested"
+    EVENT_PARTNER_PAYOUT_APPROVED = "partner_payout_approved"
+    EVENT_PARTNER_PAYOUT_REJECTED = "partner_payout_rejected"
+
+    PARTNER_EVENT_CODES: frozenset[str] = frozenset(
+        {
+            EVENT_PARTNER_APPLICATION_SUBMITTED,
+            EVENT_PARTNER_APPLICATION_APPROVED,
+            EVENT_PARTNER_APPLICATION_REJECTED,
+            EVENT_PARTNER_SUSPENDED,
+            EVENT_PARTNER_MERCHANT_ATTRIBUTED,
+            EVENT_PARTNER_PAYOUT_REQUESTED,
+            EVENT_PARTNER_PAYOUT_APPROVED,
+            EVENT_PARTNER_PAYOUT_REJECTED,
+        }
+    )
 
     EVENT_DEFINITIONS: tuple[NotificationEventDefinition, ...] = (
         NotificationEventDefinition(
@@ -131,6 +152,46 @@ class NotificationService:
             title="Payout request rejected",
             mode="notify",
         ),
+        NotificationEventDefinition(
+            code=EVENT_PARTNER_APPLICATION_SUBMITTED,
+            title="Partner application submitted",
+            mode="notify",
+        ),
+        NotificationEventDefinition(
+            code=EVENT_PARTNER_APPLICATION_APPROVED,
+            title="Partner application approved",
+            mode="confirm",
+        ),
+        NotificationEventDefinition(
+            code=EVENT_PARTNER_APPLICATION_REJECTED,
+            title="Partner application rejected",
+            mode="notify",
+        ),
+        NotificationEventDefinition(
+            code=EVENT_PARTNER_SUSPENDED,
+            title="Partner account suspended",
+            mode="notify",
+        ),
+        NotificationEventDefinition(
+            code=EVENT_PARTNER_MERCHANT_ATTRIBUTED,
+            title="Partner referred a merchant",
+            mode="notify",
+        ),
+        NotificationEventDefinition(
+            code=EVENT_PARTNER_PAYOUT_REQUESTED,
+            title="Partner payout request created",
+            mode="notify",
+        ),
+        NotificationEventDefinition(
+            code=EVENT_PARTNER_PAYOUT_APPROVED,
+            title="Partner payout approved",
+            mode="notify",
+        ),
+        NotificationEventDefinition(
+            code=EVENT_PARTNER_PAYOUT_REJECTED,
+            title="Partner payout rejected",
+            mode="notify",
+        ),
     )
     EVENT_DEFINITION_BY_CODE = {item.code: item for item in EVENT_DEFINITIONS}
     DEFAULT_EMAIL_EVENTS = {item.code for item in EVENT_DEFINITIONS}
@@ -165,6 +226,10 @@ class NotificationService:
         "payout_status",
         "destination_address",
         "review_comment",
+        "referral_code",
+        "partner_display_name",
+        "partner_status",
+        "merchant_name",
     )
     DEFAULT_TEMPLATE: dict[str, str] = {
         "email_subject": "{{ event_subject }}",
@@ -186,6 +251,14 @@ class NotificationService:
         EVENT_PAYOUT_REQUESTED: "{{ brand_name }}: payout request created",
         EVENT_PAYOUT_APPROVED: "{{ brand_name }}: payout approved",
         EVENT_PAYOUT_REJECTED: "{{ brand_name }}: payout rejected",
+        EVENT_PARTNER_APPLICATION_SUBMITTED: "{{ brand_name }}: partner application received",
+        EVENT_PARTNER_APPLICATION_APPROVED: "{{ brand_name }}: partner account approved",
+        EVENT_PARTNER_APPLICATION_REJECTED: "{{ brand_name }}: partner application rejected",
+        EVENT_PARTNER_SUSPENDED: "{{ brand_name }}: partner account suspended",
+        EVENT_PARTNER_MERCHANT_ATTRIBUTED: "{{ brand_name }}: new referred merchant",
+        EVENT_PARTNER_PAYOUT_REQUESTED: "{{ brand_name }}: partner payout request created",
+        EVENT_PARTNER_PAYOUT_APPROVED: "{{ brand_name }}: partner payout approved",
+        EVENT_PARTNER_PAYOUT_REJECTED: "{{ brand_name }}: partner payout rejected",
     }
     DEFAULT_MESSAGE_LINES_BY_EVENT: dict[str, str] = {
         EVENT_APPLICATION_SUBMITTED: (
@@ -254,6 +327,54 @@ class NotificationService:
             "Comment: {{ review_comment }}"
         ),
         EVENT_PAYOUT_REJECTED: (
+            "Payout {{ payout_id }} rejected.\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Status: {{ payout_status }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+        EVENT_PARTNER_APPLICATION_SUBMITTED: (
+            "Hello, {{ user_full_name }}!\n"
+            "We received your partner application for \"{{ partner_display_name }}\".\n"
+            "Referral code: {{ referral_code }}\n"
+            "Status: {{ partner_status }}. We will notify you when there is a decision."
+        ),
+        EVENT_PARTNER_APPLICATION_APPROVED: (
+            "Hello, {{ user_full_name }}!\n"
+            "Your partner account \"{{ partner_display_name }}\" has been approved.\n"
+            "Referral code: {{ referral_code }}\n"
+            "You can sign in to the partner cabinet and start sharing your link."
+        ),
+        EVENT_PARTNER_APPLICATION_REJECTED: (
+            "Hello, {{ user_full_name }}!\n"
+            "Your partner application \"{{ partner_display_name }}\" was rejected.\n"
+            "Moderator comment: {{ review_comment }}"
+        ),
+        EVENT_PARTNER_SUSPENDED: (
+            "Hello, {{ user_full_name }}!\n"
+            "Partner account \"{{ partner_display_name }}\" has been suspended.\n"
+            "Referral code: {{ referral_code }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+        EVENT_PARTNER_MERCHANT_ATTRIBUTED: (
+            "Hello, {{ user_full_name }}!\n"
+            "A new merchant was attributed to your referral code {{ referral_code }}.\n"
+            "Merchant: {{ merchant_name }}\n"
+            "Commission will accrue from platform fees after approval and settlement."
+        ),
+        EVENT_PARTNER_PAYOUT_REQUESTED: (
+            "Payout request {{ payout_id }} created.\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Address: {{ destination_address }}\n"
+            "Status: {{ payout_status }}"
+        ),
+        EVENT_PARTNER_PAYOUT_APPROVED: (
+            "Payout {{ payout_id }} approved.\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Address: {{ destination_address }}\n"
+            "Status: {{ payout_status }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+        EVENT_PARTNER_PAYOUT_REJECTED: (
             "Payout {{ payout_id }} rejected.\n"
             "Amount: {{ payout_amount }} {{ payout_currency }}\n"
             "Status: {{ payout_status }}\n"

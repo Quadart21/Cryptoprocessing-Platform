@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Any, Iterable
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +24,10 @@ from app.services.affiliate_config import (
     parse_affiliate_config,
 )
 from app.services.billing_policy_service import BillingPolicyService
+from app.services.notification_service import NotificationService
+from app.services.platform_ops_notify import notify_platform_ops
+
+logger = logging.getLogger(__name__)
 
 
 class PartnerServiceError(Exception):
@@ -177,6 +183,9 @@ class PartnerService:
         self.db.add(partner)
         await self.db.commit()
         await self.db.refresh(partner)
+        await self.notify_partner_application_submitted(partner)
+        if partner.status == "approved":
+            await self.notify_partner_status_changed(partner, previous_status="pending")
         return partner
 
     async def record_click(
@@ -286,6 +295,8 @@ class PartnerService:
             # Still allow admin override, but signal via exception only if desired.
             # Admin endpoint intentionally bypasses freeze.
             pass
+        previous_partner_id = tenant.referral_partner_id
+        attributed_partner: Partner | None = None
         if partner_id:
             partner = await self.get_by_id(partner_id)
             if partner is None:
@@ -293,11 +304,14 @@ class PartnerService:
             if cfg.require_approved_partner_for_attribution and partner.status != "approved":
                 raise PartnerServiceError("Partner must be approved.")
             tenant.referral_partner_id = partner.id
+            attributed_partner = partner
         else:
             tenant.referral_partner_id = None
         self.db.add(tenant)
         await self.db.commit()
         await self.db.refresh(tenant)
+        if attributed_partner is not None and attributed_partner.id != previous_partner_id:
+            await self.notify_partner_merchant_attributed(attributed_partner, tenant)
         return tenant
 
     async def attribution_still_active(self, tenant: Tenant) -> bool:
@@ -631,6 +645,24 @@ class PartnerService:
         self.db.add(partner)
         await self.db.commit()
         await self.db.refresh(payout)
+        await self.notify_partner_payout_event(
+            partner,
+            payout,
+            event_code=NotificationService.EVENT_PARTNER_PAYOUT_REQUESTED,
+            subject="Partner payout request created",
+        )
+        await notify_platform_ops(
+            self.db,
+            event_code="partner_payout_requested",
+            title="Заявка на выплату партнёру",
+            lines=[
+                f"Партнёр: {partner.display_name}",
+                f"Сумма: {payout.amount_requested} {payout.currency}",
+                f"Адрес: {payout.destination_address}",
+                f"Payout ID: {payout.id}",
+            ],
+            admin_url="/admin/partners",
+        )
         return payout
 
     async def list_payouts(self, partner_id: str | None = None) -> list[PartnerPayoutRequest]:
@@ -679,6 +711,15 @@ class PartnerService:
             self.db.add(payout)
             await self.db.commit()
             await self.db.refresh(payout)
+            partner = await self.get_by_id(payout.partner_id)
+            if partner is not None:
+                await self.notify_partner_payout_event(
+                    partner,
+                    payout,
+                    event_code=NotificationService.EVENT_PARTNER_PAYOUT_REJECTED,
+                    subject="Partner payout rejected",
+                    force_email=True,
+                )
             return payout
 
         if action != "approve":
@@ -704,6 +745,15 @@ class PartnerService:
         self.db.add(payout)
         await self.db.commit()
         await self.db.refresh(payout)
+        partner = await self.get_by_id(payout.partner_id)
+        if partner is not None:
+            await self.notify_partner_payout_event(
+                partner,
+                payout,
+                event_code=NotificationService.EVENT_PARTNER_PAYOUT_APPROVED,
+                subject="Partner payout approved",
+                force_email=True,
+            )
         return payout
 
     async def admin_update_partner(
@@ -723,6 +773,7 @@ class PartnerService:
         if partner is None:
             raise PartnerServiceError("Partner not found.")
 
+        previous_status = partner.status
         if status is not None:
             normalized = status.strip().lower()
             if normalized not in {"pending", "approved", "rejected", "suspended"}:
@@ -766,6 +817,8 @@ class PartnerService:
         self.db.add(partner)
         await self.db.commit()
         await self.db.refresh(partner)
+        if status is not None and partner.status != previous_status:
+            await self.notify_partner_status_changed(partner, previous_status=previous_status)
         return partner
 
     async def list_partners(self) -> list[Partner]:
@@ -790,6 +843,180 @@ class PartnerService:
         await self.db.commit()
         await self.db.refresh(row)
         return row
+
+    async def notify_partner_application_submitted(self, partner: Partner) -> None:
+        await self._notify_partner_user(
+            partner,
+            event_code=NotificationService.EVENT_PARTNER_APPLICATION_SUBMITTED,
+            subject="Partner application received",
+            lines=[
+                f"Partner: {partner.display_name}",
+                f"Referral code: {partner.referral_code}",
+                f"Status: {partner.status}",
+                "Your application is under review."
+                if partner.status == "pending"
+                else "Your partner account is ready.",
+            ],
+            context={
+                "partner_display_name": partner.display_name,
+                "referral_code": partner.referral_code,
+                "partner_status": partner.status,
+                "review_comment": partner.review_comment or "-",
+            },
+            force_email=True,
+        )
+
+    async def notify_partner_status_changed(
+        self,
+        partner: Partner,
+        *,
+        previous_status: str,
+    ) -> None:
+        if partner.status == previous_status:
+            return
+        if partner.status == "approved":
+            event_code = NotificationService.EVENT_PARTNER_APPLICATION_APPROVED
+            subject = "Partner account approved"
+            lines = [
+                f"Partner: {partner.display_name}",
+                f"Referral code: {partner.referral_code}",
+                "You can sign in and share your referral link.",
+            ]
+        elif partner.status == "rejected":
+            event_code = NotificationService.EVENT_PARTNER_APPLICATION_REJECTED
+            subject = "Partner application rejected"
+            lines = [
+                f"Partner: {partner.display_name}",
+                f"Comment: {partner.review_comment or '-'}",
+            ]
+        elif partner.status == "suspended":
+            event_code = NotificationService.EVENT_PARTNER_SUSPENDED
+            subject = "Partner account suspended"
+            lines = [
+                f"Partner: {partner.display_name}",
+                f"Referral code: {partner.referral_code}",
+                f"Comment: {partner.review_comment or '-'}",
+            ]
+        else:
+            return
+        await self._notify_partner_user(
+            partner,
+            event_code=event_code,
+            subject=subject,
+            lines=lines,
+            context={
+                "partner_display_name": partner.display_name,
+                "referral_code": partner.referral_code,
+                "partner_status": partner.status,
+                "review_comment": partner.review_comment or "-",
+            },
+            force_email=True,
+        )
+        ops_titles = {
+            NotificationService.EVENT_PARTNER_APPLICATION_APPROVED: "Партнёр одобрен",
+            NotificationService.EVENT_PARTNER_APPLICATION_REJECTED: "Партнёр отклонён",
+            NotificationService.EVENT_PARTNER_SUSPENDED: "Партнёр приостановлен",
+        }
+        await notify_platform_ops(
+            self.db,
+            event_code=event_code,
+            title=ops_titles.get(event_code, "Статус партнёра изменён"),
+            lines=[
+                f"Партнёр: {partner.display_name}",
+                f"Код: {partner.referral_code}",
+                f"Статус: {partner.status}",
+                f"Комментарий: {partner.review_comment or '-'}",
+            ],
+            admin_url="/admin/partners",
+        )
+
+    async def notify_partner_merchant_attributed(
+        self,
+        partner: Partner,
+        tenant: Tenant,
+    ) -> None:
+        await self._notify_partner_user(
+            partner,
+            event_code=NotificationService.EVENT_PARTNER_MERCHANT_ATTRIBUTED,
+            subject="New referred merchant",
+            lines=[
+                f"Merchant: {tenant.name}",
+                f"Referral code: {partner.referral_code}",
+                "Commission accrues from platform fees after settlement.",
+            ],
+            context={
+                "partner_display_name": partner.display_name,
+                "referral_code": partner.referral_code,
+                "partner_status": partner.status,
+                "merchant_name": tenant.name,
+                "tenant_name": tenant.name,
+                "review_comment": "-",
+            },
+        )
+
+    async def notify_partner_payout_event(
+        self,
+        partner: Partner,
+        payout: PartnerPayoutRequest,
+        *,
+        event_code: str,
+        subject: str,
+        force_email: bool = False,
+    ) -> None:
+        amount = payout.amount_approved if payout.amount_approved is not None else payout.amount_requested
+        await self._notify_partner_user(
+            partner,
+            event_code=event_code,
+            subject=subject,
+            lines=[
+                f"Payout ID: {payout.id}",
+                f"Amount: {amount} {payout.currency}",
+                f"Address: {payout.destination_address}",
+                f"Status: {payout.status}",
+                f"Comment: {payout.review_comment or '-'}",
+            ],
+            context={
+                "partner_display_name": partner.display_name,
+                "referral_code": partner.referral_code,
+                "partner_status": partner.status,
+                "payout_id": payout.id,
+                "payout_amount": str(amount),
+                "payout_currency": payout.currency,
+                "payout_status": payout.status,
+                "destination_address": payout.destination_address,
+                "review_comment": payout.review_comment or "-",
+            },
+            force_email=force_email,
+        )
+
+    async def _notify_partner_user(
+        self,
+        partner: Partner,
+        *,
+        event_code: str,
+        subject: str,
+        lines: Iterable[str],
+        context: dict[str, Any] | None = None,
+        force_email: bool = False,
+    ) -> None:
+        try:
+            user = await self.db.get(User, partner.user_id)
+            if user is None:
+                return
+            await NotificationService(self.db).notify_user(
+                user,
+                event_code=event_code,
+                subject=subject,
+                lines=lines,
+                context=context,
+                force_email=force_email,
+            )
+        except Exception:
+            logger.exception(
+                "Partner notification failed for partner=%s event=%s",
+                partner.id,
+                event_code,
+            )
 
     def _normalize_code(self, code: str) -> str:
         return re.sub(r"[^A-Za-z0-9]", "", (code or "").strip()).upper()

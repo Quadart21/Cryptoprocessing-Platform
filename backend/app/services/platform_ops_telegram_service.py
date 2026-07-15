@@ -72,6 +72,11 @@ OPS_TOPIC_DEFINITIONS: tuple[OpsTopicDefinition, ...] = (
         title="🧪 Sandbox",
         description="Создание и жизненный цикл песочниц.",
     ),
+    OpsTopicDefinition(
+        key="partners",
+        title="🤝 Партнёры",
+        description="Заявки партнёров, атрибуция и выплаты affiliate.",
+    ),
 )
 
 OPS_TOPIC_BY_KEY = {item.key: item for item in OPS_TOPIC_DEFINITIONS}
@@ -95,6 +100,14 @@ EVENT_TOPIC_MAP: dict[str, str] = {
     "sandbox_created": "sandbox",
     "sandbox_ready": "sandbox",
     "daily_report": "reports",
+    "partner_application_submitted": "partners",
+    "partner_application_approved": "partners",
+    "partner_application_rejected": "partners",
+    "partner_suspended": "partners",
+    "partner_merchant_attributed": "partners",
+    "partner_payout_requested": "partners",
+    "partner_payout_approved": "partners",
+    "partner_payout_rejected": "partners",
 }
 
 
