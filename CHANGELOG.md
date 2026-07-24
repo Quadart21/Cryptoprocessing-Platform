@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.20.6] — 2026-07-24
+
+### Изменено
+
+- Ослаблены `box-shadow` по всему UI: токены `--shadow-*` / `--docs-shadow` / glow, лендинг, auth, pay, docs, merchant, dashboard, integration, toast.
+
+---
+
 ## [0.20.5] — 2026-07-24
 
 ### Изменено

@@ -12,7 +12,7 @@
   background:
     linear-gradient(165deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
     rgba(8, 14, 28, 0.58);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
   padding: 20px;
   min-width: 0;
 }
@@ -755,7 +755,7 @@
     linear-gradient(145deg, rgba(51, 215, 255, 0.09), transparent 42%),
     rgba(8, 14, 28, 0.75);
   padding: 18px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
 .mc-analytics-top {

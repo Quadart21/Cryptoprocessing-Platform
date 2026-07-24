@@ -164,7 +164,7 @@ input::placeholder {
   background: linear-gradient(135deg, #1bb7ff, #5488ff);
   color: #f7fbff;
   font-weight: 800;
-  box-shadow: 0 14px 32px rgba(40, 124, 255, 0.28);
+  box-shadow: 0 7px 16px rgba(40, 124, 255, 0.14);
 }
 
 .ghost-button {
@@ -344,7 +344,7 @@ input::placeholder {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(13, 21, 31, 0.96);
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .nc-mobile-menu-item {

@@ -7,7 +7,7 @@
   --lp-accent-deep: #0088cc;
   --lp-lime: var(--lp-accent);
   --lp-lime-soft: rgba(0, 163, 255, 0.14);
-  --lp-lime-glow: rgba(0, 163, 255, 0.4);
+  --lp-lime-glow: rgba(0, 163, 255, 0.2);
   --lp-bg: #161820;
   --lp-surface: #1e1f29;
   --lp-surface-2: #2a2c39;
@@ -50,7 +50,7 @@
 .lp-theme-lime .lpx-logo-mark {
   border-radius: 14px;
   background: linear-gradient(145deg, var(--lp-accent), var(--lp-accent-deep));
-  box-shadow: 0 0 24px var(--lp-lime-glow);
+  box-shadow: 0 0 12px var(--lp-lime-glow);
 }
 
 .lp-theme-lime .lpx-logo-mark svg {
@@ -81,7 +81,7 @@
   font-weight: 700 !important;
   letter-spacing: 0.02em;
   border-radius: 999px !important;
-  box-shadow: 0 0 0 1px rgba(0, 163, 255, 0.35), 0 12px 36px rgba(0, 163, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(0, 163, 255, 0.28), 0 6px 18px rgba(0, 163, 255, 0.12);
 }
 
 .lp-theme-lime .nc-btn-primary:hover {
@@ -269,7 +269,7 @@
   justify-content: center;
   background: var(--lp-lime);
   color: #f8fafc;
-  box-shadow: 0 0 28px var(--lp-lime-glow);
+  box-shadow: 0 0 14px var(--lp-lime-glow);
 }
 
 .lp-theme-lime .lpx-hero-arrow-btn svg {
@@ -317,7 +317,7 @@
   border-radius: 28px;
   background: linear-gradient(165deg, var(--lp-surface-2) 0%, #161820 100%);
   border: 1px solid var(--lp-line);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 163, 255, 0.06);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 163, 255, 0.06);
   overflow: hidden;
 }
 
@@ -532,7 +532,7 @@
 .lp-theme-lime .lpx-bento-card--accent {
   background: var(--lp-lime);
   border-color: transparent;
-  box-shadow: 0 20px 50px rgba(0, 163, 255, 0.22);
+  box-shadow: 0 10px 24px rgba(0, 163, 255, 0.12);
 }
 
 .lp-theme-lime .lpx-bento-card--accent .lpx-bento-num,
@@ -626,7 +626,7 @@
   font-size: 0.72rem;
   font-weight: 700;
   color: #fff;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
 }
 
 .lp-theme-lime .lpx-proof-chart-float small {

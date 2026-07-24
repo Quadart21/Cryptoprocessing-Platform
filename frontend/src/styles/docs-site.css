@@ -11,10 +11,10 @@
   --docs-accent: #00a3ff;
   --docs-accent-deep: #0088cc;
   --docs-accent-soft: rgba(0, 163, 255, 0.14);
-  --docs-accent-glow: rgba(0, 163, 255, 0.35);
+  --docs-accent-glow: rgba(0, 163, 255, 0.18);
   --docs-success: #34d399;
   --docs-radius: 18px;
-  --docs-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  --docs-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
   position: relative;
   min-height: 100vh;
   overflow-x: hidden;
@@ -150,7 +150,7 @@
   border-radius: 0.85rem;
   background: linear-gradient(145deg, rgba(0, 163, 255, 0.25), rgba(0, 136, 204, 0.08));
   border: 1px solid rgba(0, 163, 255, 0.35);
-  box-shadow: 0 12px 32px rgba(0, 163, 255, 0.18);
+  box-shadow: 0 6px 16px rgba(0, 163, 255, 0.1);
 }
 
 .docs-site-brand-mark span {
@@ -247,12 +247,12 @@
 .docs-site-button-primary {
   background: linear-gradient(135deg, #00a3ff, #0088cc);
   color: #fff;
-  box-shadow: 0 12px 28px rgba(0, 163, 255, 0.28);
+  box-shadow: 0 6px 14px rgba(0, 163, 255, 0.14);
 }
 
 .docs-site-button-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 36px rgba(0, 163, 255, 0.34);
+  box-shadow: 0 8px 18px rgba(0, 163, 255, 0.18);
 }
 
 .docs-site-shell {
@@ -620,7 +620,7 @@
 .docs-intro-card:hover {
   transform: translateY(-3px);
   border-color: rgba(0, 163, 255, 0.32);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
 }
 
 .docs-intro-card:hover::after {
@@ -785,7 +785,7 @@
     radial-gradient(circle at top right, rgba(0, 163, 255, 0.06), transparent 40%),
     rgba(20, 22, 34, 0.92);
   color: var(--docs-text);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .docs-api-page .api-docs-hero-copy h2,
