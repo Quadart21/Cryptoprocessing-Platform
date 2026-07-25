@@ -77,7 +77,7 @@ export function LandingAuthLayer({
 
   const mainHeadline =
     mode === "partner"
-      ? "Заявка в партнёрскую программу"
+      ? t("auth.partnerTitle")
       : mode === "register" && registrationEnabled
         ? t("auth.registerTitle")
         : recoveryMode === "request"
@@ -90,7 +90,7 @@ export function LandingAuthLayer({
 
   const mainSub =
     mode === "partner"
-      ? "Рекламируйте платформу и получайте долю от platform fee приведённых клиентов."
+      ? t("auth.partnerSub")
       : mode === "register" && registrationEnabled
         ? t("auth.registerSub")
         : recoveryMode === "request"
@@ -147,7 +147,7 @@ export function LandingAuthLayer({
                 onClick={() => onModeChange("partner")}
                 type="button"
               >
-                Партнёр
+                {t("auth.tabPartner")}
               </button>
             </div>
 
@@ -169,7 +169,7 @@ export function LandingAuthLayer({
               <form className="nc-form" onSubmit={onPartnerApply}>
                 <div className="nc-form-grid">
                   <label>
-                    <span>Имя</span>
+                    <span>{t("auth.partnerName")}</span>
                     <input
                       value={partnerForm.full_name}
                       onChange={(e) => onPartnerFormChange({ ...partnerForm, full_name: e.target.value })}
@@ -177,7 +177,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label>
-                    <span>Публичное имя</span>
+                    <span>{t("auth.partnerDisplayName")}</span>
                     <input
                       value={partnerForm.display_name}
                       onChange={(e) => onPartnerFormChange({ ...partnerForm, display_name: e.target.value })}
@@ -204,7 +204,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label>
-                    <span>Telegram</span>
+                    <span>{t("auth.partnerTelegram")}</span>
                     <input
                       value={partnerForm.contact_telegram}
                       onChange={(e) =>
@@ -213,7 +213,7 @@ export function LandingAuthLayer({
                     />
                   </label>
                   <label>
-                    <span>USDT адрес (опционально)</span>
+                    <span>{t("auth.partnerUsdtOptional")}</span>
                     <input
                       value={partnerForm.payout_address}
                       onChange={(e) =>
@@ -223,7 +223,7 @@ export function LandingAuthLayer({
                   </label>
                 </div>
                 <button className="nc-btn-primary nc-btn-lg" disabled={loading} type="submit">
-                  {loading ? "Отправка…" : "Подать заявку"}
+                  {loading ? t("auth.partnerSubmitting") : t("auth.partnerSubmit")}
                 </button>
               </form>
             ) : mode === "login" || !registrationEnabled ? (

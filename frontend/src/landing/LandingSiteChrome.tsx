@@ -540,7 +540,7 @@ export function LandingSiteChrome({
 
                 <div className="lpx-phone-body">
 
-                  <span className="lpx-phone-badge">Live</span>
+                  <span className="lpx-phone-badge">{t("landing.liveBadge")}</span>
 
                   <pre className="lpx-phone-code">
 
