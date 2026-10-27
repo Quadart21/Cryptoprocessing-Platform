@@ -1,6 +1,7 @@
 import type { Locale } from "./i18n/types";
 
 const TOKEN_KEY = "cryptoprocessing_access_token";
+const REFRESH_TOKEN_KEY = "cryptoprocessing_refresh_token";
 const CSRF_TOKEN_KEY = "cryptoprocessing_csrf_token";
 const LOCALE_KEY = "cryptoprocessing_locale";
 
@@ -16,6 +17,18 @@ export function setAccessToken(token: string): void {
 
 export function clearAccessToken(): void {
   window.localStorage.removeItem(TOKEN_KEY);
+}
+
+export function getRefreshToken(): string | null {
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setRefreshToken(token: string): void {
+  window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
+export function clearRefreshToken(): void {
+  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 export function getCsrfToken(): string | null {

@@ -179,6 +179,23 @@ async def login(payload: dict[str, Any], request: Request, db: AsyncSession = De
         ) from exc
 
 
+@router.post("/auth/refresh", response_model=TokenPairResponse)
+async def refresh_tokens(payload: dict[str, Any], db: AsyncSession = Depends(get_db)) -> TokenPairResponse:
+    refresh_token = _normalize_input(payload.get("refresh_token"))
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Refresh token is required.",
+        )
+    try:
+        return await AuthService(db).refresh(refresh_token)
+    except AuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+
+
 @router.post("/auth/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     payload: dict[str, Any], db: AsyncSession = Depends(get_db)

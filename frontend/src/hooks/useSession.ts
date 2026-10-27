@@ -2,7 +2,16 @@ import { useState } from "react";
 
 import type { CurrentUser } from "../api";
 import { consumeAuthHandoffFromUrl } from "../config/authHandoff";
-import { clearAccessToken, clearCsrfToken, getAccessToken, getCsrfToken, setAccessToken, setCsrfToken } from "../storage";
+import {
+  clearAccessToken,
+  clearCsrfToken,
+  clearRefreshToken,
+  getAccessToken,
+  getCsrfToken,
+  setAccessToken,
+  setCsrfToken,
+  setRefreshToken,
+} from "../storage";
 
 function readInitialSession(): { token: string | null; csrf: string | null } {
   const handoff = consumeAuthHandoffFromUrl();
@@ -28,9 +37,12 @@ export function useSession() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [csrfToken, setCsrfTokenState] = useState<string | null>(initialSession.csrf);
 
-  function applyAccessToken(accessToken: string) {
+  function applyAccessToken(accessToken: string, refreshToken?: string | null) {
     setAccessToken(accessToken);
     setToken(accessToken);
+    if (refreshToken && refreshToken.trim()) {
+      setRefreshToken(refreshToken.trim());
+    }
   }
 
   function applyCsrfToken(csrf: string) {
@@ -40,6 +52,7 @@ export function useSession() {
 
   function clearSession() {
     clearAccessToken();
+    clearRefreshToken();
     clearCsrfToken();
     setToken(null);
     setUser(null);

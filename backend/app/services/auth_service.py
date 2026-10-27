@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
+    decode_token,
     generate_invite_token,
     get_password_hash,
     verify_password,
@@ -82,6 +83,40 @@ class AuthService:
         return TokenPairResponse(
             access_token=access_token,
             refresh_token=refresh_token,
+        )
+
+    async def refresh(self, refresh_token: str) -> TokenPairResponse:
+        normalized = (refresh_token or "").strip()
+        if not normalized:
+            raise AuthError("Refresh token is required.")
+
+        try:
+            payload = decode_token(normalized)
+        except ValueError as exc:
+            raise AuthError("Сессия истекла. Войдите снова.") from exc
+
+        if payload.get("type") != "refresh":
+            raise AuthError("Сессия истекла. Войдите снова.")
+
+        user_id = str(payload.get("sub") or "").strip()
+        if not user_id:
+            raise AuthError("Сессия истекла. Войдите снова.")
+
+        user = await self.db.get(User, user_id)
+        if user is None or user.status != "active":
+            raise AuthError("User is suspended or inactive.")
+
+        session = await self.session_service.verify_session(user_id, normalized)
+        if session is None:
+            raise AuthError("Сессия истекла. Войдите снова.")
+
+        access_token = create_access_token(user.id)
+        new_refresh_token = create_refresh_token(user.id)
+        await self.session_service.rotate_refresh_token(session, new_refresh_token)
+
+        return TokenPairResponse(
+            access_token=access_token,
+            refresh_token=new_refresh_token,
         )
 
     async def create_invite(self, user: User, ttl_hours: int = 24) -> str:

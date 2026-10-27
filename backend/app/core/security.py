@@ -56,7 +56,9 @@ def decode_token(token: str) -> dict:
     try:
         return jwt.decode(token, settings.effective_jwt_secret, algorithms=[ALGORITHM])
     except JWTError as exc:
-        raise ValueError("Invalid token.") from exc
+        raise ValueError(
+            "Сессия истекла или токен недействителен. Войдите снова."
+        ) from exc
 
 
 def _build_fernet() -> Fernet:

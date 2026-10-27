@@ -1,5 +1,10 @@
 import { resolveApiBaseUrl } from "../config/apiBase";
 import { getCsrfToken, setCsrfToken } from "../storage";
+import {
+  refreshAccessToken,
+  shouldAttemptSessionRefresh,
+  withRefreshedAuthorization,
+} from "./sessionRefresh";
 
 const API_BASE_URL = resolveApiBaseUrl();
 
@@ -961,19 +966,33 @@ function extractErrorMessage(payload: unknown): {
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const csrfToken = getCsrfToken();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRF-Token": csrfToken }),
-      ...(init?.headers ?? {}),
-    },
-  });
+  const execute = async (requestInit?: RequestInit): Promise<Response> => {
+    const csrfToken = getCsrfToken();
+    return fetch(`${API_BASE_URL}${path}`, {
+      ...requestInit,
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        ...(requestInit?.headers ?? {}),
+      },
+    });
+  };
 
+  let response = await execute(init);
   const csrfHeader = response.headers.get("X-CSRF-Token");
   if (csrfHeader) {
     setCsrfToken(csrfHeader);
+  }
+
+  if (!response.ok && shouldAttemptSessionRefresh(path, response.status)) {
+    const nextAccessToken = await refreshAccessToken();
+    if (nextAccessToken) {
+      response = await execute(withRefreshedAuthorization(init, nextAccessToken));
+      const retryCsrf = response.headers.get("X-CSRF-Token");
+      if (retryCsrf) {
+        setCsrfToken(retryCsrf);
+      }
+    }
   }
 
   if (!response.ok) {

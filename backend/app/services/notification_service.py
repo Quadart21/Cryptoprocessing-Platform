@@ -1347,6 +1347,14 @@ class NotificationService:
             description = ""
             if isinstance(payload, dict):
                 description = str(payload.get("description") or "").strip()
+            lowered = description.lower()
+            if "unauthorized" in lowered or "invalid token" in lowered:
+                raise ValueError(
+                    "Токен бота недействителен или отозван в Telegram. "
+                    "В @BotFather откройте бота → API Token → сгенерируйте новый токен, "
+                    "вставьте в поле «Новый токен бота», сохраните раздел и снова "
+                    "нажмите «Проверить бота»."
+                )
             raise ValueError(description or "Telegram API отклонил запрос getMe.")
 
         result = payload.get("result")

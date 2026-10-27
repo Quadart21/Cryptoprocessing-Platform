@@ -1063,7 +1063,9 @@ export function AdminPlatformSettingsSection({
             <span>Новый токен бота</span>
             <input
               type="password"
-              autoComplete="off"
+              name="telegram-bot-token"
+              autoComplete="new-password"
+              spellCheck={false}
               placeholder="Вставьте токен из @BotFather (1234567890:AAH…)"
               value={telegramBotToken}
               onChange={(event) => {

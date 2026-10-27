@@ -1,5 +1,10 @@
 import { resolveApiBaseUrl } from "./config/apiBase";
 import { getCsrfToken, setCsrfToken } from "./storage";
+import {
+  refreshAccessToken,
+  shouldAttemptSessionRefresh,
+  withRefreshedAuthorization,
+} from "./api/sessionRefresh";
 
 const API_BASE_URL = resolveApiBaseUrl();
 
@@ -925,19 +930,33 @@ function extractErrorMessage(payload: unknown): {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const csrfToken = getCsrfToken();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(csrfToken && { "X-CSRF-Token": csrfToken }),
-      ...(init?.headers ?? {}),
-    },
-  });
+  const execute = async (requestInit?: RequestInit): Promise<Response> => {
+    const csrfToken = getCsrfToken();
+    return fetch(`${API_BASE_URL}${path}`, {
+      ...requestInit,
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrfToken && { "X-CSRF-Token": csrfToken }),
+        ...(requestInit?.headers ?? {}),
+      },
+    });
+  };
 
+  let response = await execute(init);
   const csrfHeader = response.headers.get("X-CSRF-Token");
   if (csrfHeader) {
     setCsrfToken(csrfHeader);
+  }
+
+  if (!response.ok && shouldAttemptSessionRefresh(path, response.status)) {
+    const nextAccessToken = await refreshAccessToken();
+    if (nextAccessToken) {
+      response = await execute(withRefreshedAuthorization(init, nextAccessToken));
+      const retryCsrf = response.headers.get("X-CSRF-Token");
+      if (retryCsrf) {
+        setCsrfToken(retryCsrf);
+      }
+    }
   }
 
   if (!response.ok) {
@@ -980,39 +999,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       normalizedError.code = extracted.code;
     }
     throw normalizedError;
-
-    /*
-    const payloadWithDetail = (await response.json().catch(() => null)) as
-      | { detail?: string | { message?: string; code?: string } }
-      | null;
-    const richDetail = payloadWithDetail?.detail;
-    const richMessage =
-      typeof richDetail === "string"
-        ? richDetail
-        : typeof richDetail?.message === "string" && richDetail.message.trim().length > 0
-          ? richDetail.message
-          : "Ошибка запроса.";
-    const richError = new Error(richMessage) as Error & {
-      status?: number;
-      detail?: unknown;
-      code?: string;
-    };
-    richError.status = response.status;
-    richError.detail = richDetail;
-    if (
-      richDetail &&
-      typeof richDetail === "object" &&
-      "code" in richDetail &&
-      typeof richDetail.code === "string"
-    ) {
-      richError.code = richDetail.code;
-    }
-    if (richDetail !== undefined) {
-      throw richError;
-    }
-    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
-    throw new Error(payload?.detail ?? "Ошибка запроса.");
-    */
   }
   if (response.status === 204) {
     return undefined as T;

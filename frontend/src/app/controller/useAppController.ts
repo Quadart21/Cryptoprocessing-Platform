@@ -477,7 +477,7 @@ export function useAppController() {
       setSuccess(null);
       setNewApiSecret(null);
       const auth = await login(loginForm.email, loginForm.password, loginForm.otp_code);
-      applyAccessToken(auth.access_token);
+      applyAccessToken(auth.access_token, auth.refresh_token);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка входа.");
     } finally {

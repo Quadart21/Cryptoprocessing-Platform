@@ -68,6 +68,20 @@ class SessionService:
         await self.db.commit()
         return session
 
+    async def rotate_refresh_token(
+        self,
+        session: UserSession,
+        new_refresh_token: str,
+    ) -> UserSession:
+        now = datetime.now(timezone.utc)
+        session.refresh_token_hash = self._hash_token(new_refresh_token)
+        session.last_used_at = now
+        session.expires_at = now + timedelta(minutes=settings.refresh_token_expire_minutes)
+        self.db.add(session)
+        await self.db.commit()
+        await self.db.refresh(session)
+        return session
+
     async def revoke_session(self, user_id: str, session_id: str) -> bool:
         session = await self.db.scalar(
             select(UserSession).where(
