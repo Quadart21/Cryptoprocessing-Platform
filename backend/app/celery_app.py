@@ -32,9 +32,9 @@ def get_celery_app() -> Celery:
             "task": "app.tasks.invoice_sync.sync_all_pending_invoices",
             "schedule": crontab(minute="*/5"),
         },
-        "persist-exchange-rates-every-10-seconds": {
+        "persist-exchange-rates-every-30-seconds": {
             "task": "app.tasks.invoice_sync.refresh_exchange_rate_cache",
-            "schedule": 10.0,
+            "schedule": 30.0,
         },
         "release-balance-holds-every-minute": {
             "task": "app.tasks.balance_holds.release_matured_balance_holds",
