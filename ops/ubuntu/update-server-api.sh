@@ -60,5 +60,21 @@ if [[ "${RELOAD_NGINX}" == "1" ]]; then
   systemctl reload nginx
 fi
 
-curl -fsS http://127.0.0.1:8000/api/v1/health
+split_log "Waiting for API health"
+health_ok=0
+for _ in $(seq 1 45); do
+  if curl -fsS http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1; then
+    curl -fsS http://127.0.0.1:8000/api/v1/health
+    echo
+    health_ok=1
+    break
+  fi
+  sleep 1
+done
+if [[ "${health_ok}" != "1" ]]; then
+  echo "API health check failed after restart" >&2
+  systemctl --no-pager --full status cryptoprocessing || true
+  journalctl -u cryptoprocessing -n 80 --no-pager || true
+  exit 1
+fi
 split_log "API server update completed"

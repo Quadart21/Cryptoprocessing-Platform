@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.20.11] — 2026-10-27
+
+### Исправлено
+
+- `update-server-api.sh`: health-check API ждёт до 45с после restart (uvicorn не успевал подняться).
+
+---
+
 ## [0.20.10] — 2026-10-27
 
 ### Добавлено
