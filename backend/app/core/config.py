@@ -141,7 +141,7 @@ class Settings(BaseSettings):
         alias="CRYPTO_CASH_RATES_EXPORT_URL",
     )
     exchange_rate_poll_interval_seconds: int = Field(
-        default=2,
+        default=30,
         alias="EXCHANGE_RATE_POLL_INTERVAL_SECONDS",
     )
 

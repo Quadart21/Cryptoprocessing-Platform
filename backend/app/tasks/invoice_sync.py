@@ -9,6 +9,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.invoice import Invoice
 from app.providers.crypto_cash import CryptoCashProviderError
 from app.services.billing_policy_service import BillingPolicyService
+from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
 from app.services.exchange_rate_service import get_exchange_rate_service
 from app.services.invoice_service import InvoiceService
 from app.services.rates_service import RatesService
@@ -181,6 +182,8 @@ def refresh_exchange_rate_cache() -> dict:
 async def _refresh_exchange_rate_cache() -> dict:
     async with AsyncSessionLocal() as db:
         try:
+            # One Crypto-Cash fetch per beat tick (no continuous Celery pollers).
+            get_crypto_cash_rates_cache().refresh_sync()
             rates_payload = await RatesService(db).list_rates()
             symbols = sorted(
                 {

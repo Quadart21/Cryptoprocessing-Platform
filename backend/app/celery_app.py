@@ -57,7 +57,8 @@ def get_celery_app() -> Celery:
 
 
 @worker_process_init.connect
-def _start_crypto_cash_rates_polling(**_: object) -> None:
+def _init_crypto_cash_rates_price_field(**_: object) -> None:
+    """Load price-field for on-demand refreshes. Continuous polling stays on the API process only."""
     import asyncio
 
     from app.db.session import AsyncSessionLocal
@@ -68,16 +69,7 @@ def _start_crypto_cash_rates_polling(**_: object) -> None:
         async with AsyncSessionLocal() as session:
             return await BillingPolicyService(session).get_exchange_rate_price_field()
 
-    cache = get_crypto_cash_rates_cache()
-    cache.set_price_field(asyncio.run(_load_price_field()))
-    cache.start_polling()
-
-
-@worker_process_shutdown.connect
-def _stop_crypto_cash_rates_polling(**_: object) -> None:
-    from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
-
-    get_crypto_cash_rates_cache().stop_polling()
+    get_crypto_cash_rates_cache().set_price_field(asyncio.run(_load_price_field()))
 
 
 celery_app = get_celery_app()
