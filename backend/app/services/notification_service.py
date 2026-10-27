@@ -489,8 +489,51 @@ class NotificationService:
             if next_telegram_enabled:
                 final_telegram_events.add(definition.code)
 
+        # Capture prior channel state so sectioned UI saves (email vs telegram)
+        # do not fail each other when the untouched channel is incomplete.
+        prev_smtp_enabled = bool(platform_settings.smtp_bz_enabled)
+        prev_smtp_api_base_url = self._normalize_smtp_bz_api_base_url(
+            platform_settings.smtp_bz_api_base_url or ""
+        )
+        prev_smtp_sender_email = (platform_settings.smtp_bz_sender_email or "").strip()
+        prev_smtp_sender_name = (
+            (platform_settings.smtp_bz_sender_name or "").strip() or "NorenDigital"
+        )
+        prev_smtp_reply_to = (platform_settings.smtp_bz_reply_to or "").strip()
+        prev_smtp_tag = (platform_settings.smtp_bz_tag or "").strip()
+        prev_telegram_enabled = bool(platform_settings.telegram_notifications_enabled)
+        prev_telegram_api_base_url = self._normalize_telegram_api_base_url(
+            platform_settings.telegram_api_base_url or ""
+        )
+
+        next_smtp_enabled = bool(smtp_bz_enabled)
+        next_smtp_api_base_url = self._normalize_smtp_bz_api_base_url(smtp_bz_api_base_url)
+        next_smtp_sender_email = (smtp_bz_sender_email or "").strip()
+        next_smtp_sender_name = (smtp_bz_sender_name or "").strip() or "NorenDigital"
+        next_smtp_reply_to = (smtp_bz_reply_to or "").strip()
+        next_smtp_tag = (smtp_bz_tag or "").strip()
+        next_telegram_enabled = bool(telegram_notifications_enabled)
+        next_telegram_api_base_url = self._normalize_telegram_api_base_url(
+            telegram_api_base_url
+        )
+
+        smtp_touched = (
+            smtp_bz_api_key is not None
+            or next_smtp_enabled != prev_smtp_enabled
+            or next_smtp_api_base_url != prev_smtp_api_base_url
+            or next_smtp_sender_email != prev_smtp_sender_email
+            or next_smtp_sender_name != prev_smtp_sender_name
+            or next_smtp_reply_to != prev_smtp_reply_to
+            or next_smtp_tag != prev_smtp_tag
+        )
+        telegram_touched = (
+            telegram_bot_token is not None
+            or next_telegram_enabled != prev_telegram_enabled
+            or next_telegram_api_base_url != prev_telegram_api_base_url
+        )
+
         platform_settings.email_notifications_enabled = email_notifications_enabled
-        platform_settings.telegram_notifications_enabled = telegram_notifications_enabled
+        platform_settings.telegram_notifications_enabled = next_telegram_enabled
         platform_settings.email_notification_events_json = json.dumps(
             sorted(final_email_events),
             ensure_ascii=False,
@@ -499,24 +542,18 @@ class NotificationService:
             sorted(final_telegram_events),
             ensure_ascii=False,
         )
-        platform_settings.smtp_bz_enabled = bool(smtp_bz_enabled)
-        platform_settings.smtp_bz_api_base_url = self._normalize_smtp_bz_api_base_url(
-            smtp_bz_api_base_url
-        )
-        platform_settings.smtp_bz_sender_email = (smtp_bz_sender_email or "").strip()
-        platform_settings.smtp_bz_sender_name = (smtp_bz_sender_name or "").strip() or "NorenDigital"
-        normalized_reply_to = (smtp_bz_reply_to or "").strip()
-        platform_settings.smtp_bz_reply_to = normalized_reply_to or None
-        normalized_tag = (smtp_bz_tag or "").strip()
-        platform_settings.smtp_bz_tag = normalized_tag or None
+        platform_settings.smtp_bz_enabled = next_smtp_enabled
+        platform_settings.smtp_bz_api_base_url = next_smtp_api_base_url
+        platform_settings.smtp_bz_sender_email = next_smtp_sender_email
+        platform_settings.smtp_bz_sender_name = next_smtp_sender_name
+        platform_settings.smtp_bz_reply_to = next_smtp_reply_to or None
+        platform_settings.smtp_bz_tag = next_smtp_tag or None
         if smtp_bz_api_key is not None:
             normalized_key = smtp_bz_api_key.strip()
             platform_settings.smtp_bz_api_key_encrypted = (
                 encrypt_value(normalized_key) if normalized_key else None
             )
-        platform_settings.telegram_api_base_url = self._normalize_telegram_api_base_url(
-            telegram_api_base_url
-        )
+        platform_settings.telegram_api_base_url = next_telegram_api_base_url
         if telegram_bot_token is not None:
             normalized_telegram_bot_token = telegram_bot_token.strip()
             if normalized_telegram_bot_token:
@@ -538,8 +575,6 @@ class NotificationService:
             ensure_ascii=False,
         )
 
-        if platform_settings.smtp_bz_reply_to and "@" not in platform_settings.smtp_bz_reply_to:
-            raise ValueError("SMTP.bz reply-to email указан некорректно.")
         if platform_settings.notification_logo_url:
             if not is_allowed_brand_logo_reference(platform_settings.notification_logo_url):
                 raise ValueError("Notification logo URL is invalid.")
@@ -548,19 +583,26 @@ class NotificationService:
                 platform_settings.notification_primary_url,
                 "Notification primary URL is invalid.",
             )
-        if platform_settings.smtp_bz_enabled:
-            if not platform_settings.smtp_bz_sender_email:
-                raise ValueError("Укажите email отправителя SMTP.bz.")
-            if "@" not in platform_settings.smtp_bz_sender_email:
-                raise ValueError("Email отправителя SMTP.bz указан некорректно.")
-            if not (
-                (platform_settings.smtp_bz_api_key_encrypted or "").strip()
-                or (smtp_bz_api_key or "").strip()
-            ):
-                raise ValueError("Укажите API-ключ SMTP.bz для включенной email-отправки.")
+
+        if smtp_touched:
+            if platform_settings.smtp_bz_reply_to and "@" not in platform_settings.smtp_bz_reply_to:
+                raise ValueError("SMTP.bz reply-to email указан некорректно.")
+            if platform_settings.smtp_bz_enabled:
+                if not platform_settings.smtp_bz_sender_email:
+                    raise ValueError("Укажите email отправителя SMTP.bz.")
+                if "@" not in platform_settings.smtp_bz_sender_email:
+                    raise ValueError("Email отправителя SMTP.bz указан некорректно.")
+                if not (
+                    (platform_settings.smtp_bz_api_key_encrypted or "").strip()
+                    or (smtp_bz_api_key or "").strip()
+                ):
+                    raise ValueError(
+                        "Укажите API-ключ SMTP.bz для включенной email-отправки."
+                    )
 
         if (
             platform_settings.telegram_notifications_enabled
+            and telegram_touched
             and not (
                 (platform_settings.telegram_bot_token_encrypted or "").strip()
                 or (telegram_bot_token or "").strip()
