@@ -1258,9 +1258,15 @@ export function AdminPlatformSettingsSection({
             с правом «Управление топиками».
           </p>
           <ol className="muted-text aps-ops-setup-list">
-            <li>Создайте супергруппу, включите Topics (форум).</li>
-            <li>Добавьте бота админом, дайте can_manage_topics.</li>
-            <li>Узнайте chat_id (@userinfobot или getUpdates) и введите ниже.</li>
+            <li>
+              Создайте <strong>супергруппу</strong> (не обычную группу и не личный чат) и включите{" "}
+              <strong>Topics</strong>: Manage Group → Topics.
+            </li>
+            <li>Добавьте бота админом с правом Manage Topics.</li>
+            <li>
+              Укажите chat_id именно этой супергруппы (обычно <code>-100…</code>). Обычный чат /
+              канал без Topics даст ошибку «the chat is not a forum».
+            </li>
             <li>Нажмите «Создать топики» — chat_id сохранится автоматически.</li>
           </ol>
           <FieldGrid>

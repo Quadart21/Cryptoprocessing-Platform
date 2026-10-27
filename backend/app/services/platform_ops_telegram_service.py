@@ -285,6 +285,93 @@ class PlatformOpsTelegramService:
             return text[:240]
         return f"HTTP {response.status_code}"
 
+    @classmethod
+    def _forum_required_error(cls, *, chat_id: str, chat_type: str | None = None, title: str | None = None) -> str:
+        details: list[str] = [f"chat_id={chat_id}"]
+        if chat_type:
+            details.append(f"type={chat_type}")
+        if title:
+            details.append(f"title={title}")
+        detail_suffix = f" ({', '.join(details)})" if details else ""
+        return (
+            "Указанный чат не является форумом Telegram (Topics выключены)"
+            f"{detail_suffix}. "
+            "Откройте супергруппу → Manage Group → Topics → включите Topics, "
+            "убедитесь что бот — админ с правом «Manage Topics», "
+            "затем снова нажмите «Создать топики через бота»."
+        )
+
+    def _assert_forum_chat(self, *, base_url: str, bot_token: str, chat_id: str) -> None:
+        try:
+            response = requests.get(
+                f"{base_url}/bot{bot_token}/getChat",
+                params={"chat_id": chat_id},
+                timeout=12,
+            )
+        except Exception as exc:
+            raise ValueError(f"Не удалось проверить чат через getChat: {exc}") from exc
+
+        try:
+            body = response.json()
+        except ValueError as exc:
+            raise ValueError(
+                f"getChat вернул невалидный JSON (HTTP {response.status_code})."
+            ) from exc
+
+        if response.status_code >= 400 or not isinstance(body, dict) or body.get("ok") is not True:
+            description = ""
+            if isinstance(body, dict):
+                description = str(body.get("description") or "").strip()
+            lowered = description.lower()
+            if "chat not found" in lowered or "chat_id is empty" in lowered:
+                raise ValueError(
+                    f"Чат {chat_id} не найден для бота. Добавьте бота в супергруппу "
+                    "и укажите правильный chat_id (обычно вида -100…)."
+                )
+            raise ValueError(
+                f"Не удалось прочитать чат {chat_id}: "
+                f"{description or f'HTTP {response.status_code}'}"
+            )
+
+        result = body.get("result")
+        if not isinstance(result, dict):
+            raise ValueError(f"getChat вернул пустой результат для чата {chat_id}.")
+
+        chat_type = str(result.get("type") or "").strip() or None
+        title = str(result.get("title") or "").strip() or None
+        is_forum = bool(result.get("is_forum"))
+        if chat_type != "supergroup" or not is_forum:
+            raise ValueError(
+                self._forum_required_error(chat_id=chat_id, chat_type=chat_type, title=title)
+            )
+
+    @classmethod
+    def _format_create_forum_topic_error(
+        cls,
+        topic_key: str,
+        response: requests.Response,
+        *,
+        body: dict[str, Any] | None = None,
+        chat_id: str | None = None,
+    ) -> str:
+        description = ""
+        if body and isinstance(body.get("description"), str):
+            description = body["description"].strip()
+        if not description:
+            description = cls._parse_telegram_error(response)
+        lowered = description.lower()
+        if "not a forum" in lowered or "topics are disabled" in lowered:
+            return cls._forum_required_error(chat_id=chat_id or "unknown")
+        if "not enough rights" in lowered or "manage topics" in lowered:
+            return (
+                f"Боту не хватает прав для топика «{topic_key}». "
+                "Сделайте бота админом супергруппы и включите право «Manage Topics»."
+            )
+        return (
+            f"createForumTopic ({topic_key}): HTTP {response.status_code} — "
+            f"{description[:200] or response.text[:200]}"
+        )
+
     def _resolve_thread_id(
         self,
         platform_settings: PlatformSetting,
@@ -538,6 +625,8 @@ class PlatformOpsTelegramService:
         except ValueError as exc:
             raise ValueError("Некорректный Telegram API URL.") from exc
 
+        self._assert_forum_chat(base_url=base_url, bot_token=bot_token, chat_id=chat_id)
+
         topics = self.parse_topics(platform_settings)
         created: dict[str, int] = {}
         for definition in OPS_TOPIC_DEFINITIONS:
@@ -554,13 +643,21 @@ class PlatformOpsTelegramService:
             )
             if response.status_code >= 400:
                 raise ValueError(
-                    f"createForumTopic ({definition.key}): HTTP {response.status_code} — "
-                    f"{response.text[:200]}"
+                    self._format_create_forum_topic_error(
+                        definition.key,
+                        response,
+                        chat_id=chat_id,
+                    )
                 )
             body = response.json()
             if not isinstance(body, dict) or body.get("ok") is not True:
                 raise ValueError(
-                    f"createForumTopic ({definition.key}): {json.dumps(body, ensure_ascii=False)[:200]}"
+                    self._format_create_forum_topic_error(
+                        definition.key,
+                        response,
+                        body=body if isinstance(body, dict) else None,
+                        chat_id=chat_id,
+                    )
                 )
             result = body.get("result") or {}
             thread_id = result.get("message_thread_id")
