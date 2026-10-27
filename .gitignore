@@ -12,6 +12,8 @@ node_modules/
 !.env.example
 !frontend/.env.production.example
 !ops/ubuntu/.env.production.example
+ops/scripts/_deploy_secrets.txt
+ops/scripts/_deploy_new_servers.py
 .DS_Store
 *.pyc
 *.pyo

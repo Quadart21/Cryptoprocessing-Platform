@@ -4,6 +4,18 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.20.8] — 2026-10-27
+
+### Изменено
+
+- Split deploy: актуальные IP noren.digital (БД `191.217.255.149`, API `191.217.255.230`, сайт `191.217.255.57`) и таблица Cloudflare DNS в `ops/ubuntu/SPLIT-DEPLOY.md`.
+
+### Исправлено
+
+- Backend: явная зависимость `greenlet` для SQLAlchemy async на Python 3.14 (Ubuntu 26.04).
+
+---
+
 ## [0.20.7] — 2026-07-25
 
 ### Изменено
