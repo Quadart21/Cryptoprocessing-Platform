@@ -53,7 +53,7 @@ export function AdminUsersPanel({
     full_name: "",
     role: defaultRole,
     tenant_id: null,
-    status: "invited",
+    status: "active",
     password: "",
     create_invite: true,
   });

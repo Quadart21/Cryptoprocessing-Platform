@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.rbac import is_platform_role
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -53,8 +54,17 @@ class AuthService:
             await self._register_failed_login(user, now=now)
             raise AuthError("Invalid email or password.")
 
-        if user.status != "active":
+        if user.status == "suspended":
             raise AuthError("User is suspended or inactive.")
+        if user.status != "active":
+            # Platform admins are emailed a temporary password for immediate login,
+            # but historically were created as "invited". Activate on first success.
+            if user.status == "invited" and is_platform_role(user.role):
+                user.status = "active"
+                if user.activated_at is None:
+                    user.activated_at = now
+            else:
+                raise AuthError("User is suspended or inactive.")
 
         try:
             TwoFactorService(self.db).verify_login_code(user, otp_code)

@@ -24,7 +24,7 @@ class UserCreateRequest(BaseModel):
     full_name: str = Field(min_length=2, max_length=255)
     role: str = Field(min_length=3, max_length=64)
     tenant_id: str | None = None
-    status: str = Field(default="invited", min_length=3, max_length=64)
+    status: str = Field(default="active", min_length=3, max_length=64)
     password: str | None = Field(default=None, min_length=8, max_length=128)
     create_invite: bool = True
 

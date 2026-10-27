@@ -16,7 +16,12 @@ from app.api.deps import (
     user_permissions,
 )
 from app.providers.crypto_cash_status import PLATFORM_INVOICE_STATUSES
-from app.core.rbac import get_role_definition, has_permission, list_role_definitions
+from app.core.rbac import (
+    get_role_definition,
+    has_permission,
+    is_platform_role,
+    list_role_definitions,
+)
 from app.models.invoice import Invoice
 from app.models.invite_token import InviteToken
 from app.models.api_key import ApiKey
@@ -345,12 +350,18 @@ async def create_user(
     plain_password = payload.password or _generate_temporary_password()
 
     try:
+        # Credentials email includes a temporary password for immediate login.
+        # Platform users must be active; "invited" would reject password login.
+        create_status = payload.status
+        if is_platform_role(payload.role) and create_status == "invited":
+            create_status = "active"
+
         user = await user_service.create_user(
             email=payload.email,
             full_name=payload.full_name,
             role=payload.role,
             tenant_id=payload.tenant_id,
-            status=payload.status,
+            status=create_status,
             password=plain_password,
         )
         invite_token = await auth_service.create_invite(user) if payload.create_invite else None
