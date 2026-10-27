@@ -18,9 +18,17 @@ alwaysApply: true
    python ops/scripts/publish_github_releases.py --version X.Y.Z
    ```
    Появится запись на https://github.com/Quadart21/Cryptoprocessing-Platform/releases . **Git-тег без `gh release create` релизом не считается.**
+8. **Деплой (обязательно, сразу)** — без ожидания команды пользователя:
+   ```bash
+   python ops/scripts/deploy_release.py --targets api,site
+   ```
+   - только backend → `--targets api`
+   - только frontend → `--targets site` (если затронут и API SEO/nginx — `api,site`)
+   - сомневаешься → `api,site`
+   Нужны локальные `ops/scripts/_deploy_new_servers.py` и `_deploy_secrets.txt` (gitignored).
 
-Релиз **не завершён**, пока нет и тега, и GitHub Release.
+Релиз **не завершён**, пока нет тега, GitHub Release **и** успешного деплоя на нужные серверы.
 
-Не оставляй незакоммиченные изменения и не спрашивай «закоммитить?» — делай сразу. В ответе пользователю укажи: версию, коммит, ссылку на GitHub Release и команду деплоя на сервер.
+Не оставляй незакоммиченные изменения и не спрашивай «закоммитить?» / «задеплоить?» — делай сразу. В ответе укажи: версию, коммит, ссылку на GitHub Release и какие серверы задеплоены.
 
 Догонка пропущенных релизов: `python ops/scripts/publish_github_releases.py --all`

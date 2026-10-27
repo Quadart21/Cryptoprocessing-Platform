@@ -18,5 +18,10 @@ alwaysApply: true
    python ops/scripts/publish_github_releases.py --version X.Y.Z
    ```
    Страница: https://github.com/Quadart21/Cryptoprocessing-Platform/releases — там должна появиться новая версия с текстом из CHANGELOG.
+8. **Деплой (обязательно)** — сразу после GitHub Release:
+   ```bash
+   python ops/scripts/deploy_release.py --targets api,site
+   ```
+   (или только `api` / только `site` по смыслу изменений).
 
-Не оставляй релиз «наполовину»: версия, CHANGELOG, коммит, тег и GitHub Release должны соответствовать друг другу.
+Не оставляй релиз «наполовину»: версия, CHANGELOG, коммит, тег, GitHub Release и деплой должны соответствовать друг другу.
