@@ -1240,11 +1240,21 @@
     rgba(3, 10, 24, 0.82);
 }
 
+.mc-tv-widget__embed-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+
 .mc-tv-widget__embed,
 .mc-tv-widget__stage .tradingview-widget-container,
 .mc-tv-widget__stage .tradingview-widget-container__widget {
+  flex: 1 1 auto;
   height: 100%;
   width: 100%;
+  min-height: 0;
 }
 
 .mc-tv-widget__copyright {

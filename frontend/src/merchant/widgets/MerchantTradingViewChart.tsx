@@ -46,6 +46,54 @@ function buildWidgetConfig(symbol: string, interval: ChartInterval, compact: boo
   });
 }
 
+type TradingViewEmbedProps = {
+  symbol: string;
+  interval: ChartInterval;
+  compact: boolean;
+};
+
+/**
+ * TradingView embed script only reads config on first execution of a cached URL.
+ * Remount the whole tree (via parent `key`) and bust the script URL so a new
+ * symbol/interval always loads a fresh widget.
+ */
+function TradingViewEmbed({ symbol, interval, compact }: TradingViewEmbedProps) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const container = hostRef.current;
+    if (!container || !symbol) {
+      return;
+    }
+
+    const widget = document.createElement("div");
+    widget.className = "tradingview-widget-container__widget";
+    widget.style.height = "100%";
+    widget.style.width = "100%";
+    container.appendChild(widget);
+
+    const script = document.createElement("script");
+    // Cache-bust so the browser re-executes the embed bootstrap with new config.
+    script.src = `https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js?v=${encodeURIComponent(`${symbol}-${interval}`)}`;
+    script.type = "text/javascript";
+    script.async = true;
+    script.text = buildWidgetConfig(symbol, interval, compact);
+    container.appendChild(script);
+
+    return () => {
+      container.replaceChildren();
+    };
+  }, [compact, interval, symbol]);
+
+  return (
+    <div
+      className="tradingview-widget-container mc-tv-widget__embed"
+      ref={hostRef}
+      style={{ height: "100%", width: "100%" }}
+    />
+  );
+}
+
 function MerchantTradingViewChart({
   rates,
   defaultCurrency,
@@ -53,18 +101,20 @@ function MerchantTradingViewChart({
   className = "",
 }: MerchantTradingViewChartProps) {
   const { t } = useTranslation();
-  const containerRef = useRef<HTMLDivElement>(null);
   const symbolOptions = useMemo(() => buildTradingViewSymbolOptions(rates), [rates]);
   const [selectedCurrency, setSelectedCurrency] = useState(() =>
     pickTradingViewCurrency(symbolOptions, defaultCurrency),
   );
   const [chartInterval, setChartInterval] = useState<ChartInterval>("1");
+  const [userPickedPair, setUserPickedPair] = useState(false);
 
   const tradingViewSymbol = useMemo(
     () => resolveTradingViewSymbol(selectedCurrency),
     [selectedCurrency],
   );
 
+  // Keep selection valid when the catalog changes; do not yank back to default
+  // while the merchant is browsing another pair.
   useEffect(() => {
     setSelectedCurrency((current) => {
       if (current && symbolOptions.includes(current)) {
@@ -74,36 +124,16 @@ function MerchantTradingViewChart({
     });
   }, [defaultCurrency, symbolOptions]);
 
+  // Sync from invoice form only until the user manually picks a pair.
   useEffect(() => {
+    if (userPickedPair) {
+      return;
+    }
     const normalized = defaultCurrency?.trim().toUpperCase() ?? "";
     if (normalized && symbolOptions.includes(normalized)) {
       setSelectedCurrency(normalized);
     }
-  }, [defaultCurrency, symbolOptions]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !tradingViewSymbol) {
-      return;
-    }
-
-    container.querySelectorAll("script").forEach((node) => node.remove());
-    const widget = container.querySelector(".tradingview-widget-container__widget");
-    if (widget instanceof HTMLElement) {
-      widget.replaceChildren();
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.type = "text/javascript";
-    script.async = true;
-    script.innerHTML = buildWidgetConfig(tradingViewSymbol, chartInterval, compact);
-    container.appendChild(script);
-
-    return () => {
-      container.querySelectorAll("script").forEach((node) => node.remove());
-    };
-  }, [chartInterval, compact, tradingViewSymbol]);
+  }, [defaultCurrency, symbolOptions, userPickedPair]);
 
   if (symbolOptions.length === 0) {
     return (
@@ -122,6 +152,8 @@ function MerchantTradingViewChart({
       </article>
     );
   }
+
+  const embedKey = `${tradingViewSymbol}|${chartInterval}|${compact ? "c" : "f"}`;
 
   return (
     <article className={`mc-surface mc-tv-widget${compact ? " mc-tv-widget--compact" : ""} ${className}`.trim()}>
@@ -145,7 +177,10 @@ function MerchantTradingViewChart({
           <label className="mc-tv-widget__control">
             <span>{t("common.pair")}</span>
             <select
-              onChange={(event) => setSelectedCurrency(event.target.value)}
+              onChange={(event) => {
+                setUserPickedPair(true);
+                setSelectedCurrency(event.target.value);
+              }}
               value={selectedCurrency}
             >
               {symbolOptions.map((currency) => (
@@ -172,24 +207,23 @@ function MerchantTradingViewChart({
       </header>
 
       <div className="mc-tv-widget__stage">
-        <div
-          className="tradingview-widget-container mc-tv-widget__embed"
-          ref={containerRef}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <div
-            className="tradingview-widget-container__widget"
-            style={{ height: "calc(100% - 32px)", width: "100%" }}
-          />
-          <div className="tradingview-widget-copyright mc-tv-widget__copyright">
-            <a href={tradingViewChartUrl(tradingViewSymbol)} rel="noopener nofollow noreferrer" target="_blank">
-              <span>{tradingViewSymbolLabel(selectedCurrency)}</span>
-            </a>
-            <span className="mc-tv-widget__trademark">
-              {t("merchant.widgets.merchantTradingViewChart.trademark")}
-            </span>
+        {tradingViewSymbol ? (
+          <div className="mc-tv-widget__embed-shell" key={embedKey}>
+            <TradingViewEmbed compact={compact} interval={chartInterval} symbol={tradingViewSymbol} />
+            <div className="tradingview-widget-copyright mc-tv-widget__copyright">
+              <a href={tradingViewChartUrl(tradingViewSymbol)} rel="noopener nofollow noreferrer" target="_blank">
+                <span>{tradingViewSymbolLabel(selectedCurrency)}</span>
+              </a>
+              <span className="mc-tv-widget__trademark">
+                {t("merchant.widgets.merchantTradingViewChart.trademark")}
+              </span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <p className="muted-text mc-tv-widget__empty">
+            {t("merchant.widgets.merchantTradingViewChart.emptyDescription")}
+          </p>
+        )}
       </div>
     </article>
   );
