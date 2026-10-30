@@ -27,7 +27,7 @@ alwaysApply: true
    python ops/scripts/deploy_release.py --targets api,site
    ```
    - только backend → `--targets api`
-   - только frontend → `--targets site`
+   - только frontend → всё равно `api,site`: HTML SPA отдаёт API (`/`), `/assets/` — сайт
    - оба или неясно → `api,site`
 
 Файлы `ops/scripts/_deploy_new_servers.py` и `ops/scripts/_deploy_secrets.txt` gitignored. Перед деплоем проверь, что они есть локально. Не коммить их.

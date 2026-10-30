@@ -25,7 +25,7 @@ Feature branch и pull request этот цикл **не заменяют**. Ре
    python ops/scripts/deploy_release.py --targets api,site
    ```
    - только backend → `--targets api`
-   - только frontend → `--targets site` (если затронут и API SEO/nginx — `api,site`)
+   - только frontend → всё равно `api,site`: HTML SPA отдаёт API, `/assets/` — сайт
    - сомневаешься → `api,site`
    Нужны локальные `ops/scripts/_deploy_new_servers.py` и `_deploy_secrets.txt` (gitignored).
 

@@ -26,7 +26,7 @@ python ops/scripts/deploy_release.py --targets api,site
 ```
 
 - только backend → `--targets api`
-- только frontend → `--targets site`
-- затронуты оба или неясно → `api,site`
+- только frontend → всё равно `api,site`: HTML SPA отдаёт API (`/`), а `/assets/` — сайт
+- сомневаешься → `api,site`
 
 Задача не закрыта, пока деплой на нужные серверы не завершился успешно. В ответе укажи версию, коммит, ссылку на GitHub Release и какие серверы обновлены.
