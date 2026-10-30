@@ -42,12 +42,9 @@ export function InvoiceIssuanceWizard({
 
   const hasProject = invoiceForm.project_id.trim() !== "";
   const hasOrderId = invoiceForm.merchant_order_id.trim() !== "";
+  const amountOk = isPayinAmountWithinLimits(invoiceForm.amount_fiat, selectedNetwork, fiatValue);
   const minFiatAmount = resolvePayinMinFiatAmount(selectedNetwork, fiatValue);
-  const canSubmit =
-    !loading &&
-    hasProject &&
-    hasOrderId &&
-    isPayinAmountWithinLimits(invoiceForm.amount_fiat, selectedNetwork, fiatValue);
+  const canSubmit = !loading && hasProject && hasOrderId && amountOk;
   const minLimitHint = formatPayinLimitHint(
     selectedNetwork,
     invoiceForm.crypto_currency,
@@ -59,6 +56,9 @@ export function InvoiceIssuanceWizard({
         fiatCurrency,
       }),
   );
+
+  const selectedProjectName =
+    projects.find((project) => project.id === invoiceForm.project_id)?.name ?? null;
 
   return (
     <article
@@ -78,6 +78,27 @@ export function InvoiceIssuanceWizard({
           {t("merchant.widgets.invoiceIssuanceWizard.skipToList")}
         </a>
       </header>
+
+      <div className="mw-invoice-ready" role="list" aria-label={t("merchant.widgets.invoiceIssuanceWizard.readyAria")}>
+        <span
+          className={`mw-invoice-ready__chip${hasProject ? " mw-invoice-ready__chip--done" : ""}`}
+          role="listitem"
+        >
+          {t("merchant.widgets.invoiceIssuanceWizard.readyProject")}
+        </span>
+        <span
+          className={`mw-invoice-ready__chip${hasOrderId ? " mw-invoice-ready__chip--done" : ""}`}
+          role="listitem"
+        >
+          {t("merchant.widgets.invoiceIssuanceWizard.readyOrder")}
+        </span>
+        <span
+          className={`mw-invoice-ready__chip${amountOk ? " mw-invoice-ready__chip--done" : ""}`}
+          role="listitem"
+        >
+          {t("merchant.widgets.invoiceIssuanceWizard.readyAmount")}
+        </span>
+      </div>
 
       <form className="mc-form mw-invoice-create-form" onSubmit={onCreateInvoice}>
         <div className="mw-invoice-create-section">
@@ -151,17 +172,22 @@ export function InvoiceIssuanceWizard({
                 )}
               </select>
             </label>
-            <label className="mc-field">
+            <label className="mc-field mw-invoice-amount-field">
               <span>{t("merchant.widgets.invoiceIssuanceWizard.amountToPay")}</span>
-              <input
-                value={invoiceForm.amount_fiat}
-                min={minFiatAmount ?? "0.00000001"}
-                step="0.00000001"
-                type="number"
-                onChange={(event) =>
-                  onInvoiceFormChange({ ...invoiceForm, amount_fiat: Number(event.target.value) })
-                }
-              />
+              <div className="mw-invoice-amount-input">
+                <input
+                  value={invoiceForm.amount_fiat}
+                  min={minFiatAmount ?? "0.00000001"}
+                  step="0.00000001"
+                  type="number"
+                  onChange={(event) =>
+                    onInvoiceFormChange({ ...invoiceForm, amount_fiat: Number(event.target.value) })
+                  }
+                />
+                <span className="mw-invoice-amount-currency" aria-hidden="true">
+                  {fiatValue}
+                </span>
+              </div>
             </label>
             <label className="mc-field">
               <span>{t("merchant.widgets.invoiceIssuanceWizard.accountingCurrency")}</span>
@@ -182,28 +208,40 @@ export function InvoiceIssuanceWizard({
               </select>
             </label>
           </div>
+
           {selectedNetwork ? (
-            <div className="mc-hint-box">
-              <strong>
+            <div className="mw-invoice-limits" aria-live="polite">
+              <span className="mw-invoice-limits__pair">
                 {invoiceForm.crypto_currency} · {selectedNetwork.network}
-              </strong>
-              <p>
+              </span>
+              <span className="mw-invoice-limits__item">
                 {t("merchant.widgets.invoiceIssuanceWizard.minPaymentLabel", {
                   hint: minLimitHint ?? t("common.dash"),
                 })}
-              </p>
-              <p>
+              </span>
+              <span className="mw-invoice-limits__item">
                 {selectedNetwork.max_deposit
                   ? t("merchant.widgets.invoiceIssuanceWizard.maxPaymentLabel", {
                       amount: `${selectedNetwork.max_deposit} ${invoiceForm.crypto_currency}`,
                     })
                   : t("merchant.widgets.invoiceIssuanceWizard.maxPaymentUnlimited")}
-              </p>
+              </span>
             </div>
           ) : null}
         </div>
 
         <div className="mw-invoice-create-actions">
+          <p className="mw-invoice-create-summary muted-text">
+            {selectedProjectName
+              ? t("merchant.widgets.invoiceIssuanceWizard.summaryReady", {
+                  project: selectedProjectName,
+                  token: invoiceForm.crypto_currency,
+                  network: invoiceForm.network,
+                  amount: String(invoiceForm.amount_fiat || 0),
+                  fiat: fiatValue,
+                })
+              : t("merchant.widgets.invoiceIssuanceWizard.summaryNeedProject")}
+          </p>
           <button className="primary-button" disabled={!canSubmit} type="submit">
             {loading
               ? t("merchant.widgets.invoiceIssuanceWizard.submitCreating")

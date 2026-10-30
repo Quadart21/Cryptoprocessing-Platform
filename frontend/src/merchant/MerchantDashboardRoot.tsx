@@ -23,6 +23,7 @@ import { AccountNotificationsForm } from "./widgets/AccountNotificationsForm";
 import { AnalyticsPeriodStrip } from "./widgets/AnalyticsPeriodStrip";
 import { BalanceHoldsPanel } from "./widgets/BalanceHoldsPanel";
 import { InvoiceIssuanceWizard } from "./widgets/InvoiceIssuanceWizard";
+import { InvoicesOverviewStrip } from "./widgets/InvoicesOverviewStrip";
 import { KeysVault } from "./widgets/KeysVault";
 import { MerchantInvoiceInspector } from "./widgets/MerchantInvoiceInspector";
 import { OutboundLedger } from "./widgets/OutboundLedger";
@@ -415,6 +416,7 @@ export function MerchantDashboardRoot({
 
           {section === "invoices" ? (
             <div className="console-section-stack mc-page-stack mw-invoices-page">
+              <InvoicesOverviewStrip invoices={invoices} />
               <div className="mc-split mc-split--chart">
                 <InvoiceIssuanceWizard
                   availableNetworks={availableNetworks}

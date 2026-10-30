@@ -219,7 +219,7 @@ export const en: TranslationDict = {
       docs: { group: "Reference", title: "API and verification", description: "API verification center, webhooks, and route reference — in one section." },
       projects: { group: "Portfolio", title: "Projects", description: "Project cards: environment, status, and key parameters." },
       keys: { group: "Access", title: "API keys", description: "Key pairs with project_id next to each key — required by the API docs." },
-      invoices: { group: "Acceptance", title: "Invoicing", description: "Create invoices on one screen and a full-width list with search and pagination." },
+      invoices: { group: "Acceptance", title: "Invoices", description: "Status overview, issue an invoice, and a ledger with filters, search, and pagination." },
       security: { group: "Trust", title: "Account protection", description: "2FA and notification channels in expandable blocks." },
     },
     shortcuts: [

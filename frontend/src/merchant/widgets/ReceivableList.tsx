@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { InvoiceItem, InvoiceWebhookTestResponse } from "../../api";
 import { useTranslation } from "../../i18n";
 import { formatDecimal } from "../../utils/format";
-import { invoiceMerchantBadgeClass } from "../../utils/invoiceStatus";
+import { invoiceMerchantBadgeClass, invoiceStatusTone } from "../../utils/invoiceStatus";
 import { isStableCoinFiatPair } from "../../utils/invoiceAccounting";
 
 import { InvoiceWebhookTestDialog } from "./InvoiceWebhookTestDialog";
@@ -19,7 +19,10 @@ const INVOICE_STATUS_KEYS = [
   "expired",
   "cancelled",
   "failed",
+  "aml_frozen",
 ] as const;
+
+type StatusFilter = "all" | "awaiting" | "settled" | "attention";
 
 function hasActiveInvoiceStatus(invoices: InvoiceItem[]): boolean {
   return invoices.some((invoice) => {
@@ -33,10 +36,43 @@ function invoiceStatusLabel(
   t: (key: string) => string,
 ): string {
   const normalized = status.trim().toLowerCase();
+  if (normalized === "aml_frozen") {
+    return t("merchant.invoiceStatus.amlFrozen");
+  }
   if (INVOICE_STATUS_KEYS.includes(normalized as (typeof INVOICE_STATUS_KEYS)[number])) {
     return t(`merchant.invoiceStatus.${normalized}`);
   }
   return status;
+}
+
+function matchesStatusFilter(status: string, filter: StatusFilter): boolean {
+  if (filter === "all") {
+    return true;
+  }
+  const normalized = status.trim().toLowerCase();
+  if (filter === "awaiting") {
+    return normalized === "pending" || normalized === "confirming";
+  }
+  if (filter === "settled") {
+    return normalized === "paid" || normalized === "confirmed";
+  }
+  return !(
+    normalized === "pending" ||
+    normalized === "confirming" ||
+    normalized === "paid" ||
+    normalized === "confirmed"
+  );
+}
+
+function rowToneClass(status: string): string {
+  const tone = invoiceStatusTone(status);
+  if (tone === "success") {
+    return "mc-row--tone-ok";
+  }
+  if (tone === "warning") {
+    return "mc-row--tone-warn";
+  }
+  return "mc-row--tone-bad";
 }
 
 export type ReceivableListProps = {
@@ -65,6 +101,7 @@ export function ReceivableList({
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [webhookTestInvoice, setWebhookTestInvoice] = useState<InvoiceItem | null>(null);
   const [webhookTestLoading, setWebhookTestLoading] = useState(false);
   const [webhookTestResult, setWebhookTestResult] = useState<InvoiceWebhookTestResponse | null>(null);
@@ -86,13 +123,38 @@ export function ReceivableList({
     });
   }, [invoices]);
 
+  const filterCounts = useMemo(() => {
+    let awaiting = 0;
+    let settled = 0;
+    let attention = 0;
+    for (const invoice of sortedInvoices) {
+      const normalized = invoice.status.trim().toLowerCase();
+      if (normalized === "pending" || normalized === "confirming") {
+        awaiting += 1;
+      } else if (normalized === "paid" || normalized === "confirmed") {
+        settled += 1;
+      } else {
+        attention += 1;
+      }
+    }
+    return {
+      all: sortedInvoices.length,
+      awaiting,
+      settled,
+      attention,
+    };
+  }, [sortedInvoices]);
+
   const normalizedQuery = searchTerm.trim().toLowerCase();
 
   const filteredInvoices = useMemo(() => {
-    if (!normalizedQuery) {
-      return sortedInvoices;
-    }
     return sortedInvoices.filter((invoice) => {
+      if (!matchesStatusFilter(invoice.status, statusFilter)) {
+        return false;
+      }
+      if (!normalizedQuery) {
+        return true;
+      }
       const statusTranslated = invoiceStatusLabel(invoice.status, t).toLowerCase();
       const haystack = [
         invoice.merchant_order_id,
@@ -108,7 +170,7 @@ export function ReceivableList({
         .toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [normalizedQuery, sortedInvoices, t]);
+  }, [normalizedQuery, sortedInvoices, statusFilter, t]);
 
   const totalCount = filteredInvoices.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / MERCHANT_INVOICE_PAGE_SIZE));
@@ -166,6 +228,25 @@ export function ReceivableList({
   const paginationFrom = (page - 1) * MERCHANT_INVOICE_PAGE_SIZE + 1;
   const paginationTo = Math.min(page * MERCHANT_INVOICE_PAGE_SIZE, totalCount);
 
+  const filterChips: Array<{ key: StatusFilter; label: string; count: number }> = [
+    { key: "all", label: t("merchant.widgets.receivableList.filterAll"), count: filterCounts.all },
+    {
+      key: "awaiting",
+      label: t("merchant.widgets.receivableList.filterAwaiting"),
+      count: filterCounts.awaiting,
+    },
+    {
+      key: "settled",
+      label: t("merchant.widgets.receivableList.filterSettled"),
+      count: filterCounts.settled,
+    },
+    {
+      key: "attention",
+      label: t("merchant.widgets.receivableList.filterAttention"),
+      count: filterCounts.attention,
+    },
+  ];
+
   return (
     <>
       <article className="mc-surface mc-surface--invoices-list" id="merchant-receivables">
@@ -190,45 +271,77 @@ export function ReceivableList({
         </header>
 
         {invoices.length > 0 ? (
-          <div className="tx-toolbar">
-            <label>
-              <span>{t("common.search")}</span>
-              <input
-                placeholder={t("merchant.widgets.receivableList.searchPlaceholder")}
-                type="search"
-                value={searchTerm}
-                onChange={(event) => {
-                  setSearchTerm(event.target.value);
-                  setPage(1);
-                }}
-              />
-            </label>
-          </div>
+          <>
+            <div
+              className="mw-invoice-filters"
+              role="group"
+              aria-label={t("merchant.widgets.receivableList.filterAria")}
+            >
+              {filterChips.map((chip) => (
+                <button
+                  className={`mw-invoice-filter-chip${statusFilter === chip.key ? " mw-invoice-filter-chip--active" : ""}`}
+                  key={chip.key}
+                  onClick={() => {
+                    setStatusFilter(chip.key);
+                    setPage(1);
+                  }}
+                  type="button"
+                >
+                  <span>{chip.label}</span>
+                  <strong>{chip.count}</strong>
+                </button>
+              ))}
+            </div>
+
+            <div className="tx-toolbar mw-invoice-toolbar">
+              <label className="tx-search">
+                <span>{t("common.search")}</span>
+                <input
+                  placeholder={t("merchant.widgets.receivableList.searchPlaceholder")}
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    setPage(1);
+                  }}
+                />
+              </label>
+            </div>
+          </>
         ) : null}
 
         <div className="mc-rows">
           {invoices.length === 0 ? (
-            <div className="mc-empty">{t("merchant.widgets.receivableList.emptyNoInvoices")}</div>
+            <div className="mc-empty mw-invoice-empty">
+              <p className="mw-invoice-empty__title">{t("merchant.widgets.receivableList.emptyNoInvoices")}</p>
+              <a className="primary-button" href="#merchant-invoice-create">
+                {t("merchant.widgets.receivableList.emptyCta")}
+              </a>
+            </div>
           ) : totalCount === 0 ? (
             <div className="mc-empty">{t("merchant.widgets.receivableList.emptyNoResults")}</div>
           ) : (
             pageInvoices.map((invoice) => (
               <div
-                className={`mc-row ${selectedClientInvoiceId === invoice.id ? "mc-row--active" : ""}`}
+                className={`mc-row mw-invoice-row ${rowToneClass(invoice.status)}${
+                  selectedClientInvoiceId === invoice.id ? " mc-row--active" : ""
+                }`}
                 key={invoice.id}
               >
-                <div>
+                <div className="mw-invoice-row__main">
                   <div className="mc-row-head">
                     <p className="mc-row-title">{invoice.merchant_order_id}</p>
                     <time className="mc-row-date muted-text" dateTime={invoice.created_at}>
                       {formatInvoiceDate(invoice.created_at)}
                     </time>
                   </div>
-                  <p className="mc-row-sub">
+                  <p className="mw-invoice-row__amount">
                     {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency}
-                    {isStableCoinFiatPair(invoice.crypto_currency, invoice.fiat_currency)
-                      ? ` · ${formatDecimal(invoice.amount_fiat)} ${invoice.fiat_currency}`
-                      : null}
+                    {isStableCoinFiatPair(invoice.crypto_currency, invoice.fiat_currency) ? (
+                      <span className="mw-invoice-row__fiat">
+                        · {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency}
+                      </span>
+                    ) : null}
                   </p>
                   {invoice.payment_page_url ? (
                     <p className="mc-row-sub mc-row-mono">{invoice.payment_page_url}</p>
@@ -242,7 +355,10 @@ export function ReceivableList({
                     </span>
                   </div>
                 </div>
-                <div className="mc-row-actions">
+                <div className="mc-row-actions mw-invoice-row__actions">
+                  <button className="primary-button" onClick={() => onSelectInvoice(invoice.id)} type="button">
+                    {t("common.details")}
+                  </button>
                   {invoice.payment_page_url ? (
                     <a
                       className="ghost-button"
@@ -253,9 +369,6 @@ export function ReceivableList({
                       {t("merchant.widgets.receivableList.paymentPage")}
                     </a>
                   ) : null}
-                  <button className="ghost-button" onClick={() => onSelectInvoice(invoice.id)} type="button">
-                    {t("common.details")}
-                  </button>
                   <button
                     className="ghost-button"
                     onClick={() => openWebhookDialog(invoice)}

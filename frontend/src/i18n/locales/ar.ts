@@ -219,7 +219,7 @@ export const ar: TranslationDict = {
       docs: { group: "المرجع", title: "API والتحقق", description: "مركز التحقق من API وwebhook ومرجع المسارات — في قسم واحد." },
       projects: { group: "المحفظة", title: "المشاريع", description: "بطاقات المشاريع: البيئة والحالة والمعاملات الأساسية." },
       keys: { group: "الوصول", title: "مفاتيح API", description: "أزواج المفاتيح مع project_id بجانب كل مفتاح — تتطلبه وثائق API." },
-      invoices: { group: "القبول", title: "إصدار الفواتير", description: "إنشاء الفواتير في شاشة واحدة وقائمة كاملة مع بحث وصفحات." },
+      invoices: { group: "القبول", title: "الفواتير", description: "ملخص الحالات، إصدار فاتورة، وسجل مع فلاتر وبحث وصفحات." },
       security: { group: "الثقة", title: "حماية الحساب", description: "2FA وقنوات الإشعارات في كتل قابلة للتوسيع." },
     },
     shortcuts: [
