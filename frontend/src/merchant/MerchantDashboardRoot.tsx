@@ -21,6 +21,7 @@ import { MerchantApiReference } from "./reference/MerchantApiReference";
 import type { ClientDashboardProps, MerchantSection } from "./types";
 import { AccountNotificationsForm } from "./widgets/AccountNotificationsForm";
 import { AnalyticsPeriodStrip } from "./widgets/AnalyticsPeriodStrip";
+import { ApiHubOverview } from "./widgets/ApiHubOverview";
 import { BalanceHoldsPanel } from "./widgets/BalanceHoldsPanel";
 import { InvoiceIssuanceWizard } from "./widgets/InvoiceIssuanceWizard";
 import { InvoicesOverviewStrip } from "./widgets/InvoicesOverviewStrip";
@@ -370,7 +371,14 @@ export function MerchantDashboardRoot({
           ) : null}
 
           {section === "docs" ? (
-            <div className="console-section-stack mc-page-stack">
+            <div className="console-section-stack mc-page-stack mw-api-page">
+              <ApiHubOverview
+                apiBaseUrl={apiBaseUrl}
+                hasApiKey={Boolean(activeApiKeyPublic)}
+                hasProject={projects.length > 0}
+                hasWebhook={Boolean(activeWebhookUrl)}
+                hasSecret={projects.some((project) => project.has_webhook_secret)}
+              />
               <IntegrationCommandCenter
                 merchantId={merchantId}
                 activeApiKeyPublic={activeApiKeyPublic}

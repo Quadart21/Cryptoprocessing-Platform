@@ -216,7 +216,7 @@ export const en: TranslationDict = {
       overview: { group: "Pulse", title: "Business summary", description: "One screen: turnover, integration readiness and quick links." },
       transactions: { group: "Ledger", title: "Fund movements", description: "Filters, search and export for all tenant operations." },
       balance: { group: "Treasury", title: "Balance and withdrawal", description: "Available / frozen and withdrawal requests in one branch." },
-      docs: { group: "Reference", title: "API and verification", description: "API verification center, webhooks, and route reference — in one section." },
+      docs: { group: "Reference", title: "API and documentation", description: "Integration readiness, webhook sandbox, and API reference in the cabinet language." },
       projects: { group: "Portfolio", title: "Projects", description: "Project cards: environment, status, and key parameters." },
       keys: { group: "Access", title: "API keys", description: "Key pairs with project_id next to each key — required by the API docs." },
       invoices: { group: "Acceptance", title: "Invoices", description: "Status overview, issue an invoice, and a ledger with filters, search, and pagination." },

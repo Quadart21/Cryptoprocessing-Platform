@@ -48,7 +48,7 @@ export function IntegrationCommandCenter({
   onSaveWebhook,
   onSendWebhookTest,
 }: IntegrationCommandCenterProps) {
-  const { t, ta } = useTranslation();
+  const { t, ta, dir } = useTranslation();
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<IntegrationTab>("sandbox");
   const [scenarioId, setScenarioId] = useState<SandboxScenarioId>("health");
@@ -239,7 +239,7 @@ export function IntegrationCommandCenter({
   }, [copyMessage]);
 
   return (
-    <article className="mc-surface mc-surface--span" lang="en" dir="ltr">
+    <article className="mc-surface mc-surface--span mw-api-lab" id="merchant-api-lab" dir={dir}>
       <header className="mc-surface-header mc-surface-header--row">
         <div>
           <p className="mc-surface-eyebrow">{t("merchant.integration.eyebrow")}</p>

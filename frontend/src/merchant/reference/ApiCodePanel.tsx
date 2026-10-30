@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { useApiTranslation } from "../../i18n";
+import { useApiTranslation, useTranslation } from "../../i18n";
 
 type ApiCodeTab = "request" | "success" | "error";
 
@@ -10,6 +10,8 @@ type ApiCodePanelProps = {
   successExample: string;
   errorExample: string;
   onCopy: (value: string, label: string) => void | Promise<void>;
+  /** Cabinet follows UI locale; public docs stay English. */
+  followUiLocale?: boolean;
 };
 
 const TAB_BADGES: Record<ApiCodeTab, { badge: string; tone: string }> = {
@@ -24,8 +26,11 @@ export function ApiCodePanel({
   successExample,
   errorExample,
   onCopy,
+  followUiLocale = false,
 }: ApiCodePanelProps) {
-  const { t } = useApiTranslation();
+  const api = useApiTranslation();
+  const ui = useTranslation();
+  const { t } = followUiLocale ? ui : api;
 
   const tabMeta = useMemo(
     () => ({

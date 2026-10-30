@@ -216,7 +216,7 @@ export const ar: TranslationDict = {
       overview: { group: "النبض", title: "ملخص الأعمال", description: "شاشة واحدة: الدور وجاهزية التكامل وروابط سريعة." },
       transactions: { group: "السجل", title: "حركة الأموال", description: "فلاتر وبحث وتصدير لجميع عمليات tenant." },
       balance: { group: "الخزينة", title: "الرصيد والسحب", description: "متاح / مجمد وطلبات السحب في فرع واحد." },
-      docs: { group: "المرجع", title: "API والتحقق", description: "مركز التحقق من API وwebhook ومرجع المسارات — في قسم واحد." },
+      docs: { group: "المرجع", title: "API والتوثيق", description: "جاهزية التكامل ومختبر الويب هوك ومرجع API بلغة اللوحة." },
       projects: { group: "المحفظة", title: "المشاريع", description: "بطاقات المشاريع: البيئة والحالة والمعاملات الأساسية." },
       keys: { group: "الوصول", title: "مفاتيح API", description: "أزواج المفاتيح مع project_id بجانب كل مفتاح — تتطلبه وثائق API." },
       invoices: { group: "القبول", title: "الفواتير", description: "ملخص الحالات، إصدار فاتورة، وسجل مع فلاتر وبحث وصفحات." },

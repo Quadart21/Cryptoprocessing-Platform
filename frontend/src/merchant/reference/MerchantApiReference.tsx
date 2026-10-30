@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { useApiTranslation } from "../../i18n";
+import { useApiTranslation, useTranslation } from "../../i18n";
 import {
   formatUsd,
   MERCHANT_COMMISSION_BREAK_EVEN_USD,
@@ -77,14 +77,17 @@ function endpointGroup(id: string) {
 export function MerchantApiReference({
   apiBaseUrl,
   activeApiKeyPublic,
-  selectedRoute,
-  activeWebhookUrl,
+  selectedRoute: _selectedRoute,
+  activeWebhookUrl: _activeWebhookUrl,
   integrationCurl,
   presentation = "cabinet",
   docsSection,
 }: MerchantApiReferenceProps) {
-  const { t, ta } = useApiTranslation();
+  const apiI18n = useApiTranslation();
+  const uiI18n = useTranslation();
   const isDocsPresentation = presentation === "docs";
+  const followUiLocale = !isDocsPresentation;
+  const { t, ta, locale, dir } = followUiLocale ? uiI18n : apiI18n;
   const show = (block: string) => docsShowsBlock(docsSection, block, isDocsPresentation);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
@@ -496,34 +499,6 @@ export function MerchantApiReference({
     [t],
   );
 
-  const readinessCards = useMemo(
-    () => [
-      {
-        title: t("merchant.apiDocs.statusBoard.baseUrl"),
-        value: apiBaseUrl,
-        tone: "info",
-      },
-      {
-        title: t("merchant.apiDocs.statusBoard.apiKey"),
-        value: activeApiKeyPublic
-          ? t("merchant.apiDocs.statusBoard.apiKeyOk")
-          : t("merchant.apiDocs.statusBoard.apiKeyMissing"),
-        tone: activeApiKeyPublic ? "ok" : "warn",
-      },
-      {
-        title: t("merchant.apiDocs.statusBoard.webhook"),
-        value: activeWebhookUrl ?? t("merchant.apiDocs.statusBoard.webhookMissing"),
-        tone: activeWebhookUrl ? "ok" : "warn",
-      },
-      {
-        title: t("merchant.apiDocs.statusBoard.paymentRoute"),
-        value: selectedRoute,
-        tone: "info",
-      },
-    ],
-    [activeApiKeyPublic, activeWebhookUrl, apiBaseUrl, selectedRoute, t],
-  );
-
   const quickStartSteps = useMemo(() => ta<string>("merchant.apiDocs.quickStart.steps"), [ta]);
   const quickStartKeyItems = useMemo(() => ta<string>("merchant.apiDocs.quickStart.keysItems"), [ta]);
   const authItems = useMemo(() => ta<string>("merchant.apiDocs.auth.items"), [ta]);
@@ -639,15 +614,16 @@ export function MerchantApiReference({
 
   return (
     <article
-      lang="en"
-      dir="ltr"
+      lang={locale}
+      dir={dir}
+      id="merchant-api-docs"
       className={`mc-surface mc-surface--docs api-docs-panel${
-        isDocsPresentation ? " api-docs-panel--docs api-docs-panel--split" : " api-docs-landing"
+        isDocsPresentation ? " api-docs-panel--docs api-docs-panel--split" : " api-docs-landing mw-api-docs"
       }`}
     >
       <div className={isDocsPresentation ? "api-docs-layout-main api-docs-layout-main--solo" : "api-docs-layout"}>
         {!isDocsPresentation ? (
-          <aside className="api-docs-toc" aria-label={t("merchant.apiDocs.tocAria")}>
+          <aside className="api-docs-toc mw-api-docs-toc" aria-label={t("merchant.apiDocs.tocAria")}>
             <p className="api-docs-toc-title">{t("merchant.apiDocs.onPage")}</p>
             <nav className="api-docs-toc-nav">
               {tocMain.map((item) => (
@@ -696,17 +672,20 @@ export function MerchantApiReference({
 
           {!isDocsPresentation ? (
             <>
-              <section className="api-docs-hero">
+              <section className="api-docs-hero mw-api-docs-hero">
                 <div className="api-docs-hero-copy">
                   <p className="eyebrow">{t("merchant.apiDocs.heroEyebrow")}</p>
                   <h2>{t("merchant.apiDocs.heroTitle")}</h2>
                   <p className="muted-text">{t("merchant.apiDocs.heroLead")}</p>
                   <div className="api-docs-actions">
+                    <a className="ghost-button" href="#docs-start">
+                      {t("merchant.apiDocs.toc.start")}
+                    </a>
+                    <a className="ghost-button" href="#docs-reference">
+                      {t("merchant.apiDocs.toc.reference")}
+                    </a>
                     <a className="ghost-button" href={docsUrl} rel="noreferrer" target="_blank">
                       {t("merchant.integration.swagger.swaggerUi")}
-                    </a>
-                    <a className="ghost-button" href={openApiUrl} rel="noreferrer" target="_blank">
-                      {t("merchant.integration.swagger.openApiJson")}
                     </a>
                     <button
                       className="ghost-button"
@@ -716,15 +695,34 @@ export function MerchantApiReference({
                       {t("common.copyBaseUrl")}
                     </button>
                   </div>
+                  <nav className="mw-api-docs-quicknav" aria-label={t("merchant.apiDocs.tocAria")}>
+                    {tocMain.slice(0, 6).map((item) => (
+                      <a href={item.href} key={item.href}>
+                        {item.label}
+                      </a>
+                    ))}
+                  </nav>
                 </div>
 
-                <div className="api-docs-status-board" aria-label={t("merchant.apiDocs.statusBoardAria")}>
-                  {readinessCards.map((item) => (
-                    <article className={`api-docs-status-card api-docs-status-card-${item.tone}`} key={item.title}>
-                      <span>{item.title}</span>
-                      <code>{item.value}</code>
-                    </article>
-                  ))}
+                <div className="mw-api-docs-side">
+                  <p className="mw-api-docs-side-label">{t("merchant.apiDocs.statusBoard.baseUrl")}</p>
+                  <code className="mw-api-docs-side-value">{apiBaseUrl}</code>
+                  <div className="mw-api-docs-side-stats" aria-label={t("merchant.apiDocs.metricsAria")}>
+                    <div>
+                      <span>{t("merchant.apiDocs.metrics.methods")}</span>
+                      <strong>{endpointStats.total}</strong>
+                    </div>
+                    <div>
+                      <span>{t("merchant.apiDocs.metrics.getPost")}</span>
+                      <strong>
+                        {endpointStats.get}/{endpointStats.post}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>{t("merchant.apiDocs.metrics.secured")}</span>
+                      <strong>{endpointStats.secure}</strong>
+                    </div>
+                  </div>
                 </div>
               </section>
 
@@ -738,26 +736,6 @@ export function MerchantApiReference({
                     </div>
                   </article>
                 ))}
-              </section>
-
-              <section className="api-docs-metrics" aria-label={t("merchant.apiDocs.metricsAria")}>
-                <article>
-                  <span>{t("merchant.apiDocs.metrics.methods")}</span>
-                  <strong>{endpointStats.total}</strong>
-                  <p>{t("merchant.apiDocs.metrics.methodsDesc")}</p>
-                </article>
-                <article>
-                  <span>{t("merchant.apiDocs.metrics.getPost")}</span>
-                  <strong>
-                    {endpointStats.get} / {endpointStats.post}
-                  </strong>
-                  <p>{t("merchant.apiDocs.metrics.getPostDesc")}</p>
-                </article>
-                <article>
-                  <span>{t("merchant.apiDocs.metrics.secured")}</span>
-                  <strong>{endpointStats.secure}</strong>
-                  <p>{t("merchant.apiDocs.metrics.securedDesc")}</p>
-                </article>
               </section>
 
               <section className="api-docs-group-map" aria-label={t("merchant.apiDocs.groupsAria")}>
@@ -946,99 +924,53 @@ export function MerchantApiReference({
             </div>
 
             <div className="api-docs-endpoint-list">
-              {endpointReferences.map((endpoint) =>
-                isDocsPresentation ? (
-                  <details
-                    className="api-docs-endpoint-disclosure"
-                    id={`endpoint-${endpoint.id}`}
-                    key={endpoint.id}
-                  >
-                    <summary className="api-docs-endpoint-disclosure-summary">
-                      <span
-                        className={`api-docs-method-tag ${
-                          endpoint.method === "GET" ? "api-docs-method-get" : "api-docs-method-post"
-                        }`}
-                      >
-                        {endpoint.method}
-                      </span>
-                      <span>
-                        <strong>{endpoint.title}</strong>
-                        <code>{endpoint.path.replace("/api/v1/client", "")}</code>
-                      </span>
-                    </summary>
-                    <article className="api-docs-endpoint-card api-docs-endpoint-card--split">
-                      <div className="api-docs-endpoint-copy">
-                        <p className="muted-text">{endpoint.purpose}</p>
-                        {endpoint.notes?.length ? (
-                          <ul className="integration-list">
-                            {endpoint.notes.map((note) => (
-                              <li key={note}>{note}</li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </div>
-                      <ApiCodePanel
-                        endpointId={endpoint.id}
-                        errorExample={endpoint.errorExample}
-                        onCopy={handleCopy}
-                        requestExample={endpoint.requestExample}
-                        successExample={endpoint.successExample}
-                      />
-                    </article>
-                  </details>
-                ) : (
-                <article
-                  className={`api-docs-endpoint-card${
-                    isDocsPresentation ? " api-docs-endpoint-card--split" : ""
-                  }`}
+              {endpointReferences.map((endpoint) => (
+                <details
+                  className="api-docs-endpoint-disclosure"
                   id={`endpoint-${endpoint.id}`}
                   key={endpoint.id}
                 >
-                  <div className="api-docs-endpoint-copy">
-                    <div className="api-docs-endpoint-head">
-                      <div>
-                        <p className="eyebrow">{endpoint.title}</p>
-                        <h3>{endpoint.path}</h3>
+                  <summary className="api-docs-endpoint-disclosure-summary">
+                    <span
+                      className={`api-docs-method-tag ${
+                        endpoint.method === "GET" ? "api-docs-method-get" : "api-docs-method-post"
+                      }`}
+                    >
+                      {endpoint.method}
+                    </span>
+                    <span>
+                      <strong>{endpoint.title}</strong>
+                      <code>{endpoint.path.replace("/api/v1/client", "")}</code>
+                    </span>
+                  </summary>
+                  <article className="api-docs-endpoint-card api-docs-endpoint-card--split">
+                    <div className="api-docs-endpoint-copy">
+                      <p className="muted-text">{endpoint.purpose}</p>
+                      <div className="api-docs-endpoint-meta">
+                        <div>
+                          <span>{t("merchant.apiDocs.reference.authorization")}</span>
+                          <strong>{endpoint.auth}</strong>
+                        </div>
                       </div>
-                      <span
-                        className={`status-pill ${
-                          endpoint.method === "GET" ? "status-pill-neutral" : "status-pill-ok"
-                        }`}
-                      >
-                        {endpoint.method}
-                      </span>
+                      {endpoint.notes?.length ? (
+                        <ul className="integration-list">
+                          {endpoint.notes.map((note) => (
+                            <li key={note}>{note}</li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
-
-                    <div className="api-docs-endpoint-meta">
-                      <div>
-                        <span>{t("merchant.apiDocs.reference.purpose")}</span>
-                        <strong>{endpoint.purpose}</strong>
-                      </div>
-                      <div>
-                        <span>{t("merchant.apiDocs.reference.authorization")}</span>
-                        <strong>{endpoint.auth}</strong>
-                      </div>
-                    </div>
-
-                    {endpoint.notes?.length ? (
-                      <ul className="integration-list">
-                        {endpoint.notes.map((note) => (
-                          <li key={note}>{note}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-
-                  <ApiCodePanel
-                    endpointId={endpoint.id}
-                    errorExample={endpoint.errorExample}
-                    onCopy={handleCopy}
-                    requestExample={endpoint.requestExample}
-                    successExample={endpoint.successExample}
-                  />
-                </article>
-                ),
-              )}
+                    <ApiCodePanel
+                      endpointId={endpoint.id}
+                      errorExample={endpoint.errorExample}
+                      followUiLocale={followUiLocale}
+                      onCopy={handleCopy}
+                      requestExample={endpoint.requestExample}
+                      successExample={endpoint.successExample}
+                    />
+                  </article>
+                </details>
+              ))}
             </div>
           </section>
           ) : null}
@@ -1153,7 +1085,7 @@ export function MerchantApiReference({
 
           {!isDocsPresentation ? (
           <section className="api-docs-section" id="docs-integrations">
-            <IntegrationModulesPanel variant="compact" />
+            <IntegrationModulesPanel followUiLocale variant="compact" />
           </section>
           ) : null}
 

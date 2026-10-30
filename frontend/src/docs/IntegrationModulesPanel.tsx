@@ -1,4 +1,4 @@
-import { useApiTranslation } from "../i18n";
+import { useApiTranslation, useTranslation } from "../i18n";
 import { resolveDocsSiteUrl } from "../config/siteHost";
 import {
   INTEGRATION_MODULES,
@@ -9,10 +9,17 @@ import {
 
 type IntegrationModulesPanelProps = {
   variant?: "full" | "compact";
+  /** Cabinet follows UI locale; public docs stay English. */
+  followUiLocale?: boolean;
 };
 
-export function IntegrationModulesPanel({ variant = "full" }: IntegrationModulesPanelProps) {
-  const { t } = useApiTranslation();
+export function IntegrationModulesPanel({
+  variant = "full",
+  followUiLocale = false,
+}: IntegrationModulesPanelProps) {
+  const api = useApiTranslation();
+  const ui = useTranslation();
+  const { t } = followUiLocale ? ui : api;
   const compact = variant === "compact";
 
   return (
