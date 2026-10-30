@@ -25,10 +25,11 @@ export type ClientAnalyticsSummary = {
   successRate: string;
   averageCheck: string;
   transactionCount: number;
+  paidCount: number;
   periodLabel: string;
 };
 
-type AnalyticsChartPoint = {
+export type AnalyticsChartPoint = {
   label: string;
   primary: number;
   secondary: number;
@@ -266,13 +267,15 @@ function buildSummary(
       continue;
     }
     turnover += toAmount(transaction.gross_amount);
-    net += toAmount(transaction.net_amount);
+    const netAmount = toAmount(transaction.net_amount);
+    const platformFeeAmount =
+      toAmount(transaction.platform_fee ?? "0") + toAmount(transaction.turnover_fee ?? "0");
+    net += netAmount;
     const totalFeeAmount = transaction.total_fee
       ? toAmount(transaction.total_fee)
-      : toAmount(transaction.provider_fee ?? "0") +
-        toAmount(transaction.platform_fee ?? "0") +
-        toAmount(transaction.turnover_fee ?? "0");
-    pureProfit += toAmount(transaction.net_amount);
+      : toAmount(transaction.provider_fee ?? "0") + platformFeeAmount;
+    // До удержания комиссии платформы: то, что осталось после провайдера.
+    pureProfit += netAmount + platformFeeAmount;
     fee += totalFeeAmount;
     paidOrConfirmed += 1;
   }
@@ -303,6 +306,7 @@ function buildSummary(
     successRate: formatPercent(successRate),
     averageCheck: formatAmount(averageCheck, currency),
     transactionCount,
+    paidCount: paidOrConfirmed,
     periodLabel: periodLabelText,
   };
 }

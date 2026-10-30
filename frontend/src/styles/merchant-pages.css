@@ -802,22 +802,36 @@
 
 /* Analytics toolbar (merchant) */
 .mc-analytics {
-  border-radius: 20px;
+  border-radius: 22px;
   border: 1px solid rgba(117, 158, 255, 0.14);
   background:
-    linear-gradient(145deg, rgba(51, 215, 255, 0.09), transparent 42%),
-    rgba(8, 14, 28, 0.75);
+    radial-gradient(120% 80% at 0% 0%, rgba(51, 215, 255, 0.12), transparent 55%),
+    radial-gradient(90% 70% at 100% 0%, rgba(117, 158, 255, 0.1), transparent 50%),
+    rgba(8, 14, 28, 0.78);
   padding: 18px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 720px) {
+  .mc-analytics {
+    padding: 22px 24px;
+  }
 }
 
 .mc-analytics-top {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 14px;
+  align-items: flex-start;
+  gap: 14px 20px;
+}
+
+.mc-analytics-heading {
+  min-width: min(100%, 280px);
+  flex: 1 1 280px;
 }
 
 .mc-analytics-eyebrow {
@@ -832,14 +846,43 @@
 .mc-analytics-title {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: clamp(18px, 4vw, 24px);
+  font-size: clamp(20px, 4vw, 28px);
   letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.mc-analytics-lead {
+  margin: 8px 0 0;
+  max-width: 54ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-1);
+}
+
+.mc-analytics-range-box {
+  flex: 0 1 auto;
+  min-width: min(100%, 220px);
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(117, 158, 255, 0.14);
+  background: rgba(3, 10, 24, 0.45);
+}
+
+.mc-analytics-range-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
 }
 
 .mc-analytics-range {
   margin: 0;
   font-size: 13px;
-  color: var(--text-2);
+  line-height: 1.4;
+  color: var(--text-1);
 }
 
 .mc-analytics-chips {
@@ -847,15 +890,50 @@
   flex-wrap: nowrap;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 6px;
-  margin-bottom: 14px;
+  padding: 4px;
+  margin: 0 -4px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.22);
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
-.mc-analytics-chips .segment-button {
+.mc-analytics-chip {
   flex: 0 0 auto;
-  min-height: 44px;
-  padding: 10px 14px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.mc-analytics-chip:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mc-analytics-chip--active {
+  border-color: rgba(51, 215, 255, 0.35);
+  background: rgba(51, 215, 255, 0.14);
+  color: #dff8ff;
+}
+
+.mc-analytics-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .mc-analytics-hero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .mc-analytics-kpis {
@@ -877,26 +955,171 @@
 }
 
 .mc-kpi {
-  padding: 12px;
+  padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(117, 158, 255, 0.1);
   background: rgba(0, 0, 0, 0.22);
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.mc-kpi span {
+.mc-kpi--primary {
+  border-color: rgba(51, 215, 255, 0.28);
+  background:
+    linear-gradient(160deg, rgba(51, 215, 255, 0.14), transparent 60%),
+    rgba(0, 0, 0, 0.28);
+}
+
+.mc-kpi--accent {
+  border-color: rgba(105, 240, 174, 0.28);
+  background:
+    linear-gradient(160deg, rgba(105, 240, 174, 0.12), transparent 60%),
+    rgba(0, 0, 0, 0.28);
+}
+
+.mc-kpi--muted {
+  opacity: 0.92;
+}
+
+.mc-kpi__label {
   font-size: 11px;
+  font-weight: 650;
   color: var(--text-2);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
-.mc-kpi strong {
+.mc-kpi__value {
   display: block;
-  margin-top: 6px;
-  font-size: clamp(15px, 3.5vw, 18px);
+  margin-top: 2px;
+  font-size: clamp(16px, 3.6vw, 22px);
   font-family: var(--font-heading);
+  line-height: 1.15;
   overflow-wrap: anywhere;
+}
+
+.mc-kpi--primary .mc-kpi__value,
+.mc-kpi--accent .mc-kpi__value {
+  font-size: clamp(22px, 4.5vw, 30px);
+}
+
+.mc-kpi__hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+
+.mc-analytics-chart-wrap {
+  padding-top: 4px;
+  border-top: 1px solid rgba(117, 158, 255, 0.12);
+}
+
+.mc-analytics-chart-head {
+  margin-bottom: 12px;
+}
+
+.mc-analytics-chart-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.mc-analytics-chart-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.mc-analytics-chart__empty {
+  margin: 0;
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-2);
+  border-radius: 12px;
+  border: 1px dashed rgba(117, 158, 255, 0.18);
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.mc-analytics-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.mc-analytics-chart__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.mc-analytics-chart__swatch--primary {
+  background: rgba(51, 215, 255, 0.85);
+}
+
+.mc-analytics-chart__swatch--secondary {
+  background: rgba(105, 240, 174, 0.8);
+}
+
+.mc-analytics-chart__bars {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(14px, 1fr);
+  gap: 4px;
+  align-items: end;
+  min-height: 120px;
+  padding: 8px 4px 0;
+  overflow-x: auto;
+}
+
+.mc-analytics-chart__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mc-analytics-chart__stack {
+  width: 100%;
+  max-width: 28px;
+  height: 96px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+}
+
+.mc-analytics-chart__bar {
+  width: 8px;
+  border-radius: 4px 4px 2px 2px;
+  min-height: 0;
+}
+
+.mc-analytics-chart__bar--primary {
+  background: linear-gradient(180deg, rgba(51, 215, 255, 0.95), rgba(51, 215, 255, 0.35));
+}
+
+.mc-analytics-chart__bar--secondary {
+  background: linear-gradient(180deg, rgba(105, 240, 174, 0.95), rgba(105, 240, 174, 0.3));
+}
+
+.mc-analytics-chart__tick {
+  font-size: 9px;
+  color: var(--text-2);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* API docs embed */

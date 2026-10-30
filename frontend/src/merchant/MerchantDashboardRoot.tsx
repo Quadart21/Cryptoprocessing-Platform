@@ -190,6 +190,7 @@ export function MerchantDashboardRoot({
 
           {(section === "overview" || section === "transactions") && (
             <AnalyticsPeriodStrip
+              chartPoints={analytics.chartPoints}
               onPeriodChange={analytics.setPeriod}
               period={analytics.period}
               summary={analytics.summary}
