@@ -336,6 +336,16 @@ class ClientWebhookService:
                         attempts=attempt,
                     )
                 error = f"HTTP {status_code}"
+                # 401/403/404 — постоянные ошибки клиента (неверный secret, URL).
+                # Повтор только шумит у мерчанта и в служебном чате.
+                if status_code in {401, 403, 404}:
+                    return DeliveryResult(
+                        ok=False,
+                        status_code=status_code,
+                        response_preview=response_preview,
+                        error=error,
+                        attempts=attempt,
+                    )
             except requests.RequestException as exc:
                 error = str(exc)
 
