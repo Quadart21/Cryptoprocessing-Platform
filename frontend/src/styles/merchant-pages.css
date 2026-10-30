@@ -829,6 +829,16 @@
   line-height: 1.35;
 }
 
+.mw-webhook-secret-status {
+  display: block;
+  margin-top: 4px;
+  color: #8df6cb;
+}
+
+.mw-webhook-secret-status--warn {
+  color: #ffd78e;
+}
+
 .mc-field input,
 .mc-field select,
 .mc-field textarea {

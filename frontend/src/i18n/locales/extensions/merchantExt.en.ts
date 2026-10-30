@@ -449,7 +449,11 @@ export const merchantExt: TranslationDict = {
         projectForWebhook: "Project for webhook",
         webhookUrl: "Webhook URL",
         webhookSecret: "Webhook secret",
-        webhookSecretPlaceholder: "merchant-webhook-secret",
+        webhookSecretPlaceholder: "invent your own secret, e.g. whsec_…",
+        webhookSecretHint:
+          "You create this secret yourself — the platform does not issue it and will not show it again after saving. Store the same string on your server (to verify X-Merset-Signature) and click Save webhook.",
+        webhookSecretSaved: "A secret is already saved for this project. To change it, enter a new one and save again.",
+        webhookSecretMissing: "No secret yet — invent a string yourself and save it with the URL.",
         checkoutFormat: "Checkout format",
         checkoutAdminOnly: "Set by administrator",
         checkoutH2h: "H2H: API response and webhook include payment_address and qr_url.",

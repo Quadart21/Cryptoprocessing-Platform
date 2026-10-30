@@ -69,6 +69,10 @@ export function IntegrationCommandCenter({
   const hasApiKey = Boolean(activeApiKeyPublic);
   const hasProject = projects.length > 0;
   const hasWebhook = Boolean(activeWebhookUrl);
+  const selectedWebhookProject =
+    projects.find((project) => project.id === webhookForm.project_id) ??
+    projects.find((project) => project.id === activeProjectId) ??
+    null;
 
   const healthCurl = `curl -X GET "${apiBaseUrl}/health"`;
   const ratesCurl = activeApiKeyPublic
@@ -488,7 +492,18 @@ export function IntegrationCommandCenter({
                   value={webhookForm.webhook_secret}
                   onChange={(event) => onWebhookFormChange({ ...webhookForm, webhook_secret: event.target.value })}
                   placeholder={t("merchant.integration.webhookSection.webhookSecretPlaceholder")}
+                  autoComplete="off"
                 />
+                <small>{t("merchant.integration.webhookSection.webhookSecretHint")}</small>
+                {selectedWebhookProject?.has_webhook_secret ? (
+                  <small className="mw-webhook-secret-status">
+                    {t("merchant.integration.webhookSection.webhookSecretSaved")}
+                  </small>
+                ) : (
+                  <small className="mw-webhook-secret-status mw-webhook-secret-status--warn">
+                    {t("merchant.integration.webhookSection.webhookSecretMissing")}
+                  </small>
+                )}
               </label>
               <div className="integration-card-head" style={{ marginTop: "0.5rem" }}>
                 <strong>{t("merchant.integration.webhookSection.checkoutFormat")}</strong>
