@@ -1,8 +1,5 @@
 ﻿from decimal import Decimal
 import logging
-from secrets import choice
-from string import ascii_letters, digits
-
 from fastapi import Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +19,7 @@ from app.core.rbac import (
     is_platform_role,
     list_role_definitions,
 )
+from app.core.security import generate_temporary_password
 from app.models.invoice import Invoice
 from app.models.invite_token import InviteToken
 from app.models.api_key import ApiKey
@@ -145,8 +143,7 @@ router.include_router(admin_partners_router, prefix="/partners", tags=["admin-pa
 
 
 def _generate_temporary_password(length: int = 14) -> str:
-    alphabet = ascii_letters + digits + "!@#$%^&*"
-    return "".join(choice(alphabet) for _ in range(length))
+    return generate_temporary_password(length)
 
 
 async def _notify_user_access_credentials(
@@ -470,6 +467,7 @@ async def approve_tenant(
             f"Temporary password: {generated_password}",
             "We recommend changing your password after the first sign-in.",
         ],
+        context={"temporary_password": generated_password},
         force_email=True,
     )
     await notification_service.notify_user(
@@ -583,6 +581,7 @@ async def reset_tenant_owner_password(
             f"Temporary password: {generated_password}",
             "Sign in and change your password as soon as possible.",
         ],
+        context={"temporary_password": generated_password},
         force_email=True,
     )
     tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == tenant_id))

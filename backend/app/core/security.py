@@ -1,7 +1,8 @@
 import base64
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
-from secrets import token_urlsafe
+from secrets import choice, token_urlsafe
+from string import ascii_letters, digits
 
 from cryptography.fernet import Fernet, InvalidToken
 from jose import JWTError, jwt
@@ -39,6 +40,11 @@ def create_refresh_token(subject: str, expires_delta: timedelta | None = None) -
 
 def generate_invite_token() -> str:
     return token_urlsafe(32)
+
+
+def generate_temporary_password(length: int = 14) -> str:
+    alphabet = ascii_letters + digits + "!@#$%^&*"
+    return "".join(choice(alphabet) for _ in range(length))
 
 
 def encrypt_value(value: str) -> str:

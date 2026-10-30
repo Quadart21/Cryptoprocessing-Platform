@@ -18,6 +18,7 @@ from app.api.deps import (
     user_permissions,
 )
 from app.core.rbac import has_permission
+from app.core.security import generate_temporary_password
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.tenant import Tenant
@@ -83,6 +84,7 @@ from app.services.project_service import ProjectService
 from app.services.rates_service import RatesService
 from app.services.payout_service import PayoutService
 from app.services.tenant_service import TenantService
+from app.services.user_service import UserService
 from app.services.two_factor_service import TwoFactorError, TwoFactorService
 from app.services.transaction_service import TransactionService
 from app.services.checkout_delivery_service import CheckoutDeliveryService
@@ -373,6 +375,11 @@ async def recover_password(
     )
 
     if user is not None and user.status in {"active", "invited"}:
+        plain_password = generate_temporary_password()
+        user = await UserService(db).update_user(
+            user.id,
+            {"password": plain_password, "status": "active"},
+        )
         token = await AuthService(db).create_invite(user)
         await NotificationService(db).notify_user(
             user,
@@ -380,9 +387,16 @@ async def recover_password(
             subject="Password recovery requested",
             lines=[
                 f"Email: {user.email}",
+                f"Temporary password: {plain_password}",
                 f"Recovery token: {token}",
-                "Enter the token on the password recovery form and set a new password.",
+                "Sign in with the temporary password, or enter the recovery code and set a new password.",
+                "We recommend changing your password after the first sign-in.",
             ],
+            context={
+                "temporary_password": plain_password,
+                # Шаблон password_generated дописывает recovery_token к строке пароля.
+                "recovery_token": f"\nRecovery code: {token}",
+            },
             force_email=True,
         )
 

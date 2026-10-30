@@ -1129,9 +1129,9 @@ class NotificationService:
             elif label in {"email", "пользователь"}:
                 inferred.setdefault("user_email", value)
                 inferred.setdefault("owner_email", value)
-            elif label == "временный пароль":
+            elif label in {"временный пароль", "temporary password"}:
                 inferred.setdefault("temporary_password", value)
-            elif label == "токен восстановления":
+            elif label in {"токен восстановления", "recovery token", "recovery code"}:
                 inferred.setdefault("recovery_token", value)
             elif label == "payout id":
                 inferred.setdefault("payout_id", value)
