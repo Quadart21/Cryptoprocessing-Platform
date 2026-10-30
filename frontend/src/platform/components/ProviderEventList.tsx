@@ -1,24 +1,18 @@
 import { useState } from "react";
 
 import type { ProviderEventItem } from "../../api";
-
-function formatEventDateTime(value: string | null | undefined): string {
-  if (!value) {
-    return "—";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
+import {
+  formatEventDateTime,
+  formatEventRelative,
+  providerEventOutcomeTone,
+  providerEventSourceLabel,
+  providerEventStatusLabel,
+  providerEventStatusTone,
+  providerEventTypeLabel,
+  providerStatusShortLabel,
+  truncateId,
+  type EventTone,
+} from "../../utils/providerEventLabels";
 
 function readProviderStatus(payload: Record<string, unknown> | null): string | null {
   if (!payload) {
@@ -67,6 +61,19 @@ function eventPayloadForDisplay(payload: Record<string, unknown> | null): Record
   return payload;
 }
 
+async function copyText(value: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function toneModifier(prefix: string, tone: EventTone): string {
+  return `${prefix}--${tone}`;
+}
+
 type ProviderEventRowProps = {
   event: ProviderEventItem;
   compact?: boolean;
@@ -74,35 +81,161 @@ type ProviderEventRowProps = {
 
 export function ProviderEventRow({ event, compact = false }: ProviderEventRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const providerStatus = readProviderStatus(event.payload_json);
   const effectiveStatus = readEffectiveStatus(event.payload_json);
   const displayPayload = eventPayloadForDisplay(event.payload_json);
+  const title = providerEventTypeLabel(event.event_type);
+  const outcomeTone = providerEventOutcomeTone({
+    status: event.status,
+    eventType: event.event_type,
+    providerStatus,
+    effectiveStatus,
+  });
+  const statusTone = providerEventStatusTone(event.status);
+  const absoluteTime = formatEventDateTime(event.created_at);
+  const relativeTime = formatEventRelative(event.created_at);
+
+  async function handleCopy(label: string, value: string) {
+    const ok = await copyText(value);
+    if (ok) {
+      setCopied(label);
+      window.setTimeout(() => setCopied(null), 1600);
+    }
+  }
 
   return (
-    <article className={`tenant-card provider-event-row${compact ? " provider-event-row--compact" : ""}`}>
-      <div className="provider-event-row__main">
-        <strong>{event.event_type}</strong>
-        <p className="provider-event-row__meta-line">
-          {formatEventDateTime(event.created_at)}
-          {event.source ? ` · ${event.source}` : null}
-          {providerStatus ? ` · Crypto-Cash: ${providerStatus}` : null}
-          {effectiveStatus && effectiveStatus !== providerStatus ? ` → ${effectiveStatus}` : null}
-        </p>
-        {!compact ? <p className="muted-text">Invoice: {event.invoice_id}</p> : null}
-        {event.provider_event_id ? (
-          <p className="muted-text provider-event-row__event-id">event_id: {event.provider_event_id}</p>
-        ) : null}
+    <article
+      className={[
+        "provider-event-card",
+        toneModifier("provider-event-card", outcomeTone),
+        compact ? "provider-event-card--compact" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div className="provider-event-card__top">
+        <div className="provider-event-card__main">
+          <div className="provider-event-card__title-row">
+            <strong className="provider-event-card__title">{title}</strong>
+            <span className="provider-event-card__code" title={event.event_type}>
+              {event.event_type}
+            </span>
+          </div>
+          <p className="provider-event-card__meta">
+            <time dateTime={event.created_at ?? undefined} title={absoluteTime}>
+              {relativeTime || absoluteTime}
+            </time>
+            <span className="provider-event-card__dot" aria-hidden="true">
+              ·
+            </span>
+            <span className={`provider-event-source ${toneModifier("provider-event-source", "info")}`}>
+              {providerEventSourceLabel(event.source)}
+            </span>
+            {!compact && event.invoice_id ? (
+              <>
+                <span className="provider-event-card__dot" aria-hidden="true">
+                  ·
+                </span>
+                <button
+                  className="provider-event-card__id-btn"
+                  onClick={() => void handleCopy("invoice", event.invoice_id)}
+                  title={event.invoice_id}
+                  type="button"
+                >
+                  Инвойс {truncateId(event.invoice_id)}
+                  {copied === "invoice" ? " ✓" : ""}
+                </button>
+              </>
+            ) : null}
+          </p>
+          {(providerStatus || effectiveStatus) && !compact ? (
+            <p className="provider-event-card__status-line">
+              {providerStatus ? (
+                <span>
+                  Crypto-Cash: <strong>{providerStatusShortLabel(providerStatus)}</strong>
+                  <span className="provider-event-card__raw"> ({providerStatus})</span>
+                </span>
+              ) : null}
+              {effectiveStatus && effectiveStatus !== providerStatus ? (
+                <span>
+                  {providerStatus ? " → " : null}
+                  Платформа: <strong>{providerStatusShortLabel(effectiveStatus)}</strong>
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+        </div>
+        <div className="provider-event-card__aside">
+          <span className={`provider-event-pill ${toneModifier("provider-event-pill", statusTone)}`}>
+            {providerEventStatusLabel(event.status)}
+          </span>
+          {displayPayload || event.provider_event_id ? (
+            <button
+              className="ghost-button provider-event-card__details-btn"
+              onClick={() => setExpanded((value) => !value)}
+              type="button"
+            >
+              {expanded ? "Скрыть" : "Детали"}
+            </button>
+          ) : null}
+        </div>
       </div>
-      <div className="tenant-meta provider-event-row__actions">
-        <span>{event.status}</span>
-        {displayPayload ? (
-          <button className="ghost-button" onClick={() => setExpanded((value) => !value)} type="button">
-            {expanded ? "Скрыть payload" : "Payload"}
-          </button>
-        ) : null}
-      </div>
-      {expanded && displayPayload ? (
-        <pre className="json-box provider-event-row__payload">{JSON.stringify(displayPayload, null, 2)}</pre>
+
+      {expanded ? (
+        <div className="provider-event-card__details">
+          <dl className="provider-event-card__facts">
+            <div>
+              <dt>Время</dt>
+              <dd>{absoluteTime}</dd>
+            </div>
+            {event.invoice_id ? (
+              <div>
+                <dt>Инвойс</dt>
+                <dd>
+                  <button
+                    className="provider-event-card__id-btn"
+                    onClick={() => void handleCopy("invoice-full", event.invoice_id)}
+                    type="button"
+                  >
+                    {event.invoice_id}
+                    {copied === "invoice-full" ? " ✓" : ""}
+                  </button>
+                </dd>
+              </div>
+            ) : null}
+            {event.provider_event_id ? (
+              <div>
+                <dt>ID события провайдера</dt>
+                <dd>
+                  <button
+                    className="provider-event-card__id-btn"
+                    onClick={() => void handleCopy("event", event.provider_event_id)}
+                    type="button"
+                  >
+                    {event.provider_event_id}
+                    {copied === "event" ? " ✓" : ""}
+                  </button>
+                </dd>
+              </div>
+            ) : null}
+            {event.provider_name ? (
+              <div>
+                <dt>Провайдер</dt>
+                <dd>{event.provider_name}</dd>
+              </div>
+            ) : null}
+            {event.processed_at ? (
+              <div>
+                <dt>Обработано</dt>
+                <dd>{formatEventDateTime(event.processed_at)}</dd>
+              </div>
+            ) : null}
+          </dl>
+          {displayPayload ? (
+            <pre className="json-box provider-event-card__payload">{JSON.stringify(displayPayload, null, 2)}</pre>
+          ) : null}
+        </div>
       ) : null}
     </article>
   );
@@ -119,10 +252,14 @@ export function ProviderEventList({
   events,
   compact = false,
   emptyLabel = "Событий пока нет.",
-  className = "tenant-list compact-list",
+  className = "provider-event-list",
 }: ProviderEventListProps) {
   if (events.length === 0) {
-    return <p className="muted-text">{emptyLabel}</p>;
+    return (
+      <div className="provider-event-empty">
+        <p className="muted-text">{emptyLabel}</p>
+      </div>
+    );
   }
   return (
     <div className={className}>

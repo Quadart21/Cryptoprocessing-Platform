@@ -61,8 +61,8 @@ export const ADMIN_SECTION_META: Record<
   },
   events: {
     group: "Мониторинг",
-    title: "События и webhooks",
-    description: "Системные и провайдерские события в хронологии.",
+    title: "События",
+    description: "Webhook Crypto-Cash и синхронизации статусов — с понятными подписями и фильтром.",
   },
   "api-traffic": {
     group: "Мониторинг",

@@ -280,15 +280,66 @@ export function PlatformTransactionsPanel({
   );
 }
 
+type EventsSourceFilter = "all" | "webhook" | "sync";
+type EventsStatusFilter = "all" | "processed" | "failed" | "other";
+
 export function PlatformEventsPanel({ events, className = "panel" }: PlatformEventsPanelProps) {
   const [page, setPage] = useState(1);
-  const [sourceFilter, setSourceFilter] = useState<"all" | "webhook" | "sync">("all");
-  const filteredEvents = useMemo(() => {
-    if (sourceFilter === "all") {
-      return events;
+  const [sourceFilter, setSourceFilter] = useState<EventsSourceFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<EventsStatusFilter>("all");
+  const [query, setQuery] = useState("");
+
+  const stats = useMemo(() => {
+    let webhook = 0;
+    let sync = 0;
+    let failed = 0;
+    for (const event of events) {
+      if (event.source === "webhook") {
+        webhook += 1;
+      } else if (event.source === "sync") {
+        sync += 1;
+      }
+      if (event.status.trim().toLowerCase() === "failed" || event.status.trim().toLowerCase() === "error") {
+        failed += 1;
+      }
     }
-    return events.filter((event) => event.source === sourceFilter);
-  }, [events, sourceFilter]);
+    return { total: events.length, webhook, sync, failed };
+  }, [events]);
+
+  const filteredEvents = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return events.filter((event) => {
+      if (sourceFilter !== "all" && event.source !== sourceFilter) {
+        return false;
+      }
+      const statusKey = event.status.trim().toLowerCase();
+      if (statusFilter === "processed" && statusKey !== "processed") {
+        return false;
+      }
+      if (statusFilter === "failed" && statusKey !== "failed" && statusKey !== "error") {
+        return false;
+      }
+      if (statusFilter === "other" && (statusKey === "processed" || statusKey === "failed" || statusKey === "error")) {
+        return false;
+      }
+      if (!needle) {
+        return true;
+      }
+      const haystack = [
+        event.event_type,
+        event.source,
+        event.status,
+        event.invoice_id,
+        event.provider_event_id,
+        event.provider_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [events, query, sourceFilter, statusFilter]);
+
   const totalCount = filteredEvents.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PLATFORM_PANEL_PAGE_SIZE));
 
@@ -303,51 +354,108 @@ export function PlatformEventsPanel({ events, className = "panel" }: PlatformEve
     return filteredEvents.slice(start, start + PLATFORM_PANEL_PAGE_SIZE);
   }, [filteredEvents, page]);
 
+  function applySource(next: EventsSourceFilter) {
+    setSourceFilter(next);
+    setPage(1);
+  }
+
+  function applyStatus(next: EventsStatusFilter) {
+    setStatusFilter(next);
+    setPage(1);
+  }
+
   return (
-    <article className={className}>
+    <article className={`${className} platform-events-panel`}>
       <div className="panel-header">
         <div>
-          <p className="eyebrow">События и webhook</p>
-          <h2>Crypto-Cash: webhook и статусы</h2>
-          <p className="muted-text">
-            Журнал в БД и в server logs:{" "}
-            <code>journalctl -u cryptoprocessing -f | grep crypto_cash.webhook</code>
+          <p className="eyebrow">Мониторинг</p>
+          <h2>События платформы</h2>
+          <p className="muted-text platform-events-lead">
+            Хронология webhook Crypto-Cash и синхронизаций статусов. Нажмите «Детали», чтобы увидеть
+            payload и идентификаторы.
           </p>
         </div>
-        <div className="platform-events-filter">
-          <button
-            className={sourceFilter === "all" ? "primary-button" : "ghost-button"}
-            onClick={() => {
-              setSourceFilter("all");
-              setPage(1);
-            }}
-            type="button"
-          >
-            Все
-          </button>
-          <button
-            className={sourceFilter === "webhook" ? "primary-button" : "ghost-button"}
-            onClick={() => {
-              setSourceFilter("webhook");
-              setPage(1);
-            }}
-            type="button"
-          >
-            Webhook
-          </button>
-          <button
-            className={sourceFilter === "sync" ? "primary-button" : "ghost-button"}
-            onClick={() => {
-              setSourceFilter("sync");
-              setPage(1);
-            }}
-            type="button"
-          >
-            Sync
-          </button>
+      </div>
+
+      <div className="platform-events-stats" aria-label="Сводка по событиям">
+        <div className="platform-events-stat">
+          <span className="platform-events-stat__label">Всего</span>
+          <strong>{stats.total}</strong>
+        </div>
+        <div className="platform-events-stat">
+          <span className="platform-events-stat__label">Webhook</span>
+          <strong>{stats.webhook}</strong>
+        </div>
+        <div className="platform-events-stat">
+          <span className="platform-events-stat__label">Синхронизация</span>
+          <strong>{stats.sync}</strong>
+        </div>
+        <div className={`platform-events-stat${stats.failed ? " platform-events-stat--danger" : ""}`}>
+          <span className="platform-events-stat__label">Ошибки</span>
+          <strong>{stats.failed}</strong>
         </div>
       </div>
-      <ProviderEventList events={pageEvents} />
+
+      <div className="platform-events-toolbar">
+        <label className="platform-events-search">
+          <span className="sr-only">Поиск по событиям</span>
+          <input
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+            placeholder="Поиск: тип, инвойс, event_id…"
+            type="search"
+            value={query}
+          />
+        </label>
+        <div className="platform-events-filter" role="group" aria-label="Источник">
+          {(
+            [
+              ["all", "Все"],
+              ["webhook", "Webhook"],
+              ["sync", "Синхронизация"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              className={sourceFilter === value ? "primary-button" : "ghost-button"}
+              key={value}
+              onClick={() => applySource(value)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="platform-events-filter" role="group" aria-label="Статус обработки">
+          {(
+            [
+              ["all", "Любой статус"],
+              ["processed", "Обработано"],
+              ["failed", "Ошибки"],
+              ["other", "Прочее"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              className={statusFilter === value ? "primary-button" : "ghost-button"}
+              key={value}
+              onClick={() => applyStatus(value)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ProviderEventList
+        emptyLabel={
+          events.length === 0
+            ? "Событий пока нет — они появятся после webhook или синхронизации инвойсов."
+            : "По выбранным фильтрам ничего не найдено."
+        }
+        events={pageEvents}
+      />
       <PanelPaginationFooter
         onPageChange={setPage}
         page={page}

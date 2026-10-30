@@ -2,6 +2,11 @@ import { useMemo } from "react";
 
 import type { PayoutRequestItem, ProviderEventItem, TenantItem } from "../../api";
 import { formatDecimal } from "../../utils/format";
+import {
+  providerEventSourceLabel,
+  providerEventTypeLabel,
+  truncateId,
+} from "../../utils/providerEventLabels";
 import type { AdminSection } from "../types";
 
 type AdminOverviewSectionProps = {
@@ -230,11 +235,11 @@ export function AdminOverviewSection({
           <ul className="pw-overview-event-list">
             {recentEvents.map((event) => (
               <li key={event.id}>
-                <span className="pw-overview-event-type">{event.event_type}</span>
+                <span className="pw-overview-event-type">{providerEventTypeLabel(event.event_type)}</span>
                 <span className="muted-text">{formatEventWhen(event.created_at)}</span>
                 <p>
-                  {event.invoice_id ? `Invoice ${event.invoice_id}` : event.status}
-                  {event.source ? ` · ${event.source}` : ""}
+                  {event.invoice_id ? `Инвойс ${truncateId(event.invoice_id)}` : event.status}
+                  {event.source ? ` · ${providerEventSourceLabel(event.source)}` : ""}
                 </p>
               </li>
             ))}
