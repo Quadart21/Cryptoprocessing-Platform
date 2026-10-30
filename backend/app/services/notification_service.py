@@ -851,6 +851,21 @@ class NotificationService:
     def _lines_to_html_paragraphs(cls, lines: list[str]) -> str:
         return "".join(f"<p>{escape(line)}</p>" for line in lines if line.strip())
 
+    @staticmethod
+    def _is_empty_field_line(line: str) -> bool:
+        # "Temporary password:" with no value — the credentials template left a blank field.
+        return bool(re.fullmatch(r"[^:]{1,160}:", line.strip()))
+
+    @classmethod
+    def _lines_from_rendered_template(cls, rendered: str) -> list[str]:
+        lines = [
+            line.strip()
+            for line in rendered.replace("\r", "").split("\n")
+            if line.strip() and not cls._is_empty_field_line(line)
+        ]
+        lines, _ = cls._strip_image_placeholder_lines(lines)
+        return lines
+
     @classmethod
     def _email_body_template_is_rich(cls, email_body: str | None) -> bool:
         value = (email_body or "").strip()
@@ -929,13 +944,8 @@ class NotificationService:
             context,
         )
         if rendered_message_lines:
-            message_lines_text = rendered_message_lines
-            message_lines = [
-                line.strip()
-                for line in rendered_message_lines.replace("\r", "").split("\n")
-                if line.strip()
-            ]
-            message_lines, _ = self._strip_image_placeholder_lines(message_lines)
+            message_lines = self._lines_from_rendered_template(rendered_message_lines)
+            message_lines_text = "\n".join(message_lines)
             message_lines_html = self._lines_to_html_paragraphs(message_lines)
             context["message_lines"] = "\n".join(message_lines)
             context["message_lines_html"] = message_lines_html
@@ -1045,13 +1055,8 @@ class NotificationService:
             variables,
         )
         if rendered_message_lines:
-            variables["message_lines"] = rendered_message_lines
-            plain_lines = [
-                line.strip()
-                for line in rendered_message_lines.replace("\r", "").split("\n")
-                if line.strip()
-            ]
-            plain_lines, _ = self._strip_image_placeholder_lines(plain_lines)
+            plain_lines = self._lines_from_rendered_template(rendered_message_lines)
+            variables["message_lines"] = "\n".join(plain_lines)
             variables["message_lines_html"] = self._lines_to_html_paragraphs(plain_lines)
         return {
             "code": event_code,
@@ -1115,7 +1120,7 @@ class NotificationService:
             value = raw_value.strip()
             if not value:
                 continue
-            if label in {"проект"}:
+            if label in {"проект", "project"}:
                 inferred.setdefault("tenant_name", value)
                 inferred.setdefault("project_name", value)
             elif label == "project id":
@@ -1126,12 +1131,12 @@ class NotificationService:
                 inferred.setdefault("api_secret_key", value)
             elif label == "invite token":
                 inferred.setdefault("invite_token", value)
-            elif label in {"email", "пользователь"}:
+            elif label in {"email", "sign-in email", "пользователь", "email (логин)"}:
                 inferred.setdefault("user_email", value)
                 inferred.setdefault("owner_email", value)
-            elif label == "временный пароль":
+            elif label in {"временный пароль", "temporary password", "пароль", "password"}:
                 inferred.setdefault("temporary_password", value)
-            elif label == "токен восстановления":
+            elif label in {"токен восстановления", "recovery token"}:
                 inferred.setdefault("recovery_token", value)
             elif label == "payout id":
                 inferred.setdefault("payout_id", value)

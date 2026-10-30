@@ -380,6 +380,7 @@ async def recover_password(
                 f"Recovery token: {token}",
                 "Enter the token on the password recovery form and set a new password.",
             ],
+            context={"recovery_token": f"\nRecovery token: {token}"},
             force_email=True,
         )
 
