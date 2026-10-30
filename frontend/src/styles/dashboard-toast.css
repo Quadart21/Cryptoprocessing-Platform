@@ -7,7 +7,7 @@
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  width: min(480px, calc(100vw - 24px));
+  width: min(560px, calc(100vw - 24px));
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -73,6 +73,8 @@
   font-size: 14px;
   line-height: 1.45;
   color: var(--text-0, #f4f7ff);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-toast--error .dashboard-toast-message {

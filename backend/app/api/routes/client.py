@@ -320,7 +320,10 @@ async def register(
         tenant_id=tenant.id,
         user_id=user.id,
         status=tenant.status,
-        message="Registration request submitted and awaiting super-admin approval.",
+        message=(
+            "Спасибо! Заявку получили и уже передали на проверку. "
+            "Как только кабинет откроют, можно будет войти."
+        ),
     )
 
 

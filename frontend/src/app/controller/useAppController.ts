@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 
+import { formatTenantApprovedMessage } from "../messages/tenantApproval";
 import {
   approveTenant,
   changeClientPassword,
@@ -669,9 +670,7 @@ export function useAppController() {
       setError(null);
       setNewApiSecret(null);
       const result = await approveTenant(token, tenantId, "Одобрено супер-админом.");
-      setSuccess(
-        `Заявка одобрена. Public key: ${result.api_public_key}. Secret key: ${result.api_secret_key}. Password: ${result.generated_password}`,
-      );
+      setSuccess(formatTenantApprovedMessage(result));
       setTenants(await fetchTenants(token));
       await loadSelectedTenant(token, tenantId);
     } catch (err) {
