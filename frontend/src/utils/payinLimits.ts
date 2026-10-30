@@ -8,17 +8,29 @@ function parsePositiveNumber(value: string | null | undefined): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function isStableFiat(currency: string): boolean {
+  return currency === "USD" || currency === "USDT" || currency === "USDC";
+}
+
+/** Min amount in the invoice's amount units (token when fiat_currency === crypto, else fiat). */
 export function resolvePayinMinFiatAmount(
   network: RateNetworkItem | null,
   fiatCurrency: string,
+  cryptoCurrency?: string,
 ): number | null {
   if (!network) {
     return null;
   }
 
   const normalizedFiat = fiatCurrency.trim().toUpperCase();
+  const normalizedCrypto = (cryptoCurrency ?? "").trim().toUpperCase();
+
+  if (normalizedCrypto && normalizedCrypto === normalizedFiat) {
+    return parsePositiveNumber(network.min_deposit);
+  }
+
   const minFiat = parsePositiveNumber(network.min_deposit_fiat);
-  if (minFiat !== null && (normalizedFiat === "USD" || normalizedFiat === "USDT" || normalizedFiat === "USDC")) {
+  if (minFiat !== null && isStableFiat(normalizedFiat)) {
     return minFiat;
   }
 
@@ -27,7 +39,7 @@ export function resolvePayinMinFiatAmount(
     return null;
   }
 
-  if (normalizedFiat === "USD" || normalizedFiat === "USDT" || normalizedFiat === "USDC") {
+  if (isStableFiat(normalizedFiat)) {
     return minDeposit;
   }
 
@@ -37,14 +49,21 @@ export function resolvePayinMinFiatAmount(
 export function resolvePayinMaxFiatAmount(
   network: RateNetworkItem | null,
   fiatCurrency: string,
+  cryptoCurrency?: string,
 ): number | null {
   if (!network) {
     return null;
   }
 
   const normalizedFiat = fiatCurrency.trim().toUpperCase();
+  const normalizedCrypto = (cryptoCurrency ?? "").trim().toUpperCase();
+
+  if (normalizedCrypto && normalizedCrypto === normalizedFiat) {
+    return parsePositiveNumber(network.max_deposit);
+  }
+
   const maxFiat = parsePositiveNumber(network.max_deposit_fiat);
-  if (maxFiat !== null && (normalizedFiat === "USD" || normalizedFiat === "USDT" || normalizedFiat === "USDC")) {
+  if (maxFiat !== null && isStableFiat(normalizedFiat)) {
     return maxFiat;
   }
 
@@ -53,7 +72,7 @@ export function resolvePayinMaxFiatAmount(
     return null;
   }
 
-  if (normalizedFiat === "USD" || normalizedFiat === "USDT" || normalizedFiat === "USDC") {
+  if (isStableFiat(normalizedFiat)) {
     return maxDeposit;
   }
 
@@ -64,17 +83,18 @@ export function isPayinAmountWithinLimits(
   amountFiat: number,
   network: RateNetworkItem | null,
   fiatCurrency: string,
+  cryptoCurrency?: string,
 ): boolean {
   if (!Number.isFinite(amountFiat) || amountFiat <= 0) {
     return false;
   }
 
-  const minAmount = resolvePayinMinFiatAmount(network, fiatCurrency);
+  const minAmount = resolvePayinMinFiatAmount(network, fiatCurrency, cryptoCurrency);
   if (minAmount !== null && amountFiat + 1e-12 < minAmount) {
     return false;
   }
 
-  const maxAmount = resolvePayinMaxFiatAmount(network, fiatCurrency);
+  const maxAmount = resolvePayinMaxFiatAmount(network, fiatCurrency, cryptoCurrency);
   if (maxAmount !== null && amountFiat - 1e-12 > maxAmount) {
     return false;
   }
@@ -92,8 +112,14 @@ export function formatPayinLimitHint(
     return null;
   }
 
-  const minFiat = resolvePayinMinFiatAmount(network, fiatCurrency);
   const cryptoPart = `${network.min_deposit} ${cryptoCurrency}`;
+  const normalizedFiat = fiatCurrency.trim().toUpperCase();
+  const normalizedCrypto = cryptoCurrency.trim().toUpperCase();
+  if (normalizedCrypto && normalizedCrypto === normalizedFiat) {
+    return cryptoPart;
+  }
+
+  const minFiat = resolvePayinMinFiatAmount(network, fiatCurrency, cryptoCurrency);
   if (minFiat === null) {
     return cryptoPart;
   }

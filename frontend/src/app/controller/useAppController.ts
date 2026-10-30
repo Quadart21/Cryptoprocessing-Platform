@@ -333,10 +333,19 @@ export function useAppController() {
     const hasSelectedNetwork = availableNetworks.some((item) => item.network === invoiceForm.network);
     const safeNetwork = hasSelectedNetwork ? invoiceForm.network : fallbackNetwork;
 
-    if (safeCurrency !== invoiceForm.crypto_currency || safeNetwork !== invoiceForm.network) {
-      setInvoiceForm((current) => ({ ...current, crypto_currency: safeCurrency, network: safeNetwork }));
+    if (
+      safeCurrency !== invoiceForm.crypto_currency ||
+      safeNetwork !== invoiceForm.network ||
+      invoiceForm.fiat_currency !== safeCurrency
+    ) {
+      setInvoiceForm((current) => ({
+        ...current,
+        crypto_currency: safeCurrency,
+        fiat_currency: safeCurrency,
+        network: safeNetwork,
+      }));
     }
-  }, [rates, invoiceForm.crypto_currency, invoiceForm.network]);
+  }, [rates, invoiceForm.crypto_currency, invoiceForm.fiat_currency, invoiceForm.network]);
 
   useEffect(() => {
     if (!webhookForm.project_id) {
@@ -774,9 +783,12 @@ export function useAppController() {
     try {
       setLoading(true);
       clearRuntimeState();
+      const tokenCurrency = invoiceForm.crypto_currency.trim().toUpperCase() || "USDT";
       const invoice = await createInvoice(token, {
         ...invoiceForm,
         merchant_order_id: merchantOrderId,
+        crypto_currency: tokenCurrency,
+        fiat_currency: tokenCurrency,
       });
       setSuccess(`Инвойс создан: ${invoice.provider_order_id}`);
 
@@ -800,11 +812,16 @@ export function useAppController() {
         setSelectedClientInvoiceDetail(await fetchClientInvoiceDetail(token, invoice.id));
       }
 
-      setInvoiceForm((current) => ({
-        ...current,
-        merchant_order_id: createMerchantOrderId(),
-        amount_fiat: 100,
-      }));
+      setInvoiceForm((current) => {
+        const nextToken = current.crypto_currency.trim().toUpperCase() || "USDT";
+        return {
+          ...current,
+          merchant_order_id: createMerchantOrderId(),
+          amount_fiat: 100,
+          crypto_currency: nextToken,
+          fiat_currency: nextToken,
+        };
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось создать инвойс.");
     } finally {

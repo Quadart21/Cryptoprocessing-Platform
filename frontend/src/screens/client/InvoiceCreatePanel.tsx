@@ -28,16 +28,26 @@ export function InvoiceCreatePanel({
   onInvoiceFormChange,
   onCreateInvoice,
 }: InvoiceCreatePanelProps) {
-  const minFiatAmount = resolvePayinMinFiatAmount(selectedNetwork, invoiceForm.fiat_currency);
+  const amountCurrency = invoiceForm.crypto_currency;
+  const minFiatAmount = resolvePayinMinFiatAmount(
+    selectedNetwork,
+    amountCurrency,
+    invoiceForm.crypto_currency,
+  );
   const canSubmit =
     !loading &&
     invoiceForm.project_id.trim() !== "" &&
     invoiceForm.merchant_order_id.trim() !== "" &&
-    isPayinAmountWithinLimits(invoiceForm.amount_fiat, selectedNetwork, invoiceForm.fiat_currency);
+    isPayinAmountWithinLimits(
+      invoiceForm.amount_fiat,
+      selectedNetwork,
+      amountCurrency,
+      invoiceForm.crypto_currency,
+    );
   const minLimitHint = formatPayinLimitHint(
     selectedNetwork,
     invoiceForm.crypto_currency,
-    invoiceForm.fiat_currency,
+    amountCurrency,
   );
 
   return (
@@ -73,9 +83,14 @@ export function InvoiceCreatePanel({
             <small>Чем платит клиент</small>
             <select
               value={invoiceForm.crypto_currency}
-              onChange={(event) =>
-                onInvoiceFormChange({ ...invoiceForm, crypto_currency: event.target.value })
-              }
+              onChange={(event) => {
+                const crypto = event.target.value.trim().toUpperCase() || "USDT";
+                onInvoiceFormChange({
+                  ...invoiceForm,
+                  crypto_currency: crypto,
+                  fiat_currency: crypto,
+                });
+              }}
             >
               {rates.length === 0 ? <option value="USDT">USDT</option> : null}
               {rates.map((rate) => (
@@ -119,11 +134,15 @@ export function InvoiceCreatePanel({
 
           <label className="mc-field">
             <span>Сумма</span>
-            <small>В {invoiceForm.fiat_currency}; лимиты провайдера — в криптовалюте ниже</small>
+            <small>В {invoiceForm.crypto_currency} — следует за выбранным токеном</small>
             <input
               value={invoiceForm.amount_fiat}
               onChange={(event) =>
-                onInvoiceFormChange({ ...invoiceForm, amount_fiat: Number(event.target.value) })
+                onInvoiceFormChange({
+                  ...invoiceForm,
+                  amount_fiat: Number(event.target.value),
+                  fiat_currency: invoiceForm.crypto_currency,
+                })
               }
               min={minFiatAmount ?? "0.00000001"}
               step="0.00000001"

@@ -30,35 +30,49 @@ export function InvoiceIssuanceWizard({
   onCreateInvoice,
 }: InvoiceIssuanceWizardProps) {
   const { t } = useTranslation();
-  const fiatValue = (invoiceForm.fiat_currency ?? "USD").trim().toUpperCase() || "USD";
-
-  const fiatOptions = useMemo(() => {
-    const presets = ["USD", "EUR", "GBP", "RUB", "UAH"];
-    if (presets.includes(fiatValue)) {
-      return presets;
-    }
-    return [fiatValue, ...presets];
-  }, [fiatValue]);
+  const tokenValue = (invoiceForm.crypto_currency || "USDT").trim().toUpperCase() || "USDT";
+  // Amount is entered in the selected token; keep fiat_currency in sync (1:1 on the backend).
+  const amountCurrency = tokenValue;
 
   const hasProject = invoiceForm.project_id.trim() !== "";
   const hasOrderId = invoiceForm.merchant_order_id.trim() !== "";
-  const amountOk = isPayinAmountWithinLimits(invoiceForm.amount_fiat, selectedNetwork, fiatValue);
-  const minFiatAmount = resolvePayinMinFiatAmount(selectedNetwork, fiatValue);
+  const amountOk = isPayinAmountWithinLimits(
+    invoiceForm.amount_fiat,
+    selectedNetwork,
+    amountCurrency,
+    tokenValue,
+  );
+  const minAmount = resolvePayinMinFiatAmount(selectedNetwork, amountCurrency, tokenValue);
   const canSubmit = !loading && hasProject && hasOrderId && amountOk;
   const minLimitHint = formatPayinLimitHint(
     selectedNetwork,
-    invoiceForm.crypto_currency,
-    fiatValue,
-    ({ cryptoPart, minFiat, fiatCurrency }) =>
-      t("merchant.widgets.invoiceIssuanceWizard.minLimitApprox", {
-        cryptoPart,
-        minFiat,
-        fiatCurrency,
-      }),
+    tokenValue,
+    amountCurrency,
+    ({ cryptoPart }) => cryptoPart,
   );
 
   const selectedProjectName =
     projects.find((project) => project.id === invoiceForm.project_id)?.name ?? null;
+
+  const tokenOptions = useMemo(() => {
+    if (rates.length === 0) {
+      return [tokenValue];
+    }
+    const fromRates = rates.map((rate) => rate.currency);
+    if (fromRates.includes(tokenValue)) {
+      return fromRates;
+    }
+    return [tokenValue, ...fromRates];
+  }, [rates, tokenValue]);
+
+  function applyToken(nextToken: string) {
+    const crypto = nextToken.trim().toUpperCase() || "USDT";
+    onInvoiceFormChange({
+      ...invoiceForm,
+      crypto_currency: crypto,
+      fiat_currency: crypto,
+    });
+  }
 
   return (
     <article
@@ -141,16 +155,10 @@ export function InvoiceIssuanceWizard({
           <div className="mc-form-grid mc-form-grid--2">
             <label className="mc-field">
               <span>{t("merchant.widgets.invoiceIssuanceWizard.token")}</span>
-              <select
-                value={invoiceForm.crypto_currency}
-                onChange={(event) =>
-                  onInvoiceFormChange({ ...invoiceForm, crypto_currency: event.target.value })
-                }
-              >
-                {rates.length === 0 ? <option value="USDT">USDT</option> : null}
-                {rates.map((rate) => (
-                  <option key={rate.currency} value={rate.currency}>
-                    {rate.currency}
+              <select value={tokenValue} onChange={(event) => applyToken(event.target.value)}>
+                {tokenOptions.map((currency) => (
+                  <option key={currency} value={currency}>
+                    {currency}
                   </option>
                 ))}
               </select>
@@ -172,47 +180,34 @@ export function InvoiceIssuanceWizard({
                 )}
               </select>
             </label>
-            <label className="mc-field mw-invoice-amount-field">
+            <label className="mc-field mw-invoice-amount-field mc-field-span-2">
               <span>{t("merchant.widgets.invoiceIssuanceWizard.amountToPay")}</span>
               <div className="mw-invoice-amount-input">
                 <input
                   value={invoiceForm.amount_fiat}
-                  min={minFiatAmount ?? "0.00000001"}
+                  min={minAmount ?? "0.00000001"}
                   step="0.00000001"
                   type="number"
                   onChange={(event) =>
-                    onInvoiceFormChange({ ...invoiceForm, amount_fiat: Number(event.target.value) })
+                    onInvoiceFormChange({
+                      ...invoiceForm,
+                      amount_fiat: Number(event.target.value),
+                      fiat_currency: tokenValue,
+                    })
                   }
                 />
                 <span className="mw-invoice-amount-currency" aria-hidden="true">
-                  {fiatValue}
+                  {tokenValue}
                 </span>
               </div>
-            </label>
-            <label className="mc-field">
-              <span>{t("merchant.widgets.invoiceIssuanceWizard.accountingCurrency")}</span>
-              <select
-                value={fiatValue}
-                onChange={(event) =>
-                  onInvoiceFormChange({
-                    ...invoiceForm,
-                    fiat_currency: event.target.value.trim().toUpperCase(),
-                  })
-                }
-              >
-                {fiatOptions.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              <small>{t("merchant.widgets.invoiceIssuanceWizard.amountInTokenHint", { token: tokenValue })}</small>
             </label>
           </div>
 
           {selectedNetwork ? (
             <div className="mw-invoice-limits" aria-live="polite">
               <span className="mw-invoice-limits__pair">
-                {invoiceForm.crypto_currency} · {selectedNetwork.network}
+                {tokenValue} · {selectedNetwork.network}
               </span>
               <span className="mw-invoice-limits__item">
                 {t("merchant.widgets.invoiceIssuanceWizard.minPaymentLabel", {
@@ -222,7 +217,7 @@ export function InvoiceIssuanceWizard({
               <span className="mw-invoice-limits__item">
                 {selectedNetwork.max_deposit
                   ? t("merchant.widgets.invoiceIssuanceWizard.maxPaymentLabel", {
-                      amount: `${selectedNetwork.max_deposit} ${invoiceForm.crypto_currency}`,
+                      amount: `${selectedNetwork.max_deposit} ${tokenValue}`,
                     })
                   : t("merchant.widgets.invoiceIssuanceWizard.maxPaymentUnlimited")}
               </span>
@@ -235,10 +230,10 @@ export function InvoiceIssuanceWizard({
             {selectedProjectName
               ? t("merchant.widgets.invoiceIssuanceWizard.summaryReady", {
                   project: selectedProjectName,
-                  token: invoiceForm.crypto_currency,
+                  token: tokenValue,
                   network: invoiceForm.network,
                   amount: String(invoiceForm.amount_fiat || 0),
-                  fiat: fiatValue,
+                  fiat: tokenValue,
                 })
               : t("merchant.widgets.invoiceIssuanceWizard.summaryNeedProject")}
           </p>

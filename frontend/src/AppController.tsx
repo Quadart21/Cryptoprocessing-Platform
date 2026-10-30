@@ -410,10 +410,19 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       availableNetworks[0]?.network ?? selectedRate.networks[0]?.network ?? invoiceForm.network;
     const hasSelectedNetwork = availableNetworks.some((item) => item.network === invoiceForm.network);
     const safeNetwork = hasSelectedNetwork ? invoiceForm.network : fallbackNetwork;
-    if (safeCurrency !== invoiceForm.crypto_currency || safeNetwork !== invoiceForm.network) {
-      setInvoiceForm((current) => ({ ...current, crypto_currency: safeCurrency, network: safeNetwork }));
+    if (
+      safeCurrency !== invoiceForm.crypto_currency ||
+      safeNetwork !== invoiceForm.network ||
+      invoiceForm.fiat_currency !== safeCurrency
+    ) {
+      setInvoiceForm((current) => ({
+        ...current,
+        crypto_currency: safeCurrency,
+        fiat_currency: safeCurrency,
+        network: safeNetwork,
+      }));
     }
-  }, [rates, invoiceForm.crypto_currency, invoiceForm.network]);
+  }, [rates, invoiceForm.crypto_currency, invoiceForm.fiat_currency, invoiceForm.network]);
 
   useEffect(() => {
     if (!webhookForm.project_id) {
@@ -1215,9 +1224,12 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setError(null);
       setSuccess(null);
       setNewApiSecret(null);
+      const tokenCurrency = invoiceForm.crypto_currency.trim().toUpperCase() || "USDT";
       const invoice = await createInvoice(token, {
         ...invoiceForm,
         merchant_order_id: merchantOrderId,
+        crypto_currency: tokenCurrency,
+        fiat_currency: tokenCurrency,
       });
       setSuccess(
         invoice.payment_page_url
@@ -1254,11 +1266,16 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setClientTransactions(transactionItems);
       setClientAccounting(accountingSummary);
       setWebhookConfigs(webhookItems);
-      setInvoiceForm((current) => ({
-        ...current,
-        merchant_order_id: createMerchantOrderId(),
-        amount_fiat: 100,
-      }));
+      setInvoiceForm((current) => {
+        const tokenCurrency = current.crypto_currency.trim().toUpperCase() || "USDT";
+        return {
+          ...current,
+          merchant_order_id: createMerchantOrderId(),
+          amount_fiat: 100,
+          crypto_currency: tokenCurrency,
+          fiat_currency: tokenCurrency,
+        };
+      });
     } catch (err) {
       setError(flash.invoiceCreateFailed(err));
     } finally {

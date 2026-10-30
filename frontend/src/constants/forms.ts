@@ -47,7 +47,7 @@ export const initialInvoiceForm: CreateInvoicePayload = {
   project_id: "",
   merchant_order_id: createMerchantOrderId(),
   amount_fiat: 100,
-  fiat_currency: "USD",
+  fiat_currency: "USDT",
   crypto_currency: "USDT",
   network: "TRC20",
   metadata: { source: "frontend" },
