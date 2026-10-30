@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { CurrentUser } from "../api";
+import { ACCESS_TOKEN_REFRESHED_EVENT } from "../api/sessionRefresh";
 import { consumeAuthHandoffFromUrl } from "../config/authHandoff";
 import {
   clearAccessToken,
@@ -36,6 +37,20 @@ export function useSession() {
   const [token, setToken] = useState<string | null>(initialSession.token);
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [csrfToken, setCsrfTokenState] = useState<string | null>(initialSession.csrf);
+
+  useEffect(() => {
+    const onAccessTokenRefreshed = (event: Event) => {
+      const detail = (event as CustomEvent<{ accessToken?: string }>).detail;
+      const nextToken = detail?.accessToken?.trim() ?? "";
+      if (nextToken) {
+        setToken(nextToken);
+      }
+    };
+    window.addEventListener(ACCESS_TOKEN_REFRESHED_EVENT, onAccessTokenRefreshed);
+    return () => {
+      window.removeEventListener(ACCESS_TOKEN_REFRESHED_EVENT, onAccessTokenRefreshed);
+    };
+  }, []);
 
   function applyAccessToken(accessToken: string, refreshToken?: string | null) {
     setAccessToken(accessToken);

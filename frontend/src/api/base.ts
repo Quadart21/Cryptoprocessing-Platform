@@ -1,6 +1,7 @@
 import { resolveApiBaseUrl } from "../config/apiBase";
 import { getCsrfToken, setCsrfToken } from "../storage";
 import {
+  headersInitToRecord,
   refreshAccessToken,
   shouldAttemptSessionRefresh,
   withRefreshedAuthorization,
@@ -972,8 +973,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...requestInit,
       headers: {
         "Content-Type": "application/json",
-        ...(csrfToken && { "X-CSRF-Token": csrfToken }),
-        ...(requestInit?.headers ?? {}),
+        ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+        ...headersInitToRecord(requestInit?.headers),
       },
     });
   };

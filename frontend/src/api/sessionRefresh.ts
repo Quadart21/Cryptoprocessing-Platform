@@ -9,6 +9,8 @@ import {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+export const ACCESS_TOKEN_REFRESHED_EVENT = "noren:access-token-refreshed";
+
 let refreshInFlight: Promise<string | null> | null = null;
 
 function isAuthRefreshPath(path: string): boolean {
@@ -17,6 +19,27 @@ function isAuthRefreshPath(path: string): boolean {
 
 export function shouldAttemptSessionRefresh(path: string, status: number): boolean {
   return status === 401 && !isAuthRefreshPath(path) && Boolean(getRefreshToken());
+}
+
+/** Flatten HeadersInit so object spreads keep Authorization (Headers spread is empty). */
+export function headersInitToRecord(init?: HeadersInit): Record<string, string> {
+  const record: Record<string, string> = {};
+  if (!init) {
+    return record;
+  }
+  new Headers(init).forEach((value, key) => {
+    record[key] = value;
+  });
+  return record;
+}
+
+function notifyAccessTokenRefreshed(accessToken: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(
+    new CustomEvent(ACCESS_TOKEN_REFRESHED_EVENT, { detail: { accessToken } }),
+  );
 }
 
 export async function refreshAccessToken(): Promise<string | null> {
@@ -54,6 +77,7 @@ export async function refreshAccessToken(): Promise<string | null> {
       }
       setAccessToken(accessToken);
       setRefreshToken(nextRefresh);
+      notifyAccessTokenRefreshed(accessToken);
       return accessToken;
     } catch {
       clearAccessToken();
@@ -71,7 +95,12 @@ export function withRefreshedAuthorization(
   init: RequestInit | undefined,
   accessToken: string,
 ): RequestInit {
-  const headers = new Headers(init?.headers ?? {});
-  headers.set("Authorization", `Bearer ${accessToken}`);
+  const headers = headersInitToRecord(init?.headers);
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === "authorization") {
+      delete headers[key];
+    }
+  }
+  headers.Authorization = `Bearer ${accessToken}`;
   return { ...init, headers };
 }
