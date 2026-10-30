@@ -470,6 +470,10 @@ async def approve_tenant(
             f"Temporary password: {generated_password}",
             "We recommend changing your password after the first sign-in.",
         ],
+        context={
+            "temporary_password": generated_password,
+            "tenant_name": tenant.name,
+        },
         force_email=True,
     )
     await notification_service.notify_user(
@@ -583,6 +587,7 @@ async def reset_tenant_owner_password(
             f"Temporary password: {generated_password}",
             "Sign in and change your password as soon as possible.",
         ],
+        context={"temporary_password": generated_password},
         force_email=True,
     )
     tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == tenant_id))
