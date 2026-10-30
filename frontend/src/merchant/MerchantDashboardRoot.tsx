@@ -125,21 +125,33 @@ export function MerchantDashboardRoot({
     return projectId ? projectId : null;
   }, [activeApiKeyPublic, apiKeys]);
 
+  const tenantStatusMeta = useMemo(() => {
+    const raw = (onboarding?.tenant_status ?? "").trim();
+    const key = raw.toLowerCase();
+    const translateOrRaw = (path: string, fallback: string) => {
+      const translated = t(path);
+      return translated === path ? fallback : translated;
+    };
+    const tone =
+      key === "approved" || key === "active"
+        ? ("success" as const)
+        : key === "pending" || key === "invited"
+          ? ("warning" as const)
+          : key === "rejected" || key === "suspended"
+            ? ("danger" as const)
+            : ("neutral" as const);
+    return {
+      label: key ? translateOrRaw(`merchant.context.status.${key}`, raw || "—") : "—",
+      tone,
+    };
+  }, [onboarding?.tenant_status, t]);
+
   const contextChips = useMemo(() => {
-    const statusRaw = (onboarding?.tenant_status ?? "").trim().toLowerCase();
     const roleRaw = (user.role ?? "").trim().toLowerCase();
     const translateOrRaw = (key: string, raw: string) => {
       const translated = t(key);
       return translated === key ? raw : translated;
     };
-    const statusTone =
-      statusRaw === "approved" || statusRaw === "active"
-        ? ("success" as const)
-        : statusRaw === "pending" || statusRaw === "invited"
-          ? ("warning" as const)
-          : statusRaw === "rejected" || statusRaw === "suspended"
-            ? ("danger" as const)
-            : undefined;
 
     return [
       {
@@ -156,17 +168,15 @@ export function MerchantDashboardRoot({
       },
       {
         label: t("common.status"),
-        value: statusRaw
-          ? translateOrRaw(`merchant.context.status.${statusRaw}`, onboarding?.tenant_status ?? statusRaw)
-          : "—",
-        tone: statusTone,
+        value: tenantStatusMeta.label,
+        tone: tenantStatusMeta.tone === "neutral" ? undefined : tenantStatusMeta.tone,
       },
       {
         label: t("common.role"),
         value: roleRaw ? translateOrRaw(`merchant.context.role.${roleRaw}`, user.role) : "—",
       },
     ];
-  }, [merchantId, onboarding, projects, t, user.role]);
+  }, [merchantId, onboarding, projects, t, tenantStatusMeta, user.role]);
 
   return (
     <div className="app-frame merchant-app-frame mw-root">
@@ -221,10 +231,10 @@ export function MerchantDashboardRoot({
                 value={merchantId}
                 hint={t("merchant.merchantIdHint")}
               />
-              <section className="mc-bento">
-                <article className="mc-stat">
+              <section aria-label={t("merchant.stats.stripAria")} className="mc-bento mc-bento--overview">
+                <article className={`mc-stat mc-stat--${tenantStatusMeta.tone}`}>
                   <span className="mc-stat-label">{t("common.status")}</span>
-                  <strong className="mc-stat-value">{onboarding?.tenant_status ?? "—"}</strong>
+                  <strong className="mc-stat-value">{tenantStatusMeta.label}</strong>
                 </article>
                 <article className="mc-stat">
                   <span className="mc-stat-label">{t("merchant.stats.projects")}</span>
@@ -238,15 +248,15 @@ export function MerchantDashboardRoot({
                   <span className="mc-stat-label">{t("merchant.stats.transactions")}</span>
                   <strong className="mc-stat-value">{analytics.summary.transactionCount}</strong>
                 </article>
-                <article className="mc-stat">
+                <article className="mc-stat mc-stat--money">
                   <span className="mc-stat-label">{t("merchant.stats.turnover")}</span>
                   <strong className="mc-stat-value">{analytics.summary.turnover}</strong>
                 </article>
-                <article className="mc-stat">
+                <article className="mc-stat mc-stat--money">
                   <span className="mc-stat-label">{t("merchant.stats.net")}</span>
                   <strong className="mc-stat-value">{analytics.summary.net}</strong>
                 </article>
-                <article className="mc-stat">
+                <article className="mc-stat mc-stat--money">
                   <span className="mc-stat-label">{t("merchant.stats.pureProfit")}</span>
                   <strong className="mc-stat-value">{analytics.summary.pureProfit}</strong>
                 </article>

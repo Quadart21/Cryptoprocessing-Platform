@@ -229,10 +229,11 @@ export const ar: TranslationDict = {
       { section: "security", label: "2FA / تنبيهات", hint: "حماية الدخول" },
     ],
     stats: {
+      stripAria: "ملخص المؤشرات",
       projects: "المشاريع",
       invoices: "الفواتير",
       transactions: "العمليات",
-      turnover: "الدور (مدفوع)",
+      turnover: "رقم الأعمال",
       net: "صافي المبلغ",
       pureProfit: "قبل عمولة المنصة",
       totalInvoices: "إجمالي الفواتير",

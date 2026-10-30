@@ -229,10 +229,11 @@ export const en: TranslationDict = {
       { section: "security", label: "2FA / alerts", hint: "Login protection" },
     ],
     stats: {
+      stripAria: "Metrics overview",
       projects: "Projects",
       invoices: "Invoices",
       transactions: "Transactions",
-      turnover: "Turnover (paid)",
+      turnover: "Turnover",
       net: "Net amount",
       pureProfit: "Before platform fee",
       totalInvoices: "Total invoices",

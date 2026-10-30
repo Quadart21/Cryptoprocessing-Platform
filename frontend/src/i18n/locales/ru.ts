@@ -229,10 +229,11 @@ export const ru: TranslationDict = {
       { section: "security", label: "2FA / алерты", hint: "Защита входа" },
     ],
     stats: {
+      stripAria: "Сводка показателей",
       projects: "Проекты",
       invoices: "Инвойсы",
       transactions: "Операции",
-      turnover: "Оборот (оплач.)",
+      turnover: "Оборот",
       net: "К зачислению",
       pureProfit: "До комиссии платформы",
       totalInvoices: "Всего инвойсов",
