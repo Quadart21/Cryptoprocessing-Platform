@@ -26,6 +26,7 @@ invoice.paid / invoice.confirmed (или sync видит тот же стату�
   NOREN_WEBHOOK_HOST          — bind, по умолчанию 0.0.0.0
   NOREN_WEBHOOK_PORT          — порт приёмника, по умолчанию 8787
   NOREN_WEBHOOK_PUBLIC_URL    — публичный HTTPS, по умолчанию https://kupik.asia
+  NOREN_WEBHOOK_ONLY          — 1: только HTTP-приёмник, без Telegram и ключей API
   NOREN_MERCHANT_EMAIL        — если заданы почта и пароль, бот сам сохранит webhook
   NOREN_MERCHANT_PASSWORD
   NOREN_MERCHANT_OTP          — код 2FA, если включён
@@ -1182,7 +1183,58 @@ def _signed_int(raw: str) -> bool:
     return text.isdigit()
 
 
+def _load_local_env() -> None:
+    script_dir = Path(__file__).resolve().parent
+    load_env_file(script_dir / ".env")
+    load_env_file(Path.cwd() / ".env")
+
+
+def _env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def run_webhook_only() -> int:
+    """HTTP-приёмник без Telegram и ключей Noren. Нужен, чтобы домен уже отвечал на вебхук."""
+    script_dir = Path(__file__).resolve().parent
+    state_path = Path(
+        os.environ.get("NOREN_BOT_STATE", str(script_dir / ".noren-telegram-bot-state.json"))
+    ).expanduser()
+    book = load_state(state_path)
+    lock = threading.Lock()
+    host = os.environ.get("NOREN_WEBHOOK_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    port = _env_int("NOREN_WEBHOOK_PORT", 8787)
+    secret = os.environ.get("NOREN_WEBHOOK_SECRET", "").strip()
+    target = webhook_target(os.environ.get("NOREN_WEBHOOK_PUBLIC_URL", ""))
+
+    def persist() -> None:
+        save_state(state_path, book)
+
+    def on_messages(messages: list[Outbound]) -> None:
+        for message in messages:
+            log(f"уведомление для chat {message.chat_id} сохранено, Telegram в этом режиме не отправляется")
+
+    handler = make_webhook_handler(book, secret, lock, on_messages, persist)
+    dns_problem = describe_webhook_dns(target)
+    if dns_problem:
+        log(dns_problem)
+    if not secret:
+        log("NOREN_WEBHOOK_SECRET пуст — подпись не проверяется.")
+    log(f"Режим приёма вебхуков: http://{host}:{port}/webhooks/noren")
+    log(f"Публичный URL: {target}")
+    server = ThreadingHTTPServer((host, port), handler)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        log("Остановлено.")
+        persist()
+        return 130
+    return 0
+
+
 def main() -> int:
+    _load_local_env()
+    if _env_flag("NOREN_WEBHOOK_ONLY"):
+        return run_webhook_only()
     bot = build_from_env()
     try:
         bot.run()
