@@ -9,6 +9,7 @@ build/
 node_modules/
 .env
 .env.*
+examples/.noren-telegram-bot-state.json
 !.env.example
 !frontend/.env.production.example
 !ops/ubuntu/.env.production.example
