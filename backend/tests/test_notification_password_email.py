@@ -18,24 +18,24 @@ class NotificationPasswordEmailTests(unittest.TestCase):
         inferred = NotificationService._infer_template_context_from_lines(
             [
                 "Email: merchant@example.com",
-                "Temporary password: S3cret-pass",
+                "Temporary password: example",
                 "We recommend changing your password after the first sign-in.",
             ]
         )
-        self.assertEqual(inferred["temporary_password"], "S3cret-pass")
+        self.assertEqual(inferred["temporary_password"], "example")
         self.assertEqual(inferred["user_email"], "merchant@example.com")
 
     def test_credentials_template_includes_password_from_approval_lines(self) -> None:
         rendered = self._render(
             lines=[
                 "Email: merchant@example.com",
-                "Temporary password: S3cret-pass",
+                "Temporary password: example",
                 "We recommend changing your password after the first sign-in.",
             ],
         )
         self.assertIn("Hello, Andrew!", rendered.email_text)
         self.assertIn("Sign-in email: merchant@example.com", rendered.email_text)
-        self.assertIn("Temporary password: S3cret-pass", rendered.email_text)
+        self.assertIn("Temporary password: example", rendered.email_text)
         self.assertNotIn("Temporary password:\n", rendered.email_text + "\n")
 
     def test_explicit_context_password_is_not_dropped(self) -> None:
