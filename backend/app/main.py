@@ -202,6 +202,10 @@ def _register_merchant_docs_routes(app: FastAPI) -> None:
         return get_swagger_ui_html(
             openapi_url="/openapi.json",
             title=f"{settings.app_name} - Merchant API Docs",
+            swagger_ui_parameters={
+                "persistAuthorization": True,
+                "tryItOutEnabled": True,
+            },
         )
 
 
@@ -274,6 +278,12 @@ def _register_frontend_routes(app: FastAPI) -> None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
 
 
+MERCHANT_OPENAPI_PUBLIC: set[tuple[str, str]] = {
+    ("GET", f"{settings.api_v1_prefix}/client/health"),
+    ("POST", f"{settings.api_v1_prefix}/client/auth/login"),
+}
+
+
 @lru_cache(maxsize=1)
 def _build_merchant_openapi_schema(app: FastAPI) -> dict:
     merchant_routes = [
@@ -282,15 +292,61 @@ def _build_merchant_openapi_schema(app: FastAPI) -> dict:
         if isinstance(route, APIRoute)
         and any((method, route.path) in MERCHANT_OPENAPI_ALLOWLIST for method in route.methods)
     ]
-    return get_openapi(
+    schema = get_openapi(
         title=f"{settings.app_name} Merchant API",
         version="0.1.0",
         description=(
             "OpenAPI schema for merchant integration endpoints only. "
+            "Use X-API-Key and X-API-Secret headers for server-to-server calls. "
             "Admin and internal routes are intentionally excluded."
         ),
         routes=merchant_routes,
     )
+
+    # Merchant Swagger Authorize must ask for API keys, not HTTPBearer JWT.
+    schema.setdefault("components", {})
+    schema["components"]["securitySchemes"] = {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-API-Key",
+            "description": "Public API key from the merchant cabinet (Keys).",
+        },
+        "ApiSecretAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-API-Secret",
+            "description": "Secret API key shown once when the key pair is issued.",
+        },
+    }
+
+    api_key_security = [{"ApiKeyAuth": [], "ApiSecretAuth": []}]
+    for path, path_item in schema.get("paths", {}).items():
+        if not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            if method.startswith("x-") or not isinstance(operation, dict):
+                continue
+            method_upper = method.upper()
+            if (method_upper, path) in MERCHANT_OPENAPI_PUBLIC:
+                operation["security"] = []
+            else:
+                operation["security"] = api_key_security
+
+            # Avoid duplicate optional header params beside Authorize schemes.
+            params = operation.get("parameters")
+            if isinstance(params, list):
+                operation["parameters"] = [
+                    param
+                    for param in params
+                    if not (
+                        isinstance(param, dict)
+                        and param.get("in") == "header"
+                        and param.get("name") in {"X-API-Key", "X-API-Secret", "Authorization"}
+                    )
+                ]
+
+    return schema
 
 
 ADMIN_OPENAPI_ALLOWLIST: set[tuple[str, str]] = {

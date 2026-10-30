@@ -4,6 +4,14 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.20.34] — 2026-10-31
+
+### Исправлено
+
+- В Swagger Merchant API (`/docs`) Authorize просит `X-API-Key` и `X-API-Secret`, а не HTTPBearer.
+
+---
+
 ## [0.20.33] — 2026-10-31
 
 ### Изменено
