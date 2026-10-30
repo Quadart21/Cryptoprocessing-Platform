@@ -154,7 +154,7 @@ export const merchantExt: TranslationDict = {
         webhookTitle: "Test webhook for this invoice (server response shown in modal)",
         paginationShowing: "Showing {{from}}–{{to}} of {{total}}",
         webhookBlockedNoUrl:
-          "Set the project webhook URL in Projects or Keys, then save settings.",
+          "Set the project webhook URL in the API section, then save settings.",
         webhookBlockedNoPermission: "Insufficient permissions: client.webhooks.write is required to send a test.",
         webhookSendFailed: "Failed to send webhook.",
       },

@@ -7,7 +7,10 @@ type TParams = Record<string, string | number>;
 
 const EN_DICT = LOCALES.en;
 
-/** API docs and integration reference are always English regardless of UI locale. */
+/**
+ * Technical API reference (Swagger links, code samples, public docs pages).
+ * Always English. Do not use for merchant cabinet UI chrome — use `useTranslation`.
+ */
 export function useApiTranslation() {
   const t = useCallback(
     (key: string, params?: TParams) => resolveTranslation(EN_DICT, key, params),

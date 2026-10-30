@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import type { ProjectItem } from "../../api";
-import { useApiTranslation } from "../../i18n";
+import { useTranslation } from "../../i18n";
 
 import type { WebhookFormState } from "../types";
 
@@ -48,7 +48,7 @@ export function IntegrationCommandCenter({
   onSaveWebhook,
   onSendWebhookTest,
 }: IntegrationCommandCenterProps) {
-  const { t, ta } = useApiTranslation();
+  const { t, ta } = useTranslation();
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<IntegrationTab>("sandbox");
   const [scenarioId, setScenarioId] = useState<SandboxScenarioId>("health");

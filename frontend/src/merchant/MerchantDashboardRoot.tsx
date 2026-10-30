@@ -343,6 +343,21 @@ export function MerchantDashboardRoot({
 
           {section === "docs" ? (
             <div className="console-section-stack mc-page-stack">
+              <IntegrationCommandCenter
+                merchantId={merchantId}
+                activeApiKeyPublic={activeApiKeyPublic}
+                activeProjectId={activeProjectId}
+                activeWebhookUrl={activeWebhookUrl}
+                apiBaseUrl={apiBaseUrl}
+                integrationCurl={integrationCurl}
+                loading={loading}
+                onSaveWebhook={onSaveWebhook}
+                onSendWebhookTest={onSendWebhookTest}
+                onWebhookFormChange={onWebhookFormChange}
+                projects={projects}
+                selectedRoute={selectedRoute}
+                webhookForm={webhookForm}
+              />
               <MerchantApiReference
                 apiBaseUrl={apiBaseUrl}
                 activeApiKeyPublic={activeApiKeyPublic}
@@ -354,31 +369,13 @@ export function MerchantDashboardRoot({
           ) : null}
 
           {section === "projects" ? (
-            <div className="console-section-stack">
-              <div className="mc-split mc-split--balanced">
+            <div className="console-section-stack mc-page-stack">
               <ProjectDirectory projects={projects} />
-              <IntegrationCommandCenter
-                merchantId={merchantId}
-                activeApiKeyPublic={activeApiKeyPublic}
-                activeProjectId={activeProjectId}
-                activeWebhookUrl={activeWebhookUrl}
-                apiBaseUrl={apiBaseUrl}
-                integrationCurl={integrationCurl}
-                loading={loading}
-                onSaveWebhook={onSaveWebhook}
-                onSendWebhookTest={onSendWebhookTest}
-                onWebhookFormChange={onWebhookFormChange}
-                projects={projects}
-                selectedRoute={selectedRoute}
-                webhookForm={webhookForm}
-              />
-              </div>
             </div>
           ) : null}
 
           {section === "keys" ? (
-            <div className="console-section-stack">
-              <div className="mc-split mc-split--balanced">
+            <div className="console-section-stack mc-page-stack">
               <KeysVault
                 apiKeys={apiKeys}
                 projects={projects}
@@ -386,22 +383,6 @@ export function MerchantDashboardRoot({
                 onRegenerate={onClientRegenerateApiKey}
                 onRevoke={onClientRevokeApiKey}
               />
-              <IntegrationCommandCenter
-                merchantId={merchantId}
-                activeApiKeyPublic={activeApiKeyPublic}
-                activeProjectId={activeProjectId}
-                activeWebhookUrl={activeWebhookUrl}
-                apiBaseUrl={apiBaseUrl}
-                integrationCurl={integrationCurl}
-                loading={loading}
-                onSaveWebhook={onSaveWebhook}
-                onSendWebhookTest={onSendWebhookTest}
-                onWebhookFormChange={onWebhookFormChange}
-                projects={projects}
-                selectedRoute={selectedRoute}
-                webhookForm={webhookForm}
-              />
-              </div>
             </div>
           ) : null}
 

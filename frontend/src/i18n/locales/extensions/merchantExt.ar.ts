@@ -153,7 +153,7 @@ export const merchantExt: TranslationDict = {
         webhookTitle: "اختبار webhook لهذه الفاتورة (استجابة الخادم في نافذة منبثقة)",
         paginationShowing: "عرض {{from}}–{{to}} من {{total}}",
         webhookBlockedNoUrl:
-          "حدّد عنوان webhook URL للمشروع في «المشاريع» أو «المفاتيح»، ثم احفظ الإعدادات.",
+          "حدّد عنوان webhook URL للمشروع في قسم «API»، ثم احفظ الإعدادات.",
         webhookBlockedNoPermission: "صلاحيات غير كافية: يلزم client.webhooks.write لإرسال الاختبار.",
         webhookSendFailed: "تعذّر إرسال webhook.",
       },

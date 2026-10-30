@@ -154,7 +154,7 @@ export const merchantExt: TranslationDict = {
         webhookTitle: "Тестовый webhook по этому инвойсу (ответ сервера в модальном окне)",
         paginationShowing: "Показано {{from}}–{{to}} из {{total}}",
         webhookBlockedNoUrl:
-          "Укажите URL webhook для проекта в разделе «Проекты» или «Ключи», затем сохраните настройки.",
+          "Укажите URL webhook для проекта в разделе «API», затем сохраните настройки.",
         webhookBlockedNoPermission: "Недостаточно прав: для отправки теста нужно право client.webhooks.write.",
         webhookSendFailed: "Не удалось отправить webhook.",
       },
