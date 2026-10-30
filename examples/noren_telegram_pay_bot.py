@@ -41,7 +41,7 @@ invoice.paid / invoice.confirmed (или sync видит тот же стату�
 
 Вебхук в кабинете: https://kupik.asia/webhooks/noren
 Домен должен резолвиться в публичный IP сервера с ботом и валидным HTTPS.
-Сейчас у kupik.asia нет A/AAAA (NS ns3.my-ndns.com / ns4.my-ndns.com, панель NiceNIC).
+Сейчас у kupik.asia нет A/AAAA (NS ns1.mitelis.cc / ns2.mitelis.cc).
 Заголовок: X-Merset-Signature: sha256=<hex hmac sha256 секрет + сырое тело>
 Ответ 2xx только после записи event_id.
 """
@@ -232,7 +232,7 @@ def describe_webhook_dns(url: str) -> str | None:
     except socket.gaierror:
         return (
             f"{host} не резолвится: нет A/AAAA-записи. "
-            "NS домена: ns3.my-ndns.com и ns4.my-ndns.com (NiceNIC → DNS Records). "
+            "NS домена: ns1.mitelis.cc и ns2.mitelis.cc. "
             "Добавьте A-запись на публичный IP сервера с ботом и выпустите HTTPS, "
             "иначе Noren отклонит webhook («hostname could not be resolved»)."
         )
