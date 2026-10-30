@@ -1,4 +1,5 @@
 import type { ProjectItem } from "../../api";
+import { CopyableIdentifier } from "../../components/CopyableIdentifier";
 import { useTranslation } from "../../i18n";
 
 export type ProjectDirectoryProps = {
@@ -36,6 +37,12 @@ export function ProjectDirectory({ projects }: ProjectDirectoryProps) {
               <div>
                 <p className="mc-row-title">{project.name}</p>
                 <p className="mc-row-sub">{project.domain}</p>
+                <CopyableIdentifier
+                  className="mc-key-row-id"
+                  label={t("merchant.widgets.projectDirectory.projectId")}
+                  value={project.id}
+                  variant="inline"
+                />
                 <p className="mc-row-sub" style={{ color: "var(--text-2)", fontSize: 12 }}>
                   {project.description ?? t("common.noDescription")}
                 </p>

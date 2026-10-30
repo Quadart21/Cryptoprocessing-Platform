@@ -117,6 +117,13 @@ export function MerchantDashboardRoot({
   const sectionMeta = sectionCopy[section];
 
   const merchantId = user.tenant_id ?? onboarding?.tenant_id ?? null;
+  const activeProjectId = useMemo(() => {
+    const match = activeApiKeyPublic
+      ? (apiKeys.find((item) => item.public_key === activeApiKeyPublic) ?? null)
+      : (apiKeys.find((item) => item.status === "active") ?? null);
+    const projectId = match?.project_id?.trim();
+    return projectId ? projectId : null;
+  }, [activeApiKeyPublic, apiKeys]);
 
   const contextChips = useMemo(
     () => [
@@ -352,6 +359,7 @@ export function MerchantDashboardRoot({
               <IntegrationCommandCenter
                 merchantId={merchantId}
                 activeApiKeyPublic={activeApiKeyPublic}
+                activeProjectId={activeProjectId}
                 activeWebhookUrl={activeWebhookUrl}
                 apiBaseUrl={apiBaseUrl}
                 integrationCurl={integrationCurl}
@@ -372,6 +380,7 @@ export function MerchantDashboardRoot({
               <div className="mc-split mc-split--balanced">
               <KeysVault
                 apiKeys={apiKeys}
+                projects={projects}
                 activeApiKeyPublic={activeApiKeyPublic}
                 onRegenerate={onClientRegenerateApiKey}
                 onRevoke={onClientRevokeApiKey}
@@ -379,6 +388,7 @@ export function MerchantDashboardRoot({
               <IntegrationCommandCenter
                 merchantId={merchantId}
                 activeApiKeyPublic={activeApiKeyPublic}
+                activeProjectId={activeProjectId}
                 activeWebhookUrl={activeWebhookUrl}
                 apiBaseUrl={apiBaseUrl}
                 integrationCurl={integrationCurl}

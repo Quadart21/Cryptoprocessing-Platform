@@ -202,7 +202,7 @@ export const ar: TranslationDict = {
       balance: { group: "الخزينة", title: "الرصيد والسحب", description: "متاح / مجمد وطلبات السحب في فرع واحد." },
       docs: { group: "المرجع", title: "عقد API", description: "المسارات وأمثلة curl والردود — دون مغادرة اللوحة." },
       projects: { group: "المحفظة", title: "المشاريع والبيئة", description: "بطاقات المشاريع ومنصة اختبار التكامل جنباً إلى جنب." },
-      keys: { group: "الوصول", title: "المفاتيح وwebhook", description: "إدارة أزواج المفاتيح ونفس مركز الاختبار للمشاريع." },
+      keys: { group: "الوصول", title: "المفاتيح وwebhook", description: "أزواج المفاتيح مع project_id بجانب كل مفتاح — تتطلبه وثائق API." },
       invoices: { group: "القبول", title: "إصدار الفواتير", description: "إنشاء الفواتير في شاشة واحدة وقائمة كاملة مع بحث وصفحات." },
       security: { group: "الثقة", title: "حماية الحساب", description: "2FA وقنوات الإشعارات في كتل قابلة للتوسيع." },
     },

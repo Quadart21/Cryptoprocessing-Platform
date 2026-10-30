@@ -9,6 +9,7 @@ export type IntegrationCommandCenterProps = {
   merchantId: string | null;
   apiBaseUrl: string;
   activeApiKeyPublic: string | null;
+  activeProjectId: string | null;
   activeWebhookUrl: string | null;
   selectedRoute: string;
   integrationCurl: string;
@@ -36,6 +37,7 @@ export function IntegrationCommandCenter({
   merchantId,
   apiBaseUrl,
   activeApiKeyPublic,
+  activeProjectId,
   activeWebhookUrl,
   selectedRoute,
   integrationCurl,
@@ -261,6 +263,19 @@ export function IntegrationCommandCenter({
           <code>{activeApiKeyPublic ?? t("common.dash")}</code>
         </div>
         <div className="mc-kv">
+          <span>{t("merchant.integration.projectId")}</span>
+          <code>{activeProjectId ?? t("common.dash")}</code>
+          {activeProjectId ? (
+            <button
+              className="ghost-button mc-kv-copy"
+              onClick={() => void handleCopy(activeProjectId, t("merchant.integration.projectId"))}
+              type="button"
+            >
+              {t("common.copy")}
+            </button>
+          ) : null}
+        </div>
+        <div className="mc-kv">
           <span>{t("merchant.integration.webhookLabel")}</span>
           <code>{activeWebhookUrl ?? t("common.dash")}</code>
         </div>
@@ -402,6 +417,19 @@ export function IntegrationCommandCenter({
                     type="button"
                   >
                     {t("merchant.integration.webhookSection.copyKey")}
+                  </button>
+                </div>
+                <div className="copy-row">
+                  <div className="copy-row-labeled">
+                    <span className="mc-surface-eyebrow">{t("merchant.integration.projectId")}</span>
+                    <code className="copy-row-value">{activeProjectId ?? t("common.dash")}</code>
+                  </div>
+                  <button
+                    className="ghost-button"
+                    onClick={() => void handleCopy(activeProjectId, t("merchant.integration.projectId"))}
+                    type="button"
+                  >
+                    {t("merchant.integration.copyProjectId")}
                   </button>
                 </div>
                 <div className="copy-row">

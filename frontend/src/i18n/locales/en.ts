@@ -202,7 +202,7 @@ export const en: TranslationDict = {
       balance: { group: "Treasury", title: "Balance and withdrawal", description: "Available / frozen and withdrawal requests in one branch." },
       docs: { group: "Reference", title: "API contract", description: "Routes, curl examples and responses — without leaving the dashboard." },
       projects: { group: "Portfolio", title: "Projects and environment", description: "Project cards and integration test stand side by side." },
-      keys: { group: "Access", title: "Keys and webhook", description: "Key pair management and the same test center as projects." },
+      keys: { group: "Access", title: "Keys and webhook", description: "Key pairs with project_id next to each key — required by the API docs." },
       invoices: { group: "Acceptance", title: "Invoicing", description: "Create invoices on one screen and a full-width list with search and pagination." },
       security: { group: "Trust", title: "Account protection", description: "2FA and notification channels in expandable blocks." },
     },
