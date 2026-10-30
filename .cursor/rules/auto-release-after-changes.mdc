@@ -12,13 +12,13 @@ alwaysApply: true
 3. **Lock** — синхронизировать `frontend/package-lock.json` при необходимости.
 4. **Сборка** — `npm run build` из `frontend`; исправить ошибки до коммита.
 5. **Git** — `git add` затронутых файлов, коммит `Release vX.Y.Z: краткое описание`, аннотированный тег `vX.Y.Z`.
-6. **Push** — `git push origin <текущая-ветка>` и `git push origin vX.Y.Z`.
+6. **Push** — релизный коммит должен оказаться в `main` (`git push origin main`) и `git push origin vX.Y.Z`. Серверы деплоят только `origin/main`.
 7. **GitHub Release (обязательно)** — сразу после push:
    ```bash
    python ops/scripts/publish_github_releases.py --version X.Y.Z
    ```
    Появится запись на https://github.com/Quadart21/Cryptoprocessing-Platform/releases . **Git-тег без `gh release create` релизом не считается.**
-8. **Деплой (обязательно, сразу)** — без ожидания команды пользователя:
+8. **Деплой (обязательно, сразу)** — без ожидания команды пользователя, в той же задаче, на боевые серверы:
    ```bash
    python ops/scripts/deploy_release.py --targets api,site
    ```

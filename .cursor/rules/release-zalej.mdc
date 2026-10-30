@@ -12,7 +12,7 @@ alwaysApply: true
 3. **Lock** — при необходимости синхронизируй поле `version` корневого пакета в `frontend/package-lock.json` с `package.json`.
 4. **Сборка** — из каталога `frontend` выполни `npm run build` и устрани ошибки до коммита.
 5. **Git** — `git add` по затронутым файлам, коммит `Release vX.Y.Z: краткое описание` (1–2 предложения или перечисление через запятую), аннотированный тег `vX.Y.Z` с тем же смыслом.
-6. **Push** — `git push origin <ветка>` и `git push origin vX.Y.Z`.
+6. **Push** — `git push origin main` и `git push origin vX.Y.Z`. Серверы подтягивают только `origin/main`, поэтому релиз без push в `main` на сервер не попадает.
 7. **GitHub Release (обязательно)** — сразу после push:
    ```bash
    python ops/scripts/publish_github_releases.py --version X.Y.Z

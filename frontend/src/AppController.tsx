@@ -172,6 +172,7 @@ import { useClientDashboard } from "./hooks/useClientDashboard";
 import { usePublicSiteNavigation } from "./hooks/usePublicSiteNavigation";
 import { useSession } from "./hooks/useSession";
 import { AppRouteFallback } from "./components/AppRouteFallback";
+import { formatTenantApprovedMessage } from "./app/messages/tenantApproval";
 import { useFlashMessages } from "./i18n/useFlashMessages";
 import { safeLoad } from "./utils/async";
 import { invoiceStatusLabelRu } from "./utils/invoiceStatus";
@@ -982,9 +983,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setError(null);
       setNewApiSecret(null);
       const result = await approveTenant(token, tenantId, "Одобрено супер-админом.");
-      setSuccess(
-        `Заявка одобрена. Public key: ${result.api_public_key}. Secret key: ${result.api_secret_key}. Password: ${result.generated_password}`,
-      );
+      setSuccess(formatTenantApprovedMessage(result));
       const tenantItems = await fetchTenants(token);
       setTenants(tenantItems);
       const [detail, tenantInvoices, tenantTransactions, tenantPayoutItems, tenantSummary, tenantPolicy] = await Promise.all([

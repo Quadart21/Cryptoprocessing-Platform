@@ -1,0 +1,30 @@
+---
+description: Любое законченное изменение сразу деплоится на серверы, без отдельной команды
+alwaysApply: true
+---
+
+# Деплой сразу после изменений
+
+Каждое законченное изменение кода в той же задаче выкладывается на серверы. Не заканчивай работу коммитом, тегом или PR и не спрашивай «задеплоить?» — деплой входит в задачу.
+
+Серверы подтягивают `origin/main`. Релизный коммит должен быть в `main` до выкладки.
+
+Порядок, без пропусков:
+
+1. Поднять версию в `frontend/package.json` (и `frontend/package-lock.json`).
+2. Дописать секцию в `CHANGELOG.md`.
+3. `npm run build` из `frontend`.
+4. Коммит `Release vX.Y.Z: …`, аннотированный тег `vX.Y.Z`.
+5. `git push origin main` и `git push origin vX.Y.Z`.
+6. GitHub Release: `python ops/scripts/publish_github_releases.py --version X.Y.Z`
+7. Деплой сразу после релиза:
+
+```bash
+python ops/scripts/deploy_release.py --targets api,site
+```
+
+- только backend → `--targets api`
+- только frontend → `--targets site`
+- затронуты оба или неясно → `api,site`
+
+Задача не закрыта, пока деплой на нужные серверы не завершился успешно. В ответе укажи версию, коммит, ссылку на GitHub Release и какие серверы обновлены.

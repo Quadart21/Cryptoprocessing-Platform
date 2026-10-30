@@ -19,6 +19,8 @@ export function DashboardToast({ kind, message, onDismiss }: DashboardToastProps
   const { t } = useTranslation();
 
   useEffect(() => {
+    // Ключи и пароль в многострочном сообщении нельзя прятать через несколько секунд.
+    if (message.includes("\n")) return;
     const timer = window.setTimeout(onDismiss, AUTO_DISMISS_MS[kind]);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when message changes
