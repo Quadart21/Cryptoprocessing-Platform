@@ -183,6 +183,22 @@ export const ar: TranslationDict = {
     cabinetTitle: "لوحة العميل",
     navAria: "التنقل بين الأقسام",
     merchantIdHint: "معرّف التاجر (tenant_id). استخدمه في طلبات الدعم ومطابقة webhook.",
+    context: {
+      status: {
+        approved: "موافق عليه",
+        active: "نشط",
+        pending: "قيد المراجعة",
+        invited: "مدعو",
+        rejected: "مرفوض",
+        suspended: "موقوف",
+      },
+      role: {
+        tenant_owner: "المالك",
+        tenant_admin: "مشرف المشروع",
+        tenant_operator: "مشغّل",
+        tenant_viewer: "مشاهد",
+      },
+    },
     menu: {
       overviewGroup: "نظرة عامة",
       overview: "الملخص",

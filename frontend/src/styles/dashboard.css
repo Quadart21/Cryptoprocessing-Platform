@@ -563,7 +563,8 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.section-context-chip span {
+.section-context-chip span,
+.section-context-chip__label {
   display: block;
   color: var(--text-2);
   font-size: 11px;
@@ -571,7 +572,8 @@
   text-transform: uppercase;
 }
 
-.section-context-chip strong {
+.section-context-chip strong,
+.section-context-chip__value {
   display: block;
   margin-top: 6px;
   font-family: var(--font-heading);

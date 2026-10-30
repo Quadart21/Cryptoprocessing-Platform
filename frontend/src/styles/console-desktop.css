@@ -39,11 +39,17 @@
   .app-frame .pw-console-workspace > .admin-section-subnav,
   .app-frame .client-cabinet.mw-workspace > .stats-grid,
   .app-frame .client-cabinet.mw-workspace > .dashboard-grid,
-  .app-frame .client-cabinet.mw-workspace > .section-context,
+  .app-frame .client-cabinet.mw-workspace > .section-context:not(.section-context--merchant),
   .app-frame .client-cabinet.mw-workspace > .console-section-stack,
   .app-frame .client-cabinet.mw-workspace > .client-section-header {
     width: 100%;
     max-width: var(--content-max);
+    margin-inline: auto;
+  }
+
+  .app-frame .client-cabinet.mw-workspace > .section-context--merchant {
+    width: min(100%, 920px);
+    max-width: 920px;
     margin-inline: auto;
   }
 

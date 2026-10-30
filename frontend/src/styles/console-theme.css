@@ -596,7 +596,8 @@
 
 
 
-.app-frame .section-context-chip span {
+.app-frame .section-context-chip span,
+.app-frame .section-context-chip__label {
 
   color: var(--cu-text-dim);
 
@@ -604,7 +605,8 @@
 
 
 
-.app-frame .section-context-chip strong {
+.app-frame .section-context-chip strong,
+.app-frame .section-context-chip__value {
 
   font-family: var(--font-heading);
 

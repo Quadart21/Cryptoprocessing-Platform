@@ -183,6 +183,22 @@ export const ru: TranslationDict = {
     cabinetTitle: "Кабинет клиента",
     navAria: "Навигация по разделам",
     merchantIdHint: "Ваш идентификатор мерчанта (tenant_id). Указывайте в обращениях в поддержку и при сверке webhook.",
+    context: {
+      status: {
+        approved: "Одобрен",
+        active: "Активен",
+        pending: "На проверке",
+        invited: "Приглашён",
+        rejected: "Отклонён",
+        suspended: "Приостановлен",
+      },
+      role: {
+        tenant_owner: "Владелец",
+        tenant_admin: "Админ проекта",
+        tenant_operator: "Оператор",
+        tenant_viewer: "Наблюдатель",
+      },
+    },
     menu: {
       overviewGroup: "Обзор",
       overview: "Сводка",

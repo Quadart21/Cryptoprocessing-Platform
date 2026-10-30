@@ -183,6 +183,22 @@ export const en: TranslationDict = {
     cabinetTitle: "Client dashboard",
     navAria: "Section navigation",
     merchantIdHint: "Your merchant identifier (tenant_id). Use in support requests and webhook reconciliation.",
+    context: {
+      status: {
+        approved: "Approved",
+        active: "Active",
+        pending: "Pending",
+        invited: "Invited",
+        rejected: "Rejected",
+        suspended: "Suspended",
+      },
+      role: {
+        tenant_owner: "Owner",
+        tenant_admin: "Project admin",
+        tenant_operator: "Operator",
+        tenant_viewer: "Viewer",
+      },
+    },
     menu: {
       overviewGroup: "Overview",
       overview: "Summary",

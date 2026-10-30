@@ -125,8 +125,23 @@ export function MerchantDashboardRoot({
     return projectId ? projectId : null;
   }, [activeApiKeyPublic, apiKeys]);
 
-  const contextChips = useMemo(
-    () => [
+  const contextChips = useMemo(() => {
+    const statusRaw = (onboarding?.tenant_status ?? "").trim().toLowerCase();
+    const roleRaw = (user.role ?? "").trim().toLowerCase();
+    const translateOrRaw = (key: string, raw: string) => {
+      const translated = t(key);
+      return translated === key ? raw : translated;
+    };
+    const statusTone =
+      statusRaw === "approved" || statusRaw === "active"
+        ? ("success" as const)
+        : statusRaw === "pending" || statusRaw === "invited"
+          ? ("warning" as const)
+          : statusRaw === "rejected" || statusRaw === "suspended"
+            ? ("danger" as const)
+            : undefined;
+
+    return [
       {
         label: t("common.merchantId"),
         value: merchantId ? truncateMiddle(merchantId) : "—",
@@ -141,15 +156,17 @@ export function MerchantDashboardRoot({
       },
       {
         label: t("common.status"),
-        value: onboarding?.tenant_status ?? "—",
+        value: statusRaw
+          ? translateOrRaw(`merchant.context.status.${statusRaw}`, onboarding?.tenant_status ?? statusRaw)
+          : "—",
+        tone: statusTone,
       },
       {
         label: t("common.role"),
-        value: user.role,
+        value: roleRaw ? translateOrRaw(`merchant.context.role.${roleRaw}`, user.role) : "—",
       },
-    ],
-    [merchantId, onboarding, projects, t, user.role],
-  );
+    ];
+  }, [merchantId, onboarding, projects, t, user.role]);
 
   return (
     <div className="app-frame merchant-app-frame mw-root">
@@ -186,7 +203,7 @@ export function MerchantDashboardRoot({
             group={sectionMeta.group}
             title={sectionMeta.title}
           />
-          <SectionContextChips items={contextChips} />
+          <SectionContextChips className="section-context--merchant" items={contextChips} />
 
           {(section === "overview" || section === "transactions") && (
             <AnalyticsPeriodStrip
