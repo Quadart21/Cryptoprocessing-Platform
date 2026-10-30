@@ -1,0 +1,15 @@
+[Unit]
+Description=Noren Telegram payment bot (webhook on kupik.asia)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/noren-telegram-bot
+EnvironmentFile=/opt/noren-telegram-bot/examples/.env
+ExecStart=/usr/bin/python3 /opt/noren-telegram-bot/examples/noren_telegram_pay_bot.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

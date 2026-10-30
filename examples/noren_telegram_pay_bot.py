@@ -25,7 +25,7 @@ invoice.paid / invoice.confirmed (или sync видит тот же стату�
 Опционально:
   NOREN_WEBHOOK_HOST          — bind, по умолчанию 0.0.0.0
   NOREN_WEBHOOK_PORT          — порт приёмника, по умолчанию 8787
-  NOREN_WEBHOOK_PUBLIC_URL    — публичный HTTPS URL этого приёмника
+  NOREN_WEBHOOK_PUBLIC_URL    — публичный HTTPS, по умолчанию https://kupik.asia
   NOREN_MERCHANT_EMAIL        — если заданы почта и пароль, бот сам сохранит webhook
   NOREN_MERCHANT_PASSWORD
   NOREN_MERCHANT_OTP          — код 2FA, если включён
@@ -39,7 +39,9 @@ invoice.paid / invoice.confirmed (или sync видит тот же стату�
   NOREN_BOT_STATE             — файл состояния заказов
   NOREN_USER_AGENT
 
-Вебхук в кабинете: https://<публичный-хост>/webhooks/noren
+Вебхук в кабинете: https://kupik.asia/webhooks/noren
+Домен должен резолвиться в публичный IP сервера с ботом и валидным HTTPS.
+Сейчас у kupik.asia нет A/AAAA (NS ns3.my-ndns.com / ns4.my-ndns.com, панель NiceNIC).
 Заголовок: X-Merset-Signature: sha256=<hex hmac sha256 секрет + сырое тело>
 Ответ 2xx только после записи event_id.
 """
@@ -48,6 +50,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import threading
 import time
 import uuid
@@ -69,6 +72,7 @@ TERMINAL_STATUSES = frozenset({"expired", "cancelled", "failed"})
 SIMULATED_EVENTS = frozenset({"webhook.test", "invoice.test_deposit"})
 WEBHOOK_PATHS = frozenset({"/webhooks/noren", "/webhook"})
 MAX_WEBHOOK_BODY = 256 * 1024
+DEFAULT_WEBHOOK_ORIGIN = "https://kupik.asia"
 
 _DEFAULT_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -210,6 +214,29 @@ def pick_route(rates: dict[str, Any], crypto: str, network: str) -> tuple[str, s
         if currency == "USDT" and net_name == "TRC20":
             return currency, net_name
     return options[0]
+
+
+def webhook_target(public_url: str) -> str:
+    public = (public_url or DEFAULT_WEBHOOK_ORIGIN).strip().rstrip("/")
+    if public.endswith("/webhooks/noren") or public.endswith("/webhook"):
+        return public
+    return f"{public}/webhooks/noren"
+
+
+def describe_webhook_dns(url: str) -> str | None:
+    host = (urlparse(url).hostname or "").strip()
+    if not host:
+        return "В webhook URL нет хоста."
+    try:
+        socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return (
+            f"{host} не резолвится: нет A/AAAA-записи. "
+            "NS домена: ns3.my-ndns.com и ns4.my-ndns.com (NiceNIC → DNS Records). "
+            "Добавьте A-запись на публичный IP сервера с ботом и выпустите HTTPS, "
+            "иначе Noren отклонит webhook («hostname could not be resolved»)."
+        )
+    return None
 
 
 def payment_token(payment_page_url: str | None) -> str | None:
@@ -865,14 +892,11 @@ class PayBot:
                 log(f"Не отправил сообщение в {message.chat_id}: {exc}")
 
     def configure_webhook(self) -> None:
-        public = self.webhook_public_url.rstrip("/")
-        if not public:
-            log(
-                "NOREN_WEBHOOK_PUBLIC_URL не задан. Приёмник слушает локально; "
-                "в кабинете укажите публичный HTTPS на /webhooks/noren."
-            )
-            return
-        target = public if public.endswith("/webhooks/noren") or public.endswith("/webhook") else f"{public}/webhooks/noren"
+        target = webhook_target(self.webhook_public_url)
+        dns_problem = describe_webhook_dns(target)
+        if dns_problem:
+            log(dns_problem)
+        log(f"Webhook URL для кабинета Noren: {target}")
         if not self.merchant_email or not self.merchant_password:
             log(f"Сохраните в кабинете Noren webhook URL: {target}")
             log("Секрет должен совпадать с NOREN_WEBHOOK_SECRET.")
@@ -1144,7 +1168,7 @@ def build_from_env() -> PayBot:
         webhook_secret=os.environ.get("NOREN_WEBHOOK_SECRET", "").strip(),
         webhook_host=os.environ.get("NOREN_WEBHOOK_HOST", "0.0.0.0").strip() or "0.0.0.0",
         webhook_port=_env_int("NOREN_WEBHOOK_PORT", 8787),
-        webhook_public_url=os.environ.get("NOREN_WEBHOOK_PUBLIC_URL", "").strip(),
+        webhook_public_url=os.environ.get("NOREN_WEBHOOK_PUBLIC_URL", "").strip() or DEFAULT_WEBHOOK_ORIGIN,
         merchant_email=os.environ.get("NOREN_MERCHANT_EMAIL", "").strip(),
         merchant_password=os.environ.get("NOREN_MERCHANT_PASSWORD", "").strip(),
         merchant_otp=os.environ.get("NOREN_MERCHANT_OTP", "").strip(),

@@ -15,6 +15,7 @@ from noren_telegram_pay_bot import (
     OrderBook,
     load_state,
     make_webhook_handler,
+    describe_webhook_dns,
     parse_amount,
     parse_command,
     parse_pay_args,
@@ -22,6 +23,7 @@ from noren_telegram_pay_bot import (
     pick_route,
     save_state,
     verify_signature,
+    webhook_target,
 )
 
 
@@ -202,6 +204,20 @@ class ParseTests(unittest.TestCase):
             ]
         }
         self.assertEqual(pick_route(rates, "", ""), ("USDT", "TRC20"))
+
+    def test_webhook_target_uses_kupik(self) -> None:
+        self.assertEqual(webhook_target(""), "https://kupik.asia/webhooks/noren")
+        self.assertEqual(webhook_target("https://kupik.asia"), "https://kupik.asia/webhooks/noren")
+        self.assertEqual(
+            webhook_target("https://kupik.asia/webhooks/noren"),
+            "https://kupik.asia/webhooks/noren",
+        )
+
+    def test_unresolved_host_explains_dns(self) -> None:
+        message = describe_webhook_dns("https://no-such-host.invalid/webhooks/noren")
+        self.assertIsNotNone(message)
+        assert message is not None
+        self.assertIn("A/AAAA", message)
 
     def test_payment_keyboard(self) -> None:
         keyboard = payment_keyboard(_invoice())
