@@ -2,9 +2,11 @@ import { Link } from "react-router-dom";
 
 import { ApiDocumentationPanel } from "../screens/client/ApiDocumentationPanel";
 import { resolveClientApiBaseUrl } from "../config/apiBase";
+import { useTranslation } from "../i18n";
 import { DocsApiToc } from "./DocsApiToc";
 import type { DocsSectionKey } from "../types/docsSection";
-import { DOCS_GUIDE_ORDER, DOCS_PAGE_META } from "./docsNav";
+import { DOCS_GUIDE_ORDER } from "./docsNav";
+import { useDocsPageMeta } from "./useDocsNav";
 
 type DocsGuidePageProps = {
   section: DocsSectionKey;
@@ -26,7 +28,9 @@ function buildIntegrationCurl(apiBaseUrl: string) {
 }
 
 export function DocsGuidePage({ section }: DocsGuidePageProps) {
-  const meta = DOCS_PAGE_META[section];
+  const { t } = useTranslation();
+  const pageMeta = useDocsPageMeta();
+  const meta = pageMeta[section];
   const apiBaseUrl = resolveClientApiBaseUrl();
   const orderIndex = DOCS_GUIDE_ORDER.indexOf(section);
   const prev = orderIndex > 0 ? DOCS_GUIDE_ORDER[orderIndex - 1] : null;
@@ -53,19 +57,19 @@ export function DocsGuidePage({ section }: DocsGuidePageProps) {
         {section === "reference" ? <DocsApiToc variant="inline" /> : null}
       </div>
 
-      <nav className="docs-pager" aria-label="Section navigation">
+      <nav className="docs-pager" aria-label={t("docsSite.pagerAria")}>
         {prev ? (
           <Link className="docs-pager-link docs-pager-link--prev" to={`/${prev}`}>
-            <span>Previous</span>
-            <strong>{DOCS_PAGE_META[prev].title}</strong>
+            <span>{t("docsSite.pagerPrevious")}</span>
+            <strong>{pageMeta[prev].title}</strong>
           </Link>
         ) : (
           <span />
         )}
         {next ? (
           <Link className="docs-pager-link docs-pager-link--next" to={`/${next}`}>
-            <span>Next</span>
-            <strong>{DOCS_PAGE_META[next].title}</strong>
+            <span>{t("docsSite.pagerNext")}</span>
+            <strong>{pageMeta[next].title}</strong>
           </Link>
         ) : null}
       </nav>

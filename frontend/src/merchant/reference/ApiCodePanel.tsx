@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { useApiTranslation, useTranslation } from "../../i18n";
+import { useTranslation } from "../../i18n";
 
 type ApiCodeTab = "request" | "success" | "error";
 
@@ -10,7 +10,7 @@ type ApiCodePanelProps = {
   successExample: string;
   errorExample: string;
   onCopy: (value: string, label: string) => void | Promise<void>;
-  /** Cabinet follows UI locale; public docs stay English. */
+  /** @deprecated Always follows UI locale. Kept for call-site compatibility. */
   followUiLocale?: boolean;
 };
 
@@ -26,11 +26,8 @@ export function ApiCodePanel({
   successExample,
   errorExample,
   onCopy,
-  followUiLocale = false,
 }: ApiCodePanelProps) {
-  const api = useApiTranslation();
-  const ui = useTranslation();
-  const { t } = followUiLocale ? ui : api;
+  const { t } = useTranslation();
 
   const tabMeta = useMemo(
     () => ({

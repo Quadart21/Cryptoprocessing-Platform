@@ -71,3 +71,15 @@
   background-position: left 0.45rem center;
   padding: 0.35rem 0.65rem 0.35rem 1.6rem;
 }
+
+.docs-site-topbar-actions .docs-site-lang .i18n-lang-switcher-label {
+  display: none;
+}
+
+.docs-site-topbar-actions .docs-site-lang .i18n-lang-select {
+  min-height: 2.45rem;
+  min-width: 6.5rem;
+  border-color: var(--docs-line, rgba(255, 255, 255, 0.14));
+  background-color: rgba(0, 0, 0, 0.22);
+  color: var(--docs-text, inherit);
+}

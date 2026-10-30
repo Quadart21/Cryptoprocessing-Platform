@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
-import { DOCS_API_ENDPOINTS } from "./docsNav";
+import { useTranslation } from "../i18n";
+import { useDocsApiEndpoints } from "./useDocsNav";
 
 type DocsApiTocProps = {
   variant?: "aside" | "inline";
@@ -9,10 +10,12 @@ type DocsApiTocProps = {
 
 export function DocsApiToc({ variant = "aside" }: DocsApiTocProps) {
   const location = useLocation();
+  const { t } = useTranslation();
+  const endpoints = useDocsApiEndpoints();
   const [activeId, setActiveId] = useState<string>("");
 
   useEffect(() => {
-    const anchors = DOCS_API_ENDPOINTS.map((item) => item.href.slice(1));
+    const anchors = endpoints.map((item) => item.href.slice(1));
     const elements = anchors
       .map((id) => document.getElementById(id))
       .filter((element): element is HTMLElement => Boolean(element));
@@ -35,17 +38,17 @@ export function DocsApiToc({ variant = "aside" }: DocsApiTocProps) {
 
     elements.forEach((element) => observer.observe(element));
     return () => observer.disconnect();
-  }, [location.pathname, location.hash]);
+  }, [endpoints, location.pathname, location.hash]);
 
   return (
     <aside
       className={`docs-api-toc${variant === "inline" ? " docs-api-toc--inline" : ""}`}
-      aria-label="Endpoint navigation"
+      aria-label={t("docsSite.endpointsAria")}
     >
       <div className="docs-api-toc-panel">
-        <p className="docs-site-sidebar-label">On this page</p>
+        <p className="docs-site-sidebar-label">{t("docsSite.onThisPage")}</p>
         <nav className="docs-api-toc-nav">
-          {DOCS_API_ENDPOINTS.map((item) => {
+          {endpoints.map((item) => {
             const id = item.href.slice(1);
             return (
               <a className={activeId === id ? "is-active" : undefined} href={item.href} key={item.href}>

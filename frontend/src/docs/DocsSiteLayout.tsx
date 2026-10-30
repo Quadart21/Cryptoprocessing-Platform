@@ -3,8 +3,9 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { PlatformBrandMark, usePlatformBrand } from "../brand/PlatformBrandLogo";
 import { resolveClientApiBaseUrl } from "../config/apiBase";
 import { resolveMainSiteOrigin } from "../config/siteHost";
+import { LanguageSwitcher, useTranslation } from "../i18n";
 import { DocsCopyChip } from "./DocsCopyChip";
-import { DOCS_SIDEBAR_GROUPS } from "./docsNav";
+import { useDocsSidebarGroups } from "./useDocsNav";
 
 function isNavActive(pathname: string, to: string) {
   if (to === "/") {
@@ -19,9 +20,11 @@ export function DocsSiteLayout() {
   const location = useLocation();
   const isHub = location.pathname === "/";
   const { brandName, logoUrl } = usePlatformBrand();
+  const { t, dir, locale } = useTranslation();
+  const sidebarGroups = useDocsSidebarGroups();
 
   return (
-    <div className="docs-site" lang="en" dir="ltr">
+    <div className="docs-site" lang={locale} dir={dir}>
       <div className="docs-site-ambient" aria-hidden="true">
         <span className="docs-site-orb docs-site-orb-a" />
         <span className="docs-site-orb docs-site-orb-b" />
@@ -40,27 +43,28 @@ export function DocsSiteLayout() {
             )}
             <div>
               {!logoUrl ? <strong>{brandName}</strong> : null}
-              <small>Merchant API documentation</small>
+              <small>{t("docsSite.brandSubtitle")}</small>
             </div>
           </NavLink>
 
           <div className="docs-site-topbar-actions">
+            <LanguageSwitcher className="docs-site-lang" variant="compact" />
             <a className="docs-site-link" href={`${mainSite}/docs`} target="_blank" rel="noreferrer">
-              Swagger
+              {t("docsSite.swagger")}
             </a>
             <a className="docs-site-button docs-site-button-ghost" href={`${mainSite}/?auth=login`}>
-              Sign in
+              {t("docsSite.signIn")}
             </a>
             <a className="docs-site-button docs-site-button-primary" href={`${mainSite}/?auth=register`}>
-              Get API keys
+              {t("docsSite.getApiKeys")}
             </a>
           </div>
         </div>
       </header>
 
       <div className="docs-site-shell">
-        <aside className="docs-site-sidebar" aria-label="Documentation navigation">
-          {DOCS_SIDEBAR_GROUPS.map((group) => (
+        <aside className="docs-site-sidebar" aria-label={t("docsSite.navAria")}>
+          {sidebarGroups.map((group) => (
             <div className="docs-site-sidebar-panel" key={group.label}>
               <p className="docs-site-sidebar-label">{group.label}</p>
               <nav className="docs-site-nav">
@@ -85,18 +89,18 @@ export function DocsSiteLayout() {
           ))}
 
           <div className="docs-site-sidebar-panel docs-site-sidebar-env">
-            <p className="docs-site-sidebar-label">Base URL</p>
-            <DocsCopyChip value={apiBaseUrl} label="Copy" />
+            <p className="docs-site-sidebar-label">{t("docsSite.baseUrl")}</p>
+            <DocsCopyChip value={apiBaseUrl} label={t("docsSite.copy")} copiedLabel={t("docsSite.copied")} />
             <p className="docs-site-sidebar-hint">
-              Health: <code>{apiBaseUrl}/health</code>
+              {t("docsSite.health")}: <code>{apiBaseUrl}/health</code>
             </p>
           </div>
 
           <div className="docs-site-sidebar-panel docs-site-sidebar-cta">
-            <p className="docs-site-sidebar-label">Support</p>
-            <p>We can help with integration and webhook payload review.</p>
+            <p className="docs-site-sidebar-label">{t("docsSite.support")}</p>
+            <p>{t("docsSite.supportBody")}</p>
             <a className="docs-site-button docs-site-button-primary docs-site-button-block" href={mainSite}>
-              Open platform
+              {t("docsSite.openPlatform")}
             </a>
           </div>
         </aside>
@@ -115,9 +119,9 @@ export function DocsSiteLayout() {
                 openapi.json
               </a>
               <a href={`${mainSite}/docs`} target="_blank" rel="noreferrer">
-                Swagger
+                {t("docsSite.swagger")}
               </a>
-              <a href={mainSite}>Platform</a>
+              <a href={mainSite}>{t("docsSite.platform")}</a>
             </div>
           </footer>
         </div>

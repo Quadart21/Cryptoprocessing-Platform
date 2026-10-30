@@ -8,8 +8,8 @@ type TParams = Record<string, string | number>;
 const EN_DICT = LOCALES.en;
 
 /**
- * Technical API reference (Swagger links, code samples, public docs pages).
- * Always English. Do not use for merchant cabinet UI chrome — use `useTranslation`.
+ * Forced-English helper for rare technical surfaces that must stay EN.
+ * Prefer `useTranslation` for cabinet and docs.noren.digital UI.
  */
 export function useApiTranslation() {
   const t = useCallback(

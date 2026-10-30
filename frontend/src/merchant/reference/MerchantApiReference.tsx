@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { useApiTranslation, useTranslation } from "../../i18n";
+import { useTranslation } from "../../i18n";
 import {
   formatUsd,
   MERCHANT_COMMISSION_BREAK_EVEN_USD,
@@ -83,11 +83,9 @@ export function MerchantApiReference({
   presentation = "cabinet",
   docsSection,
 }: MerchantApiReferenceProps) {
-  const apiI18n = useApiTranslation();
-  const uiI18n = useTranslation();
+  const { t, ta, locale, dir } = useTranslation();
   const isDocsPresentation = presentation === "docs";
-  const followUiLocale = !isDocsPresentation;
-  const { t, ta, locale, dir } = followUiLocale ? uiI18n : apiI18n;
+  const followUiLocale = true;
   const show = (block: string) => docsShowsBlock(docsSection, block, isDocsPresentation);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
 

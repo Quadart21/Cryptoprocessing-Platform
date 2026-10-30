@@ -1,6 +1,14 @@
 import { useState } from "react";
 
-export function DocsCopyChip({ value, label }: { value: string; label?: string }) {
+export function DocsCopyChip({
+  value,
+  label,
+  copiedLabel,
+}: {
+  value: string;
+  label?: string;
+  copiedLabel?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -17,7 +25,7 @@ export function DocsCopyChip({ value, label }: { value: string; label?: string }
     <div className="docs-copy-chip">
       <code>{value}</code>
       <button type="button" onClick={() => void handleCopy()}>
-        {copied ? "Copied" : label ?? "Copy"}
+        {copied ? copiedLabel ?? "Copied" : label ?? "Copy"}
       </button>
     </div>
   );

@@ -1,14 +1,15 @@
 import { Link } from "react-router-dom";
 
-import { useApiTranslation } from "../i18n";
-import { DOCS_GUIDE_ORDER, DOCS_PAGE_META } from "./docsNav";
+import { useTranslation } from "../i18n";
 import { IntegrationModulesPanel } from "./IntegrationModulesPanel";
+import { useDocsPageMeta } from "./useDocsNav";
 
 export function DocsIntegrationsPage() {
-  const { t, ta } = useApiTranslation();
+  const { t, ta } = useTranslation();
+  const pageMeta = useDocsPageMeta();
   const steps = ta<string>("merchant.apiDocs.integrations.steps");
-  const prev = "webhooks";
-  const next = "reference";
+  const prev = "webhooks" as const;
+  const next = "reference" as const;
 
   return (
     <article className="docs-guide">
@@ -30,16 +31,16 @@ export function DocsIntegrationsPage() {
         </ol>
       </section>
 
-      <IntegrationModulesPanel variant="full" />
+      <IntegrationModulesPanel followUiLocale variant="full" />
 
-      <nav className="docs-pager" aria-label="Section navigation">
+      <nav className="docs-pager" aria-label={t("docsSite.pagerAria")}>
         <Link className="docs-pager-link docs-pager-link--prev" to={`/${prev}`}>
-          <span>{t("merchant.apiDocs.integrations.pagerPrevious")}</span>
-          <strong>{DOCS_PAGE_META[prev].title}</strong>
+          <span>{t("docsSite.pagerPrevious")}</span>
+          <strong>{pageMeta[prev].title}</strong>
         </Link>
         <Link className="docs-pager-link docs-pager-link--next" to={`/${next}`}>
-          <span>{t("merchant.apiDocs.integrations.pagerNext")}</span>
-          <strong>{DOCS_PAGE_META[next].title}</strong>
+          <span>{t("docsSite.pagerNext")}</span>
+          <strong>{pageMeta[next].title}</strong>
         </Link>
       </nav>
     </article>
