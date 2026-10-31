@@ -439,7 +439,7 @@ export function LandingSiteChrome({
                 {t("landing.heroConnect")}
               </button>
               <button className="nc-btn-ghost nc-btn-lg lpx-hero-outline" type="button" onClick={onOpenPublicDocs}>
-                {t("landing.heroDocs")}
+                {t("landing.connect")}
               </button>
 
             </div>

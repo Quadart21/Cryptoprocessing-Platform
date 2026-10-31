@@ -837,13 +837,35 @@
 
   .lp-theme-lime .lpx-mobile-sheet {
     top: 56px;
-    padding: 0.65rem 1rem 1rem;
-    gap: 0.3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.85rem 1rem 1.15rem;
+    gap: 0.35rem;
+    text-align: center;
   }
 
   .lp-theme-lime .lpx-mobile-sheet button {
-    min-height: 44px;
-    padding: 0.55rem 0.75rem;
+    width: min(100%, 22rem);
+    min-height: 48px;
+    padding: 0.7rem 1rem;
+    text-align: center;
+    font-size: 1.05rem;
+  }
+
+  .lp-theme-lime .lpx-mobile-sheet .i18n-lang-switcher {
+    width: min(100%, 22rem);
+    justify-content: center;
+    margin-top: 0.35rem;
+  }
+
+  .lp-theme-lime .lpx-mobile-sheet-cta,
+  .lp-theme-lime .lpx-mobile-sheet-cta--primary {
+    min-height: 60px;
+    border-radius: 999px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
   }
 
   .lp-theme-lime .lpx-hero {
@@ -933,18 +955,23 @@
   }
 
   .lp-theme-lime .lpx-hero-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-    margin: 0 0 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 0.35rem 0 0.9rem;
   }
 
   .lp-theme-lime .lpx-hero-actions .nc-btn-lg {
-    width: 100%;
-    min-height: 46px;
-    padding: 0.7rem 1rem;
-    font-size: 0.95rem;
+    width: min(100%, 22rem);
+    min-height: 64px;
+    padding: 1rem 1.4rem;
+    border-radius: 999px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
     justify-content: center;
+    text-align: center;
   }
 
   .lp-theme-lime .lpx-token-row {
@@ -1172,22 +1199,28 @@
   }
 
   .lp-theme-lime .lpx-footer {
-    padding: 1rem 0 calc(1.25rem + env(safe-area-inset-bottom, 0px));
+    margin-top: 1.25rem;
+    padding: 1.15rem 0 calc(1.35rem + env(safe-area-inset-bottom, 0px));
+    background: #101218;
   }
 
   .lp-theme-lime .lpx-footer-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 0.9rem 1rem;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.85rem;
+    text-align: center;
   }
 
-  .lp-theme-lime .lpx-footer-brand-block {
-    grid-column: 1 / -1;
+  .lp-theme-lime .lpx-footer-brand-block,
+  .lp-theme-lime .lpx-footer-col {
+    width: min(100%, 22rem);
     max-width: none;
   }
 
   .lp-theme-lime .lpx-footer-brand-row {
-    margin-bottom: 0.2rem;
+    justify-content: center;
+    margin-bottom: 0.35rem;
   }
 
   .lp-theme-lime .lpx-footer-copy {
@@ -1196,16 +1229,24 @@
   }
 
   .lp-theme-lime .lpx-footer-heading {
-    margin-bottom: 0.35rem;
+    margin: 0 0 0.4rem;
+    text-align: center;
   }
 
   .lp-theme-lime .lpx-footer-links {
-    gap: 0.15rem;
+    align-items: stretch;
+    gap: 0.4rem;
   }
 
   .lp-theme-lime .lpx-footer-links button {
-    min-height: 36px;
-    padding: 0.35rem 0;
-    text-align: left;
+    width: 100%;
+    min-height: 46px;
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--lp-line);
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
   }
 }
