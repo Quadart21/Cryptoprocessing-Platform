@@ -406,6 +406,14 @@ export function LandingSiteChrome({
               <span className="lpx-hero-title-dot">.</span>
             </h1>
             <p className="lpx-hero-lead">{t("landing.heroLead")}</p>
+            <ul className="lpx-hero-facts">
+              {heroStats.map((row) => (
+                <li key={row.label}>
+                  <strong>{row.value}</strong>
+                  <span>{row.label}</span>
+                </li>
+              ))}
+            </ul>
             <div className="lpx-hero-social" aria-label={t("landing.heroSocialAria")}>
 
               <div className="lpx-hero-avatars" aria-hidden>

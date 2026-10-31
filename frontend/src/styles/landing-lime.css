@@ -780,3 +780,280 @@
   border: 1px solid rgba(0, 163, 255, 0.15);
   color: var(--lp-lime);
 }
+
+/* На телефоне факты вместо макетов: цифры, возможности, шаги, FAQ. */
+.lp-theme-lime .lpx-hero-facts {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 768px) {
+  .lp-theme-lime .lpx-header-inner {
+    height: 52px;
+  }
+
+  .lp-theme-lime .lpx-logo-sub {
+    display: none;
+  }
+
+  .lp-theme-lime .lpx-container {
+    max-width: min(1180px, 100% - 1.25rem);
+  }
+
+  .lp-theme-lime .lpx-hero {
+    padding: 3.6rem 0 0.85rem;
+  }
+
+  .lp-theme-lime .lpx-hero-layout {
+    gap: 0;
+  }
+
+  .lp-theme-lime .lpx-hero-kicker,
+  .lp-theme-lime .lpx-hero-avatars,
+  .lp-theme-lime .lpx-hero-micro,
+  .lp-theme-lime .lpx-hero-panel,
+  .lp-theme-lime .lpx-kicker,
+  .lp-theme-lime .lpx-section-deck,
+  .lp-theme-lime .lpx-bento-icon,
+  .lp-theme-lime .lpx-bento-num,
+  .lp-theme-lime .lpx-bento-more,
+  .lp-theme-lime .lpx-proof,
+  .lp-theme-lime .lpx-cta,
+  .lp-theme-lime .lpx-footer-tagline {
+    display: none;
+  }
+
+  .lp-theme-lime .lpx-hero-title {
+    margin-bottom: 0.4rem;
+    font-size: 1.45rem;
+    line-height: 1.12;
+  }
+
+  .lp-theme-lime .lpx-hero-lead {
+    margin-bottom: 0.65rem;
+    font-size: 0.88rem;
+    line-height: 1.4;
+  }
+
+  .lp-theme-lime .lpx-hero-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+    margin: 0 0 0.65rem;
+  }
+
+  .lp-theme-lime .lpx-hero-facts li {
+    min-width: 0;
+    padding: 0.35rem 0.3rem 0.4rem;
+    border-radius: 10px;
+    border: 1px solid var(--lp-line);
+    background: rgba(255, 255, 255, 0.03);
+    text-align: center;
+  }
+
+  .lp-theme-lime .lpx-hero-facts strong {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.2;
+    color: #fff;
+  }
+
+  .lp-theme-lime .lpx-hero-facts span {
+    display: block;
+    margin-top: 0.12rem;
+    font-size: 0.62rem;
+    line-height: 1.25;
+    color: var(--lp-muted);
+  }
+
+  .lp-theme-lime .lpx-hero-social {
+    gap: 0;
+    margin-bottom: 0.65rem;
+  }
+
+  .lp-theme-lime .lpx-hero-social-text {
+    font-size: 0.8rem;
+  }
+
+  .lp-theme-lime .lpx-hero-actions {
+    gap: 0.45rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .lp-theme-lime .lpx-hero-actions .nc-btn-lg {
+    padding: 0.55rem 0.85rem;
+    font-size: 0.82rem;
+  }
+
+  .lp-theme-lime .lpx-token-row {
+    gap: 0.3rem;
+  }
+
+  .lp-theme-lime .lpx-token-chip {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.65rem;
+  }
+
+  .lp-theme-lime .lpx-trust-strip {
+    padding: 0.75rem 0;
+  }
+
+  .lp-theme-lime .lpx-trust-strip-inner {
+    gap: 0.55rem;
+  }
+
+  .lp-theme-lime .lpx-trust-strip-title {
+    margin-bottom: 0.1rem;
+    font-size: 0.88rem;
+  }
+
+  .lp-theme-lime .lpx-trust-strip-sub {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .lp-theme-lime .lpx-section,
+  .lp-theme-lime .lpx-section--faq {
+    padding: 0.9rem 0;
+  }
+
+  .lp-theme-lime .lpx-section-head,
+  .lp-theme-lime .lpx-section-head--center {
+    margin-bottom: 0.55rem;
+    text-align: left;
+  }
+
+  .lp-theme-lime .lpx-section-title {
+    font-size: 1.05rem;
+    line-height: 1.2;
+  }
+
+  .lp-theme-lime .lpx-bento,
+  .lp-theme-lime .lpx-bento--three {
+    gap: 0.4rem;
+    grid-auto-rows: auto;
+  }
+
+  .lp-theme-lime .lpx-bento-card,
+  .lp-theme-lime .lpx-bento-card--wide,
+  .lp-theme-lime .lpx-bento-card--normal,
+  .lp-theme-lime .lpx-bento-wide {
+    min-height: 0;
+    padding: 0.65rem 0.7rem;
+    border-radius: 12px;
+  }
+
+  .lp-theme-lime .lpx-bento-wide {
+    margin-top: 0.4rem;
+  }
+
+  .lp-theme-lime .lpx-bento-title {
+    margin-bottom: 0.2rem;
+    font-size: 0.9rem;
+  }
+
+  .lp-theme-lime .lpx-bento-desc,
+  .lp-theme-lime .lpx-split-lead,
+  .lp-theme-lime .lpx-timeline-desc {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .lp-theme-lime .lpx-split {
+    gap: 0.55rem;
+  }
+
+  .lp-theme-lime .lpx-split-lead {
+    margin-top: 0.35rem;
+  }
+
+  .lp-theme-lime .lpx-check-list {
+    gap: 0.35rem;
+  }
+
+  .lp-theme-lime .lpx-check-list li {
+    gap: 0.45rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .lp-theme-lime .lpx-check-mark {
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+  }
+
+  .lp-theme-lime .lpx-timeline {
+    gap: 0.4rem;
+  }
+
+  .lp-theme-lime .lpx-timeline-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.45rem;
+    align-items: start;
+  }
+
+  .lp-theme-lime .lpx-timeline-axis {
+    margin: 0;
+  }
+
+  .lp-theme-lime .lpx-timeline-node {
+    padding: 0.2rem 0.35rem;
+    font-size: 0.68rem;
+  }
+
+  .lp-theme-lime .lpx-timeline-body {
+    min-height: 0;
+    padding: 0.15rem 0 0;
+    border: none;
+    background: none;
+    border-radius: 0;
+  }
+
+  .lp-theme-lime .lpx-timeline-title {
+    margin-bottom: 0.1rem;
+    font-size: 0.88rem;
+  }
+
+  .lp-theme-lime .lpx-faq {
+    gap: 0.35rem;
+  }
+
+  .lp-theme-lime .lpx-faq-item {
+    border-radius: 10px;
+  }
+
+  .lp-theme-lime .lpx-faq-q {
+    padding: 0.55rem 0.65rem;
+    font-size: 0.84rem;
+  }
+
+  .lp-theme-lime .lpx-faq-a p {
+    padding: 0 0.65rem 0.55rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  .lp-theme-lime .lpx-footer {
+    padding: 0.9rem 0 1.1rem;
+  }
+
+  .lp-theme-lime .lpx-footer-grid {
+    gap: 0.75rem 1rem;
+  }
+
+  .lp-theme-lime .lpx-footer-brand-row {
+    margin-bottom: 0.25rem;
+  }
+
+  .lp-theme-lime .lpx-footer-copy {
+    margin: 0;
+    font-size: 0.75rem;
+  }
+}
