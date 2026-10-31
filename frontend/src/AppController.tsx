@@ -2369,7 +2369,9 @@ return (
           onLoadPlatformInvoices={loadPlatformInvoices}
           onLoadPlatformTransactions={loadPlatformTransactions}
         />
-      ) : onboarding?.tenant_status !== "approved" ? (
+      ) : !onboarding ? (
+        <AppRouteFallback />
+      ) : onboarding.tenant_status !== "approved" ? (
         <OnboardingScreenLazy onboarding={onboarding} onLogout={handleLogout} />
       ) : (
         <ClientDashboardLazy
