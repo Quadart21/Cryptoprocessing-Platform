@@ -8,7 +8,7 @@ import type {
   ProviderEventItem,
   TransactionItem,
 } from "../../../api";
-import { ProjectApiUsagePanel } from "../../components/ProjectApiUsagePanel";
+import { ClientCardTraffic } from "./ClientCardTraffic";
 import { formatDecimal, formatMoneyAmount } from "../../../utils/format";
 import { invoiceCompactPillClass, invoiceStatusLabelRu } from "../../../utils/invoiceStatus";
 import { findTransactionForInvoice } from "../../../utils/invoiceSettlementRepair";
@@ -37,6 +37,7 @@ type ClientCardOperationsProps = {
   payouts: PayoutRequestItem[];
   projects: ProjectItem[];
   selectedInvoiceId: string | null;
+  tenantId: string;
   transactions: TransactionItem[];
   view: ClientOpsView;
   onApprovePayout: (payoutId: string) => void;
@@ -232,23 +233,8 @@ export function ClientCardOperations(props: ClientCardOperationsProps) {
       {props.view === "traffic" ? (
         !props.adminToken ? (
           <p className="cc-empty">Нет сессии администратора для загрузки статистики.</p>
-        ) : props.projects.length === 0 ? (
-          <p className="cc-empty">У клиента пока нет проектов.</p>
         ) : (
-          <div className="cc-stack">
-            <p className="cc-hint">
-              Входящие запросы Merchant API, платёжная страница, webhook Crypto-Cash и доставка webhook мерчанту. Данные
-              хранятся до 45 дней.
-            </p>
-            {props.projects.map((project) => (
-              <ProjectApiUsagePanel
-                key={project.id}
-                projectId={project.id}
-                projectName={project.name}
-                token={props.adminToken ?? ""}
-              />
-            ))}
-          </div>
+          <ClientCardTraffic projects={props.projects} tenantId={props.tenantId} token={props.adminToken} />
         )
       ) : null}
     </div>

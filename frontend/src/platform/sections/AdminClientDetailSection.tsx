@@ -314,6 +314,7 @@ export function AdminClientDetailSection({
                   payouts={selectedTenantPayouts}
                   projects={selectedTenantDetail.projects ?? []}
                   selectedInvoiceId={selectedInvoiceId}
+                  tenantId={selectedTenantDetail.tenant.id}
                   transactions={selectedTenantTransactions}
                   view={opsView}
                 />

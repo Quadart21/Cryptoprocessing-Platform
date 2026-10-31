@@ -27,7 +27,7 @@ export function AdminPlatformApiUsageSection({ adminToken }: AdminPlatformApiUsa
       <ApiUsagePanel
         className="panel panel-span-2"
         loadUsage={loadUsage}
-        subtitle="Вся платформа: Merchant API, pay-страница, Crypto-Cash, webhook мерчантам, rate limit"
+        subtitle="Вся платформа · хранится 45 дней"
         title="Системный трафик"
       />
     </section>

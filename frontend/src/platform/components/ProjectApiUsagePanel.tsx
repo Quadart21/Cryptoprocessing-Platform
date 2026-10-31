@@ -16,10 +16,6 @@ export function ProjectApiUsagePanel({ token, projectId, projectName }: ProjectA
   );
 
   return (
-    <ApiUsagePanel
-      loadUsage={loadUsage}
-      subtitle="API-трафик и rate limit"
-      title={projectName}
-    />
+    <ApiUsagePanel loadUsage={loadUsage} subtitle="Хранится 45 дней" title={projectName} />
   );
 }
