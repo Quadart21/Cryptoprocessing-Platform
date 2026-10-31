@@ -781,7 +781,6 @@ export const merchantExt: TranslationDict = {
         orderPrefix: "merchant_order_id",
         requirements: "Требования",
         download: "Скачать ZIP",
-        viewSource: "Исходники на GitHub",
         openModuleGuide: "Инструкция",
         moduleGuideLabel: "Установка",
         moduleGuideTitle: "Пошагово для этой CMS",

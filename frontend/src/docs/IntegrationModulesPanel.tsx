@@ -6,7 +6,6 @@ import {
   INTEGRATION_MODULES,
   INTEGRATIONS_BUNDLE_FILE,
   integrationDownloadUrl,
-  integrationGithubTreeUrl,
 } from "./integrationDownloads";
 
 type IntegrationModulesPanelProps = {
@@ -48,7 +47,6 @@ export function IntegrationModulesPanel({
       <div className="docs-integration-grid">
         {INTEGRATION_MODULES.map((module) => {
           const downloadUrl = integrationDownloadUrl(module.downloadFile);
-          const sourceUrl = integrationGithubTreeUrl(module.githubPath);
           const guidePath = `/integrations/${module.id}`;
           return (
             <article className="docs-integration-card" key={module.id}>
@@ -90,9 +88,6 @@ export function IntegrationModulesPanel({
                 ) : null}
                 <a className="docs-site-button docs-site-button-ghost" href={downloadUrl} download>
                   {t("merchant.apiDocs.integrations.download")}
-                </a>
-                <a className="docs-site-button docs-site-button-ghost" href={sourceUrl} rel="noreferrer" target="_blank">
-                  {t("merchant.apiDocs.integrations.viewSource")}
                 </a>
               </div>
             </article>

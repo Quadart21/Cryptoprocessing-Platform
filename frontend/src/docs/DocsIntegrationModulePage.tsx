@@ -5,7 +5,6 @@ import {
   INTEGRATION_MODULES,
   type IntegrationModuleId,
   integrationDownloadUrl,
-  integrationGithubTreeUrl,
 } from "./integrationDownloads";
 
 const MODULE_IDS = new Set(INTEGRATION_MODULES.map((module) => module.id));
@@ -25,7 +24,6 @@ export function DocsIntegrationModulePage() {
   const module = INTEGRATION_MODULES.find((item) => item.id === moduleId)!;
   const steps = ta<string>(`merchant.apiDocs.integrations.moduleGuides.${moduleId}.steps`);
   const downloadUrl = integrationDownloadUrl(module.downloadFile);
-  const sourceUrl = integrationGithubTreeUrl(module.githubPath);
 
   return (
     <article className="docs-guide docs-integration-module">
@@ -50,9 +48,6 @@ export function DocsIntegrationModulePage() {
         <div className="docs-integration-actions docs-integration-module-actions">
           <a className="docs-site-button docs-site-button-primary" href={downloadUrl} download>
             {t("merchant.apiDocs.integrations.download")}
-          </a>
-          <a className="docs-site-button docs-site-button-ghost" href={sourceUrl} rel="noreferrer" target="_blank">
-            {t("merchant.apiDocs.integrations.viewSource")}
           </a>
         </div>
       </section>
