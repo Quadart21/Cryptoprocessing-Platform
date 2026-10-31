@@ -61,12 +61,12 @@ def _init_crypto_cash_rates_price_field(**_: object) -> None:
     """Load price-field for on-demand refreshes. Continuous polling stays on the API process only."""
     import asyncio
 
-    from app.db.session import AsyncSessionLocal
+    from app.db.celery_session import celery_db_session
     from app.services.billing_policy_service import BillingPolicyService
     from app.services.crypto_cash_rates_cache import get_crypto_cash_rates_cache
 
     async def _load_price_field() -> str:
-        async with AsyncSessionLocal() as session:
+        async with celery_db_session() as session:
             return await BillingPolicyService(session).get_exchange_rate_price_field()
 
     get_crypto_cash_rates_cache().set_price_field(asyncio.run(_load_price_field()))

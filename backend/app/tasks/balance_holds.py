@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from app.celery_app import celery_app
-from app.db.session import AsyncSessionLocal
+from app.db.celery_session import celery_db_session
 from app.services.balance_hold_service import BalanceHoldService
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ def release_matured_balance_holds() -> dict:
 
 
 async def _release_matured_balance_holds() -> dict:
-    async with AsyncSessionLocal() as db:
+    async with celery_db_session() as db:
         hold_service = BalanceHoldService(db)
         stats = await hold_service.sync_tenant_balance_holds()
         await db.commit()

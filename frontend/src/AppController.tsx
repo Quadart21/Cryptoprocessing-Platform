@@ -275,6 +275,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
   );
   const [selectedInvoiceEvents, setSelectedInvoiceEvents] = useState<ProviderEventItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [newApiSecret, setNewApiSecret] = useState<string | null>(null);
@@ -658,18 +659,28 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSelectedInvoiceDetail(null);
       setSelectedInvoiceEvents([]);
 
-      const onboardingStatus = await fetchOnboardingStatus(accessToken);
+      // Leave the login form as soon as /me succeeds; cabinet shell can load in parallel.
+      setLoading(false);
+
+      const [
+        onboardingStatus,
+        projectItems,
+        apiKeyItems,
+        invoiceItems,
+        balanceInfo,
+        transactionItems,
+        payoutItems,
+      ] = await Promise.all([
+        fetchOnboardingStatus(accessToken),
+        fetchProjects(accessToken).catch(() => [] as Awaited<ReturnType<typeof fetchProjects>>),
+        fetchApiKeys(accessToken).catch(() => [] as Awaited<ReturnType<typeof fetchApiKeys>>),
+        fetchInvoices(accessToken).catch(() => [] as Awaited<ReturnType<typeof fetchInvoices>>),
+        fetchBalance(accessToken).catch(() => null),
+        fetchClientTransactions(accessToken).catch(() => [] as Awaited<ReturnType<typeof fetchClientTransactions>>),
+        fetchClientPayouts(accessToken).catch(() => [] as Awaited<ReturnType<typeof fetchClientPayouts>>),
+      ]);
       setOnboarding(onboardingStatus);
       if (onboardingStatus.tenant_status === "approved") {
-        const [projectItems, apiKeyItems, invoiceItems, balanceInfo, transactionItems, payoutItems] =
-          await Promise.all([
-            fetchProjects(accessToken),
-            fetchApiKeys(accessToken),
-            fetchInvoices(accessToken),
-            fetchBalance(accessToken),
-            fetchClientTransactions(accessToken),
-            fetchClientPayouts(accessToken),
-          ]);
         setProjects(projectItems);
         setApiKeys(apiKeyItems);
         setInvoices(invoiceItems);
@@ -683,7 +694,6 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
         }
         setSelectedClientInvoiceDetail(null);
         setIsClientInvoiceModalOpen(false);
-        setLoading(false);
         void loadMerchantDeferredData(accessToken);
       } else {
         setProjects([]);
@@ -711,7 +721,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      setLoading(true);
+      setAuthSubmitting(true);
       setError(null);
       setSuccess(null);
       setNewApiSecret(null);
@@ -729,14 +739,14 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
         setError(flash.loginFailed(err));
       }
     } finally {
-      setLoading(false);
+      setAuthSubmitting(false);
     }
   }
 
   async function handleLoginTwoFactor(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      setLoading(true);
+      setAuthSubmitting(true);
       setError(null);
       setSuccess(null);
       setNewApiSecret(null);
@@ -745,7 +755,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
     } catch (err) {
       setError(flash.loginFailed(err));
     } finally {
-      setLoading(false);
+      setAuthSubmitting(false);
     }
   }
 
@@ -2197,10 +2207,10 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
 return (
     <>
       <Suspense fallback={<AppRouteFallback />}>
-      {!token || !user ? (
+      {!token ? (
         adminHost ? (
           <AdminLoginShell
-            loading={loading}
+            loading={authSubmitting || loading}
             success={success}
             error={error}
             loginForm={loginForm}
@@ -2239,7 +2249,7 @@ return (
             mode={mode}
             loginStep={loginStep}
             registrationEnabled
-            loading={loading}
+            loading={authSubmitting || loading}
             success={success}
             error={error}
             loginForm={loginForm}
@@ -2267,7 +2277,9 @@ return (
             onOpenPublicPage={(slug) => openPublicPage("cms", slug)}
           />
         )
-) : isAffiliateRole(user.role) ? (
+      ) : !user ? (
+        <AppRouteFallback />
+      ) : isAffiliateRole(user.role) ? (
         <PartnerDashboardLazy token={token} user={user} onLogout={handleLogout} />
       ) : isPlatformRole(user.role) ? (
         <AdminDashboardLazy

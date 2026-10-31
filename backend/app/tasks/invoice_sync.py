@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from app.celery_app import celery_app
-from app.db.session import AsyncSessionLocal
+from app.db.celery_session import celery_db_session
 from app.models.invoice import Invoice
 from app.providers.crypto_cash import CryptoCashProviderError
 from app.services.billing_policy_service import BillingPolicyService
@@ -27,7 +27,7 @@ async def _sync_all_pending_invoices() -> dict:
     failed_count = 0
     errors = []
 
-    async with AsyncSessionLocal() as db:
+    async with celery_db_session() as db:
         pending_invoices = list(
             (
                 await db.scalars(
@@ -100,7 +100,7 @@ async def _expire_unpaid_invoices() -> dict:
     failed_count = 0
     now = datetime.now(timezone.utc)
 
-    async with AsyncSessionLocal() as db:
+    async with celery_db_session() as db:
         expired_pending = list(
             (
                 await db.scalars(
@@ -132,13 +132,13 @@ async def _expire_unpaid_invoices() -> dict:
                 failed_count += 1
                 logger.exception("Expire invoice %s failed unexpectedly", invoice.id)
 
-    result = {
-        "candidates": len(expired_pending),
-        "cancelled": cancelled_count,
-        "failed": failed_count,
-    }
-    logger.info("Expire unpaid invoices completed: %s", result)
-    return result
+        result = {
+            "candidates": len(expired_pending),
+            "cancelled": cancelled_count,
+            "failed": failed_count,
+        }
+        logger.info("Expire unpaid invoices completed: %s", result)
+        return result
 
 
 @celery_app.task(name="app.tasks.invoice_sync.sync_single_invoice")
@@ -147,7 +147,7 @@ def sync_single_invoice(invoice_id: str) -> dict:
 
 
 async def _sync_single_invoice(invoice_id: str) -> dict:
-    async with AsyncSessionLocal() as db:
+    async with celery_db_session() as db:
         try:
             invoice = await db.scalar(select(Invoice).where(Invoice.id == invoice_id))
             if invoice is None:
@@ -180,7 +180,7 @@ def refresh_exchange_rate_cache() -> dict:
 
 
 async def _refresh_exchange_rate_cache() -> dict:
-    async with AsyncSessionLocal() as db:
+    async with celery_db_session() as db:
         try:
             # One Crypto-Cash fetch per beat tick (no continuous Celery pollers).
             get_crypto_cash_rates_cache().refresh_sync()

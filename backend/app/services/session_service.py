@@ -29,8 +29,8 @@ class SessionService:
         if user_agent is not None:
             user_agent = user_agent[:512]
 
-        await self._cleanup_old_sessions(user.id)
-        await self._enforce_max_sessions(user.id)
+        await self._cleanup_old_sessions(user.id, commit=False)
+        await self._enforce_max_sessions(user.id, commit=False)
 
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(minutes=settings.refresh_token_expire_minutes)
@@ -138,7 +138,7 @@ class SessionService:
             ).all()
         )
 
-    async def _cleanup_old_sessions(self, user_id: str) -> None:
+    async def _cleanup_old_sessions(self, user_id: str, *, commit: bool = True) -> None:
         now = datetime.now(timezone.utc)
         old_sessions = list(
             (
@@ -153,10 +153,10 @@ class SessionService:
         for session in old_sessions:
             session.is_revoked = True
             self.db.add(session)
-        if old_sessions:
+        if old_sessions and commit:
             await self.db.commit()
 
-    async def _enforce_max_sessions(self, user_id: str) -> None:
+    async def _enforce_max_sessions(self, user_id: str, *, commit: bool = True) -> None:
         now = datetime.now(timezone.utc)
         active_sessions = list(
             (
@@ -175,7 +175,8 @@ class SessionService:
             oldest.revoked_at = datetime.now(timezone.utc)
             oldest.revoke_reason = "max_sessions_exceeded"
             self.db.add(oldest)
-            await self.db.commit()
+            if commit:
+                await self.db.commit()
 
     @staticmethod
     def _hash_token(token: str) -> str:

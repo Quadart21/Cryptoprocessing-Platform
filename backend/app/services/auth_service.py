@@ -77,8 +77,7 @@ class AuthService:
         user.last_failed_login_at = None
         user.login_locked_until = None
         self.db.add(user)
-        await self.db.commit()
-
+        # Session create commits user + session cleanup in one round-trip.
         access_token = create_access_token(user.id)
         refresh_token = create_refresh_token(user.id)
 
