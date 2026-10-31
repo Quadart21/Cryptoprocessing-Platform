@@ -394,8 +394,7 @@ async def recover_password(
             ],
             context={
                 "temporary_password": plain_password,
-                # Шаблон password_generated дописывает recovery_token к строке пароля.
-                "recovery_token": f"\nRecovery code: {token}",
+                "recovery_token": token,
             },
             force_email=True,
         )

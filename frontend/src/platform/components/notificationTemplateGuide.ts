@@ -40,7 +40,7 @@ export const TEMPLATE_VARIABLE_HINTS: Record<string, string> = {
   event_code: "Технический код события (application_submitted, payout_approved и т.д.).",
   event_title: "Человекочитаемое название события на русском.",
   event_subject: "Готовая тема события — то, что система сформировала до подстановки в шаблон.",
-  message_lines: "Основной текст уведомления одной строкой с переносами (plain).",
+  message_lines: "Текст письма: сначала русский, затем строка --- и английский. Пароль, ключи и адрес верстаются плашками.",
   message_lines_html: "HTML-версия основного текста — абзацы <p> без ручной вёрстки.",
   user_email: "Email получателя уведомления.",
   user_full_name: "Имя получателя из профиля.",

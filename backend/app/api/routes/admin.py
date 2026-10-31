@@ -175,7 +175,6 @@ async def _notify_user_access_credentials(
     }
     if invite_token:
         extra_context["invite_token"] = invite_token
-        extra_context["recovery_token"] = f"\nInvite token: {invite_token}"
     if tenant_name:
         extra_context["tenant_name"] = tenant_name
 
@@ -262,10 +261,18 @@ async def create_tenant(
         subject="Project created by administrator",
         lines=[
             f"Project: {tenant.name}",
+            f"Project ID: {project_id}",
             f"Public key: {api_public_key}",
             f"Secret key: {api_secret_key}",
             f"Invite token: {invite_token}",
         ],
+        context={
+            "tenant_name": tenant.name,
+            "project_id": project_id,
+            "api_public_key": api_public_key,
+            "api_secret_key": api_secret_key,
+            "invite_token": invite_token,
+        },
         force_email=True,
     )
 

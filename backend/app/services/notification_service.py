@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timezone
 from dataclasses import dataclass
@@ -10,6 +10,14 @@ from typing import Any, Iterable
 from urllib.parse import urlparse
 
 from app.core.public_urls import is_allowed_brand_logo_reference, resolve_public_asset_url
+from app.services.email_letter import (
+    letter_body_html,
+    letter_footer_lines,
+    prepare_letter_text,
+    resolve_reply_email,
+    resolve_site_url,
+    wrap_letter_html,
+)
 
 import requests
 from sqlalchemy import select
@@ -237,7 +245,7 @@ class NotificationService:
         "email_body": "{{ message_lines_html }}",
         "telegram_body": "{{ event_subject }}\n\n{{ message_lines }}",
     }
-    DEFAULT_EMAIL_SUBJECT_BY_EVENT: dict[str, str] = {
+    LEGACY_EMAIL_SUBJECT_BY_EVENT: dict[str, str] = {
         EVENT_APPLICATION_SUBMITTED: "{{ brand_name }}: registration request received",
         EVENT_APPLICATION_APPROVED: "{{ brand_name }}: project approved",
         EVENT_APPLICATION_REJECTED: "{{ brand_name }}: application rejected",
@@ -260,7 +268,7 @@ class NotificationService:
         EVENT_PARTNER_PAYOUT_APPROVED: "{{ brand_name }}: partner payout approved",
         EVENT_PARTNER_PAYOUT_REJECTED: "{{ brand_name }}: partner payout rejected",
     }
-    DEFAULT_MESSAGE_LINES_BY_EVENT: dict[str, str] = {
+    LEGACY_MESSAGE_LINES_BY_EVENT: dict[str, str] = {
         EVENT_APPLICATION_SUBMITTED: (
             "Hello, {{ user_full_name }}!\n"
             "We received a registration request for project \"{{ tenant_name }}\".\n"
@@ -381,6 +389,420 @@ class NotificationService:
             "Comment: {{ review_comment }}"
         ),
     }
+    DEFAULT_EMAIL_SUBJECT_BY_EVENT: dict[str, str] = {
+        EVENT_APPLICATION_SUBMITTED: "{{ brand_name }}: заявка получена · request received",
+        EVENT_APPLICATION_APPROVED: "{{ brand_name }}: проект одобрен · project approved",
+        EVENT_APPLICATION_REJECTED: "{{ brand_name }}: заявка отклонена · application rejected",
+        EVENT_PASSWORD_GENERATED: "{{ brand_name }}: данные для входа · sign-in details",
+        EVENT_PASSWORD_CHANGED: "{{ brand_name }}: пароль изменён · password changed",
+        EVENT_API_KEY_GENERATED: "{{ brand_name }}: новый API-ключ · new API key",
+        EVENT_API_KEY_REGENERATED: "{{ brand_name }}: API-ключ перевыпущен · API key regenerated",
+        EVENT_API_KEY_REVOKED: "{{ brand_name }}: API-ключ отозван · API key revoked",
+        EVENT_TWO_FACTOR_ENABLED: "{{ brand_name }}: двухфакторная защита включена · 2FA enabled",
+        EVENT_TWO_FACTOR_DISABLED: "{{ brand_name }}: двухфакторная защита отключена · 2FA disabled",
+        EVENT_PAYOUT_REQUESTED: "{{ brand_name }}: запрос на выплату · payout requested",
+        EVENT_PAYOUT_APPROVED: "{{ brand_name }}: выплата одобрена · payout approved",
+        EVENT_PAYOUT_REJECTED: "{{ brand_name }}: выплата отклонена · payout rejected",
+        EVENT_PARTNER_APPLICATION_SUBMITTED: "{{ brand_name }}: заявка партнёра получена · partner application received",
+        EVENT_PARTNER_APPLICATION_APPROVED: "{{ brand_name }}: партнёрский кабинет открыт · partner account approved",
+        EVENT_PARTNER_APPLICATION_REJECTED: "{{ brand_name }}: заявка партнёра отклонена · partner application rejected",
+        EVENT_PARTNER_SUSPENDED: "{{ brand_name }}: партнёрский кабинет приостановлен · partner account suspended",
+        EVENT_PARTNER_MERCHANT_ATTRIBUTED: "{{ brand_name }}: новый мерчант по вашей ссылке · new referred merchant",
+        EVENT_PARTNER_PAYOUT_REQUESTED: "{{ brand_name }}: запрос выплаты партнёра · partner payout requested",
+        EVENT_PARTNER_PAYOUT_APPROVED: "{{ brand_name }}: выплата партнёра одобрена · partner payout approved",
+        EVENT_PARTNER_PAYOUT_REJECTED: "{{ brand_name }}: выплата партнёра отклонена · partner payout rejected",
+    }
+    DEFAULT_MESSAGE_LINES_BY_EVENT: dict[str, str] = {
+        EVENT_APPLICATION_SUBMITTED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Заявку получили, она на проверке. Напишем, когда будет решение.\n"
+            "\n"
+            "Проект: {{ tenant_name }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "We received the application. It is under review — we will write when there is a decision.\n"
+            "\n"
+            "Project: {{ tenant_name }}"
+        ),
+        EVENT_APPLICATION_APPROVED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Проект одобрен. Можно входить в кабинет и продолжать подключение.\n"
+            "\n"
+            "Проект: {{ tenant_name }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The project is approved. You can sign in and continue the integration.\n"
+            "\n"
+            "Project: {{ tenant_name }}"
+        ),
+        EVENT_APPLICATION_REJECTED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Заявку отклонили.\n"
+            "\n"
+            "Проект: {{ tenant_name }}\n"
+            "Комментарий: {{ review_comment }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The application was rejected.\n"
+            "\n"
+            "Project: {{ tenant_name }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+        EVENT_PASSWORD_GENERATED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Данные для входа. После первого входа смените пароль.\n"
+            "\n"
+            "Почта: {{ user_email }}\n"
+            "Временный пароль: {{ temporary_password }}\n"
+            "Код восстановления: {{ recovery_token }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "Sign-in details. Change the password after the first sign-in.\n"
+            "\n"
+            "Email: {{ user_email }}\n"
+            "Temporary password: {{ temporary_password }}\n"
+            "Recovery code: {{ recovery_token }}"
+        ),
+        EVENT_PASSWORD_CHANGED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Пароль для входа изменён. Если это были не вы, сразу напишите в поддержку.\n"
+            "\n"
+            "Почта: {{ user_email }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The sign-in password was changed. If this was not you, contact support immediately.\n"
+            "\n"
+            "Email: {{ user_email }}"
+        ),
+        EVENT_API_KEY_GENERATED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Выпущен новый API-ключ. Секретный ключ показывается один раз — сохраните его.\n"
+            "\n"
+            "Проект: {{ tenant_name }}\n"
+            "ID проекта: {{ project_id }}\n"
+            "Публичный ключ: {{ api_public_key }}\n"
+            "Секретный ключ: {{ api_secret_key }}\n"
+            "Токен приглашения: {{ invite_token }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "A new API key was issued. The secret key is shown once — store it safely.\n"
+            "\n"
+            "Project: {{ tenant_name }}\n"
+            "Project ID: {{ project_id }}\n"
+            "Public key: {{ api_public_key }}\n"
+            "Secret key: {{ api_secret_key }}\n"
+            "Invite token: {{ invite_token }}"
+        ),
+        EVENT_API_KEY_REGENERATED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "API-ключ перевыпущен. Прежний секрет больше не действует.\n"
+            "\n"
+            "Проект: {{ tenant_name }}\n"
+            "Публичный ключ: {{ api_public_key }}\n"
+            "Секретный ключ: {{ api_secret_key }}\n"
+            "Инициатор: {{ initiated_by_email }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The API key was regenerated. The previous secret no longer works.\n"
+            "\n"
+            "Project: {{ tenant_name }}\n"
+            "Public key: {{ api_public_key }}\n"
+            "Secret key: {{ api_secret_key }}\n"
+            "Initiated by: {{ initiated_by_email }}"
+        ),
+        EVENT_API_KEY_REVOKED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "API-ключ отозван. Если это сделали не вы, сразу напишите в поддержку.\n"
+            "\n"
+            "Публичный ключ: {{ api_public_key }}\n"
+            "Инициатор: {{ initiated_by_email }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The API key was revoked. If this was not you, contact support immediately.\n"
+            "\n"
+            "Public key: {{ api_public_key }}\n"
+            "Initiated by: {{ initiated_by_email }}"
+        ),
+        EVENT_TWO_FACTOR_ENABLED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Для входа включена двухфакторная защита.\n"
+            "\n"
+            "Почта: {{ user_email }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "Two-factor sign-in protection is now enabled.\n"
+            "\n"
+            "Email: {{ user_email }}"
+        ),
+        EVENT_TWO_FACTOR_DISABLED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Двухфакторная защита отключена. Если это были не вы, сразу смените пароль.\n"
+            "\n"
+            "Почта: {{ user_email }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "Two-factor protection was disabled. If this was not you, change your password immediately.\n"
+            "\n"
+            "Email: {{ user_email }}"
+        ),
+        EVENT_PAYOUT_REQUESTED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Запрос на выплату создан и ждёт решения.\n"
+            "\n"
+            "ID выплаты: {{ payout_id }}\n"
+            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
+            "Адрес: {{ destination_address }}\n"
+            "Инициатор: {{ initiated_by_email }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "A payout request was created and is waiting for a decision.\n"
+            "\n"
+            "Payout ID: {{ payout_id }}\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Address: {{ destination_address }}\n"
+            "Initiated by: {{ initiated_by_email }}"
+        ),
+        EVENT_PAYOUT_APPROVED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Выплату одобрили.\n"
+            "\n"
+            "ID выплаты: {{ payout_id }}\n"
+            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
+            "Статус: {{ payout_status }}\n"
+            "Комментарий: {{ review_comment }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The payout was approved.\n"
+            "\n"
+            "Payout ID: {{ payout_id }}\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Status: {{ payout_status }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+        EVENT_PAYOUT_REJECTED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Выплату отклонили.\n"
+            "\n"
+            "ID выплаты: {{ payout_id }}\n"
+            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
+            "Статус: {{ payout_status }}\n"
+            "Комментарий: {{ review_comment }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The payout was rejected.\n"
+            "\n"
+            "Payout ID: {{ payout_id }}\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Status: {{ payout_status }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+        EVENT_PARTNER_APPLICATION_SUBMITTED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Заявку партнёра получили. Напишем, когда будет решение.\n"
+            "\n"
+            "Партнёр: {{ partner_display_name }}\n"
+            "Реферальный код: {{ referral_code }}\n"
+            "Статус: {{ partner_status }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "We received the partner application. We will write when there is a decision.\n"
+            "\n"
+            "Partner: {{ partner_display_name }}\n"
+            "Referral code: {{ referral_code }}\n"
+            "Status: {{ partner_status }}"
+        ),
+        EVENT_PARTNER_APPLICATION_APPROVED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Партнёрский кабинет открыт. Можно входить и делиться ссылкой.\n"
+            "\n"
+            "Партнёр: {{ partner_display_name }}\n"
+            "Реферальный код: {{ referral_code }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The partner account is approved. You can sign in and share your link.\n"
+            "\n"
+            "Partner: {{ partner_display_name }}\n"
+            "Referral code: {{ referral_code }}"
+        ),
+        EVENT_PARTNER_APPLICATION_REJECTED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Заявку партнёра отклонили.\n"
+            "\n"
+            "Партнёр: {{ partner_display_name }}\n"
+            "Комментарий: {{ review_comment }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The partner application was rejected.\n"
+            "\n"
+            "Partner: {{ partner_display_name }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+        EVENT_PARTNER_SUSPENDED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Партнёрский кабинет приостановлен.\n"
+            "\n"
+            "Партнёр: {{ partner_display_name }}\n"
+            "Реферальный код: {{ referral_code }}\n"
+            "Комментарий: {{ review_comment }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The partner account was suspended.\n"
+            "\n"
+            "Partner: {{ partner_display_name }}\n"
+            "Referral code: {{ referral_code }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+        EVENT_PARTNER_MERCHANT_ATTRIBUTED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "По вашему коду зарегистрировался новый мерчант. Комиссия начисляется с комиссии платформы после расчёта.\n"
+            "\n"
+            "Реферальный код: {{ referral_code }}\n"
+            "Мерчант: {{ merchant_name }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "A new merchant signed up with your code. Commission accrues from platform fees after settlement.\n"
+            "\n"
+            "Referral code: {{ referral_code }}\n"
+            "Merchant: {{ merchant_name }}"
+        ),
+        EVENT_PARTNER_PAYOUT_REQUESTED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Запрос выплаты партнёра создан.\n"
+            "\n"
+            "ID выплаты: {{ payout_id }}\n"
+            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
+            "Адрес: {{ destination_address }}\n"
+            "Статус: {{ payout_status }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "A partner payout request was created.\n"
+            "\n"
+            "Payout ID: {{ payout_id }}\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Address: {{ destination_address }}\n"
+            "Status: {{ payout_status }}"
+        ),
+        EVENT_PARTNER_PAYOUT_APPROVED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Выплату партнёра одобрили.\n"
+            "\n"
+            "ID выплаты: {{ payout_id }}\n"
+            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
+            "Адрес: {{ destination_address }}\n"
+            "Статус: {{ payout_status }}\n"
+            "Комментарий: {{ review_comment }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The partner payout was approved.\n"
+            "\n"
+            "Payout ID: {{ payout_id }}\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Address: {{ destination_address }}\n"
+            "Status: {{ payout_status }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+        EVENT_PARTNER_PAYOUT_REJECTED: (
+            "Здравствуйте, {{ user_full_name }}!\n"
+            "\n"
+            "Выплату партнёра отклонили.\n"
+            "\n"
+            "ID выплаты: {{ payout_id }}\n"
+            "Сумма: {{ payout_amount }} {{ payout_currency }}\n"
+            "Статус: {{ payout_status }}\n"
+            "Комментарий: {{ review_comment }}\n"
+            "\n"
+            "---\n"
+            "\n"
+            "Hello, {{ user_full_name }}!\n"
+            "\n"
+            "The partner payout was rejected.\n"
+            "\n"
+            "Payout ID: {{ payout_id }}\n"
+            "Amount: {{ payout_amount }} {{ payout_currency }}\n"
+            "Status: {{ payout_status }}\n"
+            "Comment: {{ review_comment }}"
+        ),
+    }
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -413,7 +835,10 @@ class NotificationService:
         for definition in self.EVENT_DEFINITIONS:
             default_template = self._default_template_for(definition)
             editor_default_message_lines = self._default_message_lines_for(definition)
-            stored_template = template_map.get(definition.code, {})
+            stored_template = self._custom_template_fields(
+                definition.code,
+                template_map.get(definition.code, {}),
+            )
             views.append(
                 {
                 "code": definition.code,
@@ -799,7 +1224,7 @@ class NotificationService:
     def _default_template_for(cls, definition: NotificationEventDefinition) -> dict[str, str]:
         return {
             "email_subject": cls._default_email_subject_for(definition),
-            "message_lines": cls.DEFAULT_TEMPLATE["message_lines"],
+            "message_lines": cls._default_message_lines_for(definition),
             "email_body": cls.DEFAULT_TEMPLATE["email_body"],
             "telegram_body": cls.DEFAULT_TEMPLATE["telegram_body"],
         }
@@ -810,6 +1235,53 @@ class NotificationService:
             definition.code,
             cls.DEFAULT_TEMPLATE["message_lines"],
         )
+
+    @classmethod
+    def _field_is_builtin_default(cls, event_code: str, key: str, value: str | None) -> bool:
+        """Пустое поле, плейсхолдер и старый английский текст — не кастом шаблона."""
+        normalized = (value or "").replace("\r\n", "\n").strip()
+        if not normalized:
+            return True
+        placeholders = {
+            "email_subject": {"{{ event_subject }}"},
+            "message_lines": {"{{ message_lines }}"},
+            "email_body": {"{{ message_lines_html }}"},
+            "telegram_body": {"{{ event_subject }}\n\n{{ message_lines }}"},
+        }
+        if normalized in placeholders.get(key, set()):
+            return True
+        if key == "email_subject":
+            return normalized == (cls.LEGACY_EMAIL_SUBJECT_BY_EVENT.get(event_code) or "").strip()
+        legacy_lines = (cls.LEGACY_MESSAGE_LINES_BY_EVENT.get(event_code) or "").strip()
+        if key == "message_lines":
+            return normalized == legacy_lines
+        if key in {"email_body", "telegram_body"} and legacy_lines:
+            plain = cls._normalized_plain(normalized)
+            legacy_subject = (cls.LEGACY_EMAIL_SUBJECT_BY_EVENT.get(event_code) or "").strip()
+            stale_plains = {legacy_lines}
+            if legacy_subject:
+                stale_plains.add(f"{legacy_subject}\n\n{legacy_lines}")
+            return plain in stale_plains
+        return False
+
+    @classmethod
+    def _normalized_plain(cls, value: str) -> str:
+        text = re.sub(r"(?i)<br\s*/?>", "\n", value)
+        text = re.sub(r"(?i)</p>", "\n", text)
+        text = re.sub(r"(?i)</(div|li|h[1-4])>", "\n", text)
+        text = re.sub(r"<[^>]+>", "", text)
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        return "\n".join(lines)
+
+    @classmethod
+    def _custom_template_fields(cls, event_code: str, stored: dict[str, str]) -> dict[str, str]:
+        custom: dict[str, str] = {}
+        for key in ("email_subject", "message_lines", "email_body", "telegram_body"):
+            value = str(stored.get(key) or "").strip()
+            if value and not cls._field_is_builtin_default(event_code, key, value):
+                custom[key] = value
+        return custom
 
     @classmethod
     def _normalize_templates(cls, templates: Iterable[Any]) -> dict[str, dict[str, str]]:
@@ -897,12 +1369,19 @@ class NotificationService:
         definition = self.EVENT_DEFINITION_BY_CODE[event_code]
         template_map = self._parse_template_map(platform_settings.notification_templates_json)
         default_template = self._default_template_for(definition)
-        template = {**default_template, **template_map.get(event_code, {})}
+        template = {
+            **default_template,
+            **self._custom_template_fields(event_code, template_map.get(event_code, {})),
+        }
         if template_override is not None:
             for key in ("email_subject", "message_lines", "email_body", "telegram_body"):
-                if key in template_override:
-                    value = template_override.get(key)
-                    template[key] = str(value or "").strip() or default_template[key]
+                if key not in template_override:
+                    continue
+                value = str(template_override.get(key) or "").strip()
+                if not value or self._field_is_builtin_default(event_code, key, value):
+                    template[key] = default_template[key]
+                else:
+                    template[key] = value
         normalized_subject = fallback_subject.strip() or definition.title
         message_lines = [line.strip() for line in fallback_lines if line.strip()]
         if not message_lines:
@@ -929,15 +1408,15 @@ class NotificationService:
             context,
         )
         if rendered_message_lines:
-            message_lines_text = rendered_message_lines
+            prepared_letter = prepare_letter_text(rendered_message_lines)
+            message_lines_text = prepared_letter
             message_lines = [
-                line.strip()
-                for line in rendered_message_lines.replace("\r", "").split("\n")
-                if line.strip()
+                line.strip() for line in prepared_letter.split("\n") if line.strip()
             ]
             message_lines, _ = self._strip_image_placeholder_lines(message_lines)
-            message_lines_html = self._lines_to_html_paragraphs(message_lines)
-            context["message_lines"] = "\n".join(message_lines)
+            message_lines_text = prepare_letter_text("\n".join(message_lines))
+            message_lines_html = letter_body_html(message_lines_text)
+            context["message_lines"] = message_lines_text
             context["message_lines_html"] = message_lines_html
         email_body_template = str(template.get("email_body") or "").strip() or self.DEFAULT_TEMPLATE[
             "email_body"
@@ -959,13 +1438,23 @@ class NotificationService:
             logo_url=logo_url,
             brand_name=context["brand_name"],
         )
-        safe_email_text = self._strip_html(safe_email_html)
+        reply_to = (platform_settings.smtp_bz_reply_to or "").strip()
+        site_url = resolve_site_url(context.get("brand_url") or None)
+        reply_email = resolve_reply_email(reply_to)
+        if self._email_body_template_is_rich(email_body_template):
+            safe_email_text = self._strip_html(safe_email_html)
+        else:
+            safe_email_text = message_lines_text
+        footer_text = "\n".join(letter_footer_lines(site_url=site_url, reply_email=reply_email))
+        if footer_text:
+            safe_email_text = f"{safe_email_text}\n\n{footer_text}".strip()
 
         branded_email_html = self._wrap_email_html(
             body_html=safe_email_html,
             brand_name=context["brand_name"],
             logo_url=logo_url,
             brand_url=context["brand_url"] or None,
+            reply_to=reply_to or None,
         )
 
         telegram_text = rendered_telegram_body or f"{rendered_subject}\n\n{message_lines_text}"
@@ -1016,6 +1505,10 @@ class NotificationService:
             "payout_status": "approved",
             "destination_address": "TQdemoAddress123",
             "review_comment": "Тестовый комментарий",
+            "referral_code": "REFDEMO",
+            "partner_display_name": "Demo Partner",
+            "partner_status": "approved",
+            "merchant_name": "Demo Merchant",
             **(sample_context or {}),
         }
         rendered = self._render_notification_payload(
@@ -1115,39 +1608,47 @@ class NotificationService:
             value = raw_value.strip()
             if not value:
                 continue
-            if label in {"проект"}:
+            if label in {"проект", "project", "клиент", "client"}:
                 inferred.setdefault("tenant_name", value)
                 inferred.setdefault("project_name", value)
-            elif label == "project id":
+            elif label in {"project id", "id проекта"}:
                 inferred.setdefault("project_id", value)
-            elif label == "public key":
+            elif label in {"public key", "публичный ключ"}:
                 inferred.setdefault("api_public_key", value)
-            elif label == "secret key":
+            elif label in {"secret key", "секретный ключ"}:
                 inferred.setdefault("api_secret_key", value)
-            elif label == "invite token":
+            elif label in {"invite token", "токен приглашения"}:
                 inferred.setdefault("invite_token", value)
-            elif label in {"email", "пользователь"}:
+            elif label in {"email", "пользователь", "почта", "email (логин)"}:
                 inferred.setdefault("user_email", value)
                 inferred.setdefault("owner_email", value)
             elif label in {"временный пароль", "temporary password"}:
                 inferred.setdefault("temporary_password", value)
-            elif label in {"токен восстановления", "recovery token", "recovery code"}:
+            elif label in {"токен восстановления", "код восстановления", "recovery token", "recovery code"}:
                 inferred.setdefault("recovery_token", value)
-            elif label == "payout id":
+            elif label in {"payout id", "id выплаты"}:
                 inferred.setdefault("payout_id", value)
-            elif label == "сумма":
+            elif label in {"сумма", "amount"}:
                 amount_parts = value.split()
                 inferred.setdefault("payout_amount", amount_parts[0] if amount_parts else value)
                 if len(amount_parts) > 1:
                     inferred.setdefault("payout_currency", amount_parts[1])
-            elif label == "адрес":
+            elif label in {"адрес", "address"}:
                 inferred.setdefault("destination_address", value)
-            elif label == "инициатор":
+            elif label in {"инициатор", "initiated by"}:
                 inferred.setdefault("initiated_by_email", value)
-            elif label == "статус":
+            elif label in {"статус", "status"}:
                 inferred.setdefault("payout_status", value)
-            elif label == "комментарий":
+                inferred.setdefault("partner_status", value)
+            elif label in {"комментарий", "comment"}:
                 inferred.setdefault("review_comment", value)
+            elif label in {"партнёр", "партнер", "partner"}:
+                inferred.setdefault("partner_display_name", value)
+            elif label in {"реферальный код", "referral code"}:
+                inferred.setdefault("referral_code", value)
+            elif label in {"мерчант", "merchant"}:
+                inferred.setdefault("merchant_name", value)
+                inferred.setdefault("tenant_name", value)
         return inferred
 
     def send_notification_template_test(
@@ -1741,25 +2242,14 @@ class NotificationService:
         brand_name: str,
         logo_url: str | None,
         brand_url: str | None,
+        reply_to: str | None = None,
     ) -> str:
-        logo_markup = ""
-        if logo_url and "<img" not in body_html.lower():
-            logo_markup = (
-                '<div style="margin-bottom:18px;">'
-                f'<img src="{escape(logo_url)}" alt="{escape(brand_name)}" '
-                'style="max-height:44px;max-width:220px;display:block;" />'
-                "</div>"
-            )
-        footer_markup = ""
-        if brand_url:
-            footer_markup = (
-                '<p style="margin-top:20px;font-size:12px;color:#6f7d95;">'
-                f'<a href="{escape(brand_url)}" style="color:#2f6bff;text-decoration:none;">'
-                f"{escape(brand_url)}</a></p>"
-            )
-        return (
-            '<div style="font-family:Arial,sans-serif;line-height:1.55;color:#101828;">'
-            f"{logo_markup}{body_html}{footer_markup}</div>"
+        return wrap_letter_html(
+            body_html=body_html,
+            brand_name=brand_name,
+            logo_url=logo_url,
+            brand_url=brand_url,
+            reply_to=reply_to,
         )
 
     def _resolve_telegram_transport(
