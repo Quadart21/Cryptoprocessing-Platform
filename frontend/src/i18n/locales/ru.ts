@@ -30,6 +30,7 @@ export const ru: TranslationDict = {
     start: "Начать",
     connect: "Подключить",
     heroKicker: "Оплата криптовалютой",
+    signedOut: "Вход не выполнен.",
     heroTitlePrefix: "Принимайте",
     heroTitleAccent: "крипту",
     heroTitleSuffix: "просто",

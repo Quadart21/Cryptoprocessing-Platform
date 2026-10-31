@@ -30,6 +30,7 @@ export const ar: TranslationDict = {
     start: "ابدأ",
     connect: "اتصل",
     heroKicker: "ادفع بالعملات المشفرة",
+    signedOut: "لم يتم تسجيل الدخول.",
     heroTitlePrefix: "اقبل",
     heroTitleAccent: "العملات المشفرة",
     heroTitleSuffix: "بسهولة",

@@ -781,8 +781,9 @@
   color: var(--lp-lime);
 }
 
-/* Цифры героя на десктопе живут в макете телефона. */
-.lp-theme-lime .lpx-hero-facts {
+/* Цифры героя на десктопе живут в макете телефона. Полоска входа — только на телефоне. */
+.lp-theme-lime .lpx-hero-facts,
+.lp-theme-lime .lpx-login-bar {
   display: none;
   margin: 0;
   padding: 0;
@@ -876,8 +877,48 @@
     gap: 0;
   }
 
-  .lp-theme-lime .lpx-hero-kicker,
+  .lp-theme-lime .lpx-hero-copy {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lp-theme-lime .lpx-login-bar {
+    display: flex;
+    order: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0 0 1.15rem;
+    padding: 0.4rem 0.4rem 0.4rem 0.9rem;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 163, 255, 0.38);
+    background: rgba(6, 14, 26, 0.72);
+    list-style: none;
+  }
+
+  .lp-theme-lime .lpx-login-bar p {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.3;
+    color: #e8eef8;
+  }
+
+  .lp-theme-lime .lpx-login-bar-btn {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 0.45rem 1.05rem;
+    border-radius: 999px;
+    border: 1px solid rgba(45, 212, 191, 0.85);
+    background: transparent;
+    color: #5eead4;
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
   .lp-theme-lime .lpx-hero-avatars,
+  .lp-theme-lime .lpx-hero-social,
   .lp-theme-lime .lpx-hero-micro,
   .lp-theme-lime .lpx-hero-panel,
   .lp-theme-lime .lpx-kicker,
@@ -891,92 +932,101 @@
     display: none;
   }
 
+  .lp-theme-lime .lpx-hero-kicker {
+    display: block;
+    order: 1;
+    margin: 0 0 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--lp-lime);
+  }
+
   .lp-theme-lime .lpx-hero-title {
-    margin: 0 0 0.45rem;
-    font-size: 1.7rem;
-    line-height: 1.08;
+    order: 2;
+    margin: 0 0 0.7rem;
+    font-size: 2.05rem;
+    line-height: 1.05;
   }
 
   .lp-theme-lime .lpx-hero-lead {
-    margin: 0 0 0.75rem;
+    order: 3;
+    margin: 0 0 1.05rem;
     max-width: none;
-    font-size: 0.95rem;
-    line-height: 1.45;
-  }
-
-  .lp-theme-lime .lpx-hero-facts {
-    display: flex;
-    flex-direction: column;
-    margin: 0 0 0.75rem;
-    border: 1px solid var(--lp-line);
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.03);
-    overflow: hidden;
-  }
-
-  .lp-theme-lime .lpx-hero-facts li {
-    display: grid;
-    grid-template-columns: 5.25rem minmax(0, 1fr);
-    gap: 0.65rem;
-    align-items: baseline;
-    margin: 0;
-    padding: 0.55rem 0.75rem;
-    border: none;
-    border-radius: 0;
-    border-bottom: 1px solid var(--lp-line);
-    background: transparent;
-    text-align: left;
-  }
-
-  .lp-theme-lime .lpx-hero-facts li:last-child {
-    border-bottom: none;
-  }
-
-  .lp-theme-lime .lpx-hero-facts strong {
-    font-size: 0.95rem;
-    font-weight: 800;
-    line-height: 1.2;
-    color: #fff;
-  }
-
-  .lp-theme-lime .lpx-hero-facts span {
-    font-size: 0.82rem;
-    line-height: 1.3;
-    color: var(--lp-muted);
-  }
-
-  .lp-theme-lime .lpx-hero-social {
-    margin: 0 0 0.75rem;
-  }
-
-  .lp-theme-lime .lpx-hero-social-text {
-    font-size: 0.84rem;
-    line-height: 1.35;
+    font-size: 0.98rem;
+    line-height: 1.5;
+    color: #b7c3d4;
   }
 
   .lp-theme-lime .lpx-hero-actions {
+    order: 4;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.7rem;
-    margin: 0.35rem 0 0.9rem;
+    justify-content: flex-start;
+    gap: 0.65rem;
+    margin: 0 0 1.35rem;
   }
 
   .lp-theme-lime .lpx-hero-actions .nc-btn-lg {
-    width: min(100%, 22rem);
-    min-height: 64px;
-    padding: 1rem 1.4rem;
+    width: auto;
+    min-height: 48px;
+    padding: 0.72rem 1.15rem;
     border-radius: 999px;
-    font-size: 1.25rem;
-    font-weight: 800;
-    letter-spacing: 0.01em;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0;
     justify-content: center;
     text-align: center;
   }
 
+  .lp-theme-lime .lpx-hero-facts {
+    order: 5;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem 0.5rem;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    overflow: visible;
+  }
+
+  .lp-theme-lime .lpx-hero-facts li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.28rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    text-align: left;
+  }
+
+  .lp-theme-lime .lpx-hero-facts strong {
+    font-size: 1.65rem;
+    font-weight: 750;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: #fff;
+  }
+
+  .lp-theme-lime .lpx-hero-facts span {
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: #8ea0b5;
+  }
+
   .lp-theme-lime .lpx-token-row {
+    order: 6;
     flex-wrap: nowrap;
     gap: 0.35rem;
+    margin-top: 1rem;
     overflow-x: auto;
     scrollbar-width: none;
   }
