@@ -126,8 +126,15 @@ function handleWebhook(array $config): void
     $signature = $_SERVER['HTTP_X_MERSET_SIGNATURE'] ?? null;
     $secret = (string) ($config['webhook_secret'] ?? '');
 
-    if ($secret !== '' && !NorenWebhookVerifier::verify($rawBody, is_string($signature) ? $signature : null, $secret)) {
+    if ($secret === '') {
+        http_response_code(503);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'webhook_secret_missing']);
+        return;
+    }
+    if (!NorenWebhookVerifier::verify($rawBody, is_string($signature) ? $signature : null, $secret)) {
         http_response_code(401);
+        header('Content-Type: application/json');
         echo json_encode(['error' => 'invalid_signature']);
         return;
     }

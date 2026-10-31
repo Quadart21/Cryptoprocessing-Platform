@@ -31,7 +31,7 @@ export function DocsIntegrationsPage() {
         </ol>
       </section>
 
-      <IntegrationModulesPanel followUiLocale variant="full" />
+      <IntegrationModulesPanel hideHeader variant="full" />
 
       <nav className="docs-pager" aria-label={t("docsSite.pagerAria")}>
         <Link className="docs-pager-link docs-pager-link--prev" to={`/${prev}`}>

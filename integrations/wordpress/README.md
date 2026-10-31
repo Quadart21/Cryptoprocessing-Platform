@@ -9,6 +9,15 @@
 
 ## Установка
 
+### Из ZIP (docs.noren.digital)
+
+1. Скачайте `noren-wordpress.zip` и распакуйте — внутри папка `noren-payments`.
+2. Загрузите `noren-payments` в `wp-content/plugins/`.
+3. Активируйте плагин **Noren Digital Payments**.
+4. **WooCommerce → Настройки → Платежи → Noren Digital (крипто)**.
+
+### Из репозитория
+
 1. Скопируйте `integrations/wordpress/noren-payments` в `wp-content/plugins/noren-payments`.
 2. Активируйте плагин.
 3. **WooCommerce → Настройки → Платежи → Noren Digital (крипто)**.

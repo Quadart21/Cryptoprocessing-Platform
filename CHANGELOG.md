@@ -4,6 +4,26 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.20.36] — 2026-10-31
+
+### Добавлено
+
+- Отдельные страницы инструкций по CMS на docs: `/integrations/wordpress`, `/dle`, `/tilda`, `/oneC`.
+- Скрипт `ops/scripts/sync_integration_vendors.py` для синхронизации shared PHP в модули.
+
+### Изменено
+
+- ZIP WordPress собирается как папка `noren-payments/` с README — готов к загрузке в `wp-content/plugins/`.
+- Карточки интеграций: кнопка «Инструкция» на гайд модуля; убран дублирующий заголовок на `/integrations`.
+
+### Исправлено
+
+- Webhook WordPress/DLE/Tilda отклоняют запрос, если secret не задан (раньше проверка подписи пропускалась).
+- 1С `NorenAPI.bsl`: корректный разбор хоста и пути из `ApiBaseUrl` для `HTTPЗапрос`.
+- Арабская локаль: полный блок `merchant.apiDocs.integrations` с пошаговыми гайдами.
+
+---
+
 ## [0.20.35] — 2026-10-31
 
 ### Изменено

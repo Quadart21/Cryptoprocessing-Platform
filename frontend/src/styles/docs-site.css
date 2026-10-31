@@ -1505,6 +1505,35 @@
   grid-template-columns: 1fr;
 }
 
+.docs-integration-module-meta {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.docs-integration-module-meta > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.docs-integration-module-meta span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--docs-muted);
+}
+
+.docs-integration-module-meta code,
+.docs-integration-module-meta strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--docs-text);
+}
+
+.docs-integration-module-actions {
+  margin-top: 0.25rem;
+}
+
 @media (max-width: 900px) {
   .docs-integration-grid {
     grid-template-columns: 1fr;

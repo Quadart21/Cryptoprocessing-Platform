@@ -32,7 +32,10 @@ final class Noren_Webhook
         $signature = $request->get_header('x-merset-signature');
         $secret = Noren_Api::webhookSecret();
 
-        if ($secret !== '' && !NorenWebhookVerifier::verify($rawBody, $signature, $secret)) {
+        if ($secret === '') {
+            return new WP_Error('webhook_secret_missing', 'Webhook secret is not configured', ['status' => 503]);
+        }
+        if (!NorenWebhookVerifier::verify($rawBody, $signature, $secret)) {
             return new WP_Error('invalid_signature', 'Invalid webhook signature', ['status' => 401]);
         }
 

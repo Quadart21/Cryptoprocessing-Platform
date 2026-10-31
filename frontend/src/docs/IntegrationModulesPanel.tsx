@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import { useTranslation } from "../i18n";
 import { resolveDocsSiteUrl } from "../config/siteHost";
 import {
@@ -9,17 +11,22 @@ import {
 
 type IntegrationModulesPanelProps = {
   variant?: "full" | "compact";
+  /** When true, omit the section title (page already has its own header). */
+  hideHeader?: boolean;
   /** @deprecated Always follows UI locale. Kept for call-site compatibility. */
   followUiLocale?: boolean;
 };
 
-export function IntegrationModulesPanel({ variant = "full" }: IntegrationModulesPanelProps) {
+export function IntegrationModulesPanel({
+  variant = "full",
+  hideHeader = false,
+}: IntegrationModulesPanelProps) {
   const { t } = useTranslation();
   const compact = variant === "compact";
 
   return (
     <div className={`docs-integration-panel${compact ? " docs-integration-panel--compact" : ""}`}>
-      {compact ? (
+      {!hideHeader && compact ? (
         <header className="api-docs-section-head">
           <p className="eyebrow">{t("merchant.apiDocs.integrations.eyebrow")}</p>
           <h3>{t("merchant.apiDocs.integrations.title")}</h3>
@@ -28,18 +35,21 @@ export function IntegrationModulesPanel({ variant = "full" }: IntegrationModules
             {t("merchant.apiDocs.integrations.openFullGuide")}
           </a>
         </header>
-      ) : (
+      ) : null}
+
+      {!hideHeader && !compact ? (
         <header className="api-docs-section-head">
           <p className="eyebrow">{t("merchant.apiDocs.integrations.eyebrow")}</p>
           <h3>{t("merchant.apiDocs.integrations.title")}</h3>
           <p className="muted-text">{t("merchant.apiDocs.integrations.lead")}</p>
         </header>
-      )}
+      ) : null}
 
       <div className="docs-integration-grid">
         {INTEGRATION_MODULES.map((module) => {
           const downloadUrl = integrationDownloadUrl(module.downloadFile);
           const sourceUrl = integrationGithubTreeUrl(module.githubPath);
+          const guidePath = `/integrations/${module.id}`;
           return (
             <article className="docs-integration-card" key={module.id}>
               <div className="docs-integration-card-head">
@@ -73,7 +83,12 @@ export function IntegrationModulesPanel({ variant = "full" }: IntegrationModules
                 </p>
               )}
               <div className="docs-integration-actions">
-                <a className="docs-site-button docs-site-button-primary" href={downloadUrl} download>
+                {!compact ? (
+                  <Link className="docs-site-button docs-site-button-primary" to={guidePath}>
+                    {t("merchant.apiDocs.integrations.openModuleGuide")}
+                  </Link>
+                ) : null}
+                <a className="docs-site-button docs-site-button-ghost" href={downloadUrl} download>
                   {t("merchant.apiDocs.integrations.download")}
                 </a>
                 <a className="docs-site-button docs-site-button-ghost" href={sourceUrl} rel="noreferrer" target="_blank">

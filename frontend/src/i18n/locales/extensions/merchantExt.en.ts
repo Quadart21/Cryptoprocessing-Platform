@@ -782,6 +782,9 @@ export const merchantExt: TranslationDict = {
         requirements: "Requirements",
         download: "Download ZIP",
         viewSource: "Source on GitHub",
+        openModuleGuide: "Setup guide",
+        moduleGuideLabel: "Installation",
+        moduleGuideTitle: "Step-by-step for this CMS",
         bundleEyebrow: "All modules",
         bundleTitle: "Full integrations bundle",
         bundleBody: "WordPress, DLE, Tilda bridge, 1C examples, and shared PHP library in one archive.",
@@ -808,6 +811,48 @@ export const merchantExt: TranslationDict = {
             title: "1C:Enterprise",
             subtitle: "HTTP service + BSL examples",
             body: "Sample HTTP service and common module for UT/Retail/UNF: create invoice from order, receive webhook, mark payment in 1C.",
+          },
+        },
+        moduleGuides: {
+          wordpress: {
+            steps: [
+              "Download the ZIP and unpack it — you get a noren-payments folder.",
+              "Upload noren-payments into wp-content/plugins/ and activate the plugin.",
+              "WooCommerce → Settings → Payments → Noren Digital: set Base URL, project_id, public/secret keys, and webhook secret.",
+              "Copy the Webhook URL from plugin settings into the merchant cabinet (same secret).",
+              "The project must use checkout payment_page mode.",
+              "Place a test order — the customer goes to /pay/{token}; after payment the order becomes Paid.",
+            ],
+          },
+          dle: {
+            steps: [
+              "Download the ZIP: copy noren.php, noren_webhook.php, and vendor/ into engine/modules/billing/payment/.",
+              "DLE admin → Billing → Payment systems → add module noren (class NOREN).",
+              "Fill API Base URL, project_id, keys, and webhook secret.",
+              "In the merchant cabinet set Webhook URL …/noren_webhook.php with the same secret.",
+              "Requires checkout payment_page; merchant_order_id looks like dle-{billing_invoice_id}.",
+              "Run a test top-up — after the webhook the Billing invoice is marked paid.",
+            ],
+          },
+          tilda: {
+            steps: [
+              "Download the ZIP and upload bridge/ to PHP hosting (never put the API secret in Tilda HTML).",
+              "Copy config.example.php → config.php; fill keys, form_secret, and webhook_secret.",
+              "Create a writable data/orders directory; configure rewrite for /webhook.",
+              "In Zero Block (T123) paste embed/checkout-form.html — set bridge URL and FORM_SECRET.",
+              "In the cabinet set Webhook URL = …/bridge/webhook with the same secret; checkout = payment_page.",
+              "Submit a test form — /pay/{token} should open; check status via ?order=tilda-…",
+            ],
+          },
+          oneC: {
+            steps: [
+              "Download the ZIP: move BSL into common module NorenAPI and HTTP service NorenDigitalPayments.",
+              "Publish the infobase on a web server; templates POST /v1/invoice and POST /v1/webhook.",
+              "In a register/constants set ApiBaseUrl, PublicKey, SecretKey, ProjectId, WebhookSecret.",
+              "Implement HMAC_SHA256 and NorenЗаказы (mark payment by merchant_order_id 1c-…).",
+              "In the cabinet set the 1C publication Webhook URL and the same secret; checkout payment_page.",
+              "Verify POST /webhooks/test from the cabinet and invoice creation from the order form button.",
+            ],
           },
         },
         requirementsList: {

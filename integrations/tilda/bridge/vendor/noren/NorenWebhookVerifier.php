@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 final class NorenWebhookVerifier
 {
+    public const SIGNATURE_HEADER = 'HTTP_X_MERSET_SIGNATURE';
+
     public static function verify(string $rawBody, ?string $signatureHeader, string $webhookSecret): bool
     {
         if ($signatureHeader === null || $signatureHeader === '') {

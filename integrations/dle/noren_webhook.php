@@ -31,7 +31,13 @@ $secret = (string) ($settings['webhook_secret'] ?? '');
 $rawBody = file_get_contents('php://input') ?: '';
 $signature = $_SERVER['HTTP_X_MERSET_SIGNATURE'] ?? null;
 
-if ($secret !== '' && !NorenWebhookVerifier::verify($rawBody, is_string($signature) ? $signature : null, $secret)) {
+if ($secret === '') {
+    http_response_code(503);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'webhook_secret_missing']);
+    exit;
+}
+if (!NorenWebhookVerifier::verify($rawBody, is_string($signature) ? $signature : null, $secret)) {
     http_response_code(401);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'invalid_signature']);

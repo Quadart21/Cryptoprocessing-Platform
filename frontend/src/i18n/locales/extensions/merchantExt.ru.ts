@@ -782,6 +782,9 @@ export const merchantExt: TranslationDict = {
         requirements: "Требования",
         download: "Скачать ZIP",
         viewSource: "Исходники на GitHub",
+        openModuleGuide: "Инструкция",
+        moduleGuideLabel: "Установка",
+        moduleGuideTitle: "Пошагово для этой CMS",
         bundleEyebrow: "Все модули",
         bundleTitle: "Полный архив integrations",
         bundleBody: "WordPress, DLE, Tilda bridge, примеры 1С и shared PHP — в одном ZIP.",
@@ -808,6 +811,48 @@ export const merchantExt: TranslationDict = {
             title: "1С:Предприятие",
             subtitle: "HTTP-сервис + примеры BSL",
             body: "Пример HTTP-сервиса и общего модуля для УТ/Розницы/УНФ: инвойс из заказа, webhook, отметка оплаты в 1С.",
+          },
+        },
+        moduleGuides: {
+          wordpress: {
+            steps: [
+              "Скачайте ZIP и распакуйте — внутри папка noren-payments.",
+              "Загрузите noren-payments в wp-content/plugins/ и активируйте плагин.",
+              "WooCommerce → Настройки → Платежи → Noren Digital: укажите Base URL, project_id, public/secret keys и webhook secret.",
+              "Скопируйте Webhook URL из настроек плагина в кабинет мерчанта (тот же secret).",
+              "Проект должен быть в режиме checkout payment_page.",
+              "Создайте тестовый заказ — покупатель уйдёт на /pay/{token}; после оплаты заказ станет «Оплачен».",
+            ],
+          },
+          dle: {
+            steps: [
+              "Скачайте ZIP: скопируйте noren.php, noren_webhook.php и vendor/ в engine/modules/billing/payment/.",
+              "Панель DLE → Billing → Платёжные системы → добавьте модуль noren (класс NOREN).",
+              "Заполните API Base URL, project_id, keys и webhook secret.",
+              "В кабинете мерчанта укажите Webhook URL …/noren_webhook.php и тот же secret.",
+              "Нужен checkout payment_page; merchant_order_id имеет вид dle-{billing_invoice_id}.",
+              "Сделайте тестовое пополнение — после webhook счёт Billing станет оплаченным.",
+            ],
+          },
+          tilda: {
+            steps: [
+              "Скачайте ZIP и залейте папку bridge/ на PHP-хостинг (secret нельзя хранить в HTML Tilda).",
+              "Скопируйте config.example.php → config.php, заполните ключи, form_secret и webhook_secret.",
+              "Создайте каталог data/orders с правами записи; настройте rewrite на /webhook.",
+              "В Zero Block (T123) вставьте embed/checkout-form.html — укажите URL bridge и FORM_SECRET.",
+              "В кабинете Webhook URL = …/bridge/webhook с тем же secret; checkout = payment_page.",
+              "Отправьте тестовую форму — должен открыться /pay/{token}; статус заказа смотрите ?order=tilda-…",
+            ],
+          },
+          oneC: {
+            steps: [
+              "Скачайте ZIP: перенесите BSL в общий модуль NorenAPI и HTTP-сервис NorenDigitalPayments.",
+              "Опубликуйте базу на веб-сервере; шаблоны POST /v1/invoice и POST /v1/webhook.",
+              "В регистре/константах задайте ApiBaseUrl, PublicKey, SecretKey, ProjectId, WebhookSecret.",
+              "Реализуйте HMAC_SHA256 и модуль NorenЗаказы (отметка оплаты по merchant_order_id 1c-…).",
+              "В кабинете укажите Webhook URL публикации 1С и тот же secret; checkout payment_page.",
+              "Проверьте POST /webhooks/test из кабинета и создание инвойса кнопкой на форме заказа.",
+            ],
           },
         },
         requirementsList: {
