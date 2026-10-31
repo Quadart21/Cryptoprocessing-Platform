@@ -711,3 +711,20 @@ textarea:focus {
   }
 }
 
+.api-docs-panel .api-docs-section-head h3 {
+  text-transform: none;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 700;
+}
+
+.api-docs-panel .api-docs-code-card .api-docs-section-head h3 {
+  font-family: inherit;
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-transform: none;
+  letter-spacing: -0.02em;
+}
+

@@ -274,9 +274,15 @@
   align-self: start;
   display: grid;
   gap: 1rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .docs-site-sidebar-panel {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   padding: 1rem;
   border-radius: var(--docs-radius);
   border: 1px solid var(--docs-line);
@@ -684,6 +690,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  min-width: 0;
   margin-top: 0.65rem;
   padding: 0.85rem 1rem;
   border-radius: 14px;
@@ -692,9 +699,13 @@
 }
 
 .docs-copy-chip code {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.84rem;
-  word-break: break-all;
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .docs-copy-chip button {
@@ -953,7 +964,8 @@
   color: #dbeafe;
   font-family: Consolas, "SFMono-Regular", monospace;
   font-size: 0.82rem;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow-x: auto;
 }
 
 .docs-api-page .api-docs-endpoint-card--split {
@@ -962,6 +974,14 @@
   gap: 1rem;
   align-items: start;
   scroll-margin-top: 6rem;
+}
+
+.docs-guide-body--reference .api-docs-endpoint-card--split {
+  grid-template-columns: 1fr;
+}
+
+.docs-guide-body--reference .api-docs-endpoint-card--split .api-code-panel {
+  position: static;
 }
 
 .docs-api-page .api-docs-endpoint-copy {
@@ -1119,15 +1139,63 @@
   font-family: Consolas, "SFMono-Regular", monospace;
   font-size: 0.78rem;
   line-height: 1.62;
+  min-width: 0;
+  max-width: 100%;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
   overflow: auto;
 }
 
 .docs-api-page .api-code-panel-pre,
 .docs-api-page .json-box {
   color: #dbeafe;
+}
+
+.docs-site .docs-api-page .api-docs-section {
+  padding: 1.15rem 1.2rem 1.25rem;
+  gap: 0.9rem;
+}
+
+.docs-site .docs-api-page .api-docs-section:has(.api-docs-grid) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.docs-site .docs-api-page .api-docs-section-head h3,
+.docs-site .docs-api-page .api-docs-faq-item h4,
+.docs-site .docs-api-page .api-docs-docs-toolbar-copy h3,
+.docs-site .docs-api-page .api-docs-endpoint-head h3 {
+  font-family: Inter, system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: -0.03em;
+  font-size: 1.28rem;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--docs-text);
+}
+
+.docs-site .docs-api-page .api-docs-code-card .api-docs-section-head h3 {
+  font-size: 1.08rem;
+  line-height: 1.35;
+}
+
+.docs-site .docs-api-page .api-docs-code-card {
+  border-radius: 16px;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #10121a;
+  box-shadow: none;
+  color: var(--docs-text);
+}
+
+.docs-site .docs-api-page .api-docs-faq {
+  grid-template-columns: 1fr;
+}
+
+.docs-site .docs-api-page .api-docs-faq-item h4 {
+  font-size: 1.02rem;
 }
 
 /* Split guide pages */
@@ -1148,11 +1216,18 @@
   font-size: 0.75rem;
   line-height: 1.45;
   color: var(--docs-muted);
-  word-break: break-all;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .docs-site-sidebar-hint code {
+  display: block;
+  max-width: 100%;
+  margin-top: 0.2rem;
   font-size: 0.72rem;
+  white-space: nowrap;
+  overflow-x: auto;
+  word-break: normal;
 }
 
 .docs-page-head {

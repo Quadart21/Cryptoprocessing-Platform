@@ -37,7 +37,7 @@ export function DocsGuidePage({ section }: DocsGuidePageProps) {
   const next = orderIndex >= 0 && orderIndex < DOCS_GUIDE_ORDER.length - 1 ? DOCS_GUIDE_ORDER[orderIndex + 1] : null;
 
   return (
-    <article className="docs-guide">
+    <article className="docs-guide docs-api-page">
       <header className="docs-page-head">
         <p className="docs-page-eyebrow">{meta.eyebrow}</p>
         <h1>{meta.title}</h1>

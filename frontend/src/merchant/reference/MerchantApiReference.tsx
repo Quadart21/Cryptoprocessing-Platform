@@ -814,7 +814,7 @@ export function MerchantApiReference({
             </div>
             <p className="muted-text">{t("merchant.apiDocs.checkout.intro")}</p>
             <div className="api-docs-grid">
-              <article className="result-box api-docs-code-card">
+              <article className="api-docs-code-card">
                 <div className="api-docs-section-head">
                   <p className="eyebrow">{t("merchant.apiDocs.checkout.paymentPageEyebrow")}</p>
                   <h3>{t("merchant.apiDocs.checkout.paymentPageTitle")}</h3>
@@ -829,7 +829,7 @@ export function MerchantApiReference({
   "checkout_delivery": "payment_page"
 }`}</pre>
               </article>
-              <article className="result-box api-docs-code-card">
+              <article className="api-docs-code-card">
                 <div className="api-docs-section-head">
                   <p className="eyebrow">{t("merchant.apiDocs.checkout.h2hEyebrow")}</p>
                   <h3>{t("merchant.apiDocs.checkout.h2hTitle")}</h3>
@@ -876,7 +876,7 @@ export function MerchantApiReference({
               ))}
             </div>
             <div className="api-docs-table-wrap">
-              <table className="api-docs-table">
+              <table className="api-docs-table api-docs-table-endpoints">
                 <thead>
                   <tr>
                     <th>{t("merchant.apiDocs.endpointsTable.method")}</th>
@@ -898,7 +898,7 @@ export function MerchantApiReference({
                         </span>
                       </td>
                       <td>
-                        <code>{row.path}</code>
+                        <code>{row.path.split("/").join("/\u200b")}</code>
                       </td>
                       <td>{row.auth}</td>
                       <td>
@@ -981,7 +981,7 @@ export function MerchantApiReference({
             </div>
             <p className="muted-text">{t("merchant.apiDocs.cabinet.intro")}</p>
             <div className="api-docs-grid">
-              <article className="result-box api-docs-code-card">
+              <article className="api-docs-code-card">
                 <div className="api-docs-section-head">
                   <p className="eyebrow">{t("merchant.apiDocs.cabinet.meEyebrow")}</p>
                   <h3>{t("merchant.apiDocs.cabinet.meTitle")}</h3>
@@ -998,7 +998,7 @@ export function MerchantApiReference({
                   </button>
                 </div>
               </article>
-              <article className="result-box api-docs-code-card">
+              <article className="api-docs-code-card">
                 <div className="api-docs-section-head">
                   <p className="eyebrow">{t("merchant.apiDocs.cabinet.cabinetEyebrow")}</p>
                   <h3>{t("merchant.apiDocs.cabinet.cabinetTitle")}</h3>
@@ -1020,8 +1020,8 @@ export function MerchantApiReference({
           ) : null}
 
           {show("webhooks") ? (
-          <section className="api-docs-grid" id="docs-webhooks">
-            <article className="result-box api-docs-code-card">
+          <section className="api-docs-grid api-docs-grid-webhooks" id="docs-webhooks">
+            <article className="api-docs-code-card">
               <div className="api-docs-section-head">
                 <p className="eyebrow">{t("merchant.apiDocs.webhooks.configEyebrow")}</p>
                 <h3>{t("merchant.apiDocs.webhooks.configTitle")}</h3>
@@ -1039,7 +1039,7 @@ export function MerchantApiReference({
               </div>
             </article>
 
-            <article className="result-box api-docs-code-card">
+            <article className="api-docs-code-card">
               <div className="api-docs-section-head">
                 <p className="eyebrow">{t("merchant.apiDocs.webhooks.testEyebrow")}</p>
                 <h3>{t("merchant.apiDocs.webhooks.testTitle")}</h3>
@@ -1057,7 +1057,7 @@ export function MerchantApiReference({
               </div>
             </article>
 
-            <article className="result-box api-docs-code-card">
+            <article className="api-docs-code-card">
               <div className="api-docs-section-head">
                 <p className="eyebrow">{t("merchant.apiDocs.webhooks.payloadEyebrow")}</p>
                 <h3>{t("merchant.apiDocs.webhooks.payloadTitle")}</h3>
