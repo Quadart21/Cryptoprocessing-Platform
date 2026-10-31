@@ -398,13 +398,6 @@ export function LandingSiteChrome({
 
           <div className="lpx-hero-copy">
 
-            <div className="lpx-login-bar">
-              <p>{t("landing.signedOut")}</p>
-              <button className="lpx-login-bar-btn" type="button" onClick={() => openAuth("login")}>
-                {t("common.login")}
-              </button>
-            </div>
-
             <p className="lpx-hero-kicker">{t("landing.heroKicker")}</p>
             <h1 id="lpx-hero-heading" className="lpx-hero-title">
               {t("landing.heroTitlePrefix")}{" "}

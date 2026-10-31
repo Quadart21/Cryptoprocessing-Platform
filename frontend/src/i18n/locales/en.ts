@@ -30,7 +30,6 @@ export const en: TranslationDict = {
     start: "Get started",
     connect: "Connect",
     heroKicker: "Pay with crypto",
-    signedOut: "You are not signed in.",
     heroTitlePrefix: "Accept",
     heroTitleAccent: "crypto",
     heroTitleSuffix: "the easy way",
