@@ -1,0 +1,262 @@
+.aff-settings {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.aff-settings .panel-header h2 {
+  text-transform: none;
+  letter-spacing: -0.03em;
+  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  line-height: 1.2;
+}
+
+.aff-settings .panel-header .muted-text {
+  max-width: 46rem;
+  line-height: 1.5;
+}
+
+.aff-readonly {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.08);
+  color: #fde68a;
+  font-size: 0.88rem;
+}
+
+.aff-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.aff-summary article {
+  min-width: 0;
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(0, 163, 255, 0.08), transparent 70%),
+    rgba(0, 0, 0, 0.16);
+}
+
+.aff-summary span {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.aff-summary strong {
+  display: block;
+  margin-top: 0.28rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.aff-settings-form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.aff-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+}
+
+.aff-card {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  min-width: 0;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 1rem 1rem 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.aff-card-head h3 {
+  margin: 0;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-transform: none;
+}
+
+.aff-card-head p {
+  margin: 0.28rem 0 0;
+  color: #94a3b8;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.aff-card-body {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.aff-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.aff-field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.aff-field-label {
+  color: #e2e8f0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.aff-field input,
+.aff-field select,
+.aff-field textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.aff-field textarea {
+  resize: vertical;
+  min-height: 5.5rem;
+}
+
+.aff-field input:disabled,
+.aff-field select:disabled,
+.aff-field textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.aff-field-hint,
+.aff-switch small {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.aff-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  cursor: pointer;
+}
+
+.aff-switch-copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.aff-switch-copy strong {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.aff-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.aff-switch-track {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 0.15s ease;
+}
+
+.aff-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f8fafc;
+  transition: transform 0.15s ease;
+}
+
+.aff-switch input:checked ~ .aff-switch-track {
+  background: #00a3ff;
+}
+
+.aff-switch input:checked ~ .aff-switch-track::after {
+  transform: translateX(18px);
+}
+
+.aff-switch input:focus-visible ~ .aff-switch-track {
+  outline: 2px solid rgba(0, 163, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.aff-card:disabled {
+  opacity: 0.72;
+}
+
+.aff-card:disabled .aff-switch {
+  cursor: default;
+}
+
+.aff-save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 0.15rem;
+}
+
+.aff-save p {
+  margin: 0;
+  max-width: 36rem;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+@media (min-width: 1080px) {
+  .aff-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .aff-card-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 800px) {
+  .aff-summary,
+  .aff-pair {
+    grid-template-columns: 1fr;
+  }
+}

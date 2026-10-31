@@ -137,7 +137,7 @@ export function AdminPartnersSection({
     try {
       const updated = await updateAffiliateSettings(adminToken, { config });
       setConfig({ ...DEFAULT_AFFILIATE_CONFIG, ...(updated.config ?? {}) });
-      setSuccess("Ультранастройки партнёрки сохранены.");
+      setSuccess("Настройки партнёрской программы сохранены.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось сохранить настройки.");
     } finally {
