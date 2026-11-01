@@ -5,6 +5,7 @@ import re
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.tenant import apply_db_security_context
 from app.models.payout_request import PayoutRequest
 from app.models.project import Project
 from app.services.balance_service import BalanceService
@@ -81,9 +82,16 @@ class PayoutService:
             payout_request_id=payout.id,
             description="Перевод суммы в locked до решения администратора.",
         )
-        await self.db.commit()
-        await self.db.refresh(payout)
+        await self._commit_and_refresh(payout)
         return payout
+
+    async def _commit_and_refresh(self, payout: PayoutRequest) -> None:
+        await self.db.commit()
+        # set_config(..., is_local=true) живёт только до конца транзакции.
+        # После commit RLS снова скрывает строку, и refresh падает —
+        # браузер мерчанта показывает «Failed to fetch».
+        await apply_db_security_context(self.db)
+        await self.db.refresh(payout)
 
     async def list_by_tenant(self, tenant_id: str, limit: int = 50, offset: int = 0) -> list[PayoutRequest]:
         stmt = (
@@ -210,8 +218,7 @@ class PayoutService:
             payout.status = "rejected"
 
         self.db.add(payout)
-        await self.db.commit()
-        await self.db.refresh(payout)
+        await self._commit_and_refresh(payout)
         return payout
 
     async def _ensure_payouts_enabled(self, tenant_id: str) -> None:
