@@ -525,9 +525,8 @@ export function MerchantDashboardRoot({
                 </article>
               </section>
 
-              <BalanceHoldsPanel balance={balance} onRefresh={onRefreshBalance} />
-
               <PayoutDesk
+                balance={balance}
                 loading={loading}
                 onCreatePayout={onCreatePayout}
                 onPayoutFormChange={onPayoutFormChange}
@@ -535,6 +534,8 @@ export function MerchantDashboardRoot({
                 payouts={payouts}
                 projects={projects}
               />
+
+              <BalanceHoldsPanel balance={balance} onRefresh={onRefreshBalance} />
             </div>
           ) : null}
 

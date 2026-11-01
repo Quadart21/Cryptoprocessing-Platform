@@ -1970,3 +1970,243 @@
   font-size: 14px;
   line-height: 1.55;
 }
+
+.mc-liq-facts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+@media (min-width: 760px) {
+  .mc-liq-facts {
+    grid-template-columns: 1.5fr 1fr 1fr;
+  }
+}
+
+.mc-liq-fact {
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(117, 158, 255, 0.16);
+  background: rgba(3, 10, 24, 0.42);
+}
+
+.mc-liq-fact--main {
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(51, 215, 255, 0.16), transparent 58%),
+    rgba(3, 10, 24, 0.55);
+}
+
+.mc-liq-fact span {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.mc-liq-fact strong {
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(20px, 4vw, 28px);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.mc-liq-amount {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.mc-liq-amount input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mc-liq-amount .ghost-button {
+  flex: 0 0 auto;
+  min-height: 48px;
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .mc-liq-amount {
+    flex-direction: column;
+  }
+
+  .mc-liq-amount .ghost-button {
+    width: 100%;
+  }
+}
+
+.mc-liq-optional {
+  margin-inline-start: 8px;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.mc-liq-error,
+.mc-field small.mc-liq-error {
+  color: #ff8a80;
+}
+
+.mc-liq-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(246, 195, 92, 0.08);
+  color: #ffd78e;
+  font-size: 14px;
+}
+
+.mc-liq .mc-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.mc-liq-submit {
+  min-height: 52px;
+  font-size: 16px;
+}
+
+.mc-liq-network {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.mc-liq-history {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(117, 158, 255, 0.12);
+}
+
+.mc-liq-history-head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.mc-liq-history-head h3 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.mc-liq-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mc-liq-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(117, 158, 255, 0.2);
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mc-liq-filter span {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-liq-filter.is-active {
+  border-color: rgba(51, 215, 255, 0.55);
+  background: rgba(51, 215, 255, 0.12);
+  color: var(--text-0);
+}
+
+.mc-liq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mc-liq-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(117, 158, 255, 0.14);
+  background: rgba(3, 10, 24, 0.35);
+}
+
+@media (min-width: 720px) {
+  .mc-liq-item {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.mc-liq-item-main {
+  min-width: 0;
+}
+
+.mc-liq-item-amount {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.mc-liq-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 6px 0 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.mc-liq-addr,
+.mc-liq-comment,
+.mc-liq-approved {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.mc-liq-addr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text-1);
+}
+
+.mc-liq-approved {
+  color: #8df6cb;
+}
+
+.mc-liq-comment {
+  color: var(--text-1);
+}
+
+.mc-liq-item-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.mc-liq-copy {
+  min-height: 36px;
+}
