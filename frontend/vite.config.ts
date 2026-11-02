@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 /** Нормализация в manualChunks под Windows/Linux */
@@ -28,8 +28,12 @@ function sharedPublicChunk(path: string): string | undefined {
   return undefined;
 }
 
-export default defineConfig({
+export default defineConfig(({ isSsrBuild }) => {
+  const config: UserConfig = {
   plugins: [react()],
+  ssr: {
+    noExternal: true,
+  },
   server: {
     port: 5173,
     proxy: {
@@ -51,7 +55,9 @@ export default defineConfig({
       },
     },
   },
-  build: {
+  build: isSsrBuild
+    ? { emptyOutDir: true }
+    : {
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
@@ -114,4 +120,6 @@ export default defineConfig({
       },
     },
   },
+  };
+  return config;
 });

@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
+import { getPublicRequestContext } from "../ssr/requestContext";
+import { StaticPublicRouter } from "../ssr/staticRouter";
 import { DocsGuidePage } from "./DocsGuidePage";
 import { DocsIntegrationModulePage } from "./DocsIntegrationModulePage";
 import { DocsIntegrationsPage } from "./DocsIntegrationsPage";
@@ -22,9 +24,9 @@ function DocsHashScroll() {
   return null;
 }
 
-export function DocsSiteRoot() {
+export function DocsSiteRoutes() {
   return (
-    <BrowserRouter>
+    <>
       <DocsHashScroll />
       <Routes>
         <Route element={<DocsSiteLayout />}>
@@ -41,6 +43,21 @@ export function DocsSiteRoot() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+    </>
+  );
+}
+
+export function DocsSiteRoot() {
+  if (typeof window === "undefined") {
+    return (
+      <StaticPublicRouter location={getPublicRequestContext()?.url ?? "/"}>
+        <DocsSiteRoutes />
+      </StaticPublicRouter>
+    );
+  }
+  return (
+    <BrowserRouter>
+      <DocsSiteRoutes />
     </BrowserRouter>
   );
 }

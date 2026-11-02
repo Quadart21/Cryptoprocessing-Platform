@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +22,7 @@ from app.db.bootstrap import ensure_database_ready
 from app.db.session import AsyncSessionLocal
 from app.services.brand_logo_service import BrandLogoService
 from app.services.seo_service import SeoService
+from app.services.public_ssr import apply_public_ssr
 from app.services.spa_seo_html import load_index_template, render_spa_index_html
 from app.middleware.api_usage import ApiUsageMiddleware
 from app.middleware.connection_limit import ConnectionLimitMiddleware
@@ -40,7 +41,9 @@ SPA_RESERVED_PREFIXES = (
     "docs",
     "openapi.json",
     "uploads",
+    "ssr-public",
 )
+PUBLIC_SSR_ROOT = FRONTEND_DIST_DIR / "ssr-public"
 MERCHANT_OPENAPI_ALLOWLIST: set[tuple[str, str]] = {
     ("GET", f"{settings.api_v1_prefix}/client/health"),
     ("POST", f"{settings.api_v1_prefix}/client/auth/login"),
@@ -245,22 +248,40 @@ def _register_frontend_routes(app: FastAPI) -> None:
 
     index_template_path = str(FRONTEND_INDEX_FILE.resolve())
 
-    async def spa_index_html_response() -> HTMLResponse:
+    async def spa_index_html_response(request: Request) -> HTMLResponse:
         template = load_index_template(index_template_path)
         async with AsyncSessionLocal() as session:
             seo = await SeoService(session).get_public_settings()
         body = render_spa_index_html(template, seo)
+        proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
+        body = apply_public_ssr(
+            body,
+            host=request.headers.get("x-forwarded-host") or request.headers.get("host") or "",
+            path=request.url.path,
+            cookie=request.headers.get("cookie"),
+            accept_language=request.headers.get("accept-language"),
+            proto=proto,
+            seo=seo,
+            ssr_root=PUBLIC_SSR_ROOT,
+        )
         return HTMLResponse(content=body, media_type="text/html")
 
     @app.get("/", include_in_schema=False)
-    async def spa_root() -> HTMLResponse:
-        return await spa_index_html_response()
+    async def spa_root(request: Request) -> HTMLResponse:
+        return await spa_index_html_response(request)
 
     @app.get("/{full_path:path}", include_in_schema=False, response_model=None)
-    async def spa_fallback(full_path: str, request: Request) -> FileResponse | HTMLResponse:
+    async def spa_fallback(full_path: str, request: Request) -> FileResponse | HTMLResponse | RedirectResponse:
+        host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").split(",")[0].strip().split(":")[0].lower()
+        if host.startswith("docs.") and full_path.endswith("/"):
+            target = "/" + full_path.strip("/")
+            if request.url.query:
+                target = f"{target}?{request.url.query}"
+            return RedirectResponse(target, status_code=308)
+
         normalized = full_path.strip("/")
         if not normalized:
-            return await spa_index_html_response()
+            return await spa_index_html_response(request)
 
         if any(
             normalized == prefix or normalized.startswith(f"{prefix}/")
@@ -274,7 +295,7 @@ def _register_frontend_routes(app: FastAPI) -> None:
 
         # Vite SPA: every unknown path should resolve to index.html
         if "text/html" in (request.headers.get("accept") or ""):
-            return await spa_index_html_response()
+            return await spa_index_html_response(request)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
 
 

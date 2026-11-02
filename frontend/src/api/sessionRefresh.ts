@@ -7,7 +7,9 @@ import {
   setRefreshToken,
 } from "../storage";
 
-const API_BASE_URL = resolveApiBaseUrl();
+function apiBaseUrl(): string {
+  return resolveApiBaseUrl();
+}
 
 export const ACCESS_TOKEN_REFRESHED_EVENT = "noren:access-token-refreshed";
 
@@ -54,7 +56,7 @@ export async function refreshAccessToken(): Promise<string | null> {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/client/auth/refresh`, {
+      const response = await fetch(`${apiBaseUrl()}/client/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),

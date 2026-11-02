@@ -7,7 +7,9 @@ import {
   withRefreshedAuthorization,
 } from "./api/sessionRefresh";
 
-const API_BASE_URL = resolveApiBaseUrl();
+function apiBaseUrl(): string {
+  return resolveApiBaseUrl();
+}
 
 export type LoginResponse = {
   access_token: string;
@@ -933,7 +935,7 @@ function extractErrorMessage(payload: unknown): {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const execute = async (requestInit?: RequestInit): Promise<Response> => {
     const csrfToken = getCsrfToken();
-    return fetch(`${API_BASE_URL}${path}`, {
+    return fetch(`${apiBaseUrl()}${path}`, {
       ...requestInit,
       headers: {
         "Content-Type": "application/json",
@@ -1019,7 +1021,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 async function requestMultipart<T>(path: string, init?: RequestInit): Promise<T> {
   const csrfToken = getCsrfToken();
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${apiBaseUrl()}${path}`, {
     ...init,
     headers: {
       ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),

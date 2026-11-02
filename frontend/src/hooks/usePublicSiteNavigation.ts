@@ -6,6 +6,7 @@ import {
   type PublicPageItem,
   type PublicPageNavigationItem,
 } from "../api";
+import { getPublicRequestContext } from "../ssr/requestContext";
 
 export type PublicPageView = "landing" | "docs" | "cms";
 
@@ -14,7 +15,10 @@ export type PublicRouteState = {
   cmsSlug: string | null;
 };
 
-function resolvePublicRoute(): PublicRouteState {
+function resolvePublicRoute(options?: { ignoreSsr?: boolean }): PublicRouteState {
+  if (!options?.ignoreSsr && getPublicRequestContext()?.surface === "landing") {
+    return { view: "landing", cmsSlug: null };
+  }
   if (typeof window === "undefined") {
     return { view: "landing", cmsSlug: null };
   }
@@ -74,7 +78,7 @@ export function usePublicSiteNavigation({ authenticated }: UsePublicSiteNavigati
       return;
     }
     function syncPublicRoute() {
-      setPublicRoute(resolvePublicRoute());
+      setPublicRoute(resolvePublicRoute({ ignoreSsr: true }));
     }
     window.addEventListener("hashchange", syncPublicRoute);
     window.addEventListener("popstate", syncPublicRoute);

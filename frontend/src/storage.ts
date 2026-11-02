@@ -7,48 +7,63 @@ const LOCALE_KEY = "cryptoprocessing_locale";
 
 const VALID_LOCALES: Locale[] = ["ru", "en", "ar"];
 
+function browserStorage(): Storage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.localStorage;
+}
+
 export function getAccessToken(): string | null {
-  return window.localStorage.getItem(TOKEN_KEY);
+  return browserStorage()?.getItem(TOKEN_KEY) ?? null;
 }
 
 export function setAccessToken(token: string): void {
-  window.localStorage.setItem(TOKEN_KEY, token);
+  browserStorage()?.setItem(TOKEN_KEY, token);
 }
 
 export function clearAccessToken(): void {
-  window.localStorage.removeItem(TOKEN_KEY);
+  browserStorage()?.removeItem(TOKEN_KEY);
 }
 
 export function getRefreshToken(): string | null {
-  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+  return browserStorage()?.getItem(REFRESH_TOKEN_KEY) ?? null;
 }
 
 export function setRefreshToken(token: string): void {
-  window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
+  browserStorage()?.setItem(REFRESH_TOKEN_KEY, token);
 }
 
 export function clearRefreshToken(): void {
-  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+  browserStorage()?.removeItem(REFRESH_TOKEN_KEY);
 }
 
 export function getCsrfToken(): string | null {
-  return window.localStorage.getItem(CSRF_TOKEN_KEY);
+  return browserStorage()?.getItem(CSRF_TOKEN_KEY) ?? null;
 }
 
 export function setCsrfToken(token: string): void {
-  window.localStorage.setItem(CSRF_TOKEN_KEY, token);
+  browserStorage()?.setItem(CSRF_TOKEN_KEY, token);
 }
 
 export function clearCsrfToken(): void {
-  window.localStorage.removeItem(CSRF_TOKEN_KEY);
+  browserStorage()?.removeItem(CSRF_TOKEN_KEY);
 }
 
 export function getLocale(): Locale | null {
-  const value = window.localStorage.getItem(LOCALE_KEY);
+  const value = browserStorage()?.getItem(LOCALE_KEY) ?? null;
   return VALID_LOCALES.includes(value as Locale) ? (value as Locale) : null;
 }
 
 export function setLocale(locale: Locale): void {
-  window.localStorage.setItem(LOCALE_KEY, locale);
+  browserStorage()?.setItem(LOCALE_KEY, locale);
+  writeLocaleCookie(locale);
+}
+
+export function writeLocaleCookie(locale: Locale): void {
+  if (typeof document === "undefined") {
+    return;
+  }
+  document.cookie = `${LOCALE_KEY}=${locale}; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
 

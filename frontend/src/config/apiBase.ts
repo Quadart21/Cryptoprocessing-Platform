@@ -1,3 +1,4 @@
+import { getPublicRequestContext } from "../ssr/requestContext";
 import { resolveApiBaseUrlForSite } from "./siteHost";
 
 function sanitizeBaseUrl(value: string): string {
@@ -19,6 +20,11 @@ export function resolveApiBaseUrl(): string {
   const envApiBase = (import.meta as ViteImportMeta).env?.VITE_API_BASE_URL?.trim();
   if (envApiBase) {
     return sanitizeBaseUrl(envApiBase);
+  }
+
+  const fromRequest = getPublicRequestContext()?.apiBaseUrl;
+  if (fromRequest) {
+    return sanitizeBaseUrl(fromRequest);
   }
 
   if (typeof window !== "undefined") {

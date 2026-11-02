@@ -1,11 +1,11 @@
 {
   "name": "cryptoprocessing-frontend",
   "private": true,
-  "version": "0.20.54",
+"version": "0.21.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --ssr src/ssr/entry-server.tsx --outDir dist/server && node scripts/prerender-public.mjs",
     "package:integrations": "python ../ops/scripts/package_integrations.py",
     "preview": "vite preview"
   },

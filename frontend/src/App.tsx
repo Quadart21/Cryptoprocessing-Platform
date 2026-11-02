@@ -1,16 +1,13 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AppController } from "./AppController";
 import { AppRouteFallback } from "./components/AppRouteFallback";
 import { SeoHead } from "./components/SeoHead";
-import {
-  isAdminSubdomain,
-  isDocsSubdomain,
-  isMarketingHost,
-  isPaySubdomain,
-} from "./config/siteHost";
+import { isAdminSubdomain, isMarketingHost, isPaySubdomain } from "./config/siteHost";
 import { redirectApiRootToDocs, redirectPayTokenFromMarketingHost } from "./config/siteHostRedirect";
 import { DocsSiteRoot } from "./docs/DocsSiteRoot";
+import { PublicMarketingView } from "./public/PublicMarketingView";
+import { resolveInitialSurface } from "./ssr/surface";
 import { PayPageMissing } from "./pay/PayPageMissing";
 import { PayPageRoot } from "./pay/PayPageRoot";
 import { resolvePayPageToken } from "./pay/publicPayApi";
@@ -30,16 +27,20 @@ export function App() {
       });
   }, []);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     redirectApiRootToDocs();
     if (payToken) {
       redirectPayTokenFromMarketingHost(payToken);
     }
   }, [payToken]);
 
+  const surface = resolveInitialSurface();
+
   let content: JSX.Element;
-  if (isDocsSubdomain()) {
+  if (surface === "docs") {
     content = <DocsSiteRoot />;
+  } else if (surface === "landing") {
+    content = <PublicMarketingView />;
   } else if (isAdminSubdomain()) {
     content = <AppController siteScope="admin" />;
   } else if (isPaySubdomain()) {

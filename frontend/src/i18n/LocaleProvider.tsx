@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { getLocale, setLocale as persistLocale } from "../storage";
+import { getLocale, setLocale as persistLocale, writeLocaleCookie } from "../storage";
 import { LOCALES } from "./locales";
 import { getTranslationArray, resolveTranslation } from "./resolve";
 import { DEFAULT_LOCALE, LOCALE_OPTIONS, type Locale, type TranslationDict } from "./types";
@@ -27,6 +27,9 @@ type LocaleContextValue = {
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 function detectInitialLocale(): Locale {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return DEFAULT_LOCALE;
+  }
   const stored = getLocale();
   if (stored) {
     return stored;
@@ -42,8 +45,14 @@ function detectInitialLocale(): Locale {
   return DEFAULT_LOCALE;
 }
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(detectInitialLocale);
+export function LocaleProvider({
+  children,
+  initialLocale,
+}: {
+  children: ReactNode;
+  initialLocale?: Locale;
+}) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? detectInitialLocale);
 
   const dir = useMemo(
     () => LOCALE_OPTIONS.find((item) => item.code === locale)?.dir ?? "ltr",
@@ -56,6 +65,18 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = locale;
     document.documentElement.dir = dir;
   }, [locale, dir]);
+
+  useEffect(() => {
+    const stored = getLocale();
+    if (stored && stored !== locale) {
+      setLocaleState(stored);
+      writeLocaleCookie(stored);
+      return;
+    }
+    writeLocaleCookie(locale);
+    // Locale from the document is the hydration source. Stored preference applies after it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);

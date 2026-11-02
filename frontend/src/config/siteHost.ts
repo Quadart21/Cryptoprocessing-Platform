@@ -1,3 +1,5 @@
+import { getPublicRequestContext } from "../ssr/requestContext";
+
 type ViteImportMeta = ImportMeta & {
   env?: Record<string, string | undefined>;
 };
@@ -17,6 +19,10 @@ function stripSubdomainPrefix(hostname: string, prefix: string): string {
 }
 
 export function isDocsSubdomain(): boolean {
+  const ctx = getPublicRequestContext();
+  if (ctx) {
+    return ctx.surface === "docs";
+  }
   if (typeof window === "undefined") {
     return false;
   }
@@ -55,6 +61,13 @@ const RESERVED_SITE_PREFIXES = new Set(["app", "admin", "api", "docs", "pay"]);
 
 /** Основной маркетинговый хост (apex или www), без кабинета/админки/API. */
 export function isMarketingHost(): boolean {
+  const ctx = getPublicRequestContext();
+  if (ctx?.surface === "landing") {
+    return true;
+  }
+  if (ctx?.surface === "docs") {
+    return false;
+  }
   if (typeof window === "undefined") {
     return false;
   }
@@ -74,6 +87,10 @@ export function resolveMainSiteOrigin(): string {
   const configured = envValue("VITE_MAIN_SITE_URL");
   if (configured) {
     return configured;
+  }
+  const fromRequest = getPublicRequestContext()?.mainOrigin;
+  if (fromRequest) {
+    return fromRequest;
   }
   if (typeof window === "undefined") {
     return "https://noren.digital";
