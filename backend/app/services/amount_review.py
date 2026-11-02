@@ -1,4 +1,4 @@
-"""Track underpaid / overpaid deposits and settle them for the amount that arrived."""
+"""Track underpaid / overpaid deposits on one invoice (cumulative amount + top-ups)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Any
 from app.providers.crypto_cash_status import extract_event_data, extract_event_type, normalize_provider_status_key
 
 STORED_AMOUNT_REVIEW_KEY = "amount_review"
+STORED_PROVIDER_DEPOSITS_KEY = "provider_deposits"
 AMOUNT_REVIEW_PLATFORM_STATUSES = frozenset({"underpaid", "overpaid"})
 
 
@@ -57,9 +58,23 @@ def read_amount_review(stored_payload: dict | None) -> dict | None:
     return review
 
 
-def should_keep_credited_invoice(previous_status: str, raw_normalized: str) -> bool:
-    """A later mismatch webhook must not undo a payment that was already settled."""
-    return previous_status == "confirmed" and raw_normalized in AMOUNT_REVIEW_PLATFORM_STATUSES
+def should_keep_credited_invoice(
+    previous_status: str,
+    raw_normalized: str,
+    *,
+    old_received: Decimal | None = None,
+    new_received: Decimal | None = None,
+) -> bool:
+    """Ignore a later mismatch webhook only when it does not raise the cumulative amount."""
+    if previous_status != "confirmed" or raw_normalized not in AMOUNT_REVIEW_PLATFORM_STATUSES:
+        return False
+    if (
+        old_received is not None
+        and new_received is not None
+        and new_received > old_received
+    ):
+        return False
+    return True
 
 
 def review_needs_alert(
@@ -83,17 +98,75 @@ def amount_review_public_dict(stored_payload: dict | None) -> dict | None:
     review = read_amount_review(stored_payload)
     if review is None:
         return None
+    expected = parse_amount(review.get("expected_amount"))
+    received = parse_amount(review.get("received_amount"))
+    remaining = None
+    if (
+        review.get("kind") == "underpaid"
+        and expected is not None
+        and received is not None
+        and expected > received
+    ):
+        remaining = format_crypto_amount(expected - received)
     return {
         "kind": review.get("kind"),
         "provider_status": review.get("provider_status"),
         "expected_amount": review.get("expected_amount"),
         "received_amount": review.get("received_amount"),
         "delta_amount": review.get("delta_amount"),
+        "remaining_amount": remaining,
         "currency": review.get("currency"),
         "usdt_total": review.get("usdt_total"),
         "exchange_rate": review.get("exchange_rate"),
         "credited": bool(review.get("credited")),
+        "deposits": list(stored_payload.get(STORED_PROVIDER_DEPOSITS_KEY) or [])
+        if isinstance(stored_payload, dict)
+        else [],
     }
+
+
+def append_provider_deposit(stored_payload: dict, raw_payload: dict | None) -> bool:
+    """Append an individual deposit_received slice; link by order id stays on the invoice."""
+    if not isinstance(raw_payload, dict):
+        return False
+    event_type = (extract_event_type(raw_payload) or "").strip().lower()
+    data = extract_event_data(raw_payload)
+    if not isinstance(data, dict):
+        return False
+    received = parse_amount(data.get("receivedAmount"))
+    if received is None or received <= 0:
+        return False
+    if event_type and event_type != "acquiring::deposit_received":
+        # Only deposit_received carries a non-cumulative receivedAmount.
+        # Other events may still repeat the last receivedAmount as null.
+        pass
+    tx_hash = data.get("hash")
+    webhook_id = raw_payload.get("id")
+    cumulative = parse_amount(data.get("amount"))
+    entry = {
+        "webhook_event_id": str(webhook_id) if webhook_id not in (None, "") else None,
+        "tx_hash": str(tx_hash) if tx_hash not in (None, "") else None,
+        "received_amount": format_crypto_amount(received),
+        "received_currency": str(data.get("receivedCurrency") or data.get("currency") or "") or None,
+        "received_network": str(data.get("receivedNetwork") or data.get("network") or "") or None,
+        "cumulative_amount": format_crypto_amount(cumulative) if cumulative is not None else None,
+        "event_type": event_type or None,
+    }
+    deposits = [
+        item for item in (stored_payload.get(STORED_PROVIDER_DEPOSITS_KEY) or []) if isinstance(item, dict)
+    ]
+    for existing in deposits:
+        if entry["webhook_event_id"] and existing.get("webhook_event_id") == entry["webhook_event_id"]:
+            return False
+        if (
+            entry["tx_hash"]
+            and existing.get("tx_hash") == entry["tx_hash"]
+            and existing.get("received_amount") == entry["received_amount"]
+        ):
+            return False
+    deposits.append(entry)
+    stored_payload[STORED_PROVIDER_DEPOSITS_KEY] = deposits
+    return True
 
 
 def upsert_amount_review(
@@ -114,6 +187,10 @@ def upsert_amount_review(
             return False
         incoming = _refresh_open_review(current, raw_payload)
         if incoming is None:
+            # Exact match after top-up — mismatch review is done.
+            if _exact_match_after_topup(current, raw_payload):
+                stored_payload.pop(STORED_AMOUNT_REVIEW_KEY, None)
+                return True
             return False
     else:
         incoming["credited"] = bool(current and current.get("credited"))
@@ -148,11 +225,10 @@ def build_amount_review_notice(
     review: dict,
 ) -> tuple[str, list[str]]:
     kind = review.get("kind")
-    title = (
-        "Недоплата — зачислили фактическую сумму"
-        if kind == "underpaid"
-        else "Переплата — зачислили фактическую сумму"
-    )
+    if kind == "underpaid":
+        title = "Недоплата — ждём доплату на ту же заявку"
+    else:
+        title = "Переплата — зачислили фактическую сумму"
     currency = str(review.get("currency") or "").strip()
     suffix = f" {currency}" if currency else ""
     lines = [
@@ -164,7 +240,19 @@ def build_amount_review_notice(
     usdt_total = review.get("usdt_total")
     if usdt_total not in (None, ""):
         lines.append(f"USDT у провайдера: {_amount_line(usdt_total, ' USDT')}")
-    if review.get("received_amount"):
+    if kind == "underpaid":
+        remaining = None
+        expected = parse_amount(review.get("expected_amount"))
+        received = parse_amount(review.get("received_amount"))
+        if expected is not None and received is not None and expected > received:
+            remaining = format_crypto_amount(expected - received)
+        lines.append(
+            f"Клиенту нужно доплатить {_amount_line(remaining, suffix)} на тот же адрес."
+            if remaining
+            else "Клиенту нужно доплатить разницу на тот же адрес."
+        )
+        lines.append("Второй депозит придёт отдельным вебхуком и останется на этой же заявке.")
+    elif review.get("received_amount"):
         lines.append("Платформа зачисляет пришедшую сумму автоматически.")
     else:
         lines.append("В вебхуке нет фактической суммы, зачисление ждёт её.")
@@ -190,6 +278,7 @@ def build_amount_review(
 
 
 def _review_from_data(data: dict, *, kind: str, provider_status: Any) -> dict:
+    # amount = cumulative across partial deposits; receivedAmount = one deposit only.
     expected = _first_positive(data, ("expectedAmount", "requestedAmount"))
     received = _first_positive(data, ("amount", "receivedAmount"))
     delta = received - expected if received is not None and expected is not None else None
@@ -219,9 +308,11 @@ def _refresh_open_review(current: dict, raw_payload: dict) -> dict | None:
     if received is None:
         received = parse_amount(current.get("received_amount"))
     if received is not None and expected is not None:
+        if received == expected:
+            return None
         if received > expected:
             updated["kind"] = "overpaid"
-        elif received < expected:
+        else:
             updated["kind"] = "underpaid"
         updated["expected_amount"] = format_crypto_amount(expected)
         updated["received_amount"] = format_crypto_amount(received)
@@ -241,6 +332,15 @@ def _refresh_open_review(current: dict, raw_payload: dict) -> dict | None:
     if updated == current:
         return None
     return updated
+
+
+def _exact_match_after_topup(current: dict, raw_payload: dict) -> bool:
+    data = extract_event_data(raw_payload)
+    if not isinstance(data, dict):
+        return False
+    expected = parse_amount(data.get("expectedAmount")) or parse_amount(current.get("expected_amount"))
+    received = parse_amount(data.get("amount"))
+    return expected is not None and received is not None and expected == received
 
 
 def _first_positive(data: dict, keys: tuple[str, ...]) -> Decimal | None:

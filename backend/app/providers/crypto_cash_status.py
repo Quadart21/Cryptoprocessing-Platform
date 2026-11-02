@@ -43,19 +43,21 @@ CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES = frozenset(
 )
 
 # Terminal acquiring events that follow deposit_received and may auto-settle.
+# underpaid is intentionally omitted: the order stays open for a top-up.
 # See https://docs.crypto-cash.world/webhooks/types
 ACQUIRING_FINAL_CREDIT_EVENTS = frozenset(
     {
         "acquiring::completed",
         "acquiring::overpaid",
-        "acquiring::underpaid",
     }
 )
 
-# Provider mismatch statuses settle as a normal paid deposit (received amount).
-_MISMATCH_PROVIDER_STATUSES = frozenset(
+# Overpaid and late CanceledBut* settle on the cumulative amount.
+# Open Underpaid stays open so the payer can top up the same order
+# (second deposit = new webhook delivery id, same data.id / externalId).
+# See https://docs.crypto-cash.world/webhooks/structure
+_AUTO_SETTLE_MISMATCH_STATUSES = frozenset(
     {
-        "underpaid",
         "overpaid",
         "canceledbutunderpaid",
         "canceledbutoverpaid",
@@ -71,9 +73,10 @@ CRYPTO_CASH_STATUS_TO_PLATFORM: dict[str, str] = {
     "waiting": "confirming",
     # Точное попадание в сумму — можно проводить само
     "paid": "paid",
-    # Сумма не совпала: проводим сами, но на фактический amount
+    # Переплата: зачисляем фактический cumulative amount
     "overpaid": "paid",
-    "underpaid": "paid",
+    # Недоплата: ждём доплату на тот же адрес / ту же заявку
+    "underpaid": "underpaid",
     # Отмена / ошибки
     "canceled": "cancelled",
     "cancelled": "cancelled",
@@ -149,16 +152,17 @@ PLATFORM_PAYMENT_IN_FLIGHT = frozenset({"confirming", "paid", "confirmed"})
 
 def normalize_crypto_cash_status(provider_status: str) -> str:
     """Map Crypto-Cash TransactionStatus (PascalCase or lower) to platform invoice status."""
-    # underpaid/overpaid are also platform statuses, so this must run before that lookup.
-    if normalize_provider_status_key(provider_status) in _MISMATCH_PROVIDER_STATUSES:
-        return "paid"
-    platform = resolve_platform_status(provider_status)
-    if platform is not None:
-        return platform
     normalized = normalize_provider_status_key(provider_status)
+    # Overpaid / late CanceledBut* settle as paid on the cumulative amount.
+    if normalized in _AUTO_SETTLE_MISMATCH_STATUSES:
+        return "paid"
+    # Open underpaid is a first-class platform status (top-up on the same order).
     mapped = CRYPTO_CASH_STATUS_TO_PLATFORM.get(normalized)
     if mapped is not None:
         return mapped
+    platform = resolve_platform_status(provider_status)
+    if platform is not None:
+        return platform
     logger.warning("Unknown Crypto-Cash status %r — treating as pending", provider_status)
     return "pending"
 

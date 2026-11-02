@@ -32,6 +32,10 @@ def is_invoice_expired(invoice: Invoice, *, now: datetime | None = None) -> bool
 
 
 def invoice_allows_payment_credentials(invoice: Invoice, *, now: datetime | None = None) -> bool:
+    # Underpaid keeps the same deposit address so the payer can top up the difference
+    # (Crypto-Cash sends the next deposit as a new webhook id on the same order).
+    if invoice.status == "underpaid":
+        return True
     if invoice.status != "pending":
         return False
     return not is_invoice_expired(invoice, now=now)

@@ -6,6 +6,7 @@ export type PublicAmountReview = {
   expected_amount: string | null;
   received_amount: string | null;
   delta_amount: string | null;
+  remaining_amount?: string | null;
   currency: string | null;
   usdt_total: string | null;
   exchange_rate: string | null;

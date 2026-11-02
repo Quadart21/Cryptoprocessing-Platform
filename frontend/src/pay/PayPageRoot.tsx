@@ -330,7 +330,11 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     }
 
     const poll = () => {
-      if (paymentStatus === "pending" || paymentStatus === "confirming") {
+      if (
+        paymentStatus === "pending" ||
+        paymentStatus === "confirming" ||
+        paymentStatus === "underpaid"
+      ) {
         void loadPayment(true, { silent: true });
         return;
       }
@@ -338,7 +342,9 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     };
 
     const intervalMs =
-      paymentStatus === "pending" || paymentStatus === "confirming"
+      paymentStatus === "pending" ||
+      paymentStatus === "confirming" ||
+      paymentStatus === "underpaid"
         ? POLL_PENDING_REFRESH_MS
         : POLL_PAID_READ_MS;
     const timer = window.setInterval(poll, intervalMs);
@@ -352,10 +358,6 @@ export function PayPageRoot({ token }: PayPageRootProps) {
 
   const qrSrc = payment ? buildQrSrc(payment) : null;
   const tone = payment ? invoiceStatusTone(payment.status) : "warning";
-  const amountLine = payment
-    ? `${formatDecimal(payment.amount_crypto)} ${payment.crypto_currency}`
-    : "";
-
   const headerTitle = payment?.merchant_name ?? brandName;
 
   const awaitingPayment =
@@ -369,6 +371,23 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     payment && amountReview && !amountReview.credited && isAmountReviewStatus(payment.status),
   );
   const reviewCurrency = amountReview?.currency || payment?.crypto_currency || "";
+  const awaitingTopUp = Boolean(
+    payment &&
+      normalizeStatus(payment.status) === "underpaid" &&
+      amountReview &&
+      !amountReview.credited &&
+      payment.payment_address,
+  );
+  const remainingToPay =
+    awaitingTopUp && amountReview?.remaining_amount
+      ? amountReview.remaining_amount
+      : null;
+  const amountLine = payment
+    ? remainingToPay
+      ? `${formatDecimal(remainingToPay)} ${reviewCurrency || payment.crypto_currency}`
+      : `${formatDecimal(payment.amount_crypto)} ${payment.crypto_currency}`
+    : "";
+  const showDepositPanel = Boolean(awaitingPayment || awaitingTopUp);
 
   async function copyValue(label: string, value: string) {
     try {
@@ -435,9 +454,11 @@ export function PayPageRoot({ token }: PayPageRootProps) {
         {!loading && payment && !error ? (
           <>
             <section className="pp-glass pp-hero">
-              <p className="pp-hero-label">{reviewStillOpen ? "Запрошено" : "Сумма к оплате"}</p>
+              <p className="pp-hero-label">
+                {awaitingTopUp ? "Доплатить" : reviewStillOpen ? "Запрошено" : "Сумма к оплате"}
+              </p>
               <strong className="pp-hero-amount">{amountLine}</strong>
-              {isStableCoinFiatPair(payment.crypto_currency, payment.fiat_currency) ? (
+              {!awaitingTopUp && isStableCoinFiatPair(payment.crypto_currency, payment.fiat_currency) ? (
                 <span className="pp-hero-fiat">
                   ≈ {formatDecimal(payment.amount_fiat)} {payment.fiat_currency}
                 </span>
@@ -478,7 +499,14 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                   {amountReview.expected_amount
                     ? `${formatDecimal(amountReview.expected_amount)} ${reviewCurrency}`
                     : "запрошенной"}
-                  . Эта сумма зачислится автоматически.
+                  .
+                  {awaitingTopUp
+                    ? remainingToPay
+                      ? ` Отправьте ещё ${formatDecimal(remainingToPay)} ${reviewCurrency} на тот же адрес — платёж останется в этой заявке.`
+                      : " Отправьте недостающую сумму на тот же адрес — платёж останется в этой заявке."
+                    : normalizeStatus(payment.status) === "overpaid"
+                      ? " Фактическая сумма зачислится автоматически."
+                      : ""}
                 </p>
               </section>
             ) : null}
@@ -538,12 +566,17 @@ export function PayPageRoot({ token }: PayPageRootProps) {
               </section>
             ) : null}
 
-            {awaitingPayment ? (
+            {showDepositPanel ? (
               <>
                 <div className="pp-actions">
                   <button
                     className="pp-action"
-                    onClick={() => void copyValue("amount", payment.amount_crypto)}
+                    onClick={() =>
+                      void copyValue(
+                        "amount",
+                        remainingToPay || payment.amount_crypto,
+                      )
+                    }
                     type="button"
                   >
                     <span className="pp-action-icon" aria-hidden>

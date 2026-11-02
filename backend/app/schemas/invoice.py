@@ -4,18 +4,32 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 
+class InvoiceAmountReviewDeposit(BaseModel):
+    """One Crypto-Cash deposit_received slice linked to the same order."""
+
+    webhook_event_id: str | None = None
+    tx_hash: str | None = None
+    received_amount: str | None = None
+    received_currency: str | None = None
+    received_network: str | None = None
+    cumulative_amount: str | None = None
+    event_type: str | None = None
+
+
 class InvoiceAmountReviewResponse(BaseModel):
-    """Fact vs quote for an underpaid or overpaid deposit. Credit uses the received amount."""
+    """Fact vs quote for an underpaid or overpaid deposit on one invoice."""
 
     kind: str
     provider_status: str | None = None
     expected_amount: Decimal | None = None
     received_amount: Decimal | None = None
     delta_amount: Decimal | None = None
+    remaining_amount: Decimal | None = None
     currency: str | None = None
     usdt_total: Decimal | None = None
     exchange_rate: Decimal | None = None
     credited: bool = False
+    deposits: list[InvoiceAmountReviewDeposit] = Field(default_factory=list)
 
 
 class InvoiceCreateRequest(BaseModel):

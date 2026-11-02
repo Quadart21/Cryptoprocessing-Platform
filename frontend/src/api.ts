@@ -198,16 +198,28 @@ export type InvoiceTransactionDetails = {
   is_estimate: boolean;
 };
 
+export type InvoiceAmountReviewDeposit = {
+  webhook_event_id?: string | null;
+  tx_hash?: string | null;
+  received_amount?: string | null;
+  received_currency?: string | null;
+  received_network?: string | null;
+  cumulative_amount?: string | null;
+  event_type?: string | null;
+};
+
 export type InvoiceAmountReview = {
   kind: string;
   provider_status: string | null;
   expected_amount: string | null;
   received_amount: string | null;
   delta_amount: string | null;
+  remaining_amount?: string | null;
   currency: string | null;
   usdt_total: string | null;
   exchange_rate: string | null;
   credited: boolean;
+  deposits?: InvoiceAmountReviewDeposit[];
 };
 
 export type InvoiceDetail = InvoiceItem & {

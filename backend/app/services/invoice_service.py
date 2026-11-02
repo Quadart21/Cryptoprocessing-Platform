@@ -28,6 +28,8 @@ from app.schemas.invoice import InvoiceCreateRequest
 from app.services.accounting_service import AccountingService
 from app.services.amount_review import (
     AMOUNT_REVIEW_PLATFORM_STATUSES,
+    append_provider_deposit,
+    build_amount_review,
     build_amount_review_notice,
     parse_amount,
     pin_received_settlement,
@@ -518,7 +520,23 @@ class InvoiceService:
             provider_status,
             extract_event_type(raw_payload) if isinstance(raw_payload, dict) else None,
         )
-        if should_keep_credited_invoice(previous_status, mismatch_kind or ""):
+        incoming_review = (
+            build_amount_review(
+                raw_payload,
+                provider_status=provider_status,
+                event_type=extract_event_type(raw_payload),
+            )
+            if isinstance(raw_payload, dict)
+            else None
+        )
+        old_received = parse_amount((old_amount_review or {}).get("received_amount"))
+        new_received = parse_amount((incoming_review or {}).get("received_amount"))
+        if should_keep_credited_invoice(
+            previous_status,
+            mismatch_kind or "",
+            old_received=old_received,
+            new_received=new_received,
+        ):
             stored_payload = dict(invoice.raw_provider_payload_json or {})
             if raw_payload is not None:
                 if source == "sync":
@@ -575,6 +593,8 @@ class InvoiceService:
             raw_payload,
             provider_status=provider_status,
         )
+        if isinstance(raw_payload, dict):
+            append_provider_deposit(stored_payload, raw_payload)
         upsert_amount_review(
             stored_payload,
             raw_payload,
@@ -622,6 +642,7 @@ class InvoiceService:
 
         if effective_status in {"confirming", "paid", "confirmed"}:
             review_now = read_amount_review(stored_payload)
+            # Open underpaid never reaches here (status stays underpaid until top-up / late settle).
             if review_now is not None and not review_now.get("credited"):
                 pinned = pin_received_settlement(stored_payload)
                 if (
@@ -673,6 +694,8 @@ class InvoiceService:
             previous_status=previous_status,
             new_status=effective_status,
         )
+        if effective_status == "confirmed" and previous_status == "confirmed":
+            await self._revise_confirmed_settlement_if_received_grew(invoice, transaction)
 
         if effective_status in {"confirming", "paid", "confirmed"}:
             transaction.paid_at = invoice.paid_at = transaction.paid_at or invoice.paid_at
@@ -1561,6 +1584,68 @@ class InvoiceService:
             if old.get(key) != stored_payload.get(key):
                 return True
         return False
+
+    async def _revise_confirmed_settlement_if_received_grew(
+        self,
+        invoice: Invoice,
+        transaction: Transaction,
+    ) -> bool:
+        """Top-up after an early underpaid credit: raise settlement to the new cumulative amount."""
+        try:
+            new_gross = await self.resolve_settlement_gross_amount(invoice)
+        except ValueError:
+            return False
+        old_gross = Decimal(transaction.gross_amount or 0)
+        if new_gross <= old_gross:
+            return False
+        provider_fee, platform_fee, turnover_fee, new_net = await self._calculate_financials(
+            tenant_id=invoice.tenant_id,
+            gross_amount=new_gross,
+            fiat_currency=self.BALANCE_CURRENCY,
+        )
+        old_net = Decimal(transaction.net_amount or 0)
+        gross_delta = new_gross - old_gross
+        net_delta = new_net - old_net
+        balance_service = BalanceService(self.db)
+        balance = await balance_service.get_or_create_balance(invoice.tenant_id, self.BALANCE_CURRENCY)
+        hold_service = BalanceHoldService(self.db)
+        net_bucket = await hold_service.resolve_net_bucket(transaction)
+        if gross_delta != 0:
+            await balance_service.apply_bucket_delta(balance, "provider_gross_amount", gross_delta)
+            await balance_service.add_ledger_entry(
+                tenant_id=invoice.tenant_id,
+                currency=self.BALANCE_CURRENCY,
+                amount=abs(gross_delta),
+                direction="credit" if gross_delta > 0 else "debit",
+                balance_bucket="provider_gross_amount",
+                entry_type="invoice.topup_revision.gross",
+                invoice_id=invoice.id,
+                transaction_id=transaction.id,
+                description="Доплата по недоплате: обновление валовой суммы на кумулятивный amount.",
+                metadata_json={"old_gross": str(old_gross), "new_gross": str(new_gross)},
+            )
+        if net_delta != 0:
+            await balance_service.apply_bucket_delta(balance, net_bucket, net_delta)
+            await balance_service.add_ledger_entry(
+                tenant_id=invoice.tenant_id,
+                currency=self.BALANCE_CURRENCY,
+                amount=abs(net_delta),
+                direction="credit" if net_delta > 0 else "debit",
+                balance_bucket=net_bucket,
+                entry_type="invoice.topup_revision.net",
+                invoice_id=invoice.id,
+                transaction_id=transaction.id,
+                description="Доплата по недоплате: обновление зачисления на кумулятивный amount.",
+                metadata_json={"old_net": str(old_net), "new_net": str(new_net)},
+            )
+        transaction.gross_amount = new_gross
+        transaction.provider_fee = provider_fee
+        transaction.platform_fee = platform_fee
+        transaction.turnover_fee = turnover_fee
+        transaction.net_amount = new_net
+        self.db.add(transaction)
+        self.db.add(invoice)
+        return True
 
     def _has_misconverted_altcoin_settlement(
         self,

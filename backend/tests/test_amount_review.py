@@ -10,8 +10,11 @@ from app.providers.crypto_cash_status import (
 )
 from app.services.provider_settlement_rate import apply_settlement_fields_to_stored
 from app.services.amount_review import (
+    append_provider_deposit,
+    amount_review_public_dict,
     build_amount_review,
     build_amount_review_notice,
+    parse_amount,
     pin_received_settlement,
     review_needs_alert,
     should_keep_credited_invoice,
@@ -34,6 +37,28 @@ UNDERPAID_WEBHOOK = {
             "requestedAmount": "250",
         },
         "event_type": "acquiring::underpaid",
+    },
+}
+
+SECOND_DEPOSIT_RECEIVED = {
+    "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "event": {
+        "data": {
+            "id": "a1d9c5f3-8e47-42b6-9c14-5f8b3a7d2e91",
+            "hash": "tx-hash-topup-2",
+            "amount": "250",
+            "status": "Paid",
+            "currency": "USDT",
+            "usdtTotal": "249.55",
+            "externalId": "in_72541",
+            "exchangeRate": "1",
+            "expectedAmount": "250",
+            "receivedAmount": "0.16",
+            "receivedCurrency": "USDT",
+            "receivedNetwork": "TRC20",
+            "requestedAmount": "250",
+        },
+        "event_type": "acquiring::deposit_received",
     },
 }
 
@@ -66,26 +91,34 @@ class AmountReviewStatusTests(unittest.TestCase):
                 used = True
         self.assertTrue(imported)
         self.assertTrue(used)
-    def test_mismatch_statuses_settle_as_paid(self) -> None:
-        self.assertEqual(normalize_crypto_cash_status("Underpaid"), "paid")
+
+    def test_underpaid_stays_open_overpaid_settles(self) -> None:
+        self.assertEqual(normalize_crypto_cash_status("Underpaid"), "underpaid")
         self.assertEqual(normalize_crypto_cash_status("Overpaid"), "paid")
         self.assertEqual(normalize_crypto_cash_status("CanceledButUnderpaid"), "paid")
         self.assertEqual(normalize_crypto_cash_status("CanceledButOverpaid"), "paid")
         self.assertEqual(
             resolve_crypto_cash_status(status=None, event_type="acquiring::underpaid"),
-            "paid",
+            "underpaid",
         )
         self.assertEqual(
             resolve_crypto_cash_status(status=None, event_type="acquiring::overpaid"),
             "paid",
         )
         self.assertTrue(provider_status_indicates_deposit_credit("Underpaid"))
-        self.assertTrue(provider_status_indicates_deposit_credit("CanceledButOverpaid"))
-        self.assertTrue(acquiring_event_finalizes_credit("acquiring::underpaid"))
+        self.assertFalse(acquiring_event_finalizes_credit("acquiring::underpaid"))
         self.assertTrue(acquiring_event_finalizes_credit("acquiring::overpaid"))
 
-    def test_credited_invoice_is_not_reopened(self) -> None:
+    def test_credited_invoice_allows_higher_topup(self) -> None:
         self.assertTrue(should_keep_credited_invoice("confirmed", "underpaid"))
+        self.assertFalse(
+            should_keep_credited_invoice(
+                "confirmed",
+                "underpaid",
+                old_received=parse_amount("3"),
+                new_received=parse_amount("5"),
+            )
+        )
         self.assertFalse(should_keep_credited_invoice("underpaid", "overpaid"))
         self.assertFalse(should_keep_credited_invoice("confirming", "underpaid"))
 
@@ -106,6 +139,40 @@ class AmountReviewSnapshotTests(unittest.TestCase):
         self.assertEqual(review["usdt_total"], "249.390288")
         self.assertEqual(review["currency"], "USDT")
         self.assertFalse(review["credited"])
+
+    def test_public_dict_exposes_remaining_for_topup(self) -> None:
+        stored: dict = {}
+        upsert_amount_review(
+            stored,
+            UNDERPAID_WEBHOOK,
+            provider_status="Underpaid",
+            event_type="acquiring::underpaid",
+        )
+        public = amount_review_public_dict(stored)
+        assert public is not None
+        self.assertEqual(public["remaining_amount"], "0.16")
+
+    def test_second_deposit_clears_review_when_exact(self) -> None:
+        stored: dict = {}
+        upsert_amount_review(
+            stored,
+            UNDERPAID_WEBHOOK,
+            provider_status="Underpaid",
+            event_type="acquiring::underpaid",
+        )
+        self.assertTrue(append_provider_deposit(stored, SECOND_DEPOSIT_RECEIVED))
+        self.assertTrue(
+            upsert_amount_review(
+                stored,
+                SECOND_DEPOSIT_RECEIVED,
+                provider_status="Paid",
+                event_type="acquiring::deposit_received",
+            )
+        )
+        self.assertIsNone(stored.get("amount_review"))
+        self.assertEqual(len(stored["provider_deposits"]), 1)
+        self.assertEqual(stored["provider_deposits"][0]["received_amount"], "0.16")
+        self.assertEqual(stored["provider_deposits"][0]["cumulative_amount"], "250")
 
     def test_overpaid_snapshot(self) -> None:
         review = build_amount_review(OVERPAID_WEBHOOK, provider_status="Overpaid")
@@ -149,7 +216,7 @@ class AmountReviewSnapshotTests(unittest.TestCase):
         changed["received_amount"] = "249.10"
         self.assertTrue(review_needs_alert("underpaid", review, changed))
 
-    def test_notice_names_the_received_sum(self) -> None:
+    def test_notice_names_topup(self) -> None:
         review = build_amount_review(UNDERPAID_WEBHOOK, provider_status="Underpaid")
         assert review is not None
         title, lines = build_amount_review_notice(
@@ -160,4 +227,8 @@ class AmountReviewSnapshotTests(unittest.TestCase):
         self.assertIn("Недоплата", title)
         self.assertTrue(any("249.84 USDT" in line for line in lines))
         self.assertTrue(any("250 USDT" in line for line in lines))
-        self.assertTrue(any("автоматически" in line for line in lines))
+        self.assertTrue(any("доплатить" in line for line in lines))
+
+
+if __name__ == "__main__":
+    unittest.main()
