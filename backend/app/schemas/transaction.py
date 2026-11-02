@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from app.schemas.invoice import InvoiceAmountReviewResponse
+
 
 class TransactionResponse(BaseModel):
     id: str
@@ -13,6 +15,7 @@ class TransactionResponse(BaseModel):
     crypto_currency: str | None = None
     amount_fiat: Decimal | None = None
     fiat_currency: str | None = None
+    amount_review: InvoiceAmountReviewResponse | None = None
     gross_amount: Decimal
     provider_fee: Decimal | None = None
     platform_fee: Decimal | None = None

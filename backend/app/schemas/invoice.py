@@ -4,6 +4,20 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 
+class InvoiceAmountReviewResponse(BaseModel):
+    """Fact vs quote for an underpaid or overpaid deposit. Credit uses the received amount."""
+
+    kind: str
+    provider_status: str | None = None
+    expected_amount: Decimal | None = None
+    received_amount: Decimal | None = None
+    delta_amount: Decimal | None = None
+    currency: str | None = None
+    usdt_total: Decimal | None = None
+    exchange_rate: Decimal | None = None
+    credited: bool = False
+
+
 class InvoiceCreateRequest(BaseModel):
     project_id: str
     merchant_order_id: str = Field(min_length=1, max_length=255)
@@ -34,6 +48,7 @@ class InvoiceResponse(BaseModel):
     network_confirmations_required: int | None = None
     expires_at: datetime
     created_at: datetime
+    amount_review: InvoiceAmountReviewResponse | None = None
 
 
 class InvoiceSettlementResponse(BaseModel):
@@ -77,20 +92,6 @@ class InvoiceTransactionDetailsResponse(BaseModel):
     network_confirmations_actual: int | None = None
     network_confirmations_required: int | None = None
     is_estimate: bool = False
-
-
-class InvoiceAmountReviewResponse(BaseModel):
-    """Fact vs quote for an underpaid or overpaid deposit. Credit uses the received amount."""
-
-    kind: str
-    provider_status: str | None = None
-    expected_amount: Decimal | None = None
-    received_amount: Decimal | None = None
-    delta_amount: Decimal | None = None
-    currency: str | None = None
-    usdt_total: Decimal | None = None
-    exchange_rate: Decimal | None = None
-    credited: bool = False
 
 
 class InvoiceDetailResponse(InvoiceResponse):

@@ -2218,6 +2218,7 @@ def _map_transaction_response(transaction, invoice: Invoice | None = None) -> Tr
         crypto_currency=invoice.crypto_currency if invoice is not None else None,
         amount_fiat=invoice.amount_fiat if invoice is not None else None,
         fiat_currency=invoice.fiat_currency if invoice is not None else None,
+        amount_review=_amount_review_response(invoice) if invoice is not None else None,
         gross_amount=transaction.gross_amount,
         provider_fee=transaction.provider_fee,
         platform_fee=transaction.platform_fee,

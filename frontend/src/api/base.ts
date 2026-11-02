@@ -165,6 +165,7 @@ export type InvoiceItem = {
   network_confirmations_required: number | null;
   expires_at: string;
   created_at: string;
+  amount_review?: InvoiceAmountReview | null;
 };
 
 export type InvoiceSettlement = {
@@ -274,6 +275,7 @@ export type TransactionItem = {
   crypto_currency: string | null;
   amount_fiat?: string | null;
   fiat_currency?: string | null;
+  amount_review?: InvoiceAmountReview | null;
   gross_amount: string;
   provider_fee?: string | null;
   platform_fee?: string | null;

@@ -1234,6 +1234,13 @@ def _ensure_client_api_permission(auth: ClientAuthContext, permission: str) -> N
             detail=f"Insufficient permissions: {permission}.",
         )
 
+def _amount_review_model(invoice: Invoice) -> InvoiceAmountReviewResponse | None:
+    payload = amount_review_public_dict(invoice.raw_provider_payload_json)
+    if payload is None:
+        return None
+    return InvoiceAmountReviewResponse(**payload)
+
+
 def _map_invoice_response(
     invoice: Invoice,
     *,
@@ -1262,6 +1269,7 @@ def _map_invoice_response(
         status=invoice.status,
         expires_at=invoice.expires_at,
         created_at=invoice.created_at,
+        amount_review=_amount_review_model(invoice),
         **confirmations_fields_from_stored(invoice),
     )
 
@@ -1307,14 +1315,12 @@ async def _map_invoice_detail_response(
         include_exchange_rate=invoice.status == "confirmed",
         merchant_view=True,
     )
-    review_payload = amount_review_public_dict(invoice.raw_provider_payload_json)
     return InvoiceDetailResponse(
         **base.model_dump(),
         settlement=_map_invoice_settlement(invoice, transaction),
         transaction_details=(
             InvoiceTransactionDetailsResponse(**details_payload) if details_payload else None
         ),
-        amount_review=InvoiceAmountReviewResponse(**review_payload) if review_payload else None,
     )
 
 
@@ -1346,6 +1352,7 @@ def _map_transaction_response(transaction, invoice: Invoice | None = None) -> Tr
         crypto_currency=invoice.crypto_currency if invoice is not None else None,
         amount_fiat=invoice.amount_fiat if invoice is not None else None,
         fiat_currency=invoice.fiat_currency if invoice is not None else None,
+        amount_review=_amount_review_model(invoice) if invoice is not None else None,
         gross_amount=transaction.gross_amount,
         total_fee=(provider_fee + platform_fee).quantize(Decimal("0.0001")),
         net_amount=transaction.net_amount,

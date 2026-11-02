@@ -1,7 +1,7 @@
 import type { TransactionItem } from "../../api";
 import { useTranslation } from "../../i18n";
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
-import { transactionDisplayAmount, transactionTotalFee } from "../../utils/invoiceAccounting";
+import { amountReviewMessage, transactionDisplayAmount, transactionTotalFee } from "../../utils/invoiceAccounting";
 
 export type OutboundLedgerProps = {
   transactions: TransactionItem[];
@@ -232,7 +232,9 @@ export function OutboundLedger({
 }
 
 function TransactionAmount({ transaction }: { transaction: TransactionItem }) {
+  const { t } = useTranslation();
   const display = transactionDisplayAmount(transaction);
+  const review = amountReviewMessage(transaction.amount_review, transaction.crypto_currency || transaction.currency);
   return (
     <>
       <span>{formatMoneyAmount(display.amount, display.currency)}</span>
@@ -241,6 +243,7 @@ function TransactionAmount({ transaction }: { transaction: TransactionItem }) {
           {formatMoneyAmount(display.cryptoAmount, display.cryptoCurrency)}
         </span>
       ) : null}
+      {review ? <span className="tx-crypto-line">{t(review.key, review.params)}</span> : null}
     </>
   );
 }

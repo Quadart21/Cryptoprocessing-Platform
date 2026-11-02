@@ -5,7 +5,7 @@ import { useTranslation } from "../../i18n";
 import { formatDecimal } from "../../utils/format";
 import { formatNetworkConfirmations } from "../../utils/networkConfirmations";
 import { invoiceDetailBadgeClass } from "../../utils/invoiceStatus";
-import { invoiceAccountingReady } from "../../utils/invoiceAccounting";
+import { amountReviewMessage, invoiceAccountingReady } from "../../utils/invoiceAccounting";
 
 import { InvoiceSettlementBreakdown } from "./InvoiceSettlementBreakdown";
 import { InvoiceTransactionDetailsCard } from "./InvoiceTransactionDetailsCard";
@@ -198,16 +198,16 @@ export function MerchantInvoiceInspector({
 
       {invoice.amount_review ? (
         <p className="invoice-modal-subtitle">
-          {invoice.amount_review.credited
-            ? t("merchant.invoiceStatus.amountReviewCredited", {
-                received: invoice.amount_review.received_amount ?? "",
-                currency: invoice.amount_review.currency ?? invoice.crypto_currency,
-              })
-            : t("merchant.invoiceStatus.amountReviewPending", {
-                received: invoice.amount_review.received_amount ?? "—",
-                expected: invoice.amount_review.expected_amount ?? "—",
-                currency: invoice.amount_review.currency ?? invoice.crypto_currency,
-              })}
+          {(() => {
+            const message = amountReviewMessage(invoice.amount_review, invoice.crypto_currency);
+            return message
+              ? t(message.key, message.params)
+              : t("merchant.invoiceStatus.amountReviewPending", {
+                  received: "—",
+                  expected: invoice.amount_review.expected_amount ?? "—",
+                  currency: invoice.amount_review.currency ?? invoice.crypto_currency,
+                });
+          })()}
         </p>
       ) : null}
 

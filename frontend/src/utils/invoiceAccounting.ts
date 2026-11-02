@@ -1,4 +1,5 @@
-import type { InvoiceDetail, InvoiceSettlement, TransactionItem } from "../api";
+import type { InvoiceAmountReview, InvoiceDetail, InvoiceSettlement, TransactionItem } from "../api";
+import { formatDecimal } from "./format";
 
 const STABLE_ASSETS = new Set(["USD", "USDT", "USDC"]);
 
@@ -38,27 +39,74 @@ export type TransactionQuote = Pick<
   | "fiat_currency"
   | "amount_crypto"
   | "crypto_currency"
+  | "amount_review"
 >;
+
+export function amountReviewMessage(
+  review: Pick<InvoiceAmountReview, "kind" | "received_amount" | "expected_amount" | "currency"> | null | undefined,
+  fallbackCurrency: string,
+): { key: string; params: Record<string, string> } | null {
+  if (!review?.received_amount) {
+    return null;
+  }
+  const currency = review.currency || fallbackCurrency;
+  const received = formatDecimal(review.received_amount);
+  if (review.expected_amount) {
+    return {
+      key:
+        review.kind === "overpaid"
+          ? "merchant.invoiceStatus.amountReviewOverpaid"
+          : "merchant.invoiceStatus.amountReviewUnderpaid",
+      params: {
+        received,
+        expected: formatDecimal(review.expected_amount),
+        currency,
+      },
+    };
+  }
+  return {
+    key:
+      review.kind === "overpaid"
+        ? "merchant.invoiceStatus.amountReviewOverpaidReceived"
+        : "merchant.invoiceStatus.amountReviewUnderpaidReceived",
+    params: { received, currency },
+  };
+}
 
 export function transactionHasSettlement(transaction: Pick<TransactionItem, "gross_amount">): boolean {
   const gross = Number(String(transaction.gross_amount ?? "").replace(",", "."));
   return Number.isFinite(gross) && gross > 0;
 }
 
-/** Before settlement the ledger gross is zero. Show the invoice quote instead. */
+/** Before settlement the ledger gross is zero. Show the invoice quote, or the received sum on a mismatch. */
 export function transactionDisplayAmount(transaction: TransactionQuote): {
   amount: string;
   currency: string;
   cryptoAmount: string | null;
   cryptoCurrency: string | null;
 } {
+  const review = transaction.amount_review;
+  const received =
+    review?.received_amount && Number(review.received_amount) > 0 ? review.received_amount : null;
+  const reviewCurrency = received ? review?.currency || transaction.crypto_currency || null : null;
   const cryptoAmount =
     transaction.amount_crypto && Number(transaction.amount_crypto) > 0 ? transaction.amount_crypto : null;
   const cryptoCurrency = cryptoAmount ? transaction.crypto_currency ?? null : null;
   if (transactionHasSettlement(transaction)) {
+    const grossMatchesReceived =
+      reviewCurrency != null &&
+      transaction.currency.trim().toUpperCase() === reviewCurrency.trim().toUpperCase();
     return {
       amount: transaction.gross_amount,
       currency: transaction.currency,
+      cryptoAmount: grossMatchesReceived ? null : received,
+      cryptoCurrency: grossMatchesReceived ? null : reviewCurrency,
+    };
+  }
+  if (received && reviewCurrency) {
+    return {
+      amount: received,
+      currency: reviewCurrency,
       cryptoAmount: null,
       cryptoCurrency: null,
     };

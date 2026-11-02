@@ -4,7 +4,7 @@ import type { InvoiceItem, InvoiceWebhookTestResponse } from "../../api";
 import { useTranslation } from "../../i18n";
 import { formatDecimal } from "../../utils/format";
 import { invoiceMerchantBadgeClass, invoiceStatusTone } from "../../utils/invoiceStatus";
-import { isStableCoinFiatPair } from "../../utils/invoiceAccounting";
+import { amountReviewMessage, isStableCoinFiatPair } from "../../utils/invoiceAccounting";
 
 import { InvoiceWebhookTestDialog } from "./InvoiceWebhookTestDialog";
 
@@ -51,6 +51,28 @@ function invoiceStatusLabel(
     return t(`merchant.invoiceStatus.${normalized}`);
   }
   return status;
+}
+
+function InvoiceAmountLine({ invoice }: { invoice: InvoiceItem }) {
+  const { t } = useTranslation();
+  const review = invoice.amount_review;
+  const message = amountReviewMessage(review, invoice.crypto_currency);
+  const received = review?.received_amount;
+  return (
+    <>
+      <p className="mw-invoice-row__amount">
+        {received
+          ? `${formatDecimal(received)} ${review?.currency || invoice.crypto_currency}`
+          : `${formatDecimal(invoice.amount_crypto)} ${invoice.crypto_currency}`}
+        {!review && isStableCoinFiatPair(invoice.crypto_currency, invoice.fiat_currency) ? (
+          <span className="mw-invoice-row__fiat">
+            · {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency}
+          </span>
+        ) : null}
+      </p>
+      {message ? <p className="mc-row-sub">{t(message.key, message.params)}</p> : null}
+    </>
+  );
 }
 
 function matchesStatusFilter(status: string, filter: StatusFilter): boolean {
@@ -343,14 +365,7 @@ export function ReceivableList({
                       {formatInvoiceDate(invoice.created_at)}
                     </time>
                   </div>
-                  <p className="mw-invoice-row__amount">
-                    {formatDecimal(invoice.amount_crypto)} {invoice.crypto_currency}
-                    {isStableCoinFiatPair(invoice.crypto_currency, invoice.fiat_currency) ? (
-                      <span className="mw-invoice-row__fiat">
-                        · {formatDecimal(invoice.amount_fiat)} {invoice.fiat_currency}
-                      </span>
-                    ) : null}
-                  </p>
+                  <InvoiceAmountLine invoice={invoice} />
                   {invoice.payment_page_url ? (
                     <p className="mc-row-sub mc-row-mono">{invoice.payment_page_url}</p>
                   ) : (
@@ -361,6 +376,14 @@ export function ReceivableList({
                     <span className={invoiceMerchantBadgeClass(invoice.status)}>
                       {invoiceStatusLabel(invoice.status, t)}
                     </span>
+                    {invoice.amount_review &&
+                    invoice.status !== "underpaid" &&
+                    invoice.status !== "overpaid" &&
+                    (invoice.amount_review.kind === "underpaid" || invoice.amount_review.kind === "overpaid") ? (
+                      <span className="mc-badge mc-badge-warn">
+                        {invoiceStatusLabel(invoice.amount_review.kind, t)}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <div className="mc-row-actions mw-invoice-row__actions">
