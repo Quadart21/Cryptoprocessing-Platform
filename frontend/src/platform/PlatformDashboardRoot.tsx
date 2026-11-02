@@ -85,6 +85,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
     onAdminRevokeApiKey,
     onSelectInvoice,
     onUpdateInvoiceStatus,
+    onCreditReceived,
     onUpdateTransactionStatus,
     onSyncInvoice,
     onRepairInvoiceSettlement,
@@ -400,6 +401,7 @@ export function PlatformDashboardRoot(props: AdminDashboardProps) {
                   onSelectInvoice={onSelectInvoice}
                   onUpdateAdminProject={onUpdateAdminProject}
                   onUpdateAdminTenant={onUpdateAdminTenant}
+                  onCreditReceived={onCreditReceived}
                   onUpdateInvoiceStatus={onUpdateInvoiceStatus}
                   onSyncInvoice={onSyncInvoice}
                   onRepairInvoiceSettlement={onRepairInvoiceSettlement}

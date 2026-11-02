@@ -42,6 +42,7 @@ type AdminClientDetailSectionProps = {
   onUpdateAdminProject: (projectId: string, payload: ProjectAdminUpdatePayload) => void;
   onUpdateAdminTenant: (tenantId: string, payload: TenantAdminUpdatePayload) => void;
   onUpdateInvoiceStatus: (status: string) => void;
+  onCreditReceived: () => void;
   onSyncInvoice: (invoiceId: string) => void;
   onRepairInvoiceSettlement: (invoiceId: string) => void;
   onApprovePayout: (payoutId: string) => void;
@@ -82,6 +83,7 @@ export function AdminClientDetailSection({
   onUpdateAdminProject,
   onUpdateAdminTenant,
   onUpdateInvoiceStatus,
+  onCreditReceived,
   onSyncInvoice,
   onRepairInvoiceSettlement,
   onApprovePayout,
@@ -309,6 +311,7 @@ export function AdminClientDetailSection({
                   onRepairInvoice={onRepairInvoiceSettlement}
                   onSelectInvoice={onSelectInvoice}
                   onSyncInvoice={onSyncInvoice}
+                  onCreditReceived={onCreditReceived}
                   onUpdateInvoiceStatus={onUpdateInvoiceStatus}
                   onViewChange={openOps}
                   payouts={selectedTenantPayouts}

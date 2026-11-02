@@ -79,9 +79,24 @@ class InvoiceTransactionDetailsResponse(BaseModel):
     is_estimate: bool = False
 
 
+class InvoiceAmountReviewResponse(BaseModel):
+    """Fact vs quote for an underpaid or overpaid deposit. Credit stays manual."""
+
+    kind: str
+    provider_status: str | None = None
+    expected_amount: Decimal | None = None
+    received_amount: Decimal | None = None
+    delta_amount: Decimal | None = None
+    currency: str | None = None
+    usdt_total: Decimal | None = None
+    exchange_rate: Decimal | None = None
+    credited: bool = False
+
+
 class InvoiceDetailResponse(InvoiceResponse):
     settlement: InvoiceSettlementResponse | None = None
     transaction_details: InvoiceTransactionDetailsResponse | None = None
+    amount_review: InvoiceAmountReviewResponse | None = None
 
 
 class PublicPaymentResponse(BaseModel):
@@ -101,6 +116,7 @@ class PublicPaymentResponse(BaseModel):
     merchant_name: str | None = None
     return_url_success: str | None = None
     return_url_failed: str | None = None
+    amount_review: InvoiceAmountReviewResponse | None = None
 
 
 class InvoiceAdminDetailResponse(InvoiceResponse):
@@ -110,6 +126,7 @@ class InvoiceAdminDetailResponse(InvoiceResponse):
     metadata_json: dict | None
     raw_provider_payload_json: dict | None
     transaction_details: InvoiceTransactionDetailsResponse | None = None
+    amount_review: InvoiceAmountReviewResponse | None = None
 
 
 class InvoiceStatusUpdateRequest(BaseModel):

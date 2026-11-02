@@ -20,6 +20,8 @@ const INVOICE_STATUS_KEYS = [
   "cancelled",
   "failed",
   "aml_frozen",
+  "underpaid",
+  "overpaid",
 ] as const;
 
 type StatusFilter = "all" | "awaiting" | "settled" | "attention";
@@ -27,7 +29,13 @@ type StatusFilter = "all" | "awaiting" | "settled" | "attention";
 function hasActiveInvoiceStatus(invoices: InvoiceItem[]): boolean {
   return invoices.some((invoice) => {
     const status = invoice.status.trim().toLowerCase();
-    return status === "pending" || status === "confirming" || status === "paid";
+    return (
+      status === "pending" ||
+      status === "confirming" ||
+      status === "paid" ||
+      status === "underpaid" ||
+      status === "overpaid"
+    );
   });
 }
 

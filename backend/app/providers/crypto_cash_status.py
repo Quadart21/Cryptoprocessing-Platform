@@ -17,35 +17,33 @@ PLATFORM_INVOICE_STATUSES: tuple[str, ...] = (
     "confirming",
     "paid",
     "confirmed",
+    "underpaid",
+    "overpaid",
     "expired",
     "cancelled",
     "failed",
     "aml_frozen",
 )
 
-# Sale statuses where Crypto-Cash credited USDT to merchant balance (data.status).
-# See https://docs.crypto-cash.world/webhooks/structure#значения-статусов
+# Sale statuses where Crypto-Cash credited USDT and the platform may settle automatically.
+# Underpaid / overpaid are excluded: Crypto-Cash only alerts, and the admin credits
+# the received amount by hand. See https://docs.crypto-cash.world/webhooks/structure
 CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES = frozenset(
     {
         "paid",
-        "overpaid",
-        "underpaid",
         "canceledbutpaid",
-        "canceledbutoverpaid",
-        "canceledbutunderpaid",
         "confirmed",
         "completed",
         "deposit_received",
     }
 )
 
-# Terminal acquiring events that follow deposit_received (credit + email).
+# Terminal acquiring events that follow deposit_received and may auto-settle.
+# acquiring::overpaid / acquiring::underpaid wait for a manual credit.
 # See https://docs.crypto-cash.world/webhooks/types
 ACQUIRING_FINAL_CREDIT_EVENTS = frozenset(
     {
         "acquiring::completed",
-        "acquiring::overpaid",
-        "acquiring::underpaid",
     }
 )
 
@@ -56,18 +54,19 @@ CRYPTO_CASH_STATUS_TO_PLATFORM: dict[str, str] = {
     "new": "pending",
     # Подтверждение в блокчейне
     "waiting": "confirming",
-    # Успешные / частичные депозиты (все зачисляют USDT на баланс CC)
+    # Точное попадание в сумму — можно проводить само
     "paid": "paid",
-    "overpaid": "paid",
-    "underpaid": "paid",
+    # Сумма не совпала: только учёт факта и ручное зачисление
+    "overpaid": "overpaid",
+    "underpaid": "underpaid",
     # Отмена / ошибки
     "canceled": "cancelled",
     "cancelled": "cancelled",
     "currencymismatch": "failed",
-    # Просроченный заказ (>24ч), но депозит всё же пришёл — зачисление сохраняется
+    # Просроченный заказ (>24ч), но депозит всё же пришёл
     "canceledbutpaid": "paid",
-    "canceledbutoverpaid": "paid",
-    "canceledbutunderpaid": "paid",
+    "canceledbutoverpaid": "overpaid",
+    "canceledbutunderpaid": "underpaid",
     # Legacy / internal aliases
     "pending": "pending",
     "confirming": "confirming",

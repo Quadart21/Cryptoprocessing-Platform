@@ -7,6 +7,8 @@ export const PLATFORM_INVOICE_STATUSES = [
   "confirming",
   "paid",
   "confirmed",
+  "underpaid",
+  "overpaid",
   "expired",
   "cancelled",
   "failed",
@@ -22,6 +24,8 @@ const INVOICE_STATUS_KEYS: Record<string, string> = {
   confirming: "merchant.invoiceStatus.confirming",
   paid: "merchant.invoiceStatus.paid",
   confirmed: "merchant.invoiceStatus.confirmed",
+  underpaid: "merchant.invoiceStatus.underpaid",
+  overpaid: "merchant.invoiceStatus.overpaid",
   expired: "merchant.invoiceStatus.expired",
   cancelled: "merchant.invoiceStatus.cancelled",
   failed: "merchant.invoiceStatus.failed",
@@ -33,7 +37,7 @@ export function invoiceStatusTone(status: string): InvoiceStatusTone {
   if (s === "paid" || s === "confirmed") {
     return "success";
   }
-  if (s === "pending" || s === "confirming" || s === "aml_frozen") {
+  if (s === "pending" || s === "confirming" || s === "aml_frozen" || s === "underpaid" || s === "overpaid") {
     return "warning";
   }
   return "danger";
@@ -52,6 +56,8 @@ export function invoiceStatusLabelRu(status: string): string {
     confirming: "Подтверждение в сети",
     paid: "Оплачен",
     confirmed: "Подтверждён",
+    underpaid: "Недоплата",
+    overpaid: "Переплата",
     expired: "Истёк срок",
     cancelled: "Отменён",
     failed: "Ошибка оплаты",
@@ -69,6 +75,9 @@ export function invoiceDetailBadgeClass(status: string): string {
     case "confirming":
       return "invoice-status-badge-pending";
     case "aml_frozen":
+      return "invoice-status-badge-pending";
+    case "underpaid":
+    case "overpaid":
       return "invoice-status-badge-pending";
     case "paid":
       return "invoice-status-badge-paid";

@@ -1,5 +1,17 @@
 import { resolveApiBaseUrl } from "../config/apiBase";
 
+export type PublicAmountReview = {
+  kind: string;
+  provider_status: string | null;
+  expected_amount: string | null;
+  received_amount: string | null;
+  delta_amount: string | null;
+  currency: string | null;
+  usdt_total: string | null;
+  exchange_rate: string | null;
+  credited: boolean;
+};
+
 export type PublicPayment = {
   status: string;
   amount_crypto: string;
@@ -17,6 +29,7 @@ export type PublicPayment = {
   merchant_name: string | null;
   return_url_success: string | null;
   return_url_failed: string | null;
+  amount_review?: PublicAmountReview | null;
 };
 
 export class PublicPaymentError extends Error {

@@ -197,9 +197,22 @@ export type InvoiceTransactionDetails = {
   is_estimate: boolean;
 };
 
+export type InvoiceAmountReview = {
+  kind: string;
+  provider_status: string | null;
+  expected_amount: string | null;
+  received_amount: string | null;
+  delta_amount: string | null;
+  currency: string | null;
+  usdt_total: string | null;
+  exchange_rate: string | null;
+  credited: boolean;
+};
+
 export type InvoiceDetail = InvoiceItem & {
   settlement: InvoiceSettlement | null;
   transaction_details: InvoiceTransactionDetails | null;
+  amount_review: InvoiceAmountReview | null;
 };
 
 export type InvoiceAdminDetail = InvoiceItem & {
@@ -209,6 +222,7 @@ export type InvoiceAdminDetail = InvoiceItem & {
   metadata_json: Record<string, unknown> | null;
   raw_provider_payload_json: Record<string, unknown> | null;
   transaction_details: InvoiceTransactionDetails | null;
+  amount_review: InvoiceAmountReview | null;
 };
 
 export type CreateInvoicePayload = {
@@ -2037,6 +2051,18 @@ export function fetchAdminInvoiceDetail(
   const base = `/admin/invoices/${encodeURIComponent(invoiceId)}`;
   const path = options?.sync ? `${base}?sync=1` : base;
   return request<InvoiceAdminDetail>(path, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export function creditAdminInvoiceReceived(
+  token: string,
+  invoiceId: string,
+): Promise<InvoiceAdminDetail> {
+  return request<InvoiceAdminDetail>(`/admin/invoices/${invoiceId}/credit-received`, {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
     },

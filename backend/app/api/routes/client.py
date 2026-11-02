@@ -34,6 +34,7 @@ from app.schemas.auth import (
 from app.schemas.invoice import (
     BalanceHoldItem,
     BalanceResponse,
+    InvoiceAmountReviewResponse,
     InvoiceCreateRequest,
     InvoiceDetailResponse,
     InvoiceResponse,
@@ -76,6 +77,7 @@ from app.services.balance_service import BalanceService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
 from app.services.invoice_confirmations import confirmations_fields_from_stored
+from app.services.amount_review import amount_review_public_dict
 from app.services.invoice_service import InvoiceAmountOutOfRangeError, InvoiceService
 from app.services.invoice_transaction_details import build_invoice_transaction_details
 from app.services.notification_service import NotificationService
@@ -1305,12 +1307,14 @@ async def _map_invoice_detail_response(
         include_exchange_rate=invoice.status == "confirmed",
         merchant_view=True,
     )
+    review_payload = amount_review_public_dict(invoice.raw_provider_payload_json)
     return InvoiceDetailResponse(
         **base.model_dump(),
         settlement=_map_invoice_settlement(invoice, transaction),
         transaction_details=(
             InvoiceTransactionDetailsResponse(**details_payload) if details_payload else None
         ),
+        amount_review=InvoiceAmountReviewResponse(**review_payload) if review_payload else None,
     )
 
 

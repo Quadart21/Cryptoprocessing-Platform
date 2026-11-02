@@ -32,7 +32,7 @@ async def _sync_all_pending_invoices() -> dict:
             (
                 await db.scalars(
                     select(Invoice)
-                    .where(Invoice.status.in_(["pending", "confirming", "paid"]))
+                    .where(Invoice.status.in_(["pending", "confirming", "paid", "underpaid", "overpaid"]))
                     .order_by(Invoice.created_at.desc())
                     .limit(100)
                 )

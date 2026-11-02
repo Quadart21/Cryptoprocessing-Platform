@@ -28,6 +28,8 @@ const INVOICE_STATUS_KEYS = [
   "cancelled",
   "failed",
   "aml_frozen",
+  "underpaid",
+  "overpaid",
 ] as const;
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
@@ -193,6 +195,21 @@ export function MerchantInvoiceInspector({
           </button>
         </form>
       </div>
+
+      {invoice.amount_review ? (
+        <p className="invoice-modal-subtitle">
+          {invoice.amount_review.credited
+            ? t("merchant.invoiceStatus.amountReviewCredited", {
+                received: invoice.amount_review.received_amount ?? "",
+                currency: invoice.amount_review.currency ?? invoice.crypto_currency,
+              })
+            : t("merchant.invoiceStatus.amountReviewPending", {
+                received: invoice.amount_review.received_amount ?? "—",
+                expected: invoice.amount_review.expected_amount ?? "—",
+                currency: invoice.amount_review.currency ?? invoice.crypto_currency,
+              })}
+        </p>
+      ) : null}
 
       <p className="invoice-modal-subtitle">
         {invoice.payment_page_url

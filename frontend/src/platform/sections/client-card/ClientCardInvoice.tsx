@@ -1,4 +1,4 @@
-import type { InvoiceAdminDetail, ProjectItem, ProviderEventItem, TransactionItem } from "../../../api";
+import type { InvoiceAdminDetail, InvoiceAmountReview, ProjectItem, ProviderEventItem, TransactionItem } from "../../../api";
 import { CopyableIdentifier } from "../../../components/CopyableIdentifier";
 import { InvoiceTransactionDetailsCard } from "../../../merchant/widgets/InvoiceTransactionDetailsCard";
 import { InvoiceStatusOverrideControl } from "../../components/InvoiceStatusOverrideControl";
@@ -22,6 +22,7 @@ type ClientCardInvoiceProps = {
   onRepair: (invoiceId: string) => void;
   onSync: (invoiceId: string) => void;
   onUpdateStatus: (status: string) => void;
+  onCreditReceived: () => void;
 };
 
 export function ClientCardInvoice({
@@ -35,6 +36,7 @@ export function ClientCardInvoice({
   onRepair,
   onSync,
   onUpdateStatus,
+  onCreditReceived,
 }: ClientCardInvoiceProps) {
   const project = projects.find((item) => item.id === invoice.project_id);
   const showRepair = invoiceCanAttemptSettlementRepair(invoice, transaction);
@@ -86,6 +88,14 @@ export function ClientCardInvoice({
         <dd>{formatWhen(invoice.confirmed_at)}</dd>
       </dl>
 
+      <AmountReviewPanel
+        cryptoCurrency={invoice.crypto_currency}
+        isSuperadmin={isSuperadmin}
+        loading={loading}
+        review={invoice.amount_review}
+        onCredit={onCreditReceived}
+      />
+
       {repairLooksMisconverted ? (
         <p className="cc-banner cc-banner-bad">
           Ошибка учёта: gross в USDT совпадает с суммой в {invoice.crypto_currency}. «Пересчитать settlement» пересчитает
@@ -127,6 +137,61 @@ export function ClientCardInvoice({
         <ProviderEventList compact events={events} />
       </details>
     </article>
+  );
+}
+
+function AmountReviewPanel({
+  review,
+  cryptoCurrency,
+  isSuperadmin,
+  loading,
+  onCredit,
+}: {
+  review: InvoiceAmountReview | null;
+  cryptoCurrency: string;
+  isSuperadmin: boolean;
+  loading: boolean;
+  onCredit: () => void;
+}) {
+  if (!review) {
+    return null;
+  }
+  const currency = review.currency || cryptoCurrency;
+  const receivedLabel = review.received_amount
+    ? `${formatDecimal(review.received_amount)} ${currency}`
+    : "сумма ещё не известна";
+  const open = !review.credited;
+  return (
+    <div className={`cc-banner ${open ? "cc-banner-wait" : ""}`}>
+      <div>
+        <strong>{open ? "Сумма не совпала — только ручное зачисление" : "Зачислено по фактической сумме"}</strong>
+        <p>
+          {open
+            ? "Провайдер такие платежи сам не проводит. Подтвердите ровно то, что пришло."
+            : "Платёж проведён на сумму, которая реально пришла, а не на сумму счёта."}
+        </p>
+        <dl className="cc-dl">
+          <dt>Ожидали</dt>
+          <dd>{review.expected_amount ? `${formatDecimal(review.expected_amount)} ${currency}` : "—"}</dd>
+          <dt>Пришло</dt>
+          <dd>{receivedLabel}</dd>
+          <dt>Разница</dt>
+          <dd>{review.delta_amount ? `${formatDecimal(review.delta_amount)} ${currency}` : "—"}</dd>
+          {review.usdt_total ? (
+            <>
+              <dt>USDT у провайдера</dt>
+              <dd>{formatDecimal(review.usdt_total)} USDT</dd>
+            </>
+          ) : null}
+        </dl>
+      </div>
+      {open && isSuperadmin ? (
+        <button className="primary-button" disabled={loading || !review.received_amount} onClick={onCredit} type="button">
+          Зачислить {receivedLabel}
+        </button>
+      ) : null}
+      {open && !isSuperadmin ? <p>Подтвердить сумму может только superadmin.</p> : null}
+    </div>
   );
 }
 

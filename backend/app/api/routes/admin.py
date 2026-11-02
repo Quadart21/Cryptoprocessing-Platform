@@ -72,11 +72,13 @@ from app.schemas.admin import TenantDetailResponse, TenantOwnerSummary
 from app.schemas.api_usage import ApiUsageCategoryItem, ApiUsageResponse, ApiUsageRouteItem
 from app.schemas.invoice import (
     InvoiceAdminDetailResponse,
+    InvoiceAmountReviewResponse,
     InvoiceResponse,
     InvoiceStatusOptionResponse,
     InvoiceStatusUpdateRequest,
     InvoiceTransactionDetailsResponse,
 )
+from app.services.amount_review import amount_review_public_dict
 from app.schemas.project import (
     ApiKeyRegenerateResponse,
     ApiKeySummary,
@@ -1094,7 +1096,7 @@ async def _sync_active_admin_invoices(
 ) -> list[Invoice]:
     synced: list[Invoice] = []
     for invoice in invoices:
-        if invoice.status in {"pending", "confirming", "cancelled"}:
+        if invoice.status in {"pending", "confirming", "cancelled", "underpaid", "overpaid"}:
             try:
                 invoice = await _maybe_sync_admin_invoice(invoice_service, invoice)
             except (CryptoCashProviderError, ValueError):
@@ -1891,6 +1893,23 @@ async def update_invoice_status(
     return await _map_invoice_admin_detail_response(db, invoice)
 
 
+@router.post("/invoices/{invoice_id}/credit-received", response_model=InvoiceAdminDetailResponse)
+async def credit_invoice_received_amount(
+    invoice_id: str,
+    _: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> InvoiceAdminDetailResponse:
+    invoice_service = InvoiceService(db)
+    try:
+        invoice = await invoice_service.credit_received_amount(invoice_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return await _map_invoice_admin_detail_response(db, invoice)
+
+
 @router.post("/invoices/{invoice_id}/repair-settlement", response_model=InvoiceAdminDetailResponse)
 async def repair_invoice_settlement(
     invoice_id: str,
@@ -2178,7 +2197,15 @@ async def _map_invoice_admin_detail_response(
         transaction_details=(
             InvoiceTransactionDetailsResponse(**details_payload) if details_payload else None
         ),
+        amount_review=_amount_review_response(invoice),
     )
+
+
+def _amount_review_response(invoice: Invoice) -> InvoiceAmountReviewResponse | None:
+    payload = amount_review_public_dict(invoice.raw_provider_payload_json)
+    if payload is None:
+        return None
+    return InvoiceAmountReviewResponse(**payload)
 
 
 def _map_transaction_response(transaction, invoice: Invoice | None = None) -> TransactionResponse:

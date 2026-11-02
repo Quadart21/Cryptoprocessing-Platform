@@ -47,6 +47,7 @@ type ClientCardOperationsProps = {
   onSelectInvoice: (invoiceId: string) => void;
   onSyncInvoice: (invoiceId: string) => void;
   onUpdateInvoiceStatus: (status: string) => void;
+  onCreditReceived: () => void;
   onViewChange: (view: ClientOpsView) => void;
 };
 
@@ -173,6 +174,7 @@ export function ClientCardOperations(props: ClientCardOperationsProps) {
                     onBack={() => props.onInvoiceFocus(false)}
                     onRepair={props.onRepairInvoice}
                     onSync={props.onSyncInvoice}
+                    onCreditReceived={props.onCreditReceived}
                     onUpdateStatus={props.onUpdateInvoiceStatus}
                     projects={props.projects}
                     transaction={transaction}
@@ -276,7 +278,15 @@ function transactionTone(status: string): "ok" | "wait" | "bad" | "muted" {
 
 function matchInvoice(invoice: InvoiceItem, query: string, filter: InvoiceFilter, project: string): boolean {
   const status = invoice.status.trim().toLowerCase();
-  if (filter === "open" && status !== "pending" && status !== "confirming") return false;
+  if (
+    filter === "open" &&
+    status !== "pending" &&
+    status !== "confirming" &&
+    status !== "underpaid" &&
+    status !== "overpaid"
+  ) {
+    return false;
+  }
   if (filter === "paid" && status !== "paid" && status !== "confirmed") return false;
   if (
     filter === "problem" &&

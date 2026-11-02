@@ -6,10 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.invoice import Invoice
 from app.models.project import Project
-from app.schemas.invoice import PublicPaymentResponse
+from app.schemas.invoice import InvoiceAmountReviewResponse, PublicPaymentResponse
+from app.services.amount_review import amount_review_public_dict
 from app.services.invoice_confirmations import confirmations_fields_for_invoice
 from app.services.invoice_lifecycle import invoice_allows_payment_credentials
 from app.services.payment_memo import read_stored_payment_memo
+
+
+def _public_amount_review(invoice: Invoice) -> InvoiceAmountReviewResponse | None:
+    payload = amount_review_public_dict(invoice.raw_provider_payload_json)
+    if payload is None:
+        return None
+    return InvoiceAmountReviewResponse(**payload)
 
 
 class PaymentPageService:
@@ -80,5 +88,6 @@ class PaymentPageService:
             merchant_name=merchant_name,
             return_url_success=return_url_success,
             return_url_failed=return_url_failed,
+            amount_review=_public_amount_review(invoice),
             **confirmations,
         )

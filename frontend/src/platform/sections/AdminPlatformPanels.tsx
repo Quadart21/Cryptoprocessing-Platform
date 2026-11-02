@@ -68,7 +68,13 @@ const POLL_ACTIVE_INVOICES_MS = 30_000;
 function hasActiveInvoiceStatus(invoices: InvoiceItem[]): boolean {
   return invoices.some((invoice) => {
     const status = invoice.status.trim().toLowerCase();
-    return status === "pending" || status === "confirming" || status === "paid";
+    return (
+      status === "pending" ||
+      status === "confirming" ||
+      status === "paid" ||
+      status === "underpaid" ||
+      status === "overpaid"
+    );
   });
 }
 

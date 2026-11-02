@@ -46,7 +46,18 @@ function normalizeStatus(status: string): string {
 
 function shouldPollPaymentStatus(status: string): boolean {
   const normalized = normalizeStatus(status);
-  return normalized === "pending" || normalized === "confirming" || normalized === "paid";
+  return (
+    normalized === "pending" ||
+    normalized === "confirming" ||
+    normalized === "paid" ||
+    normalized === "underpaid" ||
+    normalized === "overpaid"
+  );
+}
+
+function isAmountReviewStatus(status: string): boolean {
+  const normalized = normalizeStatus(status);
+  return normalized === "underpaid" || normalized === "overpaid";
 }
 
 function isConfirmingStatus(status: string): boolean {
@@ -353,6 +364,8 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     !isFailedStatus(payment.status) &&
     Boolean(payment.payment_address);
   const confirming = payment && isConfirmingStatus(payment.status);
+  const amountReview = payment && isAmountReviewStatus(payment.status) ? payment.amount_review : null;
+  const reviewCurrency = amountReview?.currency || payment?.crypto_currency || "";
 
   async function copyValue(label: string, value: string) {
     try {
@@ -419,7 +432,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
         {!loading && payment && !error ? (
           <>
             <section className="pp-glass pp-hero">
-              <p className="pp-hero-label">Сумма к оплате</p>
+              <p className="pp-hero-label">{amountReview ? "Запрошено" : "Сумма к оплате"}</p>
               <strong className="pp-hero-amount">{amountLine}</strong>
               {isStableCoinFiatPair(payment.crypto_currency, payment.fiat_currency) ? (
                 <span className="pp-hero-fiat">
@@ -447,6 +460,25 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                 </div>
               ) : null}
             </section>
+
+            {amountReview ? (
+              <section className="pp-terminal">
+                <h2 className="pp-title">
+                  {normalizeStatus(payment.status) === "overpaid" ? "Переплата" : "Недоплата"}
+                </h2>
+                <p className="pp-muted">
+                  Пришло{" "}
+                  {amountReview.received_amount
+                    ? `${formatDecimal(amountReview.received_amount)} ${reviewCurrency}`
+                    : "другая сумма"}{" "}
+                  вместо{" "}
+                  {amountReview.expected_amount
+                    ? `${formatDecimal(amountReview.expected_amount)} ${reviewCurrency}`
+                    : "запрошенной"}
+                  . Продавец подтвердит платёж вручную ровно на пришедшую сумму.
+                </p>
+              </section>
+            ) : null}
 
             {confirming ? (
               <PaymentConfirmationsProgress

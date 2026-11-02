@@ -26,6 +26,17 @@ from app.providers.crypto_cash_status import (
 from app.providers.factory import get_payment_provider
 from app.schemas.invoice import InvoiceCreateRequest
 from app.services.accounting_service import AccountingService
+from app.services.amount_review import (
+    AMOUNT_REVIEW_PLATFORM_STATUSES,
+    build_amount_review_notice,
+    coerce_provider_status_for_amount_review,
+    held_review_status,
+    pin_received_settlement,
+    read_amount_review,
+    review_needs_alert,
+    should_keep_credited_invoice,
+    upsert_amount_review,
+)
 from app.services.balance_hold_service import BalanceHoldService
 from app.services.balance_service import BalanceService
 from app.services.api_usage_context import provider_usage_scope
@@ -490,6 +501,7 @@ class InvoiceService:
                 return refreshed if refreshed is not None else invoice
 
         previous_status = invoice.status
+        old_amount_review = read_amount_review(invoice.raw_provider_payload_json)
         if source == "webhook" and raw_payload is not None:
             try:
                 raw_normalized = resolve_crypto_cash_status(
@@ -500,6 +512,41 @@ class InvoiceService:
                 raw_normalized = normalize_crypto_cash_status(provider_status)
         else:
             raw_normalized = normalize_crypto_cash_status(provider_status)
+
+        if should_keep_credited_invoice(previous_status, raw_normalized):
+            stored_payload = dict(invoice.raw_provider_payload_json or {})
+            if raw_payload is not None:
+                if source == "sync":
+                    stored_payload["retrieve_response"] = raw_payload
+                else:
+                    stored_payload["last_webhook_payload"] = raw_payload
+            if provider_status and stored_payload.get("last_webhook_status") != provider_status:
+                stored_payload["last_webhook_status"] = provider_status
+            if stored_payload != dict(invoice.raw_provider_payload_json or {}):
+                invoice.raw_provider_payload_json = stored_payload
+                self.db.add(invoice)
+            await self._persist_provider_callback(
+                event_service,
+                invoice_id=str(invoice.id),
+                source=source,
+                provider_order_id=provider_order_id,
+                merchant_order_id=merchant_order_id,
+                provider_event_id=provider_event_id,
+                provider_status=provider_status,
+                effective_status=previous_status,
+                previous_status=previous_status,
+                raw_payload=raw_payload,
+                outcome="amount_review_after_credit",
+            )
+            await self.db.commit()
+            refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=None)
+            return refreshed if refreshed is not None else invoice
+
+        raw_normalized = coerce_provider_status_for_amount_review(
+            previous_status=previous_status,
+            raw_normalized=raw_normalized,
+            source=source,
+        )
 
         if invoice.status in {"cancelled", "expired"} and raw_normalized in {
             "pending",
@@ -529,6 +576,16 @@ class InvoiceService:
             raw_payload,
             provider_status=provider_status,
         )
+        upsert_amount_review(
+            stored_payload,
+            raw_payload,
+            provider_status=provider_status,
+            event_type=extract_event_type(raw_payload),
+        )
+        if source != "manual" and previous_status in AMOUNT_REVIEW_PLATFORM_STATUSES:
+            held_status = held_review_status(stored_payload)
+            if held_status:
+                raw_normalized = held_status
         try:
             if parse_confirmation_count(stored_payload.get("network_confirmations_required")) in (None, 0):
                 required_confirmations = await RatesService(self.db).get_network_confirmations_required(
@@ -562,6 +619,16 @@ class InvoiceService:
                 )
             effective_status = manual_status
 
+        if (
+            source == "manual"
+            and previous_status in AMOUNT_REVIEW_PLATFORM_STATUSES
+            and effective_status in {"confirming", "paid", "confirmed"}
+        ):
+            if not pin_received_settlement(stored_payload):
+                raise ValueError(
+                    "Фактическая сумма ещё не известна. Синхронизируйте инвойс с провайдером."
+                )
+
         if previous_status == effective_status and not self._provider_meta_changed(
             invoice,
             stored_payload=stored_payload,
@@ -590,7 +657,8 @@ class InvoiceService:
 
         invoice.status = effective_status
 
-        self._sync_invoice_crypto_from_provider_payload(invoice, raw_payload)
+        if effective_status not in AMOUNT_REVIEW_PLATFORM_STATUSES:
+            self._sync_invoice_crypto_from_provider_payload(invoice, raw_payload)
         invoice.raw_provider_payload_json = stored_payload
 
         transaction.status = effective_status
@@ -666,6 +734,27 @@ class InvoiceService:
                 invoice.id,
             )
             payment_notice = None
+        review_notice = None
+        new_amount_review = read_amount_review(invoice.raw_provider_payload_json)
+        if (
+            effective_status in AMOUNT_REVIEW_PLATFORM_STATUSES
+            and review_needs_alert(previous_status, old_amount_review, new_amount_review)
+            and new_amount_review is not None
+        ):
+            try:
+                if not await StatisticsExclusionService(self.db).is_excluded(invoice.tenant_id):
+                    tenant_name = await self.db.scalar(select(Tenant.name).where(Tenant.id == invoice.tenant_id))
+                    review_notice = build_amount_review_notice(
+                        merchant_name=tenant_name or invoice.tenant_id,
+                        invoice_id=str(invoice.id),
+                        review=new_amount_review,
+                    )
+            except Exception:
+                logger.exception(
+                    "Amount review notice failed for invoice_id=%s; status will still be saved",
+                    invoice.id,
+                )
+                review_notice = None
         invoice_snapshot = self._build_invoice_snapshot(invoice)
         self.db.add_all([invoice, transaction])
         try:
@@ -717,6 +806,26 @@ class InvoiceService:
                     "Ops payment telegram notify failed for invoice_id=%s",
                     invoice_id,
                 )
+        if review_notice is not None:
+            try:
+                if not self.db.is_active:
+                    await self.db.rollback()
+                    await apply_db_security_context(self.db)
+                from app.services.platform_ops_notify import notify_platform_ops
+
+                title, lines = review_notice
+                await notify_platform_ops(
+                    self.db,
+                    event_code="provider_alert",
+                    title=title,
+                    lines=lines,
+                    admin_url=f"/admin/invoices/{invoice_id}",
+                )
+            except Exception:
+                logger.exception(
+                    "Amount review telegram notify failed for invoice_id=%s",
+                    invoice_id,
+                )
         refreshed_invoice = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
         if refreshed_invoice is not None:
             return refreshed_invoice
@@ -740,6 +849,25 @@ class InvoiceService:
             tx_hash=tx_hash,
             source="manual",
         )
+
+    async def credit_received_amount(self, invoice_id: str) -> Invoice:
+        """Confirm an underpaid/overpaid invoice for the crypto that actually arrived."""
+        invoice = await self.get_invoice_by_id(invoice_id)
+        if invoice is None:
+            raise ValueError("Инвойс не найден.")
+        if invoice.status not in AMOUNT_REVIEW_PLATFORM_STATUSES:
+            raise ValueError(
+                "Подтвердить фактическую сумму можно только для недоплаты или переплаты."
+            )
+        stored = dict(invoice.raw_provider_payload_json or {})
+        if not pin_received_settlement(stored):
+            raise ValueError(
+                "Фактическая сумма ещё не известна. Синхронизируйте инвойс с провайдером."
+            )
+        invoice.raw_provider_payload_json = stored
+        self.db.add(invoice)
+        await self.db.flush()
+        return await self.apply_invoice_status_by_id(invoice_id, "confirmed")
 
     async def ensure_invoice_payment_state(self, invoice: Invoice) -> Invoice:
         if invoice.status != "pending" or not is_invoice_expired(invoice):
@@ -788,7 +916,7 @@ class InvoiceService:
         except ValueError:
             return await self._cancel_unpaid_invoice(invoice, source="expiry")
 
-        if platform_status_indicates_payment(raw_normalized):
+        if platform_status_indicates_payment(raw_normalized) or raw_normalized in AMOUNT_REVIEW_PLATFORM_STATUSES:
             provider_order_id = str(item.get("id") or invoice.provider_order_id)
             tx_hash = item.get("hash")
             return await self.apply_provider_status(
@@ -807,7 +935,10 @@ class InvoiceService:
             item = _provider_item(provider_response)
             provider_status = str(item.get("status") or invoice.status)
             raw_normalized = normalize_crypto_cash_status(provider_status)
-            if platform_status_indicates_payment(raw_normalized):
+            if (
+                platform_status_indicates_payment(raw_normalized)
+                or raw_normalized in AMOUNT_REVIEW_PLATFORM_STATUSES
+            ):
                 provider_order_id = str(item.get("id") or invoice.provider_order_id)
                 tx_hash = item.get("hash")
                 return await self.apply_provider_status(
@@ -1408,7 +1539,13 @@ class InvoiceService:
             return True
         if raw_payload is not None and old.get("last_webhook_payload") != raw_payload:
             return True
-        for key in ("network_confirmations_actual", "network_confirmations_required"):
+        for key in (
+            "network_confirmations_actual",
+            "network_confirmations_required",
+            "amount_review",
+            "settlement_amount_crypto",
+            "settlement_exchange_rate",
+        ):
             if old.get(key) != stored_payload.get(key):
                 return True
         return False

@@ -15,6 +15,7 @@ from app.core.security import decrypt_value
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.transaction import Transaction
+from app.services.amount_review import amount_review_public_dict
 from app.services.event_service import EventService
 from app.services.invoice_confirmations import confirmations_fields_from_stored
 from app.services.invoice_lifecycle import checkout_payment_fields
@@ -244,7 +245,7 @@ class ClientWebhookService:
             mode=project.checkout_delivery if project is not None else None,
             payment_page_url=PaymentPageService.payment_page_url_for(invoice),
         )
-        return {
+        payload = {
             "id": invoice.id,
             "project_id": invoice.project_id,
             "merchant_order_id": invoice.merchant_order_id,
@@ -263,6 +264,10 @@ class ClientWebhookService:
             "confirmed_at": invoice.confirmed_at.isoformat() if invoice.confirmed_at else None,
             **confirmations_fields_from_stored(invoice),
         }
+        amount_review = amount_review_public_dict(invoice.raw_provider_payload_json)
+        if amount_review is not None:
+            payload["amount_review"] = amount_review
+        return payload
 
     def _build_headers(
         self,

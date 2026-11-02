@@ -242,6 +242,16 @@ export function fetchAdminInvoiceDetail(
   });
 }
 
+export function creditAdminInvoiceReceived(
+  token: string,
+  invoiceId: string,
+): Promise<InvoiceAdminDetail> {
+  return request<InvoiceAdminDetail>(`/admin/invoices/${invoiceId}/credit-received`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+}
+
 export function updateAdminInvoiceStatus(
   token: string,
   invoiceId: string,

@@ -120,6 +120,7 @@ import {
   type UserRoleDefinition,
   type WebhookConfigItem,
   updateAdminAssetAvailability,
+  creditAdminInvoiceReceived,
   updateAdminInvoiceStatus,
   updateAdminTransactionStatus,
   updateAdminProject,
@@ -1249,7 +1250,12 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
             : flash.invoiceCreatedDefault(invoice.provider_order_id),
       );
       setSelectedClientInvoiceId(invoice.id);
-      setSelectedClientInvoiceDetail({ ...invoice, settlement: null, transaction_details: null });
+      setSelectedClientInvoiceDetail({
+        ...invoice,
+        settlement: null,
+        transaction_details: null,
+        amount_review: null,
+      });
       setIsClientInvoiceModalOpen(true);
       setInvoices((current) => {
         const next = current.filter((item) => item.id !== invoice.id);
@@ -1261,6 +1267,7 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
             ...invoice,
             settlement: null,
             transaction_details: null,
+            amount_review: null,
           })),
           fetchInvoices(token).catch(() => null),
           fetchBalance(token),
@@ -1488,6 +1495,36 @@ export function AppController({ siteScope = "default" }: AppControllerProps) {
       setSelectedInvoiceEvents(await safeLoad(() => fetchInvoiceEvents(token, invoiceId), []));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось загрузить инвойс.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCreditReceivedAmount() {
+    if (!token || !selectedInvoiceId || !selectedTenantId) return;
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      setNewApiSecret(null);
+      const updated = await creditAdminInvoiceReceived(token, selectedInvoiceId);
+      setSelectedInvoiceDetail(updated);
+      const received = updated.amount_review?.received_amount;
+      const currency = updated.amount_review?.currency || updated.crypto_currency;
+      setSuccess(
+        received
+          ? `Платёж зачислен на ${received} ${currency}.`
+          : "Платёж зачислен на фактическую сумму.",
+      );
+      const tenantInvoices = await fetchTenantInvoices(token, selectedTenantId);
+      setSelectedTenantInvoices(tenantInvoices);
+      setSelectedTenantTransactions(await fetchTenantTransactions(token, selectedTenantId));
+      setSelectedInvoiceEvents(await safeLoad(() => fetchInvoiceEvents(token, selectedInvoiceId), []));
+      setPlatformEvents(await safeLoad(() => fetchAdminEvents(token), []));
+      setPlatformInvoices(await safeLoad(() => fetchAdminInvoices(token), []));
+      setPlatformTransactions(await safeLoad(() => fetchAdminTransactions(token), []));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось зачислить фактическую сумму.");
     } finally {
       setLoading(false);
     }
@@ -2331,6 +2368,7 @@ return (
           onAdminRegenerateApiKey={(apiKeyId) => void handleAdminRegenerateApiKey(apiKeyId)}
           onAdminRevokeApiKey={(apiKeyId) => void handleAdminRevokeApiKey(apiKeyId)}
           onSelectInvoice={(invoiceId) => void handleSelectInvoice(invoiceId)}
+          onCreditReceived={() => void handleCreditReceivedAmount()}
           onUpdateInvoiceStatus={(status) => void handleUpdateInvoiceStatus(status)}
           onUpdateTransactionStatus={(transactionId, status) =>
             void handleUpdateTransactionStatus(transactionId, status)

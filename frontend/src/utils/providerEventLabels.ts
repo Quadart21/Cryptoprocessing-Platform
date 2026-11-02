@@ -19,6 +19,8 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   "invoice.confirming": "Инвойс подтверждается",
   "invoice.paid": "Инвойс оплачен",
   "invoice.confirmed": "Инвойс подтверждён",
+  "invoice.underpaid": "Недоплата, ждёт подтверждения",
+  "invoice.overpaid": "Переплата, ждёт подтверждения",
   "invoice.expired": "Инвойс истёк",
   "invoice.cancelled": "Инвойс отменён",
   "invoice.canceled": "Инвойс отменён",

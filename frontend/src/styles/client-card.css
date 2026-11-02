@@ -630,6 +630,11 @@
   margin: 0;
 }
 
+.cc-banner > div:first-child {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
 .cc-banner-wait {
   border-color: color-mix(in srgb, #f0c078 40%, transparent);
   background: color-mix(in srgb, #f0c078 12%, transparent);

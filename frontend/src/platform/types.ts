@@ -135,6 +135,7 @@ export type AdminDashboardProps = {
   onAdminRevokeApiKey: (apiKeyId: string) => void;
   onSelectInvoice: (invoiceId: string) => void;
   onUpdateInvoiceStatus: (status: string) => void;
+  onCreditReceived: () => void;
   onUpdateTransactionStatus?: (transactionId: string, status: string) => void;
   onSyncInvoice: (invoiceId: string) => void;
   onRepairInvoiceSettlement: (invoiceId: string) => void;
