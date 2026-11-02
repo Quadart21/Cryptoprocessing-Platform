@@ -27,7 +27,7 @@ Feature branch и pull request этот цикл **не заменяют**. Ре
    - только backend → `--targets api`
    - только frontend → всё равно `api,site`: HTML SPA отдаёт API, `/assets/` — сайт
    - сомневаешься → `api,site`
-   Нужны локальные `ops/scripts/_deploy_new_servers.py` и `_deploy_secrets.txt` (gitignored).
+   SSH к серверам уже выдан. Не пиши «файлов деплоя нет», пока не проверил `ops/scripts/_deploy_new_servers.py`, `ops/scripts/_deploy_secrets.txt` (gitignored, не коммитить) и ключ `~/.ssh/noren_deploy` (`root`). Если на новой VM их нет — восстанови из прошлых чатов этого репозитория (чат «Проект на серверах» и любой чат, который уже деплоил). Хосты в `ops/ubuntu/SPLIT-DEPLOY.md`: API `191.217.255.230`, сайт `191.217.255.57`, БД `191.217.255.149`. Пароли и ключ в git не класть.
 
 Релиз **не завершён**, пока нет тега, GitHub Release **и** успешного деплоя на нужные серверы.
 
