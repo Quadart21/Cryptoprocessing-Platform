@@ -12,6 +12,7 @@ from app.api.deps import (
     require_superadmin,
     user_permissions,
 )
+from app.db.tenant import apply_db_security_context
 from app.providers.crypto_cash_status import PLATFORM_INVOICE_STATUSES
 from app.core.rbac import (
     get_role_definition,
@@ -875,6 +876,9 @@ async def update_tenant(
 
     db.add_all([tenant, owner])
     await db.commit()
+    # set_config(..., is_local=true) живёт только до конца транзакции.
+    # После commit RLS снова скрывает строки, и повторное чтение карточки падает.
+    await apply_db_security_context(db)
     return await get_tenant_detail(tenant_id=tenant_id, _=_, db=db)
 
 
@@ -903,6 +907,9 @@ async def update_admin_project(
     project.status = payload.status.strip()
     db.add(project)
     await db.commit()
+    # set_config(..., is_local=true) живёт только до конца транзакции.
+    # После commit RLS скрывает проект, refresh падает — браузер показывает «Failed to fetch».
+    await apply_db_security_context(db)
     await db.refresh(project)
     return ProjectSummary(
         id=project.id,
