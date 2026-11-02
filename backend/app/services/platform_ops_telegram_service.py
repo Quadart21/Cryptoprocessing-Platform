@@ -5,21 +5,27 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
 import requests
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.invoice import Invoice
-from app.models.payout_request import PayoutRequest
 from app.models.platform_setting import PlatformSetting
-from app.models.tenant import Tenant
+from app.models.transaction import Transaction
 from app.core.config import settings
 from app.services.billing_policy_service import BillingPolicyService
 from app.services.notification_service import NotificationService
+from app.services.ops_telegram_report import (
+    PAYMENT_SEEN_STATUSES,
+    build_daily_payment_lines,
+    format_moscow_day_label,
+    previous_moscow_day_bounds,
+    telegram_thread_error_is_retryable,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +51,7 @@ OPS_TOPIC_DEFINITIONS: tuple[OpsTopicDefinition, ...] = (
     OpsTopicDefinition(
         key="finance",
         title="💰 Платежи",
-        description="Оплаченные и подтверждённые инвойсы, аномалии сумм.",
+        description="Каждый входящий платёж: сумма, доля провайдера и прибыль.",
     ),
     OpsTopicDefinition(
         key="clients",
@@ -65,7 +71,7 @@ OPS_TOPIC_DEFINITIONS: tuple[OpsTopicDefinition, ...] = (
     OpsTopicDefinition(
         key="reports",
         title="📊 Отчёты",
-        description="Ежедневные и еженедельные дайджесты по платформе.",
+        description="Итог суток по Москве: число платежей, сумма, провайдер и прибыль.",
     ),
     OpsTopicDefinition(
         key="sandbox",
@@ -80,9 +86,6 @@ OPS_TOPIC_DEFINITIONS: tuple[OpsTopicDefinition, ...] = (
 )
 
 OPS_TOPIC_BY_KEY = {item.key: item for item in OPS_TOPIC_DEFINITIONS}
-
-# General topic in Telegram forum supergroups (fallback when thread_id not configured).
-FORUM_GENERAL_TOPIC_ID = 1
 
 # Событие платформы → ключ топика.
 EVENT_TOPIC_MAP: dict[str, str] = {
@@ -388,7 +391,9 @@ class PlatformOpsTelegramService:
         thread_id = state.get("thread_id")
         if thread_id is not None:
             return int(thread_id)
-        return FORUM_GENERAL_TOPIC_ID
+        # Нет топика — пишем в сам чат. Для форума Telegram кладёт это в General,
+        # для обычной группы message_thread_id только ломает отправку.
+        return None
 
     def _topic_delivery_blocked(
         self,
@@ -437,6 +442,50 @@ class PlatformOpsTelegramService:
             logger.warning("Invalid Telegram API base URL for ops chat.")
             return None, "Некорректный Telegram API URL."
 
+        url = f"{base_url}/bot{bot_token}/sendMessage"
+        attempts: list[int | None] = [thread_id]
+        if thread_id is not None:
+            attempts.append(None)
+
+        last_error = "Telegram не вернул message_id."
+        for index, attempt_thread in enumerate(attempts):
+            message_id, send_error = self._post_ops_message(
+                url,
+                chat_id=chat_id,
+                message_text=message_text,
+                disable_notification=disable_notification,
+                thread_id=attempt_thread,
+                topic_key=topic_key,
+            )
+            if message_id is not None:
+                if index > 0:
+                    logger.warning(
+                        "Ops Telegram delivered %s without thread after %s",
+                        topic_key,
+                        last_error,
+                    )
+                return message_id, None
+            last_error = send_error or last_error
+            if attempt_thread is None or not telegram_thread_error_is_retryable(send_error):
+                break
+            logger.warning(
+                "Ops Telegram topic %s thread %s rejected (%s); retrying into the chat itself",
+                topic_key,
+                attempt_thread,
+                send_error,
+            )
+        return None, last_error
+
+    def _post_ops_message(
+        self,
+        url: str,
+        *,
+        chat_id: str,
+        message_text: str,
+        disable_notification: bool,
+        thread_id: int | None,
+        topic_key: str,
+    ) -> tuple[int | None, str | None]:
         payload: dict[str, Any] = {
             "chat_id": chat_id,
             "text": message_text[:4096],
@@ -446,8 +495,6 @@ class PlatformOpsTelegramService:
         }
         if thread_id is not None:
             payload["message_thread_id"] = thread_id
-
-        url = f"{base_url}/bot{bot_token}/sendMessage"
         try:
             response = requests.post(url, json=payload, timeout=10)
             if response.status_code >= 400:
@@ -519,6 +566,37 @@ class PlatformOpsTelegramService:
                 send_error or "unknown error",
             )
 
+    async def notify_payment_received(
+        self,
+        *,
+        title: str,
+        lines: list[str],
+        admin_url: str | None = None,
+    ) -> None:
+        """Платёж в служебный чат. Достаточно включённого invoice_paid или invoice_confirmed."""
+        billing = BillingPolicyService(self.db)
+        platform_settings = await billing.get_platform_settings()
+        if not self._is_configured(platform_settings):
+            delivery_error = self._delivery_error(platform_settings, require_enabled=True)
+            logger.info(
+                "Ops Telegram skip payment: %s",
+                delivery_error or "not configured",
+            )
+            return
+        enabled = self.parse_enabled_events(platform_settings)
+        event_code = "invoice_paid" if "invoice_paid" in enabled else "invoice_confirmed"
+        if event_code not in enabled:
+            logger.info(
+                "Ops Telegram skip payment: invoice_paid and invoice_confirmed are disabled",
+            )
+            return
+        await self.notify_event(
+            event_code=event_code,
+            title=title,
+            lines=lines,
+            admin_url=admin_url,
+        )
+
     async def send_test_message(
         self,
         *,
@@ -565,11 +643,6 @@ class PlatformOpsTelegramService:
             topic_key,
             thread_id_override=thread_id_override,
         )
-        if thread_id is None:
-            raise ValueError(
-                f"Для топика «{definition.title}» не задан thread_id. "
-                "Создайте топики через бота или укажите thread_id вручную."
-            )
 
         text = (
             f"<b>Тест · {self._escape_html(definition.title)}</b>\n"
@@ -585,7 +658,7 @@ class PlatformOpsTelegramService:
             thread_id_override=thread_id_override,
         )
         if message_id is None:
-            hint = send_error or "Проверьте chat_id, thread_id и права бота в форум-чате."
+            hint = send_error or "Проверьте chat_id и что бот может писать в эту группу."
             raise ValueError(f"Не удалось отправить тест: {hint}")
         return {
             "ok": True,
@@ -688,7 +761,7 @@ class PlatformOpsTelegramService:
             "topics": topics,
         }
 
-    async def build_and_send_daily_report(self) -> bool:
+    async def build_and_send_daily_report(self, *, now: datetime | None = None) -> bool:
         billing = BillingPolicyService(self.db)
         platform_settings = await billing.get_platform_settings()
         if not self._is_configured(platform_settings):
@@ -696,55 +769,83 @@ class PlatformOpsTelegramService:
         if "daily_report" not in self.parse_enabled_events(platform_settings):
             return False
 
-        now = datetime.now(timezone.utc)
-        since = now - timedelta(hours=24)
-
-        pending_apps = await self.db.scalar(
-            select(func.count()).select_from(Tenant).where(Tenant.status == "pending_review")
+        start, end = previous_moscow_day_bounds(now)
+        totals = await self.collect_daily_payment_totals(start, end)
+        lines = build_daily_payment_lines(
+            day_label=format_moscow_day_label(start),
+            payment_count=totals["payment_count"],
+            gross=totals["gross"],
+            provider_fee=totals["provider_fee"],
+            profit=totals["profit"],
+            estimated_count=totals["estimated_count"],
+            unpriced_count=totals["unpriced_count"],
         )
-        pending_payouts = await self.db.scalar(
-            select(func.count())
-            .select_from(PayoutRequest)
-            .where(PayoutRequest.status == "pending_review")
-        )
-        paid_count = await self.db.scalar(
-            select(func.count())
-            .select_from(Invoice)
-            .where(
-                Invoice.status.in_(("paid", "confirmed")),
-                Invoice.updated_at >= since,
-            )
-        )
-        expired_count = await self.db.scalar(
-            select(func.count())
-            .select_from(Invoice)
-            .where(
-                Invoice.status == "cancelled",
-                Invoice.updated_at >= since,
-            )
-        )
-        confirmed_volume = await self.db.scalar(
-            select(func.coalesce(func.sum(Invoice.amount_fiat), 0)).where(
-                Invoice.status == "confirmed",
-                Invoice.confirmed_at >= since,
-            )
-        )
-
-        volume_text = self._format_decimal(confirmed_volume or Decimal("0"))
-        lines = [
-            f"Период: последние 24ч (до {now.strftime('%Y-%m-%d %H:%M')} UTC)",
-            f"Заявок на модерации: {pending_apps or 0}",
-            f"Выплат на проверке: {pending_payouts or 0}",
-            f"Оплачено инвойсов: {paid_count or 0}",
-            f"Истекло (cancelled): {expired_count or 0}",
-            f"Подтверждённый оборот (fiat): {volume_text}",
-        ]
         await self.notify_event(
             event_code="daily_report",
-            title="📊 Ежедневный дайджест платформы",
+            title="📊 Итог дня",
             lines=lines,
         )
         return True
+
+    async def collect_daily_payment_totals(
+        self,
+        start: datetime,
+        end: datetime,
+    ) -> dict[str, Any]:
+        """Платежи с paid_at (или confirmed_at, если paid_at пуст) внутри суток."""
+        from app.services.invoice_service import InvoiceService
+        from app.services.statistics_exclusion_service import StatisticsExclusionService
+
+        filters = [
+            Invoice.status.in_(tuple(PAYMENT_SEEN_STATUSES)),
+            (
+                (Invoice.paid_at >= start) & (Invoice.paid_at < end)
+            )
+            | (
+                Invoice.paid_at.is_(None)
+                & Invoice.confirmed_at.is_not(None)
+                & (Invoice.confirmed_at >= start)
+                & (Invoice.confirmed_at < end)
+            ),
+        ]
+        excluded = await StatisticsExclusionService(self.db).excluded_tenant_ids()
+        if excluded:
+            filters.append(Invoice.tenant_id.not_in(excluded))
+
+        invoices = list((await self.db.scalars(select(Invoice).where(*filters))).all())
+        invoice_service = InvoiceService(self.db)
+        gross = Decimal("0")
+        provider_fee = Decimal("0")
+        profit = Decimal("0")
+        estimated_count = 0
+        unpriced_count = 0
+        for invoice in invoices:
+            transaction = await self.db.scalar(
+                select(Transaction)
+                .where(Transaction.invoice_id == invoice.id)
+                .order_by(Transaction.created_at.desc())
+                .limit(1)
+            )
+            if transaction is None:
+                unpriced_count += 1
+                continue
+            figures = await invoice_service.ops_payment_figures(invoice, transaction)
+            if figures.currency != "USDT":
+                unpriced_count += 1
+                continue
+            gross += figures.gross
+            provider_fee += figures.provider_fee
+            profit += figures.profit
+            if figures.estimated:
+                estimated_count += 1
+        return {
+            "payment_count": len(invoices),
+            "gross": gross,
+            "provider_fee": provider_fee,
+            "profit": profit,
+            "estimated_count": estimated_count,
+            "unpriced_count": unpriced_count,
+        }
 
     @staticmethod
     def _resolve_admin_link(
@@ -770,8 +871,3 @@ class PlatformOpsTelegramService:
             .replace("<", "&lt;")
             .replace(">", "&gt;")
         )
-
-    @staticmethod
-    def _format_decimal(value: Decimal) -> str:
-        normalized = value.quantize(Decimal("0.01"))
-        return f"{normalized:f}"

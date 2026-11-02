@@ -5,6 +5,7 @@ from celery.schedules import crontab
 from celery.signals import worker_process_init, worker_process_shutdown
 
 from app.core.config import settings
+from app.services.ops_telegram_report import MOSCOW_DAY_CLOSE_UTC_HOUR
 
 
 @lru_cache(maxsize=1)
@@ -44,9 +45,10 @@ def get_celery_app() -> Celery:
             "task": "app.tasks.invoice_sync.expire_unpaid_invoices",
             "schedule": crontab(minute="*"),
         },
+        # 21:00 UTC = 00:00 Europe/Moscow: итог только что завершившихся суток.
         "ops-telegram-daily-report": {
             "task": "app.tasks.ops_telegram.send_ops_daily_report",
-            "schedule": crontab(hour=6, minute=0),
+            "schedule": crontab(hour=MOSCOW_DAY_CLOSE_UTC_HOUR, minute=0),
         },
         "platform-backups-scheduler": {
             "task": "app.tasks.backups.run_scheduled_backups",

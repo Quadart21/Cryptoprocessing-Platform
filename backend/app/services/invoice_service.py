@@ -1,9 +1,10 @@
-﻿from decimal import Decimal
+﻿from dataclasses import dataclass
+from decimal import Decimal
 
 import logging
 from secrets import token_urlsafe
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.tenant import apply_db_security_context
@@ -57,6 +58,15 @@ from app.services.rates_service import RatesService
 from app.services.statistics_exclusion_service import StatisticsExclusionService
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class OpsPaymentFigures:
+    gross: Decimal
+    provider_fee: Decimal
+    profit: Decimal
+    currency: str
+    estimated: bool
 
 
 class InvoiceAmountOutOfRangeError(ValueError):
@@ -591,7 +601,7 @@ class InvoiceService:
             new_status=effective_status,
         )
 
-        if effective_status in {"confirming", "confirmed"}:
+        if effective_status in {"confirming", "paid", "confirmed"}:
             transaction.paid_at = invoice.paid_at = transaction.paid_at or invoice.paid_at
             if transaction.paid_at is None:
                 from datetime import datetime, timezone
@@ -642,6 +652,20 @@ class InvoiceService:
         project_id = invoice.project_id
         await self.db.flush()
         await self.db.refresh(invoice)
+        await self.db.refresh(transaction)
+        try:
+            payment_notice = await self._ops_payment_notice(
+                invoice,
+                transaction,
+                previous_status=previous_status,
+                effective_status=effective_status,
+            )
+        except Exception:
+            logger.exception(
+                "Ops payment notice failed for invoice_id=%s; status will still be saved",
+                invoice.id,
+            )
+            payment_notice = None
         invoice_snapshot = self._build_invoice_snapshot(invoice)
         self.db.add_all([invoice, transaction])
         try:
@@ -675,31 +699,24 @@ class InvoiceService:
                 invoice_id,
                 tenant_id,
             )
-        paid_statuses = {"paid", "confirmed"}
-        if previous_status not in paid_statuses and effective_status in paid_statuses:
-            from app.services.platform_ops_notify import notify_platform_ops
+        if payment_notice is not None:
+            try:
+                if not self.db.is_active:
+                    await self.db.rollback()
+                    await apply_db_security_context(self.db)
+                from app.services.platform_ops_telegram_service import PlatformOpsTelegramService
 
-            tenant_name = await self.db.scalar(select(Tenant.name).where(Tenant.id == tenant_id))
-            event_code = (
-                "invoice_confirmed" if effective_status == "confirmed" else "invoice_paid"
-            )
-            await notify_platform_ops(
-                self.db,
-                event_code=event_code,
-                title=(
-                    "Инвойс подтверждён"
-                    if event_code == "invoice_confirmed"
-                    else "Инвойс оплачен"
-                ),
-                lines=[
-                    f"Invoice ID: {invoice_id}",
-                    f"Мерчант: {tenant_name or tenant_id}",
-                    f"Сумма: {invoice.amount_fiat} {invoice.fiat_currency}",
-                    f"Crypto: {invoice.amount_crypto} {invoice.crypto_currency}",
-                    f"Статус: {effective_status}",
-                ],
-                admin_url=f"/admin/invoices/{invoice_id}",
-            )
+                title, lines = payment_notice
+                await PlatformOpsTelegramService(self.db).notify_payment_received(
+                    title=title,
+                    lines=lines,
+                    admin_url=f"/admin/invoices/{invoice_id}",
+                )
+            except Exception:
+                logger.exception(
+                    "Ops payment telegram notify failed for invoice_id=%s",
+                    invoice_id,
+                )
         refreshed_invoice = await self.get_invoice(tenant_id, invoice_id, project_id=project_id)
         if refreshed_invoice is not None:
             return refreshed_invoice
@@ -1087,6 +1104,135 @@ class InvoiceService:
         if net_amount < Decimal("0"):
             raise ValueError("Client net amount cannot be negative.")
         return provider_fee, platform_fee, turnover_fee, net_amount
+
+    async def ops_payment_figures(
+        self,
+        invoice: Invoice,
+        transaction: Transaction,
+    ) -> OpsPaymentFigures:
+        """Сумма, доля провайдера и прибыль платформы. До подтверждения — оценка."""
+        currency = (transaction.currency or self.BALANCE_CURRENCY).strip().upper() or self.BALANCE_CURRENCY
+        gross = Decimal(transaction.gross_amount or 0)
+        if gross > 0:
+            provider_fee = Decimal(transaction.provider_fee or 0)
+            platform_take = Decimal(transaction.platform_fee or 0) + Decimal(transaction.turnover_fee or 0)
+            partner_cut = await self._partner_commission_amount(transaction.id)
+            return OpsPaymentFigures(
+                gross=gross,
+                provider_fee=provider_fee,
+                profit=platform_take - partner_cut,
+                currency=currency,
+                estimated=False,
+            )
+
+        estimated_gross = await self._estimate_ops_gross_usdt(invoice)
+        if estimated_gross is None:
+            fiat_currency = (invoice.fiat_currency or "").strip().upper() or self.BALANCE_CURRENCY
+            return OpsPaymentFigures(
+                gross=Decimal(invoice.amount_fiat or 0),
+                provider_fee=Decimal("0"),
+                profit=Decimal("0"),
+                currency=fiat_currency,
+                estimated=True,
+            )
+
+        provider_fee, platform_fee, turnover_fee, _net = await self._calculate_financials(
+            tenant_id=invoice.tenant_id,
+            gross_amount=estimated_gross,
+            fiat_currency=self.BALANCE_CURRENCY,
+        )
+        return OpsPaymentFigures(
+            gross=estimated_gross,
+            provider_fee=provider_fee,
+            profit=platform_fee + turnover_fee,
+            currency=self.BALANCE_CURRENCY,
+            estimated=True,
+        )
+
+    async def _estimate_ops_gross_usdt(self, invoice: Invoice) -> Decimal | None:
+        try:
+            return await self.resolve_settlement_gross_amount(invoice)
+        except ValueError:
+            pass
+
+        amount_crypto = Decimal(invoice.amount_crypto or 0)
+        crypto_currency = (invoice.crypto_currency or "").strip().upper()
+        rate_service = get_exchange_rate_service()
+        if amount_crypto > 0 and crypto_currency in rate_service.STABLECOIN_EQUIVALENTS:
+            return amount_crypto.quantize(self.SETTLEMENT_USDT_PRECISION)
+        if amount_crypto <= 0:
+            fiat_currency = (invoice.fiat_currency or "").strip().upper()
+            amount_fiat = Decimal(invoice.amount_fiat or 0)
+            if amount_fiat > 0 and fiat_currency in rate_service.STABLECOIN_EQUIVALENTS:
+                return amount_fiat.quantize(self.SETTLEMENT_USDT_PRECISION)
+            return None
+        try:
+            return await self.resolve_accounting_gross_amount(
+                amount_crypto=amount_crypto,
+                crypto_currency=crypto_currency,
+                fiat_currency=self.BALANCE_CURRENCY,
+                exchange_rate_markup=Decimal("0"),
+            )
+        except ValueError:
+            return None
+
+    async def _partner_commission_amount(self, transaction_id: str) -> Decimal:
+        from app.models.partner import PartnerCommission
+
+        total = await self.db.scalar(
+            select(func.coalesce(func.sum(PartnerCommission.commission_amount), 0)).where(
+                PartnerCommission.transaction_id == transaction_id,
+                PartnerCommission.status != "clawed_back",
+            )
+        )
+        return Decimal(total or 0)
+
+    async def _ops_payment_notice(
+        self,
+        invoice: Invoice,
+        transaction: Transaction,
+        *,
+        previous_status: str,
+        effective_status: str,
+    ) -> tuple[str, list[str]] | None:
+        from app.services.ops_telegram_report import (
+            format_ops_money,
+            should_notify_ops_payment,
+        )
+
+        if not should_notify_ops_payment(previous_status, effective_status):
+            return None
+        if await StatisticsExclusionService(self.db).is_excluded(invoice.tenant_id):
+            return None
+
+        tenant_name = await self.db.scalar(select(Tenant.name).where(Tenant.id == invoice.tenant_id))
+        try:
+            figures = await self.ops_payment_figures(invoice, transaction)
+        except Exception:
+            logger.exception(
+                "Ops payment figures failed for invoice_id=%s; sending amount only",
+                invoice.id,
+            )
+            figures = OpsPaymentFigures(
+                gross=Decimal(invoice.amount_fiat or 0),
+                provider_fee=Decimal("0"),
+                profit=Decimal("0"),
+                currency=(invoice.fiat_currency or self.BALANCE_CURRENCY).strip().upper(),
+                estimated=True,
+            )
+
+        lines = [
+            f"Мерчант: {tenant_name or invoice.tenant_id}",
+            f"Сумма: {format_ops_money(figures.gross, figures.currency)}",
+            f"Провайдер забрал: {format_ops_money(figures.provider_fee, figures.currency)}",
+            f"Ваша прибыль: {format_ops_money(figures.profit, figures.currency)}",
+            f"Crypto: {invoice.amount_crypto} {invoice.crypto_currency} · {invoice.network}",
+            f"Статус: {effective_status}",
+            f"Invoice ID: {invoice.id}",
+        ]
+        if figures.estimated:
+            lines.append("Комиссии оценочные, до сетевого подтверждения.")
+        return "Платёж получен", lines
 
     async def _resolve_fixed_fee_usdt(
         self,
