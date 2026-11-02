@@ -99,6 +99,17 @@ export async function refreshPublicPayment(token: string): Promise<PublicPayment
   return readPaymentResponse(response);
 }
 
+export async function acceptPublicPaymentReceived(token: string): Promise<PublicPayment> {
+  const response = await fetch(
+    `${resolveApiBaseUrl()}/public/pay/${encodeURIComponent(token)}/accept-received`,
+    {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    },
+  );
+  return readPaymentResponse(response);
+}
+
 import { isPaySubdomain } from "../config/siteHost";
 
 const PAY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,}$/;

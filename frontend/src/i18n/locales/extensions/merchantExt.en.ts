@@ -526,6 +526,7 @@ export const merchantExt: TranslationDict = {
           "`POST /api/v1/client/invoices` - create invoice.",
           "`GET /api/v1/client/invoices` - list invoices.",
           "`POST /api/v1/client/invoices/{invoice_id}/sync` - sync status.",
+          "`POST /api/v1/client/invoices/{invoice_id}/accept-received` - accept underpayment.",
           "`GET /api/v1/client/transactions` - verify net and fees.",
           "`POST /api/v1/client/webhooks/test` - send test webhook.",
         ],
@@ -533,6 +534,7 @@ export const merchantExt: TranslationDict = {
           "Amount limit errors (min/max) when creating an invoice.",
           "Token and network correctness in `/rates` after admin changes.",
           "Status transitions `pending -> confirmed` after sync.",
+          "underpaid → accept-received and underpaid → top-up flows.",
           "Error structure correctness in `detail`.",
           "Webhook delivery with signature when secret is set.",
         ],
@@ -740,9 +742,19 @@ export const merchantExt: TranslationDict = {
         h2hItems: [
           "Response includes payment_address and qr_url; payment_page_url is absent.",
           "Suitable if you build the payment screen in your own application.",
+          "On underpaid, let the customer keep the received amount (POST /invoices/{id}/accept-received) or top up the difference to the same address. The next deposit is a separate webhook but stays on the same order.",
         ],
         bothNote:
-          "Both mode returns all fields (backward compatibility). For a custom checkout page, poll the public API without keys: GET /api/v1/public/pay/{token} and POST .../refresh to sync status.",
+          "Both mode returns all fields (backward compatibility). For a custom checkout page poll GET /api/v1/public/pay/{token}; on underpaid use POST .../accept-received.",
+        underpaidEyebrow: "underpaid",
+        underpaidTitle: "Underpaid: keep amount or top up",
+        underpaidItems: [
+          "status = underpaid with amount_review: expected_amount, received_amount, remaining_amount, credited.",
+          "Hosted checkout (/pay/{token}): the customer can keep the received amount or top up to the same address.",
+          "H2H: show the same choice. To credit what arrived call POST /api/v1/client/invoices/{invoice_id}/accept-received.",
+          "If the customer tops up, wait for the next webhook: amount is cumulative, same order (data.id / externalId).",
+          "Overpaid settles automatically for the amount received.",
+        ],
       },
       endpointsTable: {
         eyebrow: "Summary",
@@ -784,6 +796,7 @@ export const merchantExt: TranslationDict = {
           "Verify signature in the X-Merset-Signature header.",
           "Store event_id to prevent duplicate processing.",
           "Fields invoice.payment_page_url / payment_address / qr_url depend on project checkout_delivery.",
+          "On underpayment you get status underpaid and amount_review; after accept-received or a full top-up — confirmed with credited: true.",
           "Respond 2xx only after successfully recording the event in your internal system.",
         ],
       },
@@ -924,6 +937,10 @@ export const merchantExt: TranslationDict = {
             body: "checkout_delivery in project settings: payment_page — only payment_page_url (/pay/{token}); h2h — payment_address and qr_url; both — both. Same rule for POST /invoices, GET /invoices, and webhook.",
           },
           {
+            title: "What to do on underpaid?",
+            body: "The customer can keep the received amount or top up to the same address. Hosted checkout has a Keep amount button. For H2H call POST /invoices/{id}/accept-received or wait for the top-up — the second deposit stays on the same order.",
+          },
+          {
             title: "What to do on 4xx and 5xx?",
             body: "4xx — error in payload, keys, or parameters. 5xx and 502/504 — retry with backoff, log correlation/event id.",
           },
@@ -969,6 +986,17 @@ export const merchantExt: TranslationDict = {
           title: "Sync invoice status",
           purpose:
             "Force update invoice status from provider. Requires client.invoices.write with API key or JWT authorization.",
+        },
+        acceptReceived: {
+          title: "Accept received amount on underpayment",
+          purpose:
+            "Credit the cumulative received_amount instead of waiting for a top-up. For H2H and custom checkout when the customer chooses to keep this amount.",
+          notes: [
+            "Only available when status = underpaid and amount_review.received_amount is known.",
+            "On success status becomes confirming/confirmed and amount_review.credited = true.",
+            "Hosted checkout uses the same action: POST /api/v1/public/pay/{token}/accept-received (no keys).",
+            "If the customer tops up — do not call accept-received; wait for the webhook with the updated amount.",
+          ],
         },
         rates: {
           title: "Get available rates",
@@ -1115,6 +1143,7 @@ export const merchantExt: TranslationDict = {
       listInvoices: "List invoices",
       getInvoice: "Get invoice",
       syncInvoice: "Sync invoice",
+      acceptReceived: "Accept underpaid amount",
       rates: "Rates",
       balance: "Balance",
       transactions: "Transactions",

@@ -885,8 +885,14 @@ class InvoiceService:
         invoice.amount_crypto = received.quantize(InvoiceService.AMOUNT_PRECISION)
         return True
 
-    async def credit_received_amount(self, invoice_id: str) -> Invoice:
-        """Credit a stuck underpaid/overpaid invoice for the crypto that arrived."""
+    async def credit_received_amount(
+        self,
+        invoice_id: str,
+        *,
+        allowed_kinds: tuple[str, ...] = ("underpaid", "overpaid"),
+        source: str = "manual",
+    ) -> Invoice:
+        """Settle an underpaid/overpaid invoice for the cumulative crypto that arrived."""
         invoice = await self.get_invoice_by_id(invoice_id)
         if invoice is None:
             raise ValueError("Инвойс не найден.")
@@ -894,11 +900,22 @@ class InvoiceService:
             raise ValueError(
                 "Подтвердить фактическую сумму можно только для недоплаты или переплаты."
             )
+        if invoice.status not in allowed_kinds:
+            raise ValueError(
+                f"Для этого действия доступен только статус: {', '.join(allowed_kinds)}."
+            )
         stored = dict(invoice.raw_provider_payload_json or {})
         if not pin_received_settlement(stored):
             raise ValueError(
                 "Фактическая сумма ещё не известна. Синхронизируйте инвойс с провайдером."
             )
+        review = read_amount_review(stored) or {}
+        stored["amount_review_accepted"] = {
+            "source": source,
+            "kind": review.get("kind"),
+            "received_amount": review.get("received_amount"),
+            "expected_amount": review.get("expected_amount"),
+        }
         invoice.raw_provider_payload_json = stored
         self.db.add(invoice)
         await self.db.flush()

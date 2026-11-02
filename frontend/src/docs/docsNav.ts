@@ -102,6 +102,7 @@ export const DOCS_API_ENDPOINT_KEYS = [
   { href: "#endpoint-list-invoices", key: "listInvoices", method: "GET" },
   { href: "#endpoint-get-invoice", key: "getInvoice", method: "GET" },
   { href: "#endpoint-sync-invoice", key: "syncInvoice", method: "POST" },
+  { href: "#endpoint-accept-received", key: "acceptReceived", method: "POST" },
   { href: "#endpoint-rates", key: "rates", method: "GET" },
   { href: "#endpoint-balance", key: "balance", method: "GET" },
   { href: "#endpoint-transactions", key: "transactions", method: "GET" },

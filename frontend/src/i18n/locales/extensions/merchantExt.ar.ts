@@ -525,6 +525,7 @@ export const merchantExt: TranslationDict = {
           "`POST /api/v1/client/invoices` - إنشاء فاتورة.",
           "`GET /api/v1/client/invoices` - قائمة الفواتير.",
           "`POST /api/v1/client/invoices/{invoice_id}/sync` - مزامنة الحالة.",
+          "`POST /api/v1/client/invoices/{invoice_id}/accept-received` - قبول الدفع الناقص.",
           "`GET /api/v1/client/transactions` - التحقق من Net والرسوم.",
           "`POST /api/v1/client/webhooks/test` - إرسال webhook تجريبي.",
         ],
@@ -532,6 +533,7 @@ export const merchantExt: TranslationDict = {
           "أخطاء حدود المبالغ (min/max) عند إنشاء فاتورة.",
           "صحة العملة والشبكة في `/rates` بعد التغييرات في لوحة الإدارة.",
           "انتقالات الحالة `pending -> confirmed` بعد المزامنة.",
+          "سيناريوهات underpaid → accept-received و underpaid → إكمال.",
           "صحة هيكل الأخطاء في `detail`.",
           "توصيل webhook مع التوقيع عند تعيين secret.",
         ],
@@ -739,9 +741,19 @@ export const merchantExt: TranslationDict = {
         h2hItems: [
           "الاستجابة تتضمن payment_address و qr_url؛ payment_page_url غير موجود.",
           "مناسب إذا تبني شاشة الدفع في تطبيقك الخاص.",
+          "عند underpaid اعرض للعميل خيار قبول المبلغ الوارد (POST /invoices/{id}/accept-received) أو إكمال الفرق على نفس العنوان. الإيداع التالي webhook منفصل لكنه على نفس الطلب.",
         ],
         bothNote:
-          "وضع both يُرجع جميع الحقول (توافق عكسي). لصفحة checkout مخصصة، استعلم API العام دون مفاتيح: GET /api/v1/public/pay/{token} و POST .../refresh لمزامنة الحالة.",
+          "وضع both يُرجع جميع الحقول (توافق عكسي). لصفحة checkout مخصصة استعلم GET /api/v1/public/pay/{token}؛ عند الدفع الناقص استخدم POST .../accept-received.",
+        underpaidEyebrow: "underpaid",
+        underpaidTitle: "دفع ناقص: قبول المبلغ أو الإكمال",
+        underpaidItems: [
+          "status = underpaid مع amount_review: expected_amount و received_amount و remaining_amount و credited.",
+          "Hosted checkout (/pay/{token}): يمكن للعميل قبول المبلغ الوارد أو إكمال الفرق على نفس العنوان.",
+          "H2H: اعرض نفس الخيار. لقيد الوارد استدعِ POST /api/v1/client/invoices/{invoice_id}/accept-received.",
+          "إذا أكمل العميل، انتظر webhook التالي: amount تراكمي ونفس الطلب (data.id / externalId).",
+          "الدفع الزائد (overpaid) يُقيَّد تلقائيًا بالمبلغ المستلم.",
+        ],
       },
       endpointsTable: {
         eyebrow: "ملخص",
@@ -783,6 +795,7 @@ export const merchantExt: TranslationDict = {
           "تحقق من التوقيع في رأس X-Merset-Signature.",
           "احفظ event_id لاستبعاد المعالجة المكررة.",
           "حقول invoice.payment_page_url / payment_address / qr_url تعتمد على checkout_delivery للمشروع.",
+          "عند الدفع الناقص يصل status underpaid و amount_review؛ بعد accept-received أو الإكمال الكامل — confirmed مع credited: true.",
           "أجب بـ 2xx فقط بعد تسجيل الحدث بنجاح في نظامك الداخلي.",
         ],
       },
@@ -923,6 +936,10 @@ export const merchantExt: TranslationDict = {
             body: "checkout_delivery في إعدادات المشروع: payment_page — payment_page_url فقط (/pay/{token}); h2h — payment_address و qr_url; both — كلاهما. نفس القاعدة لـ POST /invoices، GET /invoices، وwebhook.",
           },
           {
+            title: "ماذا أفعل عند underpaid؟",
+            body: "يمكن للعميل قبول المبلغ الوارد أو إكمال الفرق على نفس العنوان. في hosted checkout يوجد زر قبول المبلغ. في H2H استدعِ POST /invoices/{id}/accept-received أو انتظر الإكمال — الإيداع الثاني يبقى على نفس الطلب.",
+          },
+          {
             title: "ماذا أفعل عند 4xx و 5xx؟",
             body: "4xx — خطأ في payload، المفاتيح، أو المعلمات. 5xx و 502/504 — إعادة المحاولة مع backoff، سجّل correlation/event id.",
           },
@@ -968,6 +985,17 @@ export const merchantExt: TranslationDict = {
           title: "مزامنة حالة الفاتورة",
           purpose:
             "تحديث إجباري لحالة الفاتورة من المزوّد. يلزم client.invoices.write مع مصادقة API key أو JWT.",
+        },
+        acceptReceived: {
+          title: "قبول المبلغ الوارد عند الدفع الناقص",
+          purpose:
+            "قيد received_amount التراكمي بدل انتظار الإكمال. لـ H2H و checkout المخصص عندما يختار العميل الإبقاء على هذا المبلغ.",
+          notes: [
+            "متاح فقط عندما status = underpaid و amount_review.received_amount معروف.",
+            "بعد النجاح تصبح الحالة confirming/confirmed و amount_review.credited = true.",
+            "Hosted checkout يستخدم نفس الإجراء: POST /api/v1/public/pay/{token}/accept-received (دون مفاتيح).",
+            "إذا أكمل العميل — لا تستدعِ accept-received؛ انتظر webhook بالمبلغ المحدَّث.",
+          ],
         },
         rates: {
           title: "الحصول على rates المتاحة",
@@ -1114,6 +1142,7 @@ export const merchantExt: TranslationDict = {
       listInvoices: "قائمة الفواتير",
       getInvoice: "جلب فاتورة",
       syncInvoice: "مزامنة فاتورة",
+      acceptReceived: "قبول مبلغ الدفع الناقص",
       rates: "Rates",
       balance: "الرصيد",
       transactions: "المعاملات",

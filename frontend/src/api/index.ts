@@ -122,6 +122,7 @@ export {
   sendWebhookTest,
   sendInvoiceWebhookTest,
   syncClientInvoice,
+  acceptClientInvoiceReceived,
   revokeClientApiKey,
   regenerateClientApiKey,
   fetchClientNotificationSettings,

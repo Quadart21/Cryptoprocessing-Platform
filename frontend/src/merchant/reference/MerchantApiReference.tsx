@@ -51,6 +51,7 @@ const ENDPOINT_REF_KEYS: Record<string, string> = {
   "list-invoices": "listInvoices",
   "get-invoice": "getInvoice",
   "sync-invoice": "syncInvoice",
+  "accept-received": "acceptReceived",
   rates: "rates",
   balance: "balance",
   transactions: "transactions",
@@ -61,7 +62,7 @@ function endpointAuthKey(id: string): EndpointReference["authKey"] {
   if (id === "health" || id === "login") {
     return "none";
   }
-  if (id === "sync-invoice") {
+  if (id === "sync-invoice" || id === "accept-received") {
     return "apiKeyOrJwt";
   }
   return "apiKey";
@@ -287,6 +288,35 @@ export function MerchantApiReference({
 }`,
       },
       {
+        id: "accept-received",
+        method: "POST",
+        path: "/api/v1/client/invoices/{invoice_id}/accept-received",
+        title: "",
+        purpose: "",
+        auth: "",
+        requestExample: `curl -X POST "${apiBaseUrl}/invoices/<invoice_id>/accept-received" \\
+  -H "X-API-Key: ${publicKey}" \\
+  -H "X-API-Secret: <secret_key>"`,
+        successExample: `{
+  "id": "inv_01J_DOCS_EXAMPLE",
+  "merchant_order_id": "order_1001",
+  "status": "confirmed",
+  "amount_crypto": "249.84",
+  "crypto_currency": "USDT",
+  "amount_review": {
+    "kind": "underpaid",
+    "expected_amount": "250",
+    "received_amount": "249.84",
+    "remaining_amount": null,
+    "credited": true
+  }
+}`,
+        errorExample: `HTTP 400
+{
+  "detail": "Подтвердить фактическую сумму можно только для недоплаты или переплаты."
+}`,
+      },
+      {
         id: "rates",
         method: "GET",
         path: "/api/v1/client/rates",
@@ -502,6 +532,7 @@ export function MerchantApiReference({
   const authItems = useMemo(() => ta<string>("merchant.apiDocs.auth.items"), [ta]);
   const paymentPageItems = useMemo(() => ta<string>("merchant.apiDocs.checkout.paymentPageItems"), [ta]);
   const h2hItems = useMemo(() => ta<string>("merchant.apiDocs.checkout.h2hItems"), [ta]);
+  const underpaidItems = useMemo(() => ta<string>("merchant.apiDocs.checkout.underpaidItems"), [ta]);
   const webhookPayloadItems = useMemo(() => ta<string>("merchant.apiDocs.webhooks.payloadItems"), [ta]);
   const commissionNotes = useMemo(() => ta<string>("merchant.apiDocs.commissions.notes"), [ta]);
 
@@ -849,6 +880,27 @@ export function MerchantApiReference({
             <p className="muted-text" style={{ marginTop: "1rem" }}>
               {t("merchant.apiDocs.checkout.bothNote")}
             </p>
+            <article className="api-docs-code-card" style={{ marginTop: "1rem" }}>
+              <div className="api-docs-section-head">
+                <p className="eyebrow">{t("merchant.apiDocs.checkout.underpaidEyebrow")}</p>
+                <h3>{t("merchant.apiDocs.checkout.underpaidTitle")}</h3>
+              </div>
+              <ul className="integration-list">
+                {underpaidItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              <pre className="json-box">{`{
+  "status": "underpaid",
+  "amount_review": {
+    "kind": "underpaid",
+    "expected_amount": "250",
+    "received_amount": "249.84",
+    "remaining_amount": "0.16",
+    "credited": false
+  }
+}`}</pre>
+            </article>
           </section>
           ) : null}
 

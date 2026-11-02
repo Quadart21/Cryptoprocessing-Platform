@@ -7,6 +7,7 @@ import { PlatformBrandMark, PlatformBrandText, usePlatformBrand } from "../brand
 import { brandInitials } from "../brand/platformBrand";
 import { PaymentConfirmationsProgress } from "./PaymentConfirmationsProgress";
 import {
+  acceptPublicPaymentReceived,
   fetchPublicPayment,
   isRateLimitedPaymentError,
   refreshPublicPayment,
@@ -264,6 +265,8 @@ export function PayPageRoot({ token }: PayPageRootProps) {
   const [pollHint, setPollHint] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [countdown, setCountdown] = useState({ label: "—", progress: 0 });
+  const [acceptingReceived, setAcceptingReceived] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const paymentRef = useRef<PublicPayment | null>(null);
   const pollPausedUntilRef = useRef(0);
 
@@ -399,6 +402,22 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     }
   }
 
+  async function acceptReceivedAmount() {
+    if (acceptingReceived) {
+      return;
+    }
+    setAcceptingReceived(true);
+    setAcceptError(null);
+    try {
+      const next = await acceptPublicPaymentReceived(token);
+      setPayment(next);
+    } catch (err) {
+      setAcceptError(err instanceof Error ? err.message : "Не удалось зачислить сумму.");
+    } finally {
+      setAcceptingReceived(false);
+    }
+  }
+
   return (
     <div className="pp-page">
       <div className="pp-nebula pp-nebula--one" aria-hidden />
@@ -501,13 +520,33 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                     : "запрошенной"}
                   .
                   {awaitingTopUp
-                    ? remainingToPay
-                      ? ` Отправьте ещё ${formatDecimal(remainingToPay)} ${reviewCurrency} на тот же адрес — платёж останется в этой заявке.`
-                      : " Отправьте недостающую сумму на тот же адрес — платёж останется в этой заявке."
+                    ? " Можно оставить пришедшую сумму или доплатить разницу на тот же адрес."
                     : normalizeStatus(payment.status) === "overpaid"
                       ? " Фактическая сумма зачислится автоматически."
                       : ""}
                 </p>
+                {awaitingTopUp ? (
+                  <div className="pp-underpaid-actions">
+                    <button
+                      className="pp-button pp-button--primary pp-button--full"
+                      disabled={acceptingReceived}
+                      onClick={() => void acceptReceivedAmount()}
+                      type="button"
+                    >
+                      {acceptingReceived
+                        ? "Зачисляем…"
+                        : amountReview.received_amount
+                          ? `Оставить ${formatDecimal(amountReview.received_amount)} ${reviewCurrency}`
+                          : "Оставить пришедшую сумму"}
+                    </button>
+                    <p className="pp-muted">
+                      {remainingToPay
+                        ? `Или доплатите ещё ${formatDecimal(remainingToPay)} ${reviewCurrency} на тот же адрес — заявка не меняется.`
+                        : "Или доплатите недостающую сумму на тот же адрес — заявка не меняется."}
+                    </p>
+                    {acceptError ? <p className="pp-muted pp-underpaid-error">{acceptError}</p> : null}
+                  </div>
+                ) : null}
               </section>
             ) : null}
 

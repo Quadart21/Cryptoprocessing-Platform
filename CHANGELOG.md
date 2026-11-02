@@ -4,6 +4,15 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/).
 
+## [0.22.6] — 2026-11-02
+
+### Добавлено
+
+- При недоплате на `/pay/{token}` клиент выбирает: оставить пришедшую сумму (кнопка → `POST /public/pay/{token}/accept-received`) или доплатить на тот же адрес.
+- Для H2H: `POST /api/v1/client/invoices/{id}/accept-received`. В документации мерчанта — раздел underpaid и endpoint accept-received.
+
+---
+
 ## [0.22.5] — 2026-11-02
 
 ### Изменено

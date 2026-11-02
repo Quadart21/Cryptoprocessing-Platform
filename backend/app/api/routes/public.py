@@ -49,7 +49,7 @@ async def _sync_public_invoice(
     payment_token: str,
     invoice,
 ):
-    if invoice.status not in {"pending", "confirming", "paid", "cancelled"}:
+    if invoice.status not in {"pending", "confirming", "paid", "underpaid", "cancelled"}:
         return invoice
     try:
         return await invoice_service.sync_invoice_status(
@@ -79,7 +79,7 @@ async def get_public_payment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
     invoice_service = InvoiceService(db)
     initial_status = invoice.status
-    did_sync = sync or initial_status in {"pending", "confirming", "cancelled"}
+    did_sync = sync or initial_status in {"pending", "confirming", "underpaid", "cancelled"}
     if did_sync:
         invoice = await _sync_public_invoice(
             invoice_service=invoice_service,
@@ -121,6 +121,36 @@ async def refresh_public_payment(
     get_api_usage_service().record(
         category="public_pay",
         route_key="POST /public/pay/{token}/refresh",
+        tenant_id=invoice.tenant_id,
+        project_id=invoice.project_id,
+    )
+    return await payment_service.to_public_response(invoice)
+
+
+@router.post("/pay/{payment_token}/accept-received", response_model=PublicPaymentResponse)
+async def accept_public_payment_received(
+    payment_token: str,
+    db: AsyncSession = Depends(get_db),
+) -> PublicPaymentResponse:
+    """Payer chooses to keep the underpaid amount instead of topping up."""
+    await _bind_public_payment_context(db)
+    payment_service = PaymentPageService(db)
+    invoice = await payment_service.get_invoice_by_token(payment_token)
+    if invoice is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Платёж не найден.")
+    invoice_service = InvoiceService(db)
+    try:
+        invoice = await invoice_service.credit_received_amount(
+            str(invoice.id),
+            allowed_kinds=("underpaid",),
+            source="public_pay",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    get_api_usage_service().record(
+        category="public_pay",
+        route_key="POST /public/pay/{token}/accept-received",
         tenant_id=invoice.tenant_id,
         project_id=invoice.project_id,
     )

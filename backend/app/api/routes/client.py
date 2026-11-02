@@ -1027,6 +1027,29 @@ async def sync_invoice(
     )
 
 
+@router.post("/invoices/{invoice_id}/accept-received", response_model=InvoiceDetailResponse)
+async def accept_invoice_received_amount(
+    invoice_id: str,
+    auth: ClientAuthContext = Depends(get_client_auth_context),
+    db: AsyncSession = Depends(get_db),
+) -> InvoiceDetailResponse:
+    """Merchant accepts the underpaid cumulative amount (H2H / custom checkout)."""
+    _ensure_client_api_permission(auth, "client.invoices.write")
+    invoice_service = InvoiceService(db)
+    invoice = await invoice_service.get_invoice(auth.tenant_id, invoice_id, project_id=auth.project_id)
+    if invoice is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
+    try:
+        invoice = await invoice_service.credit_received_amount(
+            str(invoice.id),
+            allowed_kinds=("underpaid",),
+            source="merchant_api",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return await _build_client_invoice_detail_response(db, invoice)
+
+
 @router.get("/balance", response_model=BalanceResponse)
 async def get_balance(
     auth: ClientAuthContext = Depends(get_client_auth_context),

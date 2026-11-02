@@ -526,6 +526,7 @@ export const merchantExt: TranslationDict = {
           "`POST /api/v1/client/invoices` - создать инвойс.",
           "`GET /api/v1/client/invoices` - список инвойсов.",
           "`POST /api/v1/client/invoices/{invoice_id}/sync` - синхронизировать статус.",
+          "`POST /api/v1/client/invoices/{invoice_id}/accept-received` - принять недоплату.",
           "`GET /api/v1/client/transactions` - проверить net и комиссии.",
           "`POST /api/v1/client/webhooks/test` - отправить тестовый webhook.",
         ],
@@ -533,6 +534,7 @@ export const merchantExt: TranslationDict = {
           "Ошибки лимитов сумм (min/max) при создании инвойса.",
           "Корректность токена и сети в `/rates` после переключений в админке.",
           "Переход статусов `pending -> confirmed` после sync.",
+          "Сценарий underpaid → accept-received и underpaid → доплата.",
           "Корректность структуры ошибок в `detail`.",
           "Доставку webhook с подписью при заданном secret.",
         ],
@@ -740,9 +742,19 @@ export const merchantExt: TranslationDict = {
         h2hItems: [
           "В ответе — payment_address и qr_url; payment_page_url отсутствует.",
           "Подходит, если вы сами рисуете экран оплаты в своём приложении.",
+          "При статусе underpaid покажите клиенту выбор: оставить пришедшую сумму (POST /invoices/{id}/accept-received) или доплатить разницу на тот же адрес. Второй депозит придёт отдельным вебхуком, но останется на той же заявке.",
         ],
         bothNote:
-          "Режим both возвращает все поля (обратная совместимость). Для кастомной checkout-страницы можно опрашивать публичный API без ключей: GET /api/v1/public/pay/{token} и POST .../refresh для синхронизации статуса.",
+          "Режим both возвращает все поля (обратная совместимость). Для кастомной checkout-страницы можно опрашивать публичный API без ключей: GET /api/v1/public/pay/{token}, при недоплате — POST .../accept-received.",
+        underpaidEyebrow: "underpaid",
+        underpaidTitle: "Недоплата: оставить сумму или доплатить",
+        underpaidItems: [
+          "status = underpaid и объект amount_review: expected_amount, received_amount, remaining_amount, credited.",
+          "Hosted checkout (/pay/{token}): клиент видит кнопку «Оставить сумму» или может доплатить на тот же адрес.",
+          "H2H: покажите тот же выбор у себя. Чтобы зачислить пришедшее — POST /api/v1/client/invoices/{invoice_id}/accept-received.",
+          "Если клиент доплачивает, ждите следующий webhook: amount кумулятивный, заявка та же (data.id / externalId).",
+          "Переплата (overpaid) зачисляется автоматически по факту.",
+        ],
       },
       endpointsTable: {
         eyebrow: "Сводка",
@@ -784,6 +796,7 @@ export const merchantExt: TranslationDict = {
           "Проверяйте подпись в заголовке X-Merset-Signature.",
           "Сохраняйте event_id, чтобы исключить повторную обработку.",
           "Поля invoice.payment_page_url / payment_address / qr_url зависят от checkout_delivery проекта.",
+          "При недоплате приходит status underpaid и amount_review; после accept-received или полной доплаты — confirmed с credited: true.",
           "Отвечайте 2xx только после успешной записи события во внутреннюю систему.",
         ],
       },
@@ -924,6 +937,10 @@ export const merchantExt: TranslationDict = {
             body: "checkout_delivery в настройках проекта: payment_page — только payment_page_url (/pay/{token}); h2h — payment_address и qr_url; both — оба. Правило одинаково для POST /invoices, GET /invoices и webhook.",
           },
           {
+            title: "Что делать при underpaid?",
+            body: "Клиент может оставить пришедшую сумму или доплатить на тот же адрес. На hosted checkout есть кнопка «Оставить сумму». В H2H вызовите POST /invoices/{id}/accept-received или ждите доплату — второй депозит останется на той же заявке.",
+          },
+          {
             title: "Что делать при 4xx и 5xx?",
             body: "4xx — ошибка в payload, ключах или параметрах. 5xx и 502/504 — retry с backoff, логируйте correlation/event id.",
           },
@@ -969,6 +986,17 @@ export const merchantExt: TranslationDict = {
           title: "Синхронизировать статус инвойса",
           purpose:
             "Принудительно обновить статус инвойса у провайдера. Требуется право client.invoices.write и при авторизации по API-ключу, и при JWT.",
+        },
+        acceptReceived: {
+          title: "Принять пришедшую сумму при недоплате",
+          purpose:
+            "Зачислить cumulative received_amount вместо ожидания доплаты. Для H2H и кастомного checkout, когда клиент выбрал «оставить эту сумму».",
+          notes: [
+            "Доступно только при status = underpaid и известном amount_review.received_amount.",
+            "После успеха статус становится confirming/confirmed, amount_review.credited = true.",
+            "На hosted checkout то же действие: POST /api/v1/public/pay/{token}/accept-received (без ключей).",
+            "Если клиент доплачивает — не вызывайте accept-received, ждите webhook с обновлённым amount.",
+          ],
         },
         rates: {
           title: "Получить доступные rates",
@@ -1115,6 +1143,7 @@ export const merchantExt: TranslationDict = {
       listInvoices: "Список инвойсов",
       getInvoice: "Получить инвойс",
       syncInvoice: "Синхронизировать инвойс",
+      acceptReceived: "Принять сумму при недоплате",
       rates: "Rates",
       balance: "Баланс",
       transactions: "Транзакции",

@@ -174,6 +174,20 @@ export function syncClientInvoice(token: string, invoiceId: string): Promise<Inv
   });
 }
 
+/** Accept underpaid cumulative amount instead of waiting for a top-up (H2H / custom checkout). */
+export function acceptClientInvoiceReceived(
+  token: string,
+  invoiceId: string,
+): Promise<InvoiceDetail> {
+  return request<InvoiceDetail>(
+    `/client/invoices/${encodeURIComponent(invoiceId)}/accept-received`,
+    {
+      method: "POST",
+      headers: authHeaders(token),
+    },
+  );
+}
+
 export function revokeClientApiKey(token: string, apiKeyId: string): Promise<ApiKeyItem> {
   return request<ApiKeyItem>(`/client/api-keys/${apiKeyId}/revoke`, {
     method: "POST",

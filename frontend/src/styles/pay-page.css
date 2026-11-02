@@ -628,6 +628,23 @@
   margin-top: 0.75rem;
 }
 
+.pp-button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+  filter: none;
+}
+
+.pp-underpaid-actions {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.pp-underpaid-error {
+  color: #fca5a5;
+}
+
 .pp-terminal {
   padding: 1.35rem 1.1rem;
   margin-bottom: 1rem;
