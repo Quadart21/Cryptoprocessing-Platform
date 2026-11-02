@@ -44,6 +44,7 @@ from app.services.billing_policy_service import BillingPolicyService
 from app.services.client_webhook_service import ClientWebhookService
 from app.services.event_service import EventService
 from app.services.exchange_rate_service import get_exchange_rate_service
+from app.services.provider_webhook_log import ProviderWebhookLogService
 from app.services.provider_settlement_rate import (
     apply_settlement_fields_to_stored,
     extract_settlement_rate_from_stored,

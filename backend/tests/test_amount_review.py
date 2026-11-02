@@ -1,4 +1,6 @@
+import ast
 import unittest
+from pathlib import Path
 
 from app.providers.crypto_cash_status import (
     acquiring_event_finalizes_credit,
@@ -52,6 +54,18 @@ OVERPAID_WEBHOOK = {
 
 
 class AmountReviewStatusTests(unittest.TestCase):
+    def test_invoice_service_imports_provider_webhook_log(self) -> None:
+        source = Path(__file__).resolve().parents[1] / "app" / "services" / "invoice_service.py"
+        tree = ast.parse(source.read_text(encoding="utf-8-sig"))
+        imported = False
+        used = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "app.services.provider_webhook_log":
+                imported = any(alias.name == "ProviderWebhookLogService" for alias in node.names)
+            if isinstance(node, ast.Name) and node.id == "ProviderWebhookLogService":
+                used = True
+        self.assertTrue(imported)
+        self.assertTrue(used)
     def test_mismatch_statuses_settle_as_paid(self) -> None:
         self.assertEqual(normalize_crypto_cash_status("Underpaid"), "paid")
         self.assertEqual(normalize_crypto_cash_status("Overpaid"), "paid")
