@@ -30,6 +30,67 @@ export function invoiceAccountingGrossLabel(invoice: InvoiceDetail): string | nu
   return `${invoice.settlement.gross_amount} ${invoice.settlement.currency}`;
 }
 
+export type TransactionQuote = Pick<
+  TransactionItem,
+  | "gross_amount"
+  | "currency"
+  | "amount_fiat"
+  | "fiat_currency"
+  | "amount_crypto"
+  | "crypto_currency"
+>;
+
+export function transactionHasSettlement(transaction: Pick<TransactionItem, "gross_amount">): boolean {
+  const gross = Number(String(transaction.gross_amount ?? "").replace(",", "."));
+  return Number.isFinite(gross) && gross > 0;
+}
+
+/** Before settlement the ledger gross is zero. Show the invoice quote instead. */
+export function transactionDisplayAmount(transaction: TransactionQuote): {
+  amount: string;
+  currency: string;
+  cryptoAmount: string | null;
+  cryptoCurrency: string | null;
+} {
+  const cryptoAmount =
+    transaction.amount_crypto && Number(transaction.amount_crypto) > 0 ? transaction.amount_crypto : null;
+  const cryptoCurrency = cryptoAmount ? transaction.crypto_currency ?? null : null;
+  if (transactionHasSettlement(transaction)) {
+    return {
+      amount: transaction.gross_amount,
+      currency: transaction.currency,
+      cryptoAmount: null,
+      cryptoCurrency: null,
+    };
+  }
+  const fiat = Number(transaction.amount_fiat ?? "");
+  if (transaction.amount_fiat && transaction.fiat_currency && Number.isFinite(fiat) && fiat > 0) {
+    const sameAsset =
+      cryptoCurrency != null &&
+      transaction.fiat_currency.trim().toUpperCase() === cryptoCurrency.trim().toUpperCase();
+    return {
+      amount: transaction.amount_fiat,
+      currency: transaction.fiat_currency,
+      cryptoAmount: sameAsset ? null : cryptoAmount,
+      cryptoCurrency: sameAsset ? null : cryptoCurrency,
+    };
+  }
+  if (cryptoAmount && cryptoCurrency) {
+    return {
+      amount: cryptoAmount,
+      currency: cryptoCurrency,
+      cryptoAmount: null,
+      cryptoCurrency: null,
+    };
+  }
+  return {
+    amount: transaction.gross_amount,
+    currency: transaction.currency,
+    cryptoAmount: null,
+    cryptoCurrency: null,
+  };
+}
+
 export function transactionTotalFee(
   transaction: Pick<
     TransactionItem,

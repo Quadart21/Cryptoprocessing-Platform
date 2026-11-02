@@ -1,7 +1,7 @@
 import type { TransactionItem } from "../../api";
 import { useTranslation } from "../../i18n";
 import { formatDecimal, formatMoneyAmount } from "../../utils/format";
-import { transactionTotalFee } from "../../utils/invoiceAccounting";
+import { transactionDisplayAmount, transactionTotalFee } from "../../utils/invoiceAccounting";
 
 export type OutboundLedgerProps = {
   transactions: TransactionItem[];
@@ -135,7 +135,7 @@ export function OutboundLedger({
             <article className="mc-tx-card" key={transaction.id}>
               <div className="mc-tx-card-top">
                 <div className="mc-tx-card-amount">
-                  {formatMoneyAmount(transaction.gross_amount, transaction.currency)}
+                  <TransactionAmount transaction={transaction} />
                 </div>
                 <span className={`status-pill status-pill-${normalizeStatus(transaction.status)}`}>
                   {transaction.status}
@@ -187,7 +187,11 @@ export function OutboundLedger({
                       {transaction.status}
                     </span>
                   </td>
-                  <td>{formatMoneyAmount(transaction.gross_amount, transaction.currency)}</td>
+                  <td>
+                    <div className="tx-amount-cell">
+                      <TransactionAmount transaction={transaction} />
+                    </div>
+                  </td>
                   <td>{formatMoneyAmount(transaction.net_amount, transaction.currency)}</td>
                   <td>{formatMoneyAmount(transactionTotalFee(transaction), transaction.currency)}</td>
                   <td className="tx-id-cell">{transaction.invoice_id}</td>
@@ -224,6 +228,20 @@ export function OutboundLedger({
         </div>
       </div>
     </article>
+  );
+}
+
+function TransactionAmount({ transaction }: { transaction: TransactionItem }) {
+  const display = transactionDisplayAmount(transaction);
+  return (
+    <>
+      <span>{formatMoneyAmount(display.amount, display.currency)}</span>
+      {display.cryptoAmount && display.cryptoCurrency ? (
+        <span className="tx-crypto-line">
+          {formatMoneyAmount(display.cryptoAmount, display.cryptoCurrency)}
+        </span>
+      ) : null}
+    </>
   );
 }
 

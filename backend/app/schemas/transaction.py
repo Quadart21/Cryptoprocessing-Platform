@@ -11,6 +11,8 @@ class TransactionResponse(BaseModel):
     invoice_id: str
     amount_crypto: Decimal | None = None
     crypto_currency: str | None = None
+    amount_fiat: Decimal | None = None
+    fiat_currency: str | None = None
     gross_amount: Decimal
     provider_fee: Decimal | None = None
     platform_fee: Decimal | None = None

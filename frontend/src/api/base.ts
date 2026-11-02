@@ -272,6 +272,8 @@ export type TransactionItem = {
   invoice_id: string;
   amount_crypto: string | null;
   crypto_currency: string | null;
+  amount_fiat?: string | null;
+  fiat_currency?: string | null;
   gross_amount: string;
   provider_fee?: string | null;
   platform_fee?: string | null;
