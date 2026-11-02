@@ -25,9 +25,9 @@ PLATFORM_INVOICE_STATUSES: tuple[str, ...] = (
     "aml_frozen",
 )
 
-# Sale statuses where Crypto-Cash credited USDT and the platform may settle automatically.
-# Underpaid / overpaid are excluded: Crypto-Cash only alerts, and the admin credits
-# the received amount by hand. See https://docs.crypto-cash.world/webhooks/structure
+# Sale statuses where Crypto-Cash has a deposit and the platform may settle.
+# Underpaid / overpaid settle on the cumulative `amount`, not the quote.
+# See https://docs.crypto-cash.world/webhooks/structure
 CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES = frozenset(
     {
         "paid",
@@ -35,15 +35,30 @@ CRYPTO_CASH_DEPOSIT_CREDITED_STATUSES = frozenset(
         "confirmed",
         "completed",
         "deposit_received",
+        "underpaid",
+        "overpaid",
+        "canceledbutunderpaid",
+        "canceledbutoverpaid",
     }
 )
 
 # Terminal acquiring events that follow deposit_received and may auto-settle.
-# acquiring::overpaid / acquiring::underpaid wait for a manual credit.
 # See https://docs.crypto-cash.world/webhooks/types
 ACQUIRING_FINAL_CREDIT_EVENTS = frozenset(
     {
         "acquiring::completed",
+        "acquiring::overpaid",
+        "acquiring::underpaid",
+    }
+)
+
+# Provider mismatch statuses settle as a normal paid deposit (received amount).
+_MISMATCH_PROVIDER_STATUSES = frozenset(
+    {
+        "underpaid",
+        "overpaid",
+        "canceledbutunderpaid",
+        "canceledbutoverpaid",
     }
 )
 
@@ -56,17 +71,17 @@ CRYPTO_CASH_STATUS_TO_PLATFORM: dict[str, str] = {
     "waiting": "confirming",
     # Точное попадание в сумму — можно проводить само
     "paid": "paid",
-    # Сумма не совпала: только учёт факта и ручное зачисление
-    "overpaid": "overpaid",
-    "underpaid": "underpaid",
+    # Сумма не совпала: проводим сами, но на фактический amount
+    "overpaid": "paid",
+    "underpaid": "paid",
     # Отмена / ошибки
     "canceled": "cancelled",
     "cancelled": "cancelled",
     "currencymismatch": "failed",
     # Просроченный заказ (>24ч), но депозит всё же пришёл
     "canceledbutpaid": "paid",
-    "canceledbutoverpaid": "overpaid",
-    "canceledbutunderpaid": "underpaid",
+    "canceledbutoverpaid": "paid",
+    "canceledbutunderpaid": "paid",
     # Legacy / internal aliases
     "pending": "pending",
     "confirming": "confirming",
@@ -134,6 +149,9 @@ PLATFORM_PAYMENT_IN_FLIGHT = frozenset({"confirming", "paid", "confirmed"})
 
 def normalize_crypto_cash_status(provider_status: str) -> str:
     """Map Crypto-Cash TransactionStatus (PascalCase or lower) to platform invoice status."""
+    # underpaid/overpaid are also platform statuses, so this must run before that lookup.
+    if normalize_provider_status_key(provider_status) in _MISMATCH_PROVIDER_STATUSES:
+        return "paid"
     platform = resolve_platform_status(provider_status)
     if platform is not None:
         return platform

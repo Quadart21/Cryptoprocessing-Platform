@@ -29,10 +29,10 @@ from app.services.accounting_service import AccountingService
 from app.services.amount_review import (
     AMOUNT_REVIEW_PLATFORM_STATUSES,
     build_amount_review_notice,
-    coerce_provider_status_for_amount_review,
-    held_review_status,
+    parse_amount,
     pin_received_settlement,
     read_amount_review,
+    review_kind,
     review_needs_alert,
     should_keep_credited_invoice,
     upsert_amount_review,
@@ -513,7 +513,11 @@ class InvoiceService:
         else:
             raw_normalized = normalize_crypto_cash_status(provider_status)
 
-        if should_keep_credited_invoice(previous_status, raw_normalized):
+        mismatch_kind = review_kind(
+            provider_status,
+            extract_event_type(raw_payload) if isinstance(raw_payload, dict) else None,
+        )
+        if should_keep_credited_invoice(previous_status, mismatch_kind or ""):
             stored_payload = dict(invoice.raw_provider_payload_json or {})
             if raw_payload is not None:
                 if source == "sync":
@@ -541,12 +545,6 @@ class InvoiceService:
             await self.db.commit()
             refreshed = await self.get_invoice(invoice.tenant_id, str(invoice.id), project_id=None)
             return refreshed if refreshed is not None else invoice
-
-        raw_normalized = coerce_provider_status_for_amount_review(
-            previous_status=previous_status,
-            raw_normalized=raw_normalized,
-            source=source,
-        )
 
         if invoice.status in {"cancelled", "expired"} and raw_normalized in {
             "pending",
@@ -582,10 +580,12 @@ class InvoiceService:
             provider_status=provider_status,
             event_type=extract_event_type(raw_payload),
         )
-        if source != "manual" and previous_status in AMOUNT_REVIEW_PLATFORM_STATUSES:
-            held_status = held_review_status(stored_payload)
-            if held_status:
-                raw_normalized = held_status
+        open_review = read_amount_review(stored_payload)
+        amount_review_alert = (
+            open_review
+            if review_needs_alert(previous_status, old_amount_review, open_review)
+            else None
+        )
         try:
             if parse_confirmation_count(stored_payload.get("network_confirmations_required")) in (None, 0):
                 required_confirmations = await RatesService(self.db).get_network_confirmations_required(
@@ -619,15 +619,18 @@ class InvoiceService:
                 )
             effective_status = manual_status
 
-        if (
-            source == "manual"
-            and previous_status in AMOUNT_REVIEW_PLATFORM_STATUSES
-            and effective_status in {"confirming", "paid", "confirmed"}
-        ):
-            if not pin_received_settlement(stored_payload):
-                raise ValueError(
-                    "Фактическая сумма ещё не известна. Синхронизируйте инвойс с провайдером."
-                )
+        if effective_status in {"confirming", "paid", "confirmed"}:
+            review_now = read_amount_review(stored_payload)
+            if review_now is not None and not review_now.get("credited"):
+                pinned = pin_received_settlement(stored_payload)
+                if (
+                    not pinned
+                    and source == "manual"
+                    and previous_status in AMOUNT_REVIEW_PLATFORM_STATUSES
+                ):
+                    raise ValueError(
+                        "Фактическая сумма ещё не известна. Синхронизируйте инвойс с провайдером."
+                    )
 
         if previous_status == effective_status and not self._provider_meta_changed(
             invoice,
@@ -657,8 +660,9 @@ class InvoiceService:
 
         invoice.status = effective_status
 
-        if effective_status not in AMOUNT_REVIEW_PLATFORM_STATUSES:
-            self._sync_invoice_crypto_from_provider_payload(invoice, raw_payload)
+        if not self._apply_credited_crypto_amount(invoice, stored_payload):
+            if effective_status not in AMOUNT_REVIEW_PLATFORM_STATUSES:
+                self._sync_invoice_crypto_from_provider_payload(invoice, raw_payload)
         invoice.raw_provider_payload_json = stored_payload
 
         transaction.status = effective_status
@@ -735,19 +739,14 @@ class InvoiceService:
             )
             payment_notice = None
         review_notice = None
-        new_amount_review = read_amount_review(invoice.raw_provider_payload_json)
-        if (
-            effective_status in AMOUNT_REVIEW_PLATFORM_STATUSES
-            and review_needs_alert(previous_status, old_amount_review, new_amount_review)
-            and new_amount_review is not None
-        ):
+        if amount_review_alert is not None:
             try:
                 if not await StatisticsExclusionService(self.db).is_excluded(invoice.tenant_id):
                     tenant_name = await self.db.scalar(select(Tenant.name).where(Tenant.id == invoice.tenant_id))
                     review_notice = build_amount_review_notice(
                         merchant_name=tenant_name or invoice.tenant_id,
                         invoice_id=str(invoice.id),
-                        review=new_amount_review,
+                        review=amount_review_alert,
                     )
             except Exception:
                 logger.exception(
@@ -850,8 +849,20 @@ class InvoiceService:
             source="manual",
         )
 
+    @staticmethod
+    def _apply_credited_crypto_amount(invoice: Invoice, stored_payload: dict) -> bool:
+        """Keep the invoice amount on the crypto that arrived, not the quote."""
+        review = read_amount_review(stored_payload)
+        if review is None or not review.get("credited"):
+            return False
+        received = parse_amount(review.get("received_amount"))
+        if received is None or received <= 0:
+            return False
+        invoice.amount_crypto = received.quantize(InvoiceService.AMOUNT_PRECISION)
+        return True
+
     async def credit_received_amount(self, invoice_id: str) -> Invoice:
-        """Confirm an underpaid/overpaid invoice for the crypto that actually arrived."""
+        """Credit a stuck underpaid/overpaid invoice for the crypto that arrived."""
         invoice = await self.get_invoice_by_id(invoice_id)
         if invoice is None:
             raise ValueError("Инвойс не найден.")

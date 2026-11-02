@@ -88,7 +88,7 @@ export const merchantExt: TranslationDict = {
       confirmed: "مؤكد",
       underpaid: "دفع ناقص",
       overpaid: "دفع زائد",
-      amountReviewPending: "وصل {{received}} {{currency}} بدلاً من {{expected}}. يُقيَّد المبلغ يدويًا وعلى المبلغ المستلم فقط.",
+      amountReviewPending: "وصل {{received}} {{currency}} بدلاً من {{expected}}. يُقيَّد المبلغ المستلم تلقائيًا.",
       amountReviewCredited: "تم القيد بالمبلغ المستلم: {{received}} {{currency}}.",
       expired: "انتهت الصلاحية",
       cancelled: "ملغى",

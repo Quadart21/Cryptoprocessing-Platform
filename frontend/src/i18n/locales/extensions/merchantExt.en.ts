@@ -88,7 +88,7 @@ export const merchantExt: TranslationDict = {
       confirmed: "Confirmed",
       underpaid: "Underpaid",
       overpaid: "Overpaid",
-      amountReviewPending: "Received {{received}} {{currency}} instead of {{expected}}. The payment is credited only after a manual confirmation for the received amount.",
+      amountReviewPending: "Received {{received}} {{currency}} instead of {{expected}}. The received amount is credited automatically.",
       amountReviewCredited: "Credited for the amount received: {{received}} {{currency}}.",
       expired: "Expired",
       cancelled: "Cancelled",

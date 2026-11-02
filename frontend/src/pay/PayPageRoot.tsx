@@ -364,7 +364,10 @@ export function PayPageRoot({ token }: PayPageRootProps) {
     !isFailedStatus(payment.status) &&
     Boolean(payment.payment_address);
   const confirming = payment && isConfirmingStatus(payment.status);
-  const amountReview = payment && isAmountReviewStatus(payment.status) ? payment.amount_review : null;
+  const amountReview = payment?.amount_review ?? null;
+  const reviewStillOpen = Boolean(
+    payment && amountReview && !amountReview.credited && isAmountReviewStatus(payment.status),
+  );
   const reviewCurrency = amountReview?.currency || payment?.crypto_currency || "";
 
   async function copyValue(label: string, value: string) {
@@ -432,7 +435,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
         {!loading && payment && !error ? (
           <>
             <section className="pp-glass pp-hero">
-              <p className="pp-hero-label">{amountReview ? "Запрошено" : "Сумма к оплате"}</p>
+              <p className="pp-hero-label">{reviewStillOpen ? "Запрошено" : "Сумма к оплате"}</p>
               <strong className="pp-hero-amount">{amountLine}</strong>
               {isStableCoinFiatPair(payment.crypto_currency, payment.fiat_currency) ? (
                 <span className="pp-hero-fiat">
@@ -461,7 +464,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
               ) : null}
             </section>
 
-            {amountReview ? (
+            {reviewStillOpen && amountReview ? (
               <section className="pp-terminal">
                 <h2 className="pp-title">
                   {normalizeStatus(payment.status) === "overpaid" ? "Переплата" : "Недоплата"}
@@ -475,7 +478,7 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                   {amountReview.expected_amount
                     ? `${formatDecimal(amountReview.expected_amount)} ${reviewCurrency}`
                     : "запрошенной"}
-                  . Продавец подтвердит платёж вручную ровно на пришедшую сумму.
+                  . Эта сумма зачислится автоматически.
                 </p>
               </section>
             ) : null}
@@ -498,6 +501,18 @@ export function PayPageRoot({ token }: PayPageRootProps) {
                 <p className="pp-muted">
                   Средства зафиксированы. Продавец получит уведомление — можете закрыть эту вкладку.
                 </p>
+                {amountReview?.credited ? (
+                  <p className="pp-muted">
+                    Зачислено{" "}
+                    {amountReview.received_amount
+                      ? `${formatDecimal(amountReview.received_amount)} ${reviewCurrency}`
+                      : "фактическая сумма"}
+                    {amountReview.expected_amount
+                      ? ` вместо ${formatDecimal(amountReview.expected_amount)} ${reviewCurrency}`
+                      : ""}
+                    .
+                  </p>
+                ) : null}
                 {payment.return_url_success ? (
                   <ReturnToShopBanner autoRedirect href={payment.return_url_success} tone="success" />
                 ) : null}

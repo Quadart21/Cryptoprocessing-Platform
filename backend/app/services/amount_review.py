@@ -1,4 +1,4 @@
-"""Underpaid / overpaid deposits stay uncredited until an admin confirms the received sum."""
+"""Track underpaid / overpaid deposits and settle them for the amount that arrived."""
 
 from __future__ import annotations
 
@@ -9,8 +9,6 @@ from app.providers.crypto_cash_status import extract_event_data, extract_event_t
 
 STORED_AMOUNT_REVIEW_KEY = "amount_review"
 AMOUNT_REVIEW_PLATFORM_STATUSES = frozenset({"underpaid", "overpaid"})
-_CREDITED_INVOICE_STATUSES = frozenset({"confirming", "paid", "confirmed"})
-_AUTO_PAID_STATUSES = frozenset({"confirming", "paid", "confirmed"})
 
 
 def parse_amount(value: Any) -> Decimal | None:
@@ -60,34 +58,8 @@ def read_amount_review(stored_payload: dict | None) -> dict | None:
 
 
 def should_keep_credited_invoice(previous_status: str, raw_normalized: str) -> bool:
-    """A later mismatch webhook must not undo a payment that was already credited."""
-    return previous_status in _CREDITED_INVOICE_STATUSES and raw_normalized in AMOUNT_REVIEW_PLATFORM_STATUSES
-
-
-def coerce_provider_status_for_amount_review(
-    *,
-    previous_status: str,
-    raw_normalized: str,
-    source: str,
-) -> str:
-    """Paid-like provider updates do not auto-credit an open under/overpaid invoice."""
-    if (
-        source != "manual"
-        and previous_status in AMOUNT_REVIEW_PLATFORM_STATUSES
-        and raw_normalized in _AUTO_PAID_STATUSES
-    ):
-        return previous_status
-    return raw_normalized
-
-
-def held_review_status(stored_payload: dict | None) -> str | None:
-    review = read_amount_review(stored_payload)
-    if review is None or review.get("credited"):
-        return None
-    kind = review.get("kind")
-    if kind in AMOUNT_REVIEW_PLATFORM_STATUSES:
-        return str(kind)
-    return None
+    """A later mismatch webhook must not undo a payment that was already settled."""
+    return previous_status == "confirmed" and raw_normalized in AMOUNT_REVIEW_PLATFORM_STATUSES
 
 
 def review_needs_alert(
@@ -176,7 +148,11 @@ def build_amount_review_notice(
     review: dict,
 ) -> tuple[str, list[str]]:
     kind = review.get("kind")
-    title = "Недоплата — нужно подтверждение" if kind == "underpaid" else "Переплата — нужно подтверждение"
+    title = (
+        "Недоплата — зачислили фактическую сумму"
+        if kind == "underpaid"
+        else "Переплата — зачислили фактическую сумму"
+    )
     currency = str(review.get("currency") or "").strip()
     suffix = f" {currency}" if currency else ""
     lines = [
@@ -188,7 +164,10 @@ def build_amount_review_notice(
     usdt_total = review.get("usdt_total")
     if usdt_total not in (None, ""):
         lines.append(f"USDT у провайдера: {_amount_line(usdt_total, ' USDT')}")
-    lines.append("Автозачисления нет. В админке подтвердите платёж ровно на пришедшую сумму.")
+    if review.get("received_amount"):
+        lines.append("Платформа зачисляет пришедшую сумму автоматически.")
+    else:
+        lines.append("В вебхуке нет фактической суммы, зачисление ждёт её.")
     lines.append(f"Invoice ID: {invoice_id}")
     return title, lines
 

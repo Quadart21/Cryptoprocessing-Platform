@@ -88,7 +88,7 @@ export const merchantExt: TranslationDict = {
       confirmed: "Подтверждён",
       underpaid: "Недоплата",
       overpaid: "Переплата",
-      amountReviewPending: "Пришло {{received}} {{currency}} вместо {{expected}}. Зачисление только вручную, на фактическую сумму.",
+      amountReviewPending: "Пришло {{received}} {{currency}} вместо {{expected}}. Сумма зачисляется автоматически.",
       amountReviewCredited: "Зачислено по факту: {{received}} {{currency}}.",
       expired: "Истёк срок",
       cancelled: "Отменён",

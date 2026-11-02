@@ -80,7 +80,7 @@ class InvoiceTransactionDetailsResponse(BaseModel):
 
 
 class InvoiceAmountReviewResponse(BaseModel):
-    """Fact vs quote for an underpaid or overpaid deposit. Credit stays manual."""
+    """Fact vs quote for an underpaid or overpaid deposit. Credit uses the received amount."""
 
     kind: str
     provider_status: str | None = None

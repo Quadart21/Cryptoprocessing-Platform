@@ -164,10 +164,10 @@ function AmountReviewPanel({
   return (
     <div className={`cc-banner ${open ? "cc-banner-wait" : ""}`}>
       <div>
-        <strong>{open ? "Сумма не совпала — только ручное зачисление" : "Зачислено по фактической сумме"}</strong>
+        <strong>{open ? "Сумма не совпала — зачисление идёт само" : "Зачислено по фактической сумме"}</strong>
         <p>
           {open
-            ? "Провайдер такие платежи сам не проводит. Подтвердите ровно то, что пришло."
+            ? "Платформа проводит платёж на то, что реально пришло. Кнопка нужна, только если строка ещё не обновилась."
             : "Платёж проведён на сумму, которая реально пришла, а не на сумму счёта."}
         </p>
         <dl className="cc-dl">
@@ -187,10 +187,10 @@ function AmountReviewPanel({
       </div>
       {open && isSuperadmin ? (
         <button className="primary-button" disabled={loading || !review.received_amount} onClick={onCredit} type="button">
-          Зачислить {receivedLabel}
+          Зачислить сейчас {receivedLabel}
         </button>
       ) : null}
-      {open && !isSuperadmin ? <p>Подтвердить сумму может только superadmin.</p> : null}
+      {open && !isSuperadmin ? <p>Если строка зависла, зачислить может superadmin.</p> : null}
     </div>
   );
 }
