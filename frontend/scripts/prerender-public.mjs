@@ -10,6 +10,10 @@ const LOCALES = ["ru", "en", "ar"];
 const DOCS_PATHS = [
   "/",
   "/quickstart",
+  "/invoices",
+  "/balance",
+  "/transactions",
+  "/rates",
   "/checkout",
   "/webhooks",
   "/integrations",

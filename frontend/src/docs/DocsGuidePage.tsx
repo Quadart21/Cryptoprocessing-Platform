@@ -1,11 +1,7 @@
-import { Link } from "react-router-dom";
-
 import { ApiDocumentationPanel } from "../screens/client/ApiDocumentationPanel";
 import { resolveClientApiBaseUrl } from "../config/apiBase";
-import { useTranslation } from "../i18n";
-import { DocsApiToc } from "./DocsApiToc";
 import type { DocsSectionKey } from "../types/docsSection";
-import { DOCS_GUIDE_ORDER } from "./docsNav";
+import { DocsPager } from "./DocsPager";
 import { useDocsPageMeta } from "./useDocsNav";
 
 type DocsGuidePageProps = {
@@ -28,13 +24,9 @@ function buildIntegrationCurl(apiBaseUrl: string) {
 }
 
 export function DocsGuidePage({ section }: DocsGuidePageProps) {
-  const { t } = useTranslation();
   const pageMeta = useDocsPageMeta();
   const meta = pageMeta[section];
   const apiBaseUrl = resolveClientApiBaseUrl();
-  const orderIndex = DOCS_GUIDE_ORDER.indexOf(section);
-  const prev = orderIndex > 0 ? DOCS_GUIDE_ORDER[orderIndex - 1] : null;
-  const next = orderIndex >= 0 && orderIndex < DOCS_GUIDE_ORDER.length - 1 ? DOCS_GUIDE_ORDER[orderIndex + 1] : null;
 
   return (
     <article className="docs-guide docs-api-page">
@@ -44,7 +36,7 @@ export function DocsGuidePage({ section }: DocsGuidePageProps) {
         <p className="docs-page-lead">{meta.lead}</p>
       </header>
 
-      <div className={`docs-guide-body${section === "reference" ? " docs-guide-body--reference" : ""}`}>
+      <div className="docs-guide-body">
         <ApiDocumentationPanel
           activeApiKeyPublic={null}
           activeWebhookUrl="https://merchant.example.com/webhooks/norencash"
@@ -54,25 +46,9 @@ export function DocsGuidePage({ section }: DocsGuidePageProps) {
           presentation="docs"
           selectedRoute="USDT / TRC20"
         />
-        {section === "reference" ? <DocsApiToc variant="inline" /> : null}
       </div>
 
-      <nav className="docs-pager" aria-label={t("docsSite.pagerAria")}>
-        {prev ? (
-          <Link className="docs-pager-link docs-pager-link--prev" to={`/${prev}`}>
-            <span>{t("docsSite.pagerPrevious")}</span>
-            <strong>{pageMeta[prev].title}</strong>
-          </Link>
-        ) : (
-          <span />
-        )}
-        {next ? (
-          <Link className="docs-pager-link docs-pager-link--next" to={`/${next}`}>
-            <span>{t("docsSite.pagerNext")}</span>
-            <strong>{pageMeta[next].title}</strong>
-          </Link>
-        ) : null}
-      </nav>
+      <DocsPager currentPath={`/${section}`} />
     </article>
   );
 }

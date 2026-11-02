@@ -5,6 +5,10 @@ import type { PublicSurface } from "./requestContext";
 
 const DOC_SECTIONS = new Set([
   "quickstart",
+  "invoices",
+  "balance",
+  "transactions",
+  "rates",
   "checkout",
   "webhooks",
   "integrations",

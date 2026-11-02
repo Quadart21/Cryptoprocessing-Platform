@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 
 import { getPublicRequestContext } from "../ssr/requestContext";
 import { StaticPublicRouter } from "../ssr/staticRouter";
+import { DocsArticlePage } from "./DocsArticlePage";
 import { DocsGuidePage } from "./DocsGuidePage";
 import { DocsIntegrationModulePage } from "./DocsIntegrationModulePage";
 import { DocsIntegrationsPage } from "./DocsIntegrationsPage";
@@ -31,13 +32,17 @@ export function DocsSiteRoutes() {
       <Routes>
         <Route element={<DocsSiteLayout />}>
           <Route index element={<DocsIntroductionPage />} />
-          <Route path="quickstart" element={<DocsGuidePage section="quickstart" />} />
-          <Route path="checkout" element={<DocsGuidePage section="checkout" />} />
-          <Route path="webhooks" element={<DocsGuidePage section="webhooks" />} />
+          <Route path="quickstart" element={<DocsArticlePage articleKey="quickstart" />} />
+          <Route path="invoices" element={<DocsArticlePage articleKey="invoices" />} />
+          <Route path="balance" element={<DocsArticlePage articleKey="balance" />} />
+          <Route path="transactions" element={<DocsArticlePage articleKey="transactions" />} />
+          <Route path="rates" element={<DocsArticlePage articleKey="rates" />} />
+          <Route path="checkout" element={<DocsArticlePage articleKey="checkout" />} />
+          <Route path="webhooks" element={<DocsArticlePage articleKey="webhooks" />} />
           <Route path="integrations" element={<DocsIntegrationsPage />} />
           <Route path="integrations/:moduleId" element={<DocsIntegrationModulePage />} />
           <Route path="commissions" element={<DocsGuidePage section="commissions" />} />
-          <Route path="reference" element={<DocsGuidePage section="reference" />} />
+          <Route path="reference" element={<DocsArticlePage articleKey="reference" />} />
           <Route path="faq" element={<DocsGuidePage section="faq" />} />
           <Route path="merchant-api" element={<DocsLegacyRedirect />} />
           <Route path="*" element={<Navigate to="/" replace />} />

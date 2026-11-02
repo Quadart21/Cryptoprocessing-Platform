@@ -1,40 +1,35 @@
-# Merchant API · для мерчантов
+# Merchant API
 
-Документация **только для мерчантов** — подключение приёма криптовалютных платежей через **NorenDigital**.
+Документация для магазинов и сервисов, которые принимают криптооплату.
 
-{% hint style="info" %}
-**Аудитория:** владельцы и разработчики магазинов / сервисов, которые принимают оплату через API.
+Каждый раздел короткий: зачем метод, какие поля, пример запроса и что значит ответ.
 
-Это **не** документация администраторов платформы, внутренних ops-процессов и sandbox для команды.
-{% endhint %}
+## С чего начать
 
-Разделы разложены по задачам: старт, checkout, webhooks, справочник методов и тариф.
-
-## Путь интеграции
-
-1. **Ключи** — public + secret на backend
-2. **Rates** — выбор сети и лимитов
-3. **Invoice** — `POST /invoices`
-4. **Webhook** — подтверждение оплаты
+1. **Ключи** — public и secret только на backend.
+2. **Курсы** — `GET /rates`, выбрать сеть и лимиты.
+3. **Счёт** — `POST /invoices`.
+4. **Webhook** — подтверждение оплаты на ваш URL.
 
 ## Окружение
 
 | Параметр | Значение |
 | --- | --- |
-| Merchant API (Base URL) | `https://api.noren.digital/api/v1/client` |
-| OpenAPI (merchant) | [https://noren.digital/openapi.json](https://noren.digital/openapi.json) |
-| Swagger (merchant) | [https://noren.digital/docs](https://noren.digital/docs) |
-| Кабинет мерчанта | [https://app.noren.digital](https://app.noren.digital) |
+| Base URL | `https://api.noren.digital/api/v1/client` |
+| OpenAPI | [https://noren.digital/openapi.json](https://noren.digital/openapi.json) |
+| Swagger | [https://noren.digital/docs](https://noren.digital/docs) |
+| Кабинет | [https://app.noren.digital](https://app.noren.digital) |
+| Документация на сайте | [https://docs.noren.digital](https://docs.noren.digital) |
 
-{% hint style="info" %}
-Префикс `/api/v1/client` уже включён в Base URL — в примерах curl используйте пути вида `/invoices`, `/rates`.
-{% endhint %}
+Префикс `/api/v1/client` уже входит в Base URL. В примерах пути выглядят как `/invoices` и `/rates`.
 
-## Куда перейти
+## Разделы
 
-* [Быстрый старт](quickstart.md) — ключи → rates → инвойс → webhook
-* [Checkout](checkout.md) — hosted `/pay/{token}` или H2H-реквизиты
-* [API методы](api-reference/summary.md) — таблица endpoint'ов и примеры
-* [Webhooks](webhooks.md) — HMAC, `event_id`, тест доставки
+* [Быстрый старт](quickstart.md) — ключи, авторизация, первый счёт, статусы, ошибки
+* [Счета](api-reference/invoices.md) — создать, список, один счёт, sync, недоплата
+* [Баланс](api-reference/balance.md) — доступно и холд
+* [Транзакции](api-reference/transactions.md) — проводка и комиссия
+* [Курсы и лимиты](api-reference/rates.md) — валюты и сети
+* [Checkout](checkout.md) — ссылка `/pay/{token}` или адрес и QR
+* [Webhook](webhooks.md) — тело, заголовки, HMAC
 * [Комиссии](commissions.md) — 0,4%, минимум $0,70
-* [FAQ](faq.md) — ключи, ошибки, sandbox

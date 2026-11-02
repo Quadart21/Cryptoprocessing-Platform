@@ -1,6 +1,7 @@
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 
 import { useTranslation } from "../i18n";
+import { DocsPager } from "./DocsPager";
 import {
   INTEGRATION_MODULES,
   type IntegrationModuleId,
@@ -64,16 +65,7 @@ export function DocsIntegrationModulePage() {
         </ol>
       </section>
 
-      <nav className="docs-pager" aria-label={t("docsSite.pagerAria")}>
-        <Link className="docs-pager-link docs-pager-link--prev" to="/integrations">
-          <span>{t("docsSite.pagerPrevious")}</span>
-          <strong>{t("merchant.apiDocs.integrations.title")}</strong>
-        </Link>
-        <Link className="docs-pager-link docs-pager-link--next" to="/reference">
-          <span>{t("docsSite.pagerNext")}</span>
-          <strong>{t("docsSite.pages.reference.title")}</strong>
-        </Link>
-      </nav>
+      <DocsPager currentPath="/integrations" />
     </article>
   );
 }

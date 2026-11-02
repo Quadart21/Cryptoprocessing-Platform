@@ -5,6 +5,10 @@ export type { DocsSectionKey };
 export type DocsNavItemKey =
   | "overview"
   | "quickstart"
+  | "invoices"
+  | "balance"
+  | "transactions"
+  | "rates"
   | "checkout"
   | "webhooks"
   | "integrations"
@@ -12,7 +16,7 @@ export type DocsNavItemKey =
   | "commissions"
   | "faq";
 
-export type DocsSidebarGroupKey = "gettingStarted" | "integration" | "reference";
+export type DocsSidebarGroupKey = "gettingStarted" | "api" | "delivery" | "reference";
 
 export type DocsNavItemStruct = {
   to: string;
@@ -32,11 +36,19 @@ export const DOCS_SIDEBAR_STRUCTURE: Array<{
     ],
   },
   {
-    groupKey: "integration",
+    groupKey: "api",
     items: [
-      { to: "/checkout", key: "checkout", icon: "◈" },
+      { to: "/invoices", key: "invoices", icon: "◈" },
+      { to: "/balance", key: "balance", icon: "◉" },
+      { to: "/transactions", key: "transactions", icon: "☰" },
+      { to: "/rates", key: "rates", icon: "¤" },
+    ],
+  },
+  {
+    groupKey: "delivery",
+    items: [
+      { to: "/checkout", key: "checkout", icon: "▢" },
       { to: "/webhooks", key: "webhooks", icon: "⇄" },
-      { to: "/integrations", key: "integrations", icon: "⬡" },
     ],
   },
   {
@@ -44,39 +56,59 @@ export const DOCS_SIDEBAR_STRUCTURE: Array<{
     items: [
       { to: "/reference", key: "reference", icon: "⚡" },
       { to: "/commissions", key: "commissions", icon: "%" },
+      { to: "/integrations", key: "integrations", icon: "⬡" },
       { to: "/faq", key: "faq", icon: "?" },
     ],
   },
 ];
 
-export const DOCS_GUIDE_ORDER: DocsSectionKey[] = [
-  "quickstart",
-  "checkout",
-  "webhooks",
-  "integrations",
-  "reference",
-  "commissions",
-  "faq",
-];
+/** Linear reading order for previous/next links. */
+export const DOCS_PAGE_ORDER = [
+  "/quickstart",
+  "/invoices",
+  "/checkout",
+  "/webhooks",
+  "/balance",
+  "/transactions",
+  "/rates",
+  "/reference",
+  "/commissions",
+  "/integrations",
+  "/faq",
+] as const;
+
+export const DOCS_PAGE_TITLE_KEYS: Record<(typeof DOCS_PAGE_ORDER)[number], string> = {
+  "/quickstart": "docsSite.pages.quickstart.title",
+  "/invoices": "docsSite.pages.invoices.title",
+  "/checkout": "docsSite.pages.checkout.title",
+  "/webhooks": "docsSite.pages.webhooks.title",
+  "/balance": "docsSite.pages.balance.title",
+  "/transactions": "docsSite.pages.transactions.title",
+  "/rates": "docsSite.pages.rates.title",
+  "/reference": "docsSite.pages.reference.title",
+  "/commissions": "docsSite.pages.commissions.title",
+  "/integrations": "docsSite.pages.integrations.title",
+  "/faq": "docsSite.pages.faq.title",
+};
 
 export const DOCS_PIPELINE_KEYS = ["keys", "rates", "invoice", "webhook"] as const;
 
 export const DOCS_HUB_CARD_KEYS = [
   "quickstart",
+  "invoices",
   "checkout",
-  "reference",
   "webhooks",
-  "integrations",
+  "rates",
   "commissions",
   "faq",
 ] as const;
 
 export const DOCS_HUB_CARD_ROUTES: Record<(typeof DOCS_HUB_CARD_KEYS)[number], string> = {
   quickstart: "/quickstart",
+  invoices: "/invoices",
   checkout: "/checkout",
-  reference: "/reference",
   webhooks: "/webhooks",
-  integrations: "/integrations",
+  rates: "/rates",
   commissions: "/commissions",
   faq: "/faq",
 };

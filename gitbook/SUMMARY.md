@@ -6,22 +6,21 @@
 
 * [Быстрый старт](quickstart.md)
 
-## Приём платежей
+## API
 
-* [Checkout: payment page / H2H](checkout.md)
+* [Счета](api-reference/invoices.md)
+* [Баланс](api-reference/balance.md)
+* [Транзакции](api-reference/transactions.md)
+* [Курсы и лимиты](api-reference/rates.md)
+
+## Оплата и события
+
+* [Checkout: страница или H2H](checkout.md)
 * [Webhooks](webhooks.md)
-* [CMS modules (WordPress, DLE, Tilda, 1C)](integrations.md)
 
-## Справочник Merchant API
+## Справка
 
-* [Сводка методов](api-reference/summary.md)
-* [Примеры запросов](api-reference/endpoints.md)
-* [Кабинет мерчанта (JWT)](api-reference/cabinet.md)
-
-## Тариф мерчанта
-
+* [Все методы](api-reference/summary.md)
 * [Комиссии](commissions.md)
-
-## Помощь
-
+* [CMS-модули](integrations.md)
 * [FAQ](faq.md)

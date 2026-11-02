@@ -1,15 +1,10 @@
-import { Link } from "react-router-dom";
-
 import { useTranslation } from "../i18n";
+import { DocsPager } from "./DocsPager";
 import { IntegrationModulesPanel } from "./IntegrationModulesPanel";
-import { useDocsPageMeta } from "./useDocsNav";
 
 export function DocsIntegrationsPage() {
   const { t, ta } = useTranslation();
-  const pageMeta = useDocsPageMeta();
   const steps = ta<string>("merchant.apiDocs.integrations.steps");
-  const prev = "webhooks" as const;
-  const next = "reference" as const;
 
   return (
     <article className="docs-guide">
@@ -33,16 +28,7 @@ export function DocsIntegrationsPage() {
 
       <IntegrationModulesPanel hideHeader variant="full" />
 
-      <nav className="docs-pager" aria-label={t("docsSite.pagerAria")}>
-        <Link className="docs-pager-link docs-pager-link--prev" to={`/${prev}`}>
-          <span>{t("docsSite.pagerPrevious")}</span>
-          <strong>{pageMeta[prev].title}</strong>
-        </Link>
-        <Link className="docs-pager-link docs-pager-link--next" to={`/${next}`}>
-          <span>{t("docsSite.pagerNext")}</span>
-          <strong>{pageMeta[next].title}</strong>
-        </Link>
-      </nav>
+      <DocsPager currentPath="/integrations" />
     </article>
   );
 }

@@ -13,7 +13,8 @@ Base URL: `https://api.noren.digital/api/v1/client`
 | POST | `/invoices` | X-API-Key + X-API-Secret |
 | GET | `/invoices` | X-API-Key + X-API-Secret |
 | GET | `/invoices/{invoice_id}` | X-API-Key + X-API-Secret |
-| POST | `/invoices/{invoice_id}/sync` | X-API-Key + X-API-Secret (или JWT) |
+| POST | `/invoices/{invoice_id}/sync` | X-API-Key + X-API-Secret |
+| POST | `/invoices/{invoice_id}/accept-received` | X-API-Key + X-API-Secret |
 | GET | `/rates` | X-API-Key + X-API-Secret |
 | GET | `/balance` | X-API-Key + X-API-Secret |
 | GET | `/transactions` | X-API-Key + X-API-Secret |
@@ -31,15 +32,15 @@ Base URL: `https://api.noren.digital/api/v1/client`
 
 ### Оплаты
 
-* `POST /invoices`, `GET /invoices`, `GET /invoices/{id}`, `POST /invoices/{id}/sync`
-* `GET /rates`
+* [Счета](invoices.md) — `POST /invoices`, список, один счёт, `sync`, `accept-received`
+* [Курсы и лимиты](rates.md) — `GET /rates`
 
 ### Финансы
 
-* `GET /balance`
-* `GET /transactions`, `GET /transactions/{id}`
+* [Баланс](balance.md) — `GET /balance`
+* [Транзакции](transactions.md) — `GET /transactions`, `GET /transactions/{id}`
 
-Подробные примеры curl и JSON — на странице [Примеры запросов](endpoints.md).
+Пояснения и примеры — на страницах выше. Сырые curl по всем методам — [Примеры запросов](endpoints.md).
 
 Кабинетные JWT-методы — [Кабинет (JWT)](cabinet.md).
 
