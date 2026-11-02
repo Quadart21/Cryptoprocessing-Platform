@@ -80,4 +80,4 @@ curl -X POST "https://api.noren.digital/api/v1/client/invoices" \
 * `404` — счёт или транзакция не найдены у этого ключа.
 * `503` — повторите запрос позже.
 
-Дальше: [счета](api-reference/invoices.md), [webhook](webhooks.md).
+Дальше: [счета](api-reference/invoices.md), [webhook](webhooks.md), [SDK Python и Node.js](sdk.md).

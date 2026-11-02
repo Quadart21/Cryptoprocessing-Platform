@@ -17,6 +17,7 @@
 
 * [Checkout: страница или H2H](checkout.md)
 * [Webhooks](webhooks.md)
+* [SDK Python и Node.js](sdk.md)
 
 ## Справка
 

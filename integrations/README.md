@@ -30,6 +30,10 @@
 
 `shared/php/` — клиент API и проверка `X-Merset-Signature`.
 
+## SDK для своего backend
+
+Готовые клиенты без сторонних зависимостей: [sdks/python](../sdks/python/) (`noren-merchant`) и [sdks/node](../sdks/node/) (`noren-merchant`). Создание счёта, статус, баланс и проверка подписи webhook. На PyPI и npm ещё не опубликованы — ставятся из каталога репозитория.
+
 ## Документация
 
 - [Быстрый старт](../gitbook/quickstart.md)

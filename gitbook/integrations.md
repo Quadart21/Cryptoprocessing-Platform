@@ -38,7 +38,12 @@ PHP-bridge на вашем хостинге + HTML-форма в Zero Block. Sec
 
 Примеры BSL: HTTP-сервис для webhook и `NorenAPI.СоздатьИнвойс()`.
 
+## SDK, если CMS-модуля нет
+
+Для своего backend есть клиенты Python и Node.js: [SDK](sdk.md). PHP-клиент для модулей выше — `integrations/shared/php/`.
+
 ## Дальше
 
+* [SDK Python и Node.js](sdk.md)
 * [Webhooks](webhooks.md) — подпись и формат payload
 * [Checkout](checkout.md) — payment page / H2H

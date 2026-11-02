@@ -827,6 +827,16 @@ export const merchantExt: TranslationDict = {
         bundleTitle: "حزمة التكاملات الكاملة",
         bundleBody: "WordPress و DLE و جسر Tilda وأمثلة 1C ومكتبة PHP المشتركة في أرشيف واحد.",
         downloadAll: "تحميل كل الوحدات",
+        sdkEyebrow: "الخادم الخاص بك",
+        sdkTitle: "مكتبات Python و Node.js",
+        sdkLead:
+          "عميل Merchant API دون كتابة HTTP بنفسك: الفواتير والحالة والرصيد والتحقق من توقيع webhook. بلا اعتماديات خارجية.",
+        sdkPythonTitle: "Python",
+        sdkPythonSubtitle: "Python 3.9+، الحزمة noren-merchant",
+        sdkNodeTitle: "Node.js",
+        sdkNodeSubtitle: "Node.js 18+، الحزمة noren-merchant",
+        sdkPublishNote:
+          "المصدر في sdks/python و sdks/node داخل مستودع المنصة. الحزم ليست على PyPI أو npm بعد — ثبّتها من المجلد. يمكن نسخ كل مجلد إلى مستودع مستقل.",
         pagerPrevious: "السابق",
         pagerNext: "التالي",
         modules: {

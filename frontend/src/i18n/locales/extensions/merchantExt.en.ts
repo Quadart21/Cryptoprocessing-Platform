@@ -828,6 +828,16 @@ export const merchantExt: TranslationDict = {
         bundleTitle: "Full integrations bundle",
         bundleBody: "WordPress, DLE, Tilda bridge, 1C examples, and shared PHP library in one archive.",
         downloadAll: "Download all modules",
+        sdkEyebrow: "Your backend",
+        sdkTitle: "Python and Node.js libraries",
+        sdkLead:
+          "A Merchant API client without writing HTTP yourself: invoices, status, balance, and webhook signature checks. No third-party dependencies.",
+        sdkPythonTitle: "Python",
+        sdkPythonSubtitle: "Python 3.9+, package noren-merchant",
+        sdkNodeTitle: "Node.js",
+        sdkNodeSubtitle: "Node.js 18+, package noren-merchant",
+        sdkPublishNote:
+          "Source lives in sdks/python and sdks/node of the platform repository. The packages are not on PyPI or npm yet — install from the directory. Each directory can be copied into its own repository.",
         pagerPrevious: "Previous",
         pagerNext: "Next",
         modules: {

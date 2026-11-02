@@ -1,5 +1,6 @@
 import { useTranslation } from "../i18n";
 import { DocsPager } from "./DocsPager";
+import { DocsSdkSection } from "./DocsSdkSection";
 import { IntegrationModulesPanel } from "./IntegrationModulesPanel";
 
 export function DocsIntegrationsPage() {
@@ -25,6 +26,8 @@ export function DocsIntegrationsPage() {
           ))}
         </ol>
       </section>
+
+      <DocsSdkSection />
 
       <IntegrationModulesPanel hideHeader variant="full" />
 

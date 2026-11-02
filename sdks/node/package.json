@@ -1,0 +1,40 @@
+{
+  "name": "noren-merchant",
+  "version": "0.1.0",
+  "description": "Merchant SDK for the Noren Digital payment API",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "noren",
+    "payments",
+    "crypto",
+    "merchant",
+    "invoices",
+    "webhooks"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Quadart21/Cryptoprocessing-Platform.git",
+    "directory": "sdks/node"
+  },
+  "homepage": "https://noren.digital"
+}
