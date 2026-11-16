@@ -724,9 +724,9 @@
 }
 
 .mc-bento--overview {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  align-items: stretch;
   width: min(100%, 960px);
   max-width: 960px;
   margin-inline: auto;
@@ -746,17 +746,17 @@
   border: 1px solid rgba(117, 158, 255, 0.1);
   background: rgba(3, 10, 24, 0.5);
   min-height: 86px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .mc-bento--overview .mc-stat {
-  flex: 1 1 118px;
-  max-width: 148px;
-  min-width: 110px;
-  min-height: 0;
-  padding: 12px 12px 13px;
+  min-height: 96px;
+  height: 100%;
+  padding: 12px;
   border-radius: 12px;
   border-color: rgba(117, 158, 255, 0.1);
   background: rgba(3, 10, 24, 0.45);
@@ -838,11 +838,11 @@
     width: 100%;
     padding: 8px;
     gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .mc-bento--overview .mc-stat {
-    flex-basis: calc(50% - 8px);
-    max-width: none;
+    min-height: 92px;
   }
 }
 
@@ -1631,9 +1631,12 @@
   border: 1px solid rgba(117, 158, 255, 0.1);
   background: rgba(0, 0, 0, 0.22);
   min-width: 0;
+  min-height: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  box-sizing: border-box;
 }
 
 .mc-kpi--primary {
@@ -1677,7 +1680,7 @@
 }
 
 .mc-kpi__hint {
-  margin: 2px 0 0;
+  margin: auto 0 0;
   font-size: 12px;
   line-height: 1.35;
   color: var(--text-2);
